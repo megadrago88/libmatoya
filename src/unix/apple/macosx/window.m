@@ -8,8 +8,11 @@
 
 #include <AppKit/AppKit.h>
 #include <Carbon/Carbon.h>
-#include <Metal/Metal.h>
-#include <QuartzCore/CAMetalLayer.h>
+
+#include "gfx/mod-ctx.h"
+GFX_CTX_PROTOTYPES(_gl_)
+GFX_CTX_PROTOTYPES(_metal_)
+GFX_CTX_DECLARE_TABLE()
 
 @interface MTYWindow : NSWindow
 	- (BOOL)windowShouldClose:(NSWindow *)sender;
@@ -40,32 +43,22 @@ struct MTY_Window {
 
 	bool relative;
 
-	CAMetalLayer *layer;
-	CVDisplayLinkRef display_link;
-	dispatch_semaphore_t semaphore;
-	id<CAMetalDrawable> back_buffer;
-	id<MTLCommandQueue> cq;
+	MTY_GFX api;
+	float width;
+	float height;
+	struct gfx_ctx *gfx_ctx;
 
 	MTY_Renderer *renderer;
 };
 
-static CVReturn window_display_link(CVDisplayLinkRef displayLink, const CVTimeStamp *inNow,
-	const CVTimeStamp *inOutputTime, CVOptionFlags flagsIn, CVOptionFlags *flagsOut, void *displayLinkContext)
-{
-	MTY_Window *ctx = (MTY_Window *) displayLinkContext;
-
-	dispatch_semaphore_signal(ctx->semaphore);
-
-	return 0;
-}
-
 MTY_Window *MTY_WindowCreate(const char *title, MTY_MsgFunc msg_func, const void *opaque,
-	uint32_t width, uint32_t height, bool fullscreen)
+	uint32_t width, uint32_t height, bool fullscreen, MTY_GFX api)
 {
 	bool r = true;
 	MTY_Window *ctx = MTY_Alloc(1, sizeof(MTY_Window));
 	ctx->msg_func = msg_func;
 	ctx->opaque = opaque;
+	ctx->api = api == MTY_GFX_NONE ? MTY_GFX_METAL : api;
 
 	[NSApplication sharedApplication];
 	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
@@ -81,24 +74,13 @@ MTY_Window *MTY_WindowCreate(const char *title, MTY_MsgFunc msg_func, const void
 
 	[ctx->nswindow makeKeyAndOrderFront:ctx->nswindow];
 
-	ctx->layer = [CAMetalLayer layer];
-	ctx->layer.device = MTLCreateSystemDefaultDevice();
-	ctx->layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
-
-	ctx->cq = [ctx->layer.device newCommandQueue];
-
-	ctx->nswindow.contentView.wantsLayer = YES;
-	ctx->nswindow.contentView.layer = ctx->layer;
-
-	CVReturn e = CVDisplayLinkCreateWithCGDisplay(CGMainDisplayID(), &ctx->display_link);
-	if (e != 0) {r = false; goto except;}
-
-	ctx->semaphore = dispatch_semaphore_create(0);
-
-	CVDisplayLinkSetOutputCallback(ctx->display_link, window_display_link, ctx);
-	CVDisplayLinkStart(ctx->display_link);
-
 	ctx->renderer = MTY_RendererCreate();
+
+	ctx->gfx_ctx = GFX_CTX_API[ctx->api].gfx_ctx_create((__bridge void *) ctx->nswindow);
+	if (!ctx->gfx_ctx) {
+		r = false;
+		goto except;
+	}
 
 	except:
 
@@ -367,8 +349,12 @@ void MTY_WindowPoll(MTY_Window *ctx)
 	size.width *= scale;
 	size.height *= scale;
 
-	if (size.width != ctx->layer.drawableSize.width || size.height != ctx->layer.drawableSize.height)
-		ctx->layer.drawableSize = size;
+	if (size.width != ctx->width || size.height != ctx->height) {
+		GFX_CTX_API[ctx->api].gfx_ctx_refresh(ctx->gfx_ctx);
+
+		ctx->width = size.width;
+		ctx->height = size.height;
+	}
 }
 
 bool MTY_WindowIsForeground(MTY_Window *ctx)
@@ -429,49 +415,82 @@ bool MTY_WindowIsFullscreen(MTY_Window *ctx)
 
 void MTY_WindowPresent(MTY_Window *ctx, uint32_t num_frames)
 {
-	for (uint32_t x = 0; x < num_frames; x++)
-		dispatch_semaphore_wait(ctx->semaphore, DISPATCH_TIME_FOREVER);
-
-	id<MTLCommandBuffer> cb = [ctx->cq commandBuffer];
-
-	MTY_WindowGetBackBuffer(ctx);
-
-	[cb presentDrawable:ctx->back_buffer];
-	[cb commit];
-
-	ctx->back_buffer = nil;
+	GFX_CTX_API[ctx->api].gfx_ctx_present(ctx->gfx_ctx, num_frames);
 }
 
 MTY_Device *MTY_WindowGetDevice(MTY_Window *ctx)
 {
-	return (__bridge MTY_Device *) ctx->cq.device;
+	return GFX_CTX_API[ctx->api].gfx_ctx_get_device(ctx->gfx_ctx);
 }
 
 MTY_Context *MTY_WindowGetContext(MTY_Window *ctx)
 {
-	return (__bridge MTY_Context *) ctx->cq;
+	return GFX_CTX_API[ctx->api].gfx_ctx_get_context(ctx->gfx_ctx);
 }
 
 MTY_Texture *MTY_WindowGetBackBuffer(MTY_Window *ctx)
 {
-	@autoreleasepool {
-		if (!ctx->back_buffer)
-			ctx->back_buffer = [ctx->layer nextDrawable];
-
-		return (__bridge MTY_Texture *) ctx->back_buffer.texture;
-	}
+	return GFX_CTX_API[ctx->api].gfx_ctx_get_buffer(ctx->gfx_ctx);
 }
 
 void MTY_WindowDrawQuad(MTY_Window *ctx, const void *image, const MTY_RenderDesc *desc)
 {
-	MTY_WindowGetBackBuffer(ctx);
+	MTY_Texture *buffer = MTY_WindowGetBackBuffer(ctx);
+	if (buffer) {
+		MTY_RenderDesc mutated = *desc;
+		mutated.viewWidth = lrint(ctx->width);
+		mutated.viewHeight = lrint(ctx->height);
 
-	MTY_RenderDesc mutated = *desc;
-	mutated.viewWidth = ctx->layer.drawableSize.width;
-	mutated.viewHeight = ctx->layer.drawableSize.height;
+		MTY_Device *device = MTY_WindowGetDevice(ctx);
+		MTY_Context *context = MTY_WindowGetContext(ctx);
 
-	MTY_RendererDrawQuad(ctx->renderer, MTY_GFX_METAL, (__bridge MTY_Device *) ctx->cq.device,
-		(__bridge MTY_Context *) ctx->cq, image, &mutated, (__bridge MTY_Texture *) ctx->back_buffer.texture);
+		MTY_RendererDrawQuad(ctx->renderer, ctx->api, device, context, image, &mutated, buffer);
+	}
+}
+
+void MTY_WindowDrawUI(MTY_Window *ctx, const MTY_DrawData *dd)
+{
+	MTY_Texture *buffer = MTY_WindowGetBackBuffer(ctx);
+	if (buffer) {
+		MTY_Device *device = MTY_WindowGetDevice(ctx);
+		MTY_Context *context = MTY_WindowGetContext(ctx);
+
+		MTY_RendererDrawUI(ctx->renderer, ctx->api, device, context, dd, buffer);
+	}
+}
+
+void MTY_WindowSetUITexture(MTY_Window *ctx, uint32_t id, const void *rgba, uint32_t width, uint32_t height)
+{
+	MTY_Device *device = MTY_WindowGetDevice(ctx);
+	MTY_Context *context = MTY_WindowGetContext(ctx);
+
+	MTY_RendererSetUITexture(ctx->renderer, ctx->api, device, context, id, rgba, width, height);
+}
+
+bool MTY_WindowGetUITexture(MTY_Window *ctx, uint32_t id)
+{
+	return MTY_RendererGetUITexture(ctx->renderer, id);
+}
+
+void MTY_WindowSetGFX(MTY_Window *ctx, MTY_GFX api)
+{
+	MTY_RendererDestroy(&ctx->renderer);
+	ctx->renderer = MTY_RendererCreate();
+
+	GFX_CTX_API[ctx->api].gfx_ctx_destroy(&ctx->gfx_ctx);
+
+	ctx->api = api;
+	ctx->gfx_ctx = GFX_CTX_API[ctx->api].gfx_ctx_create((__bridge void *) ctx->nswindow);
+}
+
+MTY_GFX MTY_WindowGetGFX(MTY_Window *ctx)
+{
+	return ctx->api;
+}
+
+bool MTY_WindowGFXSetCurrent(MTY_Window *ctx)
+{
+	return GFX_CTX_API[ctx->api].gfx_ctx_set_current(ctx->gfx_ctx);
 }
 
 void MTY_WindowDestroy(MTY_Window **window)
@@ -484,17 +503,6 @@ void MTY_WindowDestroy(MTY_Window **window)
 	MTY_RendererDestroy(&ctx->renderer);
 
 	ctx->nswindow = nil;
-	ctx->layer = nil;
-	ctx->cq = nil;
-	ctx->semaphore = nil;
-	ctx->back_buffer = nil;
-
-	if (ctx->display_link) {
-		if (CVDisplayLinkIsRunning(ctx->display_link))
-			CVDisplayLinkStop(ctx->display_link);
-
-		CVDisplayLinkRelease(ctx->display_link);
-	}
 
 	MTY_Free(ctx);
 	*window = NULL;

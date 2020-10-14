@@ -27,7 +27,8 @@ OBJS = \
 	src/list.o \
 	src/queue.o \
 	src/thread.o \
-	src/gfx-gl.o \
+	src/gfx/gl.o \
+	src/gfx/gl-ui.o \
 	src/render.o
 
 OBJS := $(OBJS) \
@@ -38,8 +39,10 @@ OBJS := $(OBJS) \
 	src/unix/time.o
 
 SHADERS = \
-	src/shaders/GL/vs.h \
-	src/shaders/GL/fs.h
+	src/gfx/shaders/gl/vs.h \
+	src/gfx/shaders/gl/fs.h \
+	src/gfx/shaders/gl/vsui.h \
+	src/gfx/shaders/gl/fsui.h
 
 INCLUDES = \
 	-Isrc \
@@ -153,14 +156,18 @@ DEFS := $(DEFS) -DMTY_GL_ES
 endif
 
 OBJS := $(OBJS) \
-	src/unix/apple/gfx-metal.o \
+	src/unix/apple/gfx/gl-ctx.o \
+	src/unix/apple/gfx/metal.o \
+	src/unix/apple/gfx/metal-ui.o \
+	src/unix/apple/gfx/metal-ctx.o \
 	src/unix/apple/aes-gcm-cc.o \
 	src/unix/apple/audio.o \
 	src/unix/apple/crypto.o \
 	src/unix/apple/$(TARGET)/window.o
 
 SHADERS := $(SHADERS) \
-	src/unix/apple/shaders/shaders.h
+	src/unix/apple/gfx/shaders/metal/quad.h \
+	src/unix/apple/gfx/shaders/metal/ui.h
 
 DEFS := $(DEFS) \
 	-DMTY_GL_EXTERNAL

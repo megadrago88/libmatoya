@@ -36,7 +36,8 @@ OBJS = \
 	src\list.obj \
 	src\queue.obj \
 	src\thread.obj \
-	src\gfx-gl.obj \
+	src\gfx\gl.obj \
+	src\gfx\gl-ui.obj \
 	src\render.obj
 
 OBJS = $(OBJS) \
@@ -48,17 +49,26 @@ OBJS = $(OBJS) \
 	src\windows\threadw.obj \
 	src\windows\time.obj \
 	src\windows\window.obj \
-	src\windows\gfx-d3d9.obj \
-	src\windows\gfx-d3d11.obj \
+	src\windows\gfx\gl-ctx.obj \
+	src\windows\gfx\d3d9.obj \
+	src\windows\gfx\d3d9-ui.obj \
+	src\windows\gfx\d3d9-ctx.obj \
+	src\windows\gfx\d3d11.obj \
+	src\windows\gfx\d3d11-ui.obj \
+	src\windows\gfx\d3d11-ctx.obj \
 	src\windows\aes-gcm-bcrypt.obj
 
 SHADERS = \
-	src\shaders\GL\vs.h \
-	src\shaders\GL\fs.h \
-	src\windows\shaders\d3d11\vs.h \
-	src\windows\shaders\d3d11\ps.h \
-	src\windows\shaders\d3d9\vs.h \
-	src\windows\shaders\d3d9\ps.h
+	src\gfx\shaders\gl\vs.h \
+	src\gfx\shaders\gl\fs.h \
+	src\gfx\shaders\gl\vsui.h \
+	src\gfx\shaders\gl\fsui.h \
+	src\windows\gfx\shaders\d3d11\vs.h \
+	src\windows\gfx\shaders\d3d11\ps.h \
+	src\windows\gfx\shaders\d3d11\vsui.h \
+	src\windows\gfx\shaders\d3d11\psui.h \
+	src\windows\gfx\shaders\d3d9\vs.h \
+	src\windows\gfx\shaders\d3d9\ps.h
 
 INCLUDES = \
 	-Isrc \

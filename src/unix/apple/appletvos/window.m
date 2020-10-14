@@ -84,6 +84,19 @@ void MTY_WindowDrawQuad(MTY_Window *ctx, const void *image, const MTY_RenderDesc
 {
 }
 
+void MTY_WindowDrawUI(MTY_Window *ctx, const MTY_DrawData *dd)
+{
+}
+
+void MTY_WindowSetUIFont(MTY_Window *ctx, const void *font, uint32_t width, uint32_t height)
+{
+}
+
+void *MTY_WindowGetUIFontResource(MTY_Window *ctx)
+{
+	return NULL;
+}
+
 void MTY_WindowDestroy(MTY_Window **window)
 {
 }

@@ -9,9 +9,7 @@ mty-test.exe
 
 /obj
 /bin
-/src/shaders/GL/*.h
-/src/windows/shaders/d3d9/*.h
-/src/windows/shaders/d3d11/*.h
-/src/unix/apple/shaders/*.h
+
+**/gfx/shaders/*/*.h
 
 .DS_Store

@@ -230,7 +230,12 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 	// Reinit device if changed on the fly
 	if (DEFAULT_CHANGED) {
 		audio_device_destroy(ctx);
-		if (audio_device_create(ctx) != S_OK)
+
+		// FIXME Not a great solution
+		for (uint8_t x = 0; audio_device_create(ctx) != S_OK && x < 5; x++)
+			MTY_Sleep(100);
+
+		if (!ctx->client)
 			return;
 
 		MTY_AudioPlay(ctx);

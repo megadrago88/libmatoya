@@ -12,16 +12,15 @@
 
 #include <android/log.h>
 
-#include "gfx-gl.h"
-
 
 static struct window_gfx {
 	MTY_Mutex *mutex;
 	ANativeWindow *window;
 	bool ready;
 	bool init;
-	int32_t w;
-	int32_t h;
+
+	int32_t width;
+	int32_t height;
 
 	EGLDisplay display;
 	EGLSurface surface;
@@ -30,20 +29,30 @@ static struct window_gfx {
 
 JNIEXPORT void JNICALL Java_group_matoya_merton_MainSurface_mty_1set_1surface(JNIEnv *env, jobject instance, jobject surface)
 {
+	MTY_MutexLock(GFX.mutex);
+
 	GFX.window = ANativeWindow_fromSurface(env, surface);
 
 	if (GFX.window)
 		GFX.ready = true;
+
+	MTY_MutexUnlock(GFX.mutex);
 }
 
 JNIEXPORT void JNICALL Java_group_matoya_merton_MainSurface_mty_1surface_1dims(JNIEnv *env, jobject instance, jint w, jint h)
 {
-	GFX.w = w;
-	GFX.h = h;
+	MTY_MutexLock(GFX.mutex);
+
+	GFX.width = w;
+	GFX.height = h;
+
+	MTY_MutexUnlock(GFX.mutex);
 }
 
 JNIEXPORT void JNICALL Java_group_matoya_merton_MainSurface_mty_1unset_1surface(JNIEnv *env, jobject instance)
 {
+	MTY_MutexLock(GFX.mutex);
+
 	if (GFX.surface)
 		eglDestroySurface(GFX.display, GFX.surface);
 
@@ -55,18 +64,9 @@ JNIEXPORT void JNICALL Java_group_matoya_merton_MainSurface_mty_1unset_1surface(
 
 	GFX.ready = false;
 	GFX.init = false;
-}
 
-JNIEXPORT void JNICALL Java_group_matoya_merton_MainSurface_mty_1surface_1lock(JNIEnv *env, jobject instance)
-{
-	MTY_MutexLock(GFX.mutex);
-}
-
-JNIEXPORT void JNICALL Java_group_matoya_merton_MainSurface_mty_1surface_1unlock(JNIEnv *env, jobject instance)
-{
 	MTY_MutexUnlock(GFX.mutex);
 }
-
 
 
 int main(int argc, char **argv);
@@ -95,15 +95,14 @@ struct MTY_Window {
 	MTY_MsgFunc msg_func;
 	const void *opaque;
 
-	GLuint back_buffer;
+	uint32_t fb0;
+	MTY_GFX api;
 	MTY_Renderer *renderer;
-	struct gfx_gl_rtv rtv;
 };
 
 static void window_destroy_members(MTY_Window *ctx)
 {
 	MTY_RendererDestroy(&ctx->renderer);
-	gfx_gl_rtv_destroy(&ctx->rtv);
 
 	if (GFX.display) {
 		if (GFX.context) {
@@ -120,8 +119,6 @@ static void window_destroy_members(MTY_Window *ctx)
 	GFX.display = 0;
 	GFX.surface = 0;
 	GFX.context = 0;
-
-	ctx->back_buffer = 0;
 }
 
 static bool window_check(MTY_Window *ctx)
@@ -176,6 +173,7 @@ MTY_Window *MTY_WindowCreate(const char *title, MTY_MsgFunc msg_func, const void
 	MTY_Window *ctx = MTY_Alloc(1, sizeof(MTY_Window));
 	ctx->msg_func = msg_func;
 	ctx->opaque = opaque;
+	ctx->api = MTY_GFX_GL;
 
 	return ctx;
 }
@@ -191,8 +189,8 @@ void MTY_WindowSetTitle(MTY_Window *ctx, const char *title, const char *subtitle
 
 bool MTY_WindowGetSize(MTY_Window *ctx, uint32_t *width, uint32_t *height)
 {
-	*width = GFX.w;
-	*height = GFX.h;
+	*width = GFX.width;
+	*height = GFX.height;
 
 	return true;
 }
@@ -204,6 +202,10 @@ void MTY_WindowPoll(MTY_Window *ctx)
 bool MTY_WindowIsForeground(MTY_Window *ctx)
 {
 	return true;
+}
+
+void MTY_WindowSetRelativeMouse(MTY_Window *ctx, bool relative)
+{
 }
 
 uint32_t MTY_WindowGetRefreshRate(MTY_Window *ctx)
@@ -233,14 +235,8 @@ void MTY_WindowPresent(MTY_Window *ctx, uint32_t num_frames)
 {
 	MTY_MutexLock(GFX.mutex);
 
-	MTY_WindowGetBackBuffer(ctx);
-
-	if (window_check(ctx)) {
-		gfx_gl_rtv_blit_to_back_buffer(&ctx->rtv);
-		ctx->back_buffer = 0;
-
+	if (window_check(ctx))
 		eglSwapBuffers(GFX.display, GFX.surface);
-	}
 
 	MTY_MutexUnlock(GFX.mutex);
 }
@@ -257,26 +253,87 @@ MTY_Context *MTY_WindowGetContext(MTY_Window *ctx)
 
 MTY_Texture *MTY_WindowGetBackBuffer(MTY_Window *ctx)
 {
-	if (GFX.ready && GFX.init) {
-		if (!ctx->back_buffer) {
-			gfx_gl_rtv_refresh(&ctx->rtv, GL_RGBA8, GL_RGBA, GFX.w, GFX.h);
-			ctx->back_buffer = ctx->rtv.texture;
-		}
-
-	} else {
-		ctx->back_buffer = 0;
-	}
-
-	return (MTY_Texture *) (size_t) ctx->back_buffer;
+	return (MTY_Texture *) &ctx->fb0;
 }
 
 void MTY_WindowDrawQuad(MTY_Window *ctx, const void *image, const MTY_RenderDesc *desc)
 {
-	if (GFX.ready && GFX.init) {
-		MTY_WindowGetBackBuffer(ctx);
-		MTY_RendererDrawQuad(ctx->renderer, MTY_GFX_GL, NULL, NULL, image, desc,
-			(MTY_Texture *) (uintptr_t) ctx->back_buffer);
+	MTY_MutexLock(GFX.mutex);
+
+	if (GFX.init && GFX.ready) {
+		MTY_Texture *buffer = MTY_WindowGetBackBuffer(ctx);
+		if (buffer) {
+			MTY_RenderDesc mutated = *desc;
+			mutated.viewWidth = GFX.width;
+			mutated.viewHeight = GFX.height;
+
+			MTY_Device *device = MTY_WindowGetDevice(ctx);
+			MTY_Context *context = MTY_WindowGetContext(ctx);
+
+			MTY_RendererDrawQuad(ctx->renderer, ctx->api, device, context, image, &mutated, buffer);
+		}
 	}
+
+	MTY_MutexUnlock(GFX.mutex);
+}
+
+void MTY_WindowDrawUI(MTY_Window *ctx, const MTY_DrawData *dd)
+{
+	MTY_MutexLock(GFX.mutex);
+
+	if (GFX.init && GFX.ready) {
+		MTY_Texture *buffer = MTY_WindowGetBackBuffer(ctx);
+		if (buffer) {
+			MTY_Device *device = MTY_WindowGetDevice(ctx);
+			MTY_Context *context = MTY_WindowGetContext(ctx);
+
+			MTY_RendererDrawUI(ctx->renderer, ctx->api, device, context, dd, buffer);
+		}
+	}
+
+	MTY_MutexUnlock(GFX.mutex);
+}
+
+void MTY_WindowSetUIFont(MTY_Window *ctx, const void *font, uint32_t width, uint32_t height)
+{
+	MTY_MutexLock(GFX.mutex);
+
+	if (GFX.init && GFX.ready) {
+		MTY_Device *device = MTY_WindowGetDevice(ctx);
+		MTY_Context *context = MTY_WindowGetContext(ctx);
+
+		MTY_RendererSetUIFont(ctx->renderer, ctx->api, device, context, font, width, height);
+	}
+
+	MTY_MutexUnlock(GFX.mutex);
+}
+
+void *MTY_WindowGetUIFontResource(MTY_Window *ctx)
+{
+	void *texture = NULL;
+
+	MTY_MutexLock(GFX.mutex);
+
+	if (GFX.init && GFX.ready)
+		texture = MTY_RendererGetUIFontResource(ctx->renderer);
+
+	MTY_MutexUnlock(GFX.mutex);
+
+	return texture;
+}
+
+bool MTY_WindowGFXSetCurrent(MTY_Window *ctx)
+{
+	bool r = false;
+
+	MTY_MutexLock(GFX.mutex);
+
+	if (GFX.init && GFX.ready)
+		r = eglMakeCurrent(GFX.display, GFX.surface, GFX.surface, GFX.context);
+
+	MTY_MutexUnlock(GFX.mutex);
+
+	return r;
 }
 
 void MTY_WindowDestroy(MTY_Window **window)

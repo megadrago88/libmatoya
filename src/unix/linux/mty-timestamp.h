@@ -12,7 +12,7 @@
 static int64_t mty_timestamp(void)
 {
 	struct timespec ts = {0};
-	if (clock_gettime(CLOCK_MONOTONIC_RAW, &ts) != 0)
+	if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
 		MTY_Log("'clock_gettime' failed with errno %d", errno);
 
 	// XXX time_t can be 32 bits and multiplying it by 1000000

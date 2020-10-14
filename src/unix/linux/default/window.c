@@ -11,7 +11,6 @@
 #include <math.h>
 
 #include "x-dl.h"
-#include "gfx-gl.h"
 
 #define WINDOW_MASK (   \
 	ExposureMask      | \
@@ -29,12 +28,12 @@ struct MTY_Window {
 	const void *opaque;
 	float dpi;
 
+	MTY_GFX api;
+	uint32_t fb0;
 	uint32_t width;
 	uint32_t height;
-	GLuint back_buffer;
 	GLXContext gl_ctx;
 	MTY_Renderer *renderer;
-	struct gfx_gl_rtv rtv;
 
 	// Client messages
 	Atom wm_delete_window;
@@ -54,6 +53,7 @@ MTY_Window *MTY_WindowCreate(const char *title, MTY_MsgFunc msg_func, const void
 	MTY_Window *ctx = MTY_Alloc(1, sizeof(MTY_Window));
 	ctx->opaque = opaque;
 	ctx->msg_func = msg_func;
+	ctx->api = MTY_GFX_GL;
 
 	bool r = true;
 
@@ -234,6 +234,8 @@ void MTY_WindowPoll(MTY_Window *ctx)
 		if (wmsg.type != MTY_WINDOW_MSG_NONE)
 			ctx->msg_func(&wmsg, (void *) ctx->opaque);
 	}
+
+	MTY_WindowGetSize(ctx, &ctx->width, &ctx->height);
 }
 
 bool MTY_WindowIsForeground(MTY_Window *ctx)
@@ -244,6 +246,10 @@ bool MTY_WindowIsForeground(MTY_Window *ctx)
 	XGetInputFocus(ctx->display, &w, &revert);
 
 	return w == ctx->xwindow;
+}
+
+void MTY_WindowSetRelativeMouse(MTY_Window *ctx, bool relative)
+{
 }
 
 uint32_t MTY_WindowGetRefreshRate(MTY_Window *ctx)
@@ -277,11 +283,6 @@ bool MTY_WindowIsFullscreen(MTY_Window *ctx)
 
 void MTY_WindowPresent(MTY_Window *ctx, uint32_t num_frames)
 {
-	MTY_WindowGetBackBuffer(ctx);
-
-	gfx_gl_rtv_blit_to_back_buffer(&ctx->rtv);
-	ctx->back_buffer = 0;
-
 	glXSwapBuffers(ctx->display, ctx->xwindow);
 }
 
@@ -292,31 +293,56 @@ MTY_Device *MTY_WindowGetDevice(MTY_Window *ctx)
 
 MTY_Context *MTY_WindowGetContext(MTY_Window *ctx)
 {
-	return NULL;
+	return (MTY_Context *) ctx->gl_ctx;
 }
 
 MTY_Texture *MTY_WindowGetBackBuffer(MTY_Window *ctx)
 {
-	if (!ctx->back_buffer) {
-		MTY_WindowGetSize(ctx, &ctx->width, &ctx->height);
-
-		gfx_gl_rtv_refresh(&ctx->rtv, GL_RGBA8, GL_RGBA, ctx->width, ctx->height);
-		ctx->back_buffer = ctx->rtv.texture;
-	}
-
-	return (MTY_Texture *) (size_t) ctx->back_buffer;
+	return (MTY_Texture *) &ctx->fb0;
 }
 
 void MTY_WindowDrawQuad(MTY_Window *ctx, const void *image, const MTY_RenderDesc *desc)
 {
-	MTY_WindowGetBackBuffer(ctx);
+	MTY_Texture *buffer = MTY_WindowGetBackBuffer(ctx);
+	if (buffer) {
+		MTY_RenderDesc mutated = *desc;
+		mutated.viewWidth = ctx->width;
+		mutated.viewHeight = ctx->height;
 
-	MTY_RenderDesc mutated = *desc;
-	mutated.viewWidth = ctx->width;
-	mutated.viewHeight = ctx->height;
+		MTY_Device *device = MTY_WindowGetDevice(ctx);
+		MTY_Context *context = MTY_WindowGetContext(ctx);
 
-	MTY_RendererDrawQuad(ctx->renderer, MTY_GFX_GL, NULL, NULL, image, &mutated,
-		(MTY_Texture *) (uintptr_t) ctx->back_buffer);
+		MTY_RendererDrawQuad(ctx->renderer, ctx->api, device, context, image, &mutated, buffer);
+	}
+}
+
+void MTY_WindowDrawUI(MTY_Window *ctx, const MTY_DrawData *dd)
+{
+	MTY_Texture *buffer = MTY_WindowGetBackBuffer(ctx);
+	if (buffer) {
+		MTY_Device *device = MTY_WindowGetDevice(ctx);
+		MTY_Context *context = MTY_WindowGetContext(ctx);
+
+		MTY_RendererDrawUI(ctx->renderer, ctx->api, device, context, dd, buffer);
+	}
+}
+
+void MTY_WindowSetUIFont(MTY_Window *ctx, const void *font, uint32_t width, uint32_t height)
+{
+	MTY_Device *device = MTY_WindowGetDevice(ctx);
+	MTY_Context *context = MTY_WindowGetContext(ctx);
+
+	MTY_RendererSetUIFont(ctx->renderer, ctx->api, device, context, font, width, height);
+}
+
+void *MTY_WindowGetUIFontResource(MTY_Window *ctx)
+{
+	return MTY_RendererGetUIFontResource(ctx->renderer);
+}
+
+bool MTY_WindowGFXSetCurrent(MTY_Window *ctx)
+{
+	return glXMakeCurrent(ctx->display, ctx->xwindow, ctx->gl_ctx);
 }
 
 void MTY_WindowDestroy(MTY_Window **window)
@@ -327,7 +353,6 @@ void MTY_WindowDestroy(MTY_Window **window)
 	MTY_Window *ctx = *window;
 
 	MTY_RendererDestroy(&ctx->renderer);
-	gfx_gl_rtv_destroy(&ctx->rtv);
 
 	if (ctx->display)
 		XCloseDisplay(ctx->display);

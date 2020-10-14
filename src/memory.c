@@ -56,8 +56,9 @@ char *MTY_WideToMultiD(const wchar_t *src)
 	if (!src)
 		return NULL;
 
-	size_t len = wcslen(src) + 1;
-	char *dst = MTY_Alloc(len, sizeof(wchar_t));
+	// UTF8 may be up to 4 bytes per character
+	size_t len = (wcslen(src) + 1) * 4;
+	char *dst = MTY_Alloc(len, 1);
 
 	MTY_WideToMulti(src, dst, len);
 

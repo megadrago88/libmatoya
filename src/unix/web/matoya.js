@@ -238,6 +238,12 @@ const GL_API = {
 	glUniform1f: function (loc, v0) {
 		GL.uniform1f(gl_obj(loc), v0);
 	},
+	glUniform3i: function (loc, v0, v1, v2) {
+		GL.uniform3i(gl_obj(loc), v0, v1, v2);
+	},
+	glUniform4f: function (loc, v0, v1, v2, v3) {
+		GL.uniform4f(gl_obj(loc), v0, v1, v2, v3);
+	},
 	glActiveTexture: function (texture) {
 		GL.activeTexture(texture);
 	},
@@ -337,7 +343,7 @@ const GL_API = {
 let AC = {};
 
 const MTY_AUDIO_API = {
-	MTY_AudioCreate: function (_, sampleRate) {
+	MTY_AudioCreate: function (sampleRate) {
 		AC.sample_rate = sampleRate;
 		AC.playing = false;
 
@@ -369,7 +375,6 @@ const MTY_AUDIO_API = {
 		const left = buf.getChannelData(0);
 		const right = buf.getChannelData(1);
 
-
 		const src = new Int16Array(mem(), frames);
 
 		let offset = 0;
@@ -398,6 +403,7 @@ const MTY_AUDIO_API = {
 
 
 // Matoya web API
+let FRAME_CTR = 0;
 
 const MTY_WEB_API = {
 	web_get_size: function (c_width, c_height) {
@@ -500,7 +506,10 @@ const MTY_WEB_API = {
 	},
 	web_raf: function (func, opaque) {
 		const step = () => {
-			func_ptr(func)(opaque);
+			// TODO This number will affect the "swap interval"
+			if (++FRAME_CTR % 1 == 0)
+				func_ptr(func)(opaque);
+
 			window.requestAnimationFrame(step);
 		};
 
@@ -572,6 +581,8 @@ const WASI_API = {
 		return 0;
 	},
 	path_create_directory: function () {
+	},
+	path_filestat_get: function () {
 	},
 	path_open: function () {
 	},

@@ -515,6 +515,7 @@ typedef enum {
 	MTY_GFX_D3D9    = 2,
 	MTY_GFX_D3D11   = 3,
 	MTY_GFX_METAL   = 4,
+	MTY_GFX_MAX,
 	MTY_GFX_MAKE_32 = 0x7FFFFFFF,
 } MTY_GFX;
 
@@ -558,6 +559,54 @@ typedef struct MTY_RenderDesc {
 	float scale;
 } MTY_RenderDesc;
 
+typedef struct {
+	float x;
+	float y;
+} MTY_Vec2;
+
+typedef struct {
+	float x;
+	float y;
+	float z;
+	float w;
+} MTY_Vec4;
+
+typedef struct {
+	MTY_Vec2 pos;
+	MTY_Vec2 uv;
+	uint32_t col;
+} MTY_Vtx;
+
+typedef struct {
+	MTY_Vec4 clip;
+	uint32_t texture;
+	uint32_t elemCount;
+	uint32_t idxOffset;
+	uint32_t vtxOffset;
+} MTY_Cmd;
+
+typedef struct {
+	MTY_Cmd *cmd;
+	MTY_Vtx *vtx;
+	uint16_t *idx;
+	uint32_t cmdLength;
+	uint32_t cmdMax;
+	uint32_t vtxLength;
+	uint32_t vtxMax;
+	uint32_t idxLength;
+	uint32_t idxMax;
+} MTY_CmdList;
+
+typedef struct {
+	MTY_Vec2 displaySize;
+	MTY_CmdList *cmdList;
+	uint32_t cmdListLength;
+	uint32_t cmdListMax;
+	uint32_t idxTotalLength;
+	uint32_t vtxTotalLength;
+	bool clear;
+} MTY_DrawData;
+
 typedef struct MTY_Device MTY_Device;
 typedef struct MTY_Context MTY_Context;
 typedef struct MTY_Texture MTY_Texture;
@@ -571,8 +620,22 @@ MTY_RendererDrawQuad(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device,
 	MTY_Context *context, const void *image, const MTY_RenderDesc *desc,
 	MTY_Texture *dest);
 
+MTY_EXPORT bool
+MTY_RendererDrawUI(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device,
+	MTY_Context *context, const MTY_DrawData *dd, MTY_Texture *dest);
+
+MTY_EXPORT void *
+MTY_RendererSetUITexture(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device,
+	MTY_Context *context, uint32_t id, const void *rgba, uint32_t width, uint32_t height);
+
+MTY_EXPORT void *
+MTY_RendererGetUITexture(MTY_Renderer *ctx, uint32_t id);
+
 MTY_EXPORT void
 MTY_RendererDestroy(MTY_Renderer **renderer);
+
+MTY_EXPORT uint32_t
+MTY_GetAvailableGFX(MTY_GFX *apis);
 
 
 /// @module sort
@@ -833,7 +896,15 @@ MTY_RevertTimerResolution(uint32_t res);
 
 // @module window
 
-#define MTY_TITLE_MAX 1024
+#define MTY_TITLE_MAX   1024
+#define MTY_WINDOW_MAX  8
+
+typedef int8_t MTY_Window;
+
+typedef enum {
+	MTY_POSITION_CENTER   = 0,
+	MTY_POSITION_ABSOLUTE = 1,
+} MTY_Position;
 
 typedef enum {
 	MTY_WINDOW_MSG_NONE         = 0,
@@ -843,70 +914,260 @@ typedef enum {
 	MTY_WINDOW_MSG_MOUSE_BUTTON = 4,
 	MTY_WINDOW_MSG_MOUSE_MOTION = 5,
 	MTY_WINDOW_MSG_DROP         = 6,
+	MTY_WINDOW_MSG_TEXT         = 7,
+	MTY_WINDOW_MSG_CLIPBOARD    = 8,
+	MTY_WINDOW_MSG_HOTKEY       = 9,
+	MTY_WINDOW_MSG_TRAY         = 10,
+	MTY_WINDOW_MSG_PEN          = 11,
+	MTY_WINDOW_MSG_CONTROLLER   = 12,
+	MTY_WINDOW_MSG_DISCONNECT   = 13,
+	MTY_WINDOW_MSG_SHUTDOWN     = 14,
 	MTY_WINDOW_MSG_MAKE_32      = 0x7FFFFFFF,
 } MTY_MsgType;
 
 typedef enum {
-	MTY_SCANCODE_NONE      = 0x000,
-	MTY_SCANCODE_ESCAPE    = 0x001,
-	MTY_SCANCODE_TAB       = 0x00f,
-	MTY_SCANCODE_W         = 0x011,
-	MTY_SCANCODE_C         = 0x02e,
-	MTY_SCANCODE_X         = 0x02d,
-	MTY_SCANCODE_Y         = 0x015,
-	MTY_SCANCODE_Z         = 0x02c,
-	MTY_SCANCODE_V         = 0x02f,
-	MTY_SCANCODE_R         = 0x013,
-	MTY_SCANCODE_A         = 0x01E,
-	MTY_SCANCODE_S         = 0x01F,
-	MTY_SCANCODE_D         = 0x020,
-	MTY_SCANCODE_L         = 0x026,
-	MTY_SCANCODE_O         = 0x018,
-	MTY_SCANCODE_P         = 0x019,
-	MTY_SCANCODE_M         = 0x032,
-	MTY_SCANCODE_T         = 0x014,
-	MTY_SCANCODE_1         = 0x002,
-	MTY_SCANCODE_SEMICOLON = 0x027,
-	MTY_SCANCODE_LSHIFT    = 0x02A,
-	MTY_SCANCODE_SPACE     = 0x039,
-	MTY_SCANCODE_LEFT      = 0x14b,
-	MTY_SCANCODE_RIGHT     = 0x14d,
-	MTY_SCANCODE_UP        = 0x148,
-	MTY_SCANCODE_DOWN      = 0x150,
-	MTY_SCANCODE_PAGEUP    = 0x149,
-	MTY_SCANCODE_PAGEDOWN  = 0x151,
-	MTY_SCANCODE_ENTER     = 0x01c,
-	MTY_SCANCODE_HOME      = 0x147,
-	MTY_SCANCODE_END       = 0x14f,
-	MTY_SCANCODE_INSERT    = 0x152,
-	MTY_SCANCODE_DELETE    = 0x153,
-	MTY_SCANCODE_BACKSPACE = 0x00e,
-	MTY_SCANCODE_RSHIFT    = 0x036,
-	MTY_SCANCODE_LCTRL     = 0x01d,
-	MTY_SCANCODE_RCTRL     = 0x11d,
-	MTY_SCANCODE_LALT      = 0x038,
-	MTY_SCANCODE_RALT      = 0x138,
-	MTY_SCANCODE_LGUI      = 0x15b,
-	MTY_SCANCODE_RGUI      = 0x15c,
-	MTY_SCANCODE_MAX       = 0x200,
-	MTY_SCANCODE_MAKE_32   = 0x7FFFFFFF,
+	MTY_SCANCODE_NONE           = 0x000,
+	MTY_SCANCODE_ESCAPE         = 0x001,
+	MTY_SCANCODE_1              = 0x002,
+	MTY_SCANCODE_2              = 0x003,
+	MTY_SCANCODE_3              = 0x004,
+	MTY_SCANCODE_4              = 0x005,
+	MTY_SCANCODE_5              = 0x006,
+	MTY_SCANCODE_6              = 0x007,
+	MTY_SCANCODE_7              = 0x008,
+	MTY_SCANCODE_8              = 0x009,
+	MTY_SCANCODE_9              = 0x00A,
+	MTY_SCANCODE_0              = 0x00B,
+	MTY_SCANCODE_MINUS          = 0x00C,
+	MTY_SCANCODE_EQUALS         = 0x00D,
+	MTY_SCANCODE_BACKSPACE      = 0x00E,
+	MTY_SCANCODE_TAB            = 0x00F,
+	MTY_SCANCODE_Q              = 0x010,
+	MTY_SCANCODE_AUDIO_PREV     = 0x110,
+	MTY_SCANCODE_W              = 0x011,
+	MTY_SCANCODE_E              = 0x012,
+	MTY_SCANCODE_R              = 0x013,
+	MTY_SCANCODE_T              = 0x014,
+	MTY_SCANCODE_Y              = 0x015,
+	MTY_SCANCODE_U              = 0x016,
+	MTY_SCANCODE_I              = 0x017,
+	MTY_SCANCODE_O              = 0x018,
+	MTY_SCANCODE_P              = 0x019,
+	MTY_SCANCODE_AUDIO_NEXT     = 0x119,
+	MTY_SCANCODE_LBRACKET       = 0x01A,
+	MTY_SCANCODE_RBRACKET       = 0x01B,
+	MTY_SCANCODE_ENTER          = 0x01C,
+	MTY_SCANCODE_NP_ENTER       = 0x11C,
+	MTY_SCANCODE_LCTRL          = 0x01D,
+	MTY_SCANCODE_RCTRL          = 0x11D,
+	MTY_SCANCODE_A              = 0x01E,
+	MTY_SCANCODE_S              = 0x01F,
+	MTY_SCANCODE_D              = 0x020,
+	MTY_SCANCODE_MUTE           = 0x120,
+	MTY_SCANCODE_AUDIO_MUTE     = 0x120,
+	MTY_SCANCODE_F              = 0x021,
+	MTY_SCANCODE_G              = 0x022,
+	MTY_SCANCODE_AUDIO_PLAY     = 0x122,
+	MTY_SCANCODE_H              = 0x023,
+	MTY_SCANCODE_J              = 0x024,
+	MTY_SCANCODE_AUDIO_STOP     = 0x124,
+	MTY_SCANCODE_K              = 0x025,
+	MTY_SCANCODE_L              = 0x026,
+	MTY_SCANCODE_SEMICOLON      = 0x027,
+	MTY_SCANCODE_QUOTE          = 0x028,
+	MTY_SCANCODE_GRAVE          = 0x029,
+	MTY_SCANCODE_LSHIFT         = 0x02A,
+	MTY_SCANCODE_BACKSLASH      = 0x02B,
+	MTY_SCANCODE_Z              = 0x02C,
+	MTY_SCANCODE_X              = 0x02D,
+	MTY_SCANCODE_C              = 0x02E,
+	MTY_SCANCODE_VOLUME_DOWN    = 0x12E,
+	MTY_SCANCODE_V              = 0x02F,
+	MTY_SCANCODE_B              = 0x030,
+	MTY_SCANCODE_VOLUME_UP      = 0x130,
+	MTY_SCANCODE_N              = 0x031,
+	MTY_SCANCODE_M              = 0x032,
+	MTY_SCANCODE_COMMA          = 0x033,
+	MTY_SCANCODE_PERIOD         = 0x034,
+	MTY_SCANCODE_SLASH          = 0x035,
+	MTY_SCANCODE_NP_DIVIDE      = 0x135,
+	MTY_SCANCODE_RSHIFT         = 0x036,
+	MTY_SCANCODE_NP_MULTIPLY    = 0x037,
+	MTY_SCANCODE_PRINT_SCREEN   = 0x137,
+	MTY_SCANCODE_LALT           = 0x038,
+	MTY_SCANCODE_RALT           = 0x138,
+	MTY_SCANCODE_SPACE          = 0x039,
+	MTY_SCANCODE_CAPS           = 0x03A,
+	MTY_SCANCODE_F1             = 0x03B,
+	MTY_SCANCODE_F2             = 0x03C,
+	MTY_SCANCODE_F3             = 0x03D,
+	MTY_SCANCODE_F4             = 0x03E,
+	MTY_SCANCODE_F5             = 0x03F,
+	MTY_SCANCODE_F6             = 0x040,
+	MTY_SCANCODE_F7             = 0x041,
+	MTY_SCANCODE_F8             = 0x042,
+	MTY_SCANCODE_F9             = 0x043,
+	MTY_SCANCODE_F10            = 0x044,
+	MTY_SCANCODE_NUM_LOCK       = 0x045,
+	MTY_SCANCODE_SCROLL_LOCK    = 0x046,
+	MTY_SCANCODE_PAUSE          = 0x146,
+	MTY_SCANCODE_NP_7           = 0x047,
+	MTY_SCANCODE_HOME           = 0x147,
+	MTY_SCANCODE_NP_8           = 0x048,
+	MTY_SCANCODE_UP             = 0x148,
+	MTY_SCANCODE_NP_9           = 0x049,
+	MTY_SCANCODE_PAGE_UP        = 0x149,
+	MTY_SCANCODE_NP_MINUS       = 0x04A,
+	MTY_SCANCODE_NP_4           = 0x04B,
+	MTY_SCANCODE_LEFT           = 0x14B,
+	MTY_SCANCODE_NP_5           = 0x04C,
+	MTY_SCANCODE_NP_6           = 0x04D,
+	MTY_SCANCODE_RIGHT          = 0x14D,
+	MTY_SCANCODE_NP_PLUS        = 0x04E,
+	MTY_SCANCODE_NP_1           = 0x04F,
+	MTY_SCANCODE_END            = 0x14F,
+	MTY_SCANCODE_NP_2           = 0x050,
+	MTY_SCANCODE_DOWN           = 0x150,
+	MTY_SCANCODE_NP_3           = 0x051,
+	MTY_SCANCODE_PAGE_DOWN      = 0x151,
+	MTY_SCANCODE_NP_0           = 0x052,
+	MTY_SCANCODE_INSERT         = 0x152,
+	MTY_SCANCODE_NP_PERIOD      = 0x053,
+	MTY_SCANCODE_DELETE         = 0x153,
+	MTY_SCANCODE_INTL_BACKSLASH = 0x056,
+	MTY_SCANCODE_F11            = 0x057,
+	MTY_SCANCODE_F12            = 0x058,
+	MTY_SCANCODE_LWIN           = 0x15B,
+	MTY_SCANCODE_RWIN           = 0x15C,
+	MTY_SCANCODE_APP            = 0x15D,
+	MTY_SCANCODE_F13            = 0x064,
+	MTY_SCANCODE_F14            = 0x065,
+	MTY_SCANCODE_F15            = 0x066,
+	MTY_SCANCODE_F16            = 0x067,
+	MTY_SCANCODE_F17            = 0x068,
+	MTY_SCANCODE_F18            = 0x069,
+	MTY_SCANCODE_F19            = 0x06A,
+	MTY_SCANCODE_MEDIA_SELECT   = 0x16D,
+	MTY_SCANCODE_JP             = 0x070,
+	MTY_SCANCODE_RO             = 0x073,
+	MTY_SCANCODE_HENKAN         = 0x079,
+	MTY_SCANCODE_MUHENKAN       = 0x07B,
+	MTY_SCANCODE_INTL_COMMA     = 0x07E,
+	MTY_SCANCODE_YEN            = 0x07D,
+	MTY_SCANCODE_MAX            = 0x200,
+	MTY_SCANCODE_MAKE_32        = 0x7FFFFFFF,
 } MTY_Scancode;
 
 typedef enum {
+	MTY_KEYMOD_NONE    = 0x00,
+	MTY_KEYMOD_LSHIFT  = 0x01,
+	MTY_KEYMOD_RSHIFT  = 0x02,
+	MTY_KEYMOD_LCTRL   = 0x04,
+	MTY_KEYMOD_RCTRL   = 0x08,
+	MTY_KEYMOD_LALT    = 0x10,
+	MTY_KEYMOD_RALT    = 0x20,
+	MTY_KEYMOD_LWIN    = 0x40,
+	MTY_KEYMOD_RWIN    = 0x80,
+	MTY_KEYMOD_SHIFT   = MTY_KEYMOD_LSHIFT | MTY_KEYMOD_RSHIFT,
+	MTY_KEYMOD_CTRL    = MTY_KEYMOD_LCTRL  | MTY_KEYMOD_RCTRL,
+	MTY_KEYMOD_ALT     = MTY_KEYMOD_LALT   | MTY_KEYMOD_RALT,
+	MTY_KEYMOD_WIN     = MTY_KEYMOD_LWIN   | MTY_KEYMOD_RWIN,
+	MTY_KEYMOD_MAKE_32 = 0x7FFFFFFF,
+} MTY_Keymod;
+
+typedef enum {
 	MTY_MOUSE_BUTTON_NONE    = 0,
-	MTY_MOUSE_BUTTON_L       = 1,
-	MTY_MOUSE_BUTTON_R       = 2,
+	MTY_MOUSE_BUTTON_LEFT    = 1,
+	MTY_MOUSE_BUTTON_RIGHT   = 2,
 	MTY_MOUSE_BUTTON_MIDDLE  = 3,
+	MTY_MOUSE_BUTTON_X1      = 4,
+	MTY_MOUSE_BUTTON_X2      = 5,
 	MTY_MOUSE_BUTTON_MAKE_32 = 0x7FFFFFFF,
 } MTY_MouseButton;
 
+typedef enum {
+	MTY_HOTKEY_LOCAL   = 1,
+	MTY_HOTKEY_GLOBAL  = 2,
+	MTY_HOTKEY_MAKE_32 = 0x7FFFFFFF,
+} MTY_Hotkey;
+
+typedef enum {
+	MTY_PEN_FLAG_LEAVE    = 0x01,
+	MTY_PEN_FLAG_TOUCHING = 0x02,
+	MTY_PEN_FLAG_INVERTED = 0x04,
+	MTY_PEN_FLAG_ERASER   = 0x08,
+	MTY_PEN_FLAG_BARREL   = 0x10,
+	MTY_PEN_FLAG_MAKE_32  = 0x7FFFFFFF,
+} MTY_PenFlag;
+
+typedef enum {
+	MTY_CONTROLLER_API_XINPUT = 1,
+	MTY_CONTROLLER_API_HID    = 2,
+	MTY_CONTROLLER_API_SWITCH = 3,
+} MTY_ControllerAPI;
+
+typedef enum {
+	MTY_CBUTTON_A              = 0,
+	MTY_CBUTTON_B              = 1,
+	MTY_CBUTTON_X              = 2,
+	MTY_CBUTTON_Y              = 3,
+	MTY_CBUTTON_LEFT_SHOULDER  = 4,
+	MTY_CBUTTON_RIGHT_SHOULDER = 5,
+	MTY_CBUTTON_BACK           = 6,
+	MTY_CBUTTON_START          = 7,
+	MTY_CBUTTON_LEFT_THUMB     = 8,
+	MTY_CBUTTON_RIGHT_THUMB    = 9,
+	MTY_CBUTTON_DPAD_UP        = 10,
+	MTY_CBUTTON_DPAD_DOWN      = 11,
+	MTY_CBUTTON_DPAD_LEFT      = 12,
+	MTY_CBUTTON_DPAD_RIGHT     = 13,
+	MTY_CBUTTON_MAX            = 64,
+	MTY_CBUTTON_MAKE_32        = 0x7FFFFFFF,
+} MTY_CButton;
+
+typedef enum {
+	MTY_CVALUE_THUMB_LX  = 0,
+	MTY_CVALUE_THUMB_LY  = 1,
+	MTY_CVALUE_THUMB_RX  = 2,
+	MTY_CVALUE_THUMB_RY  = 3,
+	MTY_CVALUE_TRIGGER_L = 4,
+	MTY_CVALUE_TRIGGER_R = 5,
+	MTY_CVALUE_MAX       = 16,
+	MTY_CVALUE_MAKE_32   = 0x7FFFFFFF,
+} MTY_CValue;
+
+typedef struct {
+	uint16_t usage;
+	int16_t data;
+	int16_t min;
+	int16_t max;
+} MTY_Value;
+
+typedef struct {
+	MTY_ControllerAPI api;
+	uint32_t id;
+	uint16_t vid;
+	uint16_t pid;
+	uint8_t numButtons;
+	uint8_t numValues;
+	bool buttons[MTY_CBUTTON_MAX];
+	MTY_Value values[MTY_CVALUE_MAX];
+} MTY_Controller;
+
 typedef struct {
 	MTY_MsgType type;
+	MTY_Window window;
 
 	union {
+		MTY_Controller controller;
+		uint32_t hotkey;
+		uint32_t trayID;
+		char text[8];
+
 		struct {
-			bool pressed;
 			MTY_Scancode scancode;
+			MTY_Keymod mod;
+			bool pressed;
 		} keyboard;
 
 		struct {
@@ -930,71 +1191,204 @@ typedef struct {
 			const void *data;
 			size_t size;
 		} drop;
+
+		struct {
+			MTY_PenFlag flags;
+			uint16_t x;
+			uint16_t y;
+			uint16_t pressure;
+			uint16_t rotation;
+			int8_t tiltX;
+			int8_t tiltY;
+		} pen;
 	};
 } MTY_Msg;
 
-typedef struct MTY_Window MTY_Window;
+typedef struct {
+	MTY_Position position;
+	uint32_t width;
+	uint32_t height;
+	uint32_t minWidth;
+	uint32_t minHeight;
+	uint32_t x;
+	uint32_t y;
+	float creationHeight;
+	bool fullscreen;
+	bool hidden;
+} MTY_WindowDesc;
 
 typedef void (*MTY_MsgFunc)(const MTY_Msg *wmsg, void *opaque);
 typedef bool (*MTY_AppFunc)(void *opaque);
 
-MTY_EXPORT MTY_Window *
-MTY_WindowCreate(const char *title, MTY_MsgFunc msg_func, const void *opaque,
-	uint32_t width, uint32_t height, bool fullscreen);
+MTY_EXPORT MTY_Window
+MTY_WindowCreate(const char *title, const MTY_WindowDesc *desc, MTY_MsgFunc func, const void *opaque);
+
+MTY_EXPORT void
+MTY_WindowSetTitle(MTY_Window window, const char *title);
+
+MTY_EXPORT bool
+MTY_WindowGetSize(MTY_Window window, uint32_t *width, uint32_t *height);
+
+MTY_EXPORT bool
+MTY_WindowIsActive(MTY_Window window);
+
+MTY_EXPORT bool
+MTY_WindowGetScreenSize(MTY_Window window, uint32_t *width, uint32_t *height);
+
+MTY_EXPORT float
+MTY_WindowGetScale(MTY_Window window);
+
+MTY_EXPORT void
+MTY_WindowSetFullscreen(MTY_Window window, bool fullscreen);
+
+MTY_EXPORT bool
+MTY_WindowIsFullscreen(MTY_Window window);
+
+MTY_EXPORT void
+MTY_WindowActivate(MTY_Window window, bool active);
+
+MTY_EXPORT void
+MTY_WindowWarpCursor(MTY_Window window, uint32_t x, uint32_t y);
+
+MTY_EXPORT void
+MTY_WindowPresent(MTY_Window window, uint32_t num_frames);
+
+MTY_EXPORT MTY_Device *
+MTY_WindowGetDevice(MTY_Window window);
+
+MTY_EXPORT MTY_Context *
+MTY_WindowGetContext(MTY_Window window);
+
+MTY_EXPORT MTY_Texture *
+MTY_WindowGetBackBuffer(MTY_Window window);
+
+MTY_EXPORT void
+MTY_WindowDrawQuad(MTY_Window window, const void *image, const MTY_RenderDesc *desc);
+
+MTY_EXPORT void
+MTY_WindowDrawUI(MTY_Window window, const MTY_DrawData *dd);
+
+MTY_EXPORT void
+MTY_WindowSetUITexture(MTY_Window window, uint32_t id, const void *rgba, uint32_t width, uint32_t height);
+
+MTY_EXPORT void *
+MTY_WindowGetUITexture(MTY_Window window, uint32_t id);
+
+MTY_EXPORT bool
+MTY_WindowSetGFX(MTY_Window window, MTY_GFX api, bool vsync);
+
+MTY_EXPORT MTY_GFX
+MTY_WindowGetGFX(MTY_Window window);
+
+MTY_EXPORT void
+MTY_WindowDestroy(MTY_Window window);
+
+MTY_EXPORT void *
+MTY_GLGetProcAddress(const char *name);
+
+
+// @module app
+
+typedef enum {
+	MTY_DETACH_NONE = 0,
+	MTY_DETACH_GRAB = 1,
+	MTY_DETACH_FULL = 2,
+} MTY_Detach;
+
+typedef enum {
+	MTY_ORIENTATION_USER      = 0,
+	MTY_ORIENTATION_LANDSCAPE = 1,
+} MTY_Orientation;
+
+typedef struct {
+	wchar_t label[256];
+	uint32_t trayID;
+	bool (*checked)(void *opaque);
+} MTY_MenuItem;
+
+MTY_EXPORT void
+MTY_AppDestroy(void);
+
+MTY_EXPORT bool
+MTY_AppCreate(void);
 
 MTY_EXPORT void
 MTY_AppRun(MTY_AppFunc func, const void *opaque);
 
 MTY_EXPORT void
-MTY_WindowSetTitle(MTY_Window *ctx, const char *title, const char *subtitle);
-
-MTY_EXPORT bool
-MTY_WindowGetSize(MTY_Window *ctx, uint32_t *width, uint32_t *height);
+MTY_AppPoll(void);
 
 MTY_EXPORT void
-MTY_WindowPoll(MTY_Window *ctx);
+MTY_AppDetach(MTY_Detach type);
 
-MTY_EXPORT bool
-MTY_WindowIsForeground(MTY_Window *ctx);
+MTY_EXPORT MTY_Detach
+MTY_AppGetDetached(void);
+
+MTY_EXPORT void
+MTY_AppEnableScreenSaver(bool enable);
+
+MTY_EXPORT char *
+MTY_AppGetClipboard(void);
+
+MTY_EXPORT void
+MTY_AppSetClipboard(const char *text);
+
+MTY_EXPORT void
+MTY_AppGrabKeyboard(bool grab);
+
+MTY_EXPORT void
+MTY_AppGrabMouse(bool grab);
+
+MTY_EXPORT void
+MTY_AppAddTray(const char *tooltip, const MTY_MenuItem *items, uint32_t len);
+
+MTY_EXPORT void
+MTY_AppNotification(const char *title, const char *msg);
+
+MTY_EXPORT void
+MTY_AppRemoveTray(void);
+
+MTY_EXPORT void
+MTY_AppSetHotkey(MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, uint32_t id);
+
+MTY_EXPORT void
+MTY_AppUnsetHotkeys(MTY_Hotkey mode);
 
 MTY_EXPORT uint32_t
-MTY_WindowGetRefreshRate(MTY_Window *ctx);
-
-MTY_EXPORT float
-MTY_WindowGetDPIScale(MTY_Window *ctx);
+MTY_AppGetHotkey(MTY_Keymod mod, MTY_Scancode scancode);
 
 MTY_EXPORT void
-MTY_WindowSetFullscreen(MTY_Window *ctx);
-
-MTY_EXPORT void
-MTY_WindowSetSize(MTY_Window *ctx, uint32_t width, uint32_t height);
+MTY_AppSetRelativeMouse(bool relative);
 
 MTY_EXPORT bool
-MTY_WindowIsFullscreen(MTY_Window *ctx);
+MTY_AppGetRelativeMouse(void);
 
 MTY_EXPORT void
-MTY_WindowSetRelativeMouse(MTY_Window *ctx, bool relative);
+MTY_AppSetPNGCursor(const void *image, size_t size, uint32_t hotX, uint32_t hotY);
 
 MTY_EXPORT void
-MTY_WindowPresent(MTY_Window *ctx, uint32_t num_frames);
-
-MTY_EXPORT MTY_Device *
-MTY_WindowGetDevice(MTY_Window *ctx);
-
-MTY_EXPORT MTY_Context *
-MTY_WindowGetContext(MTY_Window *ctx);
-
-MTY_EXPORT MTY_Texture *
-MTY_WindowGetBackBuffer(MTY_Window *ctx);
+MTY_AppControllerRumble(uint32_t id, uint16_t low, uint16_t high);
 
 MTY_EXPORT void
-MTY_WindowDrawQuad(MTY_Window *ctx, const void *image, const MTY_RenderDesc *desc);
+MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len);
 
 MTY_EXPORT void
-MTY_WindowDestroy(MTY_Window **window);
+MTY_AppEnableGlobalHotkeys(bool enable);
 
-MTY_EXPORT void *
-MTY_GLGetProcAddress(const char *name);
+MTY_EXPORT void
+MTY_AppSetOnscreenKeyboard(bool enable);
+
+MTY_EXPORT void
+MTY_AppSetOrientation(MTY_Orientation orientation);
+
+MTY_EXPORT void
+MTY_AppActivate(bool active);
+
+MTY_EXPORT bool
+MTY_AppIsActive(void);
+
+MTY_EXPORT MTY_Controller
+MTY_AppMapController(const MTY_Controller *c);
 
 
 #ifdef __cplusplus

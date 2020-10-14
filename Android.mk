@@ -50,7 +50,8 @@ LOCAL_SRC_FILES := \
 	src/list.c \
 	src/queue.c \
 	src/thread.c \
-	src/gfx-gl.c \
+	src/gfx/gl.c \
+	src/gfx/gl-ui.c \
 	src/render.c \
 	src/unix/crypto.c \
 	src/unix/fs.c \
