@@ -2142,6 +2142,11 @@ bool MTY_WindowIsActive(MTY_Window window)
 	return app_hwnd_active(ctx->hwnd);
 }
 
+bool MTY_WindowExists(MTY_Window window)
+{
+	return app_get_window(window) ? true : false;
+}
+
 
 // Window GFX
 

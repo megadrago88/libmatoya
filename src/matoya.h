@@ -1233,6 +1233,9 @@ MTY_EXPORT bool
 MTY_WindowIsActive(MTY_Window window);
 
 MTY_EXPORT bool
+MTY_WindowExists(MTY_Window window);
+
+MTY_EXPORT bool
 MTY_WindowGetScreenSize(MTY_Window window, uint32_t *width, uint32_t *height);
 
 MTY_EXPORT float
