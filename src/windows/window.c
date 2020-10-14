@@ -2259,11 +2259,14 @@ bool MTY_WindowSetGFX(MTY_Window window, MTY_GFX api, bool vsync)
 	if (ctx->api != MTY_GFX_NONE)
 		GFX_CTX_API[ctx->api].gfx_ctx_destroy(&ctx->gfx_ctx);
 
-	ctx->api = api;
-
-	if (ctx->api != MTY_GFX_NONE) {
+	if (api != MTY_GFX_NONE) {
 		ctx->renderer = MTY_RendererCreate();
-		ctx->gfx_ctx = GFX_CTX_API[ctx->api].gfx_ctx_create((void *) ctx->hwnd, vsync);
+		ctx->gfx_ctx = GFX_CTX_API[api].gfx_ctx_create((void *) ctx->hwnd, vsync);
+
+		if (!ctx->gfx_ctx && (api == MTY_GFX_D3D11 || api == MTY_GFX_D3D9))
+			return MTY_WindowSetGFX(window, MTY_GFX_GL, vsync);
+
+		ctx->api = api;
 	}
 
 	return ctx->gfx_ctx ? true : false;
