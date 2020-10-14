@@ -37,7 +37,6 @@ struct gfx_d3d11_ui {
 	ID3D11Resource *cb_res;
 	ID3D11PixelShader *ps;
 	ID3D11SamplerState *sampler;
-	ID3D11ShaderResourceView *font;
 	ID3D11RasterizerState *rs;
 	ID3D11BlendState *bs;
 	ID3D11DepthStencilState *dss;
@@ -417,9 +416,6 @@ void gfx_d3d11_ui_destroy(struct gfx_ui **gfx_ui)
 
 	if (ctx->sampler)
 		ID3D11SamplerState_Release(ctx->sampler);
-
-	if (ctx->font)
-		ID3D11ShaderResourceView_Release(ctx->font);
 
 	if (ctx->vb.res)
 		ID3D11Resource_Release(ctx->vb.res);
