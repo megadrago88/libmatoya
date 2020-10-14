@@ -20,7 +20,7 @@ struct gfx_ctx;
 #define GFX_CTX_DECLARE_API(api, wrap)                                               \
 	struct gfx_ctx *wrap(gfx##api##ctx_create)(void *native_window, bool vsync);     \
 	void wrap(gfx##api##ctx_destroy)(struct gfx_ctx **gfx_ctx);                      \
-	void wrap(gfx##api##ctx_refresh)(struct gfx_ctx *gfx_ctx);                       \
+	bool wrap(gfx##api##ctx_refresh)(struct gfx_ctx *gfx_ctx);                       \
 	void wrap(gfx##api##ctx_present)(struct gfx_ctx *gfx_ctx, uint32_t num_frames);  \
 	MTY_Device *wrap(gfx##api##ctx_get_device)(struct gfx_ctx *gfx_ctx);             \
 	MTY_Context *wrap(gfx##api##ctx_get_context)(struct gfx_ctx *gfx_ctx);           \

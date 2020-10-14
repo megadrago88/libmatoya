@@ -2188,10 +2188,10 @@ MTY_Texture *MTY_WindowGetBackBuffer(MTY_Window window)
 	MTY_WindowGetSize(window, &width, &height);
 
 	if (width != ctx->width || height != ctx->height) {
-		GFX_CTX_API[ctx->api].gfx_ctx_refresh(ctx->gfx_ctx);
-
-		ctx->width = width;
-		ctx->height = height;
+		if (GFX_CTX_API[ctx->api].gfx_ctx_refresh(ctx->gfx_ctx)) {
+			ctx->width = width;
+			ctx->height = height;
+		}
 	}
 
 	return GFX_CTX_API[ctx->api].gfx_ctx_get_buffer(ctx->gfx_ctx);

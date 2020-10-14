@@ -175,7 +175,7 @@ MTY_Texture *gfx_d3d11_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 	return (MTY_Texture *) ctx->back_buffer;
 }
 
-void gfx_d3d11_ctx_refresh(struct gfx_ctx *gfx_ctx)
+bool gfx_d3d11_ctx_refresh(struct gfx_ctx *gfx_ctx)
 {
 	struct gfx_d3d11_ctx *ctx = (struct gfx_d3d11_ctx *) gfx_ctx;
 
@@ -186,6 +186,8 @@ void gfx_d3d11_ctx_refresh(struct gfx_ctx *gfx_ctx)
 		gfx_d3d11_ctx_free(ctx);
 		gfx_d3d11_ctx_init(ctx);
 	}
+
+	return e == S_OK;
 }
 
 void gfx_d3d11_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)

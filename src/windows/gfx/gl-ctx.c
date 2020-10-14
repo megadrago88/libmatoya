@@ -116,8 +116,9 @@ MTY_Texture *gfx_gl_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 	return (MTY_Texture *) &ctx->fb0;
 }
 
-void gfx_gl_ctx_refresh(struct gfx_ctx *gfx_ctx)
+bool gfx_gl_ctx_refresh(struct gfx_ctx *gfx_ctx)
 {
+	return true;
 }
 
 void gfx_gl_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
