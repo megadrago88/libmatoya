@@ -1179,6 +1179,7 @@ static void app_apply_mouse_ri(bool focus)
 			app_register_raw_input(0x01, 0x02, 0, NULL);
 		}
 	} else {
+		// Exiting raw input generates a single WM_MOUSEMOVE, filter it
 		APP.filter_move = true;
 		app_register_raw_input(0x01, 0x02, RIDEV_REMOVE, NULL);
 	}
