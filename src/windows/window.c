@@ -1223,6 +1223,12 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				r = TRUE;
 			}
 			break;
+		case WM_SETFOCUS:
+		case WM_KILLFOCUS:
+			wmsg.type = MTY_WINDOW_MSG_FOCUS;
+			wmsg.focus = msg == WM_SETFOCUS;
+			APP.state++;
+			break;
 		case WM_QUERYENDSESSION:
 		case WM_ENDSESSION:
 			wmsg.type = MTY_WINDOW_MSG_SHUTDOWN;
@@ -1467,8 +1473,6 @@ static LRESULT CALLBACK app_hwnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 			PostQuitMessage(0);
 			break;
 		case WM_SIZE:
-		case WM_SETFOCUS:
-		case WM_KILLFOCUS:
 			APP.state++;
 			break;
 		default:

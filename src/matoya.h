@@ -922,6 +922,7 @@ typedef enum {
 	MTY_WINDOW_MSG_CONTROLLER   = 12,
 	MTY_WINDOW_MSG_DISCONNECT   = 13,
 	MTY_WINDOW_MSG_SHUTDOWN     = 14,
+	MTY_WINDOW_MSG_FOCUS        = 15,
 	MTY_WINDOW_MSG_MAKE_32      = 0x7FFFFFFF,
 } MTY_MsgType;
 
@@ -1163,6 +1164,7 @@ typedef struct {
 		uint32_t hotkey;
 		uint32_t trayID;
 		char text[8];
+		bool focus;
 
 		struct {
 			MTY_Scancode scancode;
