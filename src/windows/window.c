@@ -80,8 +80,7 @@ struct app {
 	bool kbgrab;
 	bool mgrab;
 	bool ghk_disabled;
-	bool warped;
-	POINT warp_pos;
+	bool filter_move;
 	uint64_t prev_state;
 	uint64_t state;
 	uint32_t gp_id;
@@ -1180,9 +1179,7 @@ static void app_apply_mouse_ri(bool focus)
 			app_register_raw_input(0x01, 0x02, 0, NULL);
 		}
 	} else {
-		APP.warped = true;
-		GetCursorPos(&APP.warp_pos);
-
+		APP.filter_move = true;
 		app_register_raw_input(0x01, 0x02, RIDEV_REMOVE, NULL);
 	}
 }
@@ -1259,23 +1256,14 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				wmsg.keyboard.scancode |= 0x0100;
 			break;
 		case WM_MOUSEMOVE:
-			// Exiting raw input generates WM_MOUSEMOVE at the current cursor position, filter it
-			if (APP.warped) {
-				POINT p = {0};
-				GetCursorPos(&p);
-				if (p.x == APP.warp_pos.x && p.y == APP.warp_pos.y) {
-					APP.warped = false;
-					break;
-				}
-			}
-
-			if (!APP.pen_active && (!APP.relative || app_hwnd_active(hwnd))) {
+			if (!APP.filter_move && !APP.pen_active && (!APP.relative || app_hwnd_active(hwnd))) {
 				wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
 				wmsg.mouseMotion.relative = false;
 				wmsg.mouseMotion.x = GET_X_LPARAM(lparam);
 				wmsg.mouseMotion.y = GET_Y_LPARAM(lparam);
-
 			}
+
+			APP.filter_move = false;
 			break;
 		case WM_LBUTTONDOWN:
 		case WM_LBUTTONUP:
