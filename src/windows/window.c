@@ -1083,11 +1083,27 @@ static void app_ri_relative_mouse(HWND hwnd, const RAWINPUT *ri, MTY_Msg *wmsg)
 	if (b & RI_MOUSE_WHEEL)              app_hwnd_proc(hwnd, WM_MOUSEWHEEL, mouse->usButtonData << 16, 0);
 	if (b & RI_MOUSE_HWHEEL)             app_hwnd_proc(hwnd, WM_MOUSEHWHEEL, mouse->usButtonData << 16, 0);
 
-	if (mouse->lLastX != 0 || mouse->lLastY != 0) {
+	if ((mouse->lLastX != 0 || mouse->lLastY != 0) && (mouse->usFlags & MOUSE_MOVE_RELATIVE)) {
 		wmsg->type = MTY_WINDOW_MSG_MOUSE_MOTION;
 		wmsg->mouseMotion.relative = true;
 		wmsg->mouseMotion.x = mouse->lLastX;
 		wmsg->mouseMotion.y = mouse->lLastY;
+
+	} else if (mouse->usFlags & MOUSE_MOVE_ABSOLUTE) {
+		wmsg->type = MTY_WINDOW_MSG_MOUSE_MOTION;
+		wmsg->mouseMotion.relative = false;
+
+		bool virtual = (mouse->usFlags & MOUSE_VIRTUAL_DESKTOP) ? true : false;
+		int32_t width = GetSystemMetrics(virtual ? SM_CXVIRTUALSCREEN : SM_CXSCREEN);
+		int32_t height = GetSystemMetrics(virtual ? SM_CYVIRTUALSCREEN : SM_CYSCREEN);
+
+		POINT client = {0};
+		client.x = lrint(((float) mouse->lLastX / 65535.0f) * (float) width);
+		client.y = lrint(((float) mouse->lLastY / 65535.0f) * (float) height);
+
+		ScreenToClient(hwnd, &client);
+		wmsg->mouseMotion.x = client.x;
+		wmsg->mouseMotion.y = client.y;
 	}
 }
 
