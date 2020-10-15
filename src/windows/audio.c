@@ -6,6 +6,8 @@
 
 #include "matoya.h"
 
+#include <math.h>
+
 #include <windows.h>
 
 #include <initguid.h>
@@ -28,6 +30,8 @@ struct MTY_Audio {
 	bool playing;
 	bool notification_init;
 	uint32_t sample_rate;
+	uint32_t min_buffer;
+	uint32_t max_buffer;
 	UINT32 buffer_size;
 	IMMDeviceEnumerator *enumerator;
 	IMMNotificationClient notification;
@@ -163,10 +167,14 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 	return e;
 }
 
-MTY_Audio *MTY_AudioCreate(uint32_t sampleRate)
+MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer)
 {
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
 	ctx->sample_rate = sampleRate;
+
+	uint32_t frames_per_ms = lrint((float) sampleRate / 1000.0f);
+	ctx->min_buffer = minBuffer * frames_per_ms;
+	ctx->max_buffer = maxBuffer * frames_per_ms;
 
 	ctx->coinit = true;
 	CoInitialize(NULL);
@@ -219,9 +227,14 @@ void MTY_AudioStop(MTY_Audio *ctx)
 {
 	if (ctx->client && ctx->playing) {
 		HRESULT e = IAudioClient_Stop(ctx->client);
+		if (e != S_OK)
+			return;
 
-		if (e == S_OK)
-			ctx->playing = false;
+		e = IAudioClient_Reset(ctx->client);
+		if (e != S_OK)
+			return;
+
+		ctx->playing = false;
 	}
 }
 
@@ -249,7 +262,13 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 	if (!audio_handle_device_change(ctx))
 		return;
 
-	if (ctx->buffer_size - MTY_AudioGetQueuedFrames(ctx) >= count) {
+	uint32_t queued = MTY_AudioGetQueuedFrames(ctx);
+	if (MTY_AudioIsPlaying(ctx) && queued >= ctx->max_buffer) {
+		MTY_AudioStop(ctx);
+		return;
+	}
+
+	if (ctx->buffer_size - queued >= count) {
 		BYTE *buffer = NULL;
 		HRESULT e = IAudioRenderClient_GetBuffer(ctx->render, count, &buffer);
 
@@ -257,6 +276,9 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 			memcpy(buffer, frames, count * AUDIO_CHANNELS * AUDIO_SAMPLE_SIZE);
 			IAudioRenderClient_ReleaseBuffer(ctx->render, count, 0);
 		}
+
+		if (!MTY_AudioIsPlaying(ctx) && queued + count >= ctx->min_buffer)
+			MTY_AudioPlay(ctx);
 	}
 }
 

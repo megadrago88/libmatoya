@@ -25,7 +25,7 @@ extern "C" {
 typedef struct MTY_Audio MTY_Audio;
 
 MTY_EXPORT MTY_Audio *
-MTY_AudioCreate(uint32_t sampleRate);
+MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer);
 
 MTY_EXPORT uint32_t
 MTY_AudioGetQueuedFrames(MTY_Audio *ctx);
