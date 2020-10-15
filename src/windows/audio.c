@@ -263,10 +263,10 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 		return;
 
 	uint32_t queued = MTY_AudioGetQueuedFrames(ctx);
-	if (MTY_AudioIsPlaying(ctx) && queued >= ctx->max_buffer) {
+
+	// Stop playing and flush if we've exceeded the maximum buffer or underrun
+	if (MTY_AudioIsPlaying(ctx) && queued > ctx->max_buffer || queued == 0)
 		MTY_AudioStop(ctx);
-		return;
-	}
 
 	if (ctx->buffer_size - queued >= count) {
 		BYTE *buffer = NULL;
@@ -277,6 +277,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 			IAudioRenderClient_ReleaseBuffer(ctx->render, count, 0);
 		}
 
+		// Begin playing again when the minimum buffer has been reached
 		if (!MTY_AudioIsPlaying(ctx) && queued + count >= ctx->min_buffer)
 			MTY_AudioPlay(ctx);
 	}
