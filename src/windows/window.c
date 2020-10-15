@@ -1064,6 +1064,15 @@ void MTY_AppNotification(const char *title, const char *msg)
 
 static LRESULT CALLBACK app_hwnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 
+static void app_make_movement(HWND hwnd)
+{
+	POINT p = {0};
+	GetCursorPos(&p);
+	ScreenToClient(hwnd, &p);
+
+	app_hwnd_proc(hwnd, WM_MOUSEMOVE, 0, p.x | (p.y << 16));
+}
+
 static void app_ri_relative_mouse(HWND hwnd, const RAWINPUT *ri, MTY_Msg *wmsg)
 {
 	const RAWMOUSE *mouse = &ri->data.mouse;
@@ -1083,15 +1092,7 @@ static void app_ri_relative_mouse(HWND hwnd, const RAWINPUT *ri, MTY_Msg *wmsg)
 	if (b & RI_MOUSE_WHEEL)              app_hwnd_proc(hwnd, WM_MOUSEWHEEL, mouse->usButtonData << 16, 0);
 	if (b & RI_MOUSE_HWHEEL)             app_hwnd_proc(hwnd, WM_MOUSEHWHEEL, mouse->usButtonData << 16, 0);
 
-	if (!(mouse->usFlags & MOUSE_MOVE_ABSOLUTE)) {
-		wmsg->type = MTY_WINDOW_MSG_MOUSE_MOTION;
-		wmsg->mouseMotion.relative = true;
-		wmsg->mouseMotion.x = mouse->lLastX;
-		wmsg->mouseMotion.y = mouse->lLastY;
-
-	} else {
-		wmsg->type = MTY_WINDOW_MSG_MOUSE_MOTION;
-		wmsg->mouseMotion.relative = false;
+	if ((mouse->usFlags & MOUSE_MOVE_ABSOLUTE) == MOUSE_MOVE_ABSOLUTE) {
 		bool virtual = mouse->usFlags & MOUSE_VIRTUAL_DESKTOP ? true : false;
 		int32_t width = GetSystemMetrics(virtual ? SM_CXVIRTUALSCREEN : SM_CXSCREEN);
 		int32_t height = GetSystemMetrics(virtual ? SM_CYVIRTUALSCREEN : SM_CYSCREEN);
@@ -1099,10 +1100,18 @@ static void app_ri_relative_mouse(HWND hwnd, const RAWINPUT *ri, MTY_Msg *wmsg)
 		POINT client = {0};
 		client.x = lrint(((float) mouse->lLastX / 65535.0f) * (float) width);
 		client.y = lrint(((float) mouse->lLastY / 65535.0f) * (float) height);
-
 		ScreenToClient(hwnd, &client);
+
+		wmsg->type = MTY_WINDOW_MSG_MOUSE_MOTION;
+		wmsg->mouseMotion.relative = false;
 		wmsg->mouseMotion.x = client.x;
 		wmsg->mouseMotion.y = client.y;
+
+	} else if (mouse->lLastX != 0 || mouse->lLastY != 0) {
+		wmsg->type = MTY_WINDOW_MSG_MOUSE_MOTION;
+		wmsg->mouseMotion.relative = true;
+		wmsg->mouseMotion.x = mouse->lLastX;
+		wmsg->mouseMotion.y = mouse->lLastY;
 	}
 }
 
@@ -1468,6 +1477,10 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	// Transform keyboard into hotkey
 	if (wmsg.type == MTY_WINDOW_MSG_KEYBOARD)
 		app_kb_to_hotkey(&wmsg);
+
+	// For robustness, generate a WM_MOUSEMOVE on a mousedown
+	if (wmsg.type == MTY_WINDOW_MSG_MOUSE_BUTTON && wmsg.mouseButton.pressed && !APP.relative)
+		app_make_movement(hwnd);
 
 	// Process the message
 	if (wmsg.type != MTY_WINDOW_MSG_NONE) {
