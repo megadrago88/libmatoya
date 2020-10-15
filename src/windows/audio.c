@@ -194,7 +194,7 @@ MTY_Audio *MTY_AudioCreate(uint32_t sampleRate)
 uint32_t MTY_AudioGetQueuedFrames(MTY_Audio *ctx)
 {
 	UINT32 padding = 0;
-	if (IAudioClient_GetCurrentPadding(ctx->client, &padding) == S_OK)
+	if (ctx->client && IAudioClient_GetCurrentPadding(ctx->client, &padding) == S_OK)
 		return padding;
 
 	return ctx->buffer_size;
@@ -207,7 +207,7 @@ bool MTY_AudioIsPlaying(MTY_Audio *ctx)
 
 void MTY_AudioPlay(MTY_Audio *ctx)
 {
-	if (!ctx->playing) {
+	if (ctx->client && !ctx->playing) {
 		HRESULT e = IAudioClient_Start(ctx->client);
 
 		if (e == S_OK)
@@ -217,7 +217,7 @@ void MTY_AudioPlay(MTY_Audio *ctx)
 
 void MTY_AudioStop(MTY_Audio *ctx)
 {
-	if (ctx->playing) {
+	if (ctx->client && ctx->playing) {
 		HRESULT e = IAudioClient_Stop(ctx->client);
 
 		if (e == S_OK)
@@ -225,22 +225,29 @@ void MTY_AudioStop(MTY_Audio *ctx)
 	}
 }
 
-void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
+static bool audio_handle_device_change(MTY_Audio *ctx)
 {
-	// Reinit device if changed on the fly
 	if (DEFAULT_CHANGED) {
 		audio_device_destroy(ctx);
 
-		// FIXME Not a great solution
+		// When the default device is in the process of changing, this may fail
 		for (uint8_t x = 0; audio_device_create(ctx) != S_OK && x < 5; x++)
 			MTY_Sleep(100);
 
 		if (!ctx->client)
-			return;
+			return false;
 
 		MTY_AudioPlay(ctx);
 		DEFAULT_CHANGED = false;
 	}
+
+	return true;
+}
+
+void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
+{
+	if (!audio_handle_device_change(ctx))
+		return;
 
 	if (ctx->buffer_size - MTY_AudioGetQueuedFrames(ctx) >= count) {
 		BYTE *buffer = NULL;
