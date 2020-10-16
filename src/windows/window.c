@@ -1250,6 +1250,14 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				r = TRUE;
 			}
 			break;
+		case WM_DISPLAYCHANGE: {
+			// A display change can bork DXGI ResizeBuffers, forcing a dummy 1px move puts it back to normal
+			RECT wrect = {0};
+			GetWindowRect(hwnd, &wrect);
+			SetWindowPos(hwnd, 0, wrect.left + 1, wrect.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+			SetWindowPos(hwnd, 0, wrect.left, wrect.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+			break;
+		}
 		case WM_SETFOCUS:
 		case WM_KILLFOCUS:
 			wmsg.type = MTY_WINDOW_MSG_FOCUS;
