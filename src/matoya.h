@@ -1184,6 +1184,7 @@ typedef struct {
 
 		struct {
 			bool relative;
+			bool synth;
 			bool click;
 			int32_t x;
 			int32_t y;
