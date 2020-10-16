@@ -77,6 +77,7 @@ struct app {
 	HWND kbhwnd;
 	bool pen_active;
 	bool relative;
+	bool legacy;
 	bool kbgrab;
 	bool mgrab;
 	bool ghk_disabled;
@@ -1077,41 +1078,34 @@ static void app_ri_relative_mouse(HWND hwnd, const RAWINPUT *ri, MTY_Msg *wmsg)
 {
 	const RAWMOUSE *mouse = &ri->data.mouse;
 
-	ULONG b = mouse->usButtonFlags;
-
-	if (b & RI_MOUSE_LEFT_BUTTON_DOWN)   app_hwnd_proc(hwnd, WM_LBUTTONDOWN, 0, 0);
-	if (b & RI_MOUSE_LEFT_BUTTON_UP)     app_hwnd_proc(hwnd, WM_LBUTTONUP, 0, 0);
-	if (b & RI_MOUSE_MIDDLE_BUTTON_DOWN) app_hwnd_proc(hwnd, WM_MBUTTONDOWN, 0, 0);
-	if (b & RI_MOUSE_MIDDLE_BUTTON_UP)   app_hwnd_proc(hwnd, WM_MBUTTONUP, 0, 0);
-	if (b & RI_MOUSE_RIGHT_BUTTON_DOWN)  app_hwnd_proc(hwnd, WM_RBUTTONDOWN, 0, 0);
-	if (b & RI_MOUSE_RIGHT_BUTTON_UP)    app_hwnd_proc(hwnd, WM_RBUTTONUP, 0, 0);
-	if (b & RI_MOUSE_BUTTON_4_DOWN)      app_hwnd_proc(hwnd, WM_XBUTTONDOWN, XBUTTON1 << 16, 0);
-	if (b & RI_MOUSE_BUTTON_4_UP)        app_hwnd_proc(hwnd, WM_XBUTTONUP, XBUTTON1 << 16, 0);
-	if (b & RI_MOUSE_BUTTON_5_DOWN)      app_hwnd_proc(hwnd, WM_XBUTTONDOWN, XBUTTON2 << 16, 0);
-	if (b & RI_MOUSE_BUTTON_5_UP)        app_hwnd_proc(hwnd, WM_XBUTTONUP, XBUTTON2 << 16, 0);
-	if (b & RI_MOUSE_WHEEL)              app_hwnd_proc(hwnd, WM_MOUSEWHEEL, mouse->usButtonData << 16, 0);
-	if (b & RI_MOUSE_HWHEEL)             app_hwnd_proc(hwnd, WM_MOUSEHWHEEL, mouse->usButtonData << 16, 0);
-
 	if ((mouse->usFlags & MOUSE_MOVE_ABSOLUTE) == MOUSE_MOVE_ABSOLUTE) {
-		bool virtual = mouse->usFlags & MOUSE_VIRTUAL_DESKTOP ? true : false;
-		int32_t width = GetSystemMetrics(virtual ? SM_CXVIRTUALSCREEN : SM_CXSCREEN);
-		int32_t height = GetSystemMetrics(virtual ? SM_CYVIRTUALSCREEN : SM_CYSCREEN);
-
-		POINT client = {0};
-		client.x = lrint(((float) mouse->lLastX / 65535.0f) * (float) width);
-		client.y = lrint(((float) mouse->lLastY / 65535.0f) * (float) height);
-		ScreenToClient(hwnd, &client);
-
-		wmsg->type = MTY_WINDOW_MSG_MOUSE_MOTION;
-		wmsg->mouseMotion.relative = false;
-		wmsg->mouseMotion.x = client.x;
-		wmsg->mouseMotion.y = client.y;
+		if (!APP.legacy) {
+			APP.legacy = true;
+			APP.state++;
+		}
 
 	} else if (mouse->lLastX != 0 || mouse->lLastY != 0) {
 		wmsg->type = MTY_WINDOW_MSG_MOUSE_MOTION;
 		wmsg->mouseMotion.relative = true;
 		wmsg->mouseMotion.x = mouse->lLastX;
 		wmsg->mouseMotion.y = mouse->lLastY;
+	}
+
+	if (!APP.legacy) {
+		ULONG b = mouse->usButtonFlags;
+
+		if (b & RI_MOUSE_LEFT_BUTTON_DOWN)   app_hwnd_proc(hwnd, WM_LBUTTONDOWN, 0, 0);
+		if (b & RI_MOUSE_LEFT_BUTTON_UP)     app_hwnd_proc(hwnd, WM_LBUTTONUP, 0, 0);
+		if (b & RI_MOUSE_MIDDLE_BUTTON_DOWN) app_hwnd_proc(hwnd, WM_MBUTTONDOWN, 0, 0);
+		if (b & RI_MOUSE_MIDDLE_BUTTON_UP)   app_hwnd_proc(hwnd, WM_MBUTTONUP, 0, 0);
+		if (b & RI_MOUSE_RIGHT_BUTTON_DOWN)  app_hwnd_proc(hwnd, WM_RBUTTONDOWN, 0, 0);
+		if (b & RI_MOUSE_RIGHT_BUTTON_UP)    app_hwnd_proc(hwnd, WM_RBUTTONUP, 0, 0);
+		if (b & RI_MOUSE_BUTTON_4_DOWN)      app_hwnd_proc(hwnd, WM_XBUTTONDOWN, XBUTTON1 << 16, 0);
+		if (b & RI_MOUSE_BUTTON_4_UP)        app_hwnd_proc(hwnd, WM_XBUTTONUP, XBUTTON1 << 16, 0);
+		if (b & RI_MOUSE_BUTTON_5_DOWN)      app_hwnd_proc(hwnd, WM_XBUTTONDOWN, XBUTTON2 << 16, 0);
+		if (b & RI_MOUSE_BUTTON_5_UP)        app_hwnd_proc(hwnd, WM_XBUTTONUP, XBUTTON2 << 16, 0);
+		if (b & RI_MOUSE_WHEEL)              app_hwnd_proc(hwnd, WM_MOUSEWHEEL, mouse->usButtonData << 16, 0);
+		if (b & RI_MOUSE_HWHEEL)             app_hwnd_proc(hwnd, WM_MOUSEHWHEEL, mouse->usButtonData << 16, 0);
 	}
 }
 
@@ -1197,7 +1191,8 @@ static void app_apply_mouse_ri(bool focus)
 				app_register_raw_input(0x01, 0x02, 0, NULL);
 
 			} else {
-				app_register_raw_input(0x01, 0x02, RIDEV_NOLEGACY, NULL);
+				// If raw input mouse is reporting absolute mode, just use legacy messages
+				app_register_raw_input(0x01, 0x02, APP.legacy ? 0 : RIDEV_NOLEGACY, NULL);
 			}
 		} else {
 			app_register_raw_input(0x01, 0x02, 0, NULL);
@@ -1289,7 +1284,9 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				wmsg.keyboard.scancode |= 0x0100;
 			break;
 		case WM_MOUSEMOVE:
-			if (!APP.filter_move && !APP.pen_active && (!APP.relative || app_hwnd_active(hwnd))) {
+			if (!APP.filter_move && !APP.pen_active &&
+				(!APP.relative || APP.legacy || app_hwnd_active(hwnd)))
+			{
 				wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
 				wmsg.mouseMotion.relative = false;
 				wmsg.mouseMotion.x = GET_X_LPARAM(lparam);
@@ -1855,6 +1852,7 @@ void MTY_AppSetRelativeMouse(bool relative)
 {
 	if (relative && !APP.relative) {
 		APP.relative = true;
+		APP.legacy = false;
 
 		POINT p = {0};
 		GetCursorPos(&p);
@@ -1864,7 +1862,7 @@ void MTY_AppSetRelativeMouse(bool relative)
 		APP.clip.bottom = p.y + 1;
 
 	} else if (!relative && APP.relative) {
-		APP.relative = false;
+		APP.relative = APP.legacy = false;
 	}
 
 	bool focus = MTY_AppIsActive();
