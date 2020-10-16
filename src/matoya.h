@@ -1184,6 +1184,7 @@ typedef struct {
 
 		struct {
 			bool relative;
+			bool click;
 			int32_t x;
 			int32_t y;
 		} mouseMotion;
@@ -1370,6 +1371,9 @@ MTY_AppGetRelativeMouse(void);
 
 MTY_EXPORT void
 MTY_AppSetPNGCursor(const void *image, size_t size, uint32_t hotX, uint32_t hotY);
+
+MTY_EXPORT void
+MTY_AppUseDefaultCursor(bool useDefault);
 
 MTY_EXPORT void
 MTY_AppControllerRumble(uint32_t id, uint16_t low, uint16_t high);
