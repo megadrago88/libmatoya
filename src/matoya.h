@@ -415,7 +415,7 @@ MTY_GetLog(void);
 	MTY_FatalParams(__FUNCTION__, msg, ##__VA_ARGS__)
 
 
-/// @module mem
+/// @module memory
 
 MTY_EXPORT void *
 MTY_Alloc(size_t nelem, size_t elsize);
@@ -1228,16 +1228,10 @@ MTY_EXPORT MTY_Window
 MTY_WindowCreate(const char *title, const MTY_WindowDesc *desc, MTY_MsgFunc func, const void *opaque);
 
 MTY_EXPORT void
-MTY_WindowSetTitle(MTY_Window window, const char *title);
+MTY_WindowDestroy(MTY_Window window);
 
 MTY_EXPORT bool
 MTY_WindowGetSize(MTY_Window window, uint32_t *width, uint32_t *height);
-
-MTY_EXPORT bool
-MTY_WindowIsActive(MTY_Window window);
-
-MTY_EXPORT bool
-MTY_WindowExists(MTY_Window window);
 
 MTY_EXPORT bool
 MTY_WindowGetScreenSize(MTY_Window window, uint32_t *width, uint32_t *height);
@@ -1246,19 +1240,25 @@ MTY_EXPORT float
 MTY_WindowGetScale(MTY_Window window);
 
 MTY_EXPORT void
-MTY_WindowSetFullscreen(MTY_Window window, bool fullscreen);
+MTY_WindowSetTitle(MTY_Window window, const char *title);
+
+MTY_EXPORT bool
+MTY_WindowIsActive(MTY_Window window);
+
+MTY_EXPORT void
+MTY_WindowActivate(MTY_Window window, bool active);
+
+MTY_EXPORT bool
+MTY_WindowExists(MTY_Window window);
 
 MTY_EXPORT bool
 MTY_WindowIsFullscreen(MTY_Window window);
 
 MTY_EXPORT void
-MTY_WindowActivate(MTY_Window window, bool active);
+MTY_WindowEnableFullscreen(MTY_Window window, bool fullscreen);
 
 MTY_EXPORT void
 MTY_WindowWarpCursor(MTY_Window window, uint32_t x, uint32_t y);
-
-MTY_EXPORT void
-MTY_WindowPresent(MTY_Window window, uint32_t num_frames);
 
 MTY_EXPORT MTY_Device *
 MTY_WindowGetDevice(MTY_Window window);
@@ -1276,22 +1276,19 @@ MTY_EXPORT void
 MTY_WindowDrawUI(MTY_Window window, const MTY_DrawData *dd);
 
 MTY_EXPORT void
-MTY_WindowSetUITexture(MTY_Window window, uint32_t id, const void *rgba, uint32_t width, uint32_t height);
+MTY_WindowPresent(MTY_Window window, uint32_t num_frames);
 
 MTY_EXPORT void *
 MTY_WindowGetUITexture(MTY_Window window, uint32_t id);
 
-MTY_EXPORT bool
-MTY_WindowSetGFX(MTY_Window window, MTY_GFX api, bool vsync);
+MTY_EXPORT void
+MTY_WindowSetUITexture(MTY_Window window, uint32_t id, const void *rgba, uint32_t width, uint32_t height);
 
 MTY_EXPORT MTY_GFX
 MTY_WindowGetGFX(MTY_Window window);
 
-MTY_EXPORT void
-MTY_WindowDestroy(MTY_Window window);
-
-MTY_EXPORT void *
-MTY_GLGetProcAddress(const char *name);
+MTY_EXPORT bool
+MTY_WindowSetGFX(MTY_Window window, MTY_GFX api, bool vsync);
 
 
 // @module app
@@ -1325,11 +1322,17 @@ MTY_AppRun(MTY_AppFunc func, const void *opaque);
 MTY_EXPORT void
 MTY_AppPoll(void);
 
+MTY_EXPORT bool
+MTY_AppIsActive(void);
+
 MTY_EXPORT void
-MTY_AppDetach(MTY_Detach type);
+MTY_AppActivate(bool active);
 
 MTY_EXPORT MTY_Detach
 MTY_AppGetDetached(void);
+
+MTY_EXPORT void
+MTY_AppDetach(MTY_Detach type);
 
 MTY_EXPORT void
 MTY_AppEnableScreenSaver(bool enable);
@@ -1347,37 +1350,34 @@ MTY_EXPORT void
 MTY_AppGrabMouse(bool grab);
 
 MTY_EXPORT void
-MTY_AppAddTray(const char *tooltip, const MTY_MenuItem *items, uint32_t len);
-
-MTY_EXPORT void
-MTY_AppNotification(const char *title, const char *msg);
+MTY_AppSetTray(const char *tooltip, const MTY_MenuItem *items, uint32_t len);
 
 MTY_EXPORT void
 MTY_AppRemoveTray(void);
 
 MTY_EXPORT void
-MTY_AppSetHotkey(MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, uint32_t id);
-
-MTY_EXPORT void
-MTY_AppUnsetHotkeys(MTY_Hotkey mode);
+MTY_AppNotification(const char *title, const char *msg);
 
 MTY_EXPORT uint32_t
 MTY_AppGetHotkey(MTY_Keymod mod, MTY_Scancode scancode);
 
 MTY_EXPORT void
-MTY_AppSetRelativeMouse(bool relative);
+MTY_AppSetHotkey(MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, uint32_t id);
+
+MTY_EXPORT void
+MTY_AppRemoveHotkeys(MTY_Hotkey mode);
 
 MTY_EXPORT bool
 MTY_AppGetRelativeMouse(void);
+
+MTY_EXPORT void
+MTY_AppSetRelativeMouse(bool relative);
 
 MTY_EXPORT void
 MTY_AppSetPNGCursor(const void *image, size_t size, uint32_t hotX, uint32_t hotY);
 
 MTY_EXPORT void
 MTY_AppUseDefaultCursor(bool useDefault);
-
-MTY_EXPORT void
-MTY_AppControllerRumble(uint32_t id, uint16_t low, uint16_t high);
 
 MTY_EXPORT void
 MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len);
@@ -1392,13 +1392,16 @@ MTY_EXPORT void
 MTY_AppSetOrientation(MTY_Orientation orientation);
 
 MTY_EXPORT void
-MTY_AppActivate(bool active);
-
-MTY_EXPORT bool
-MTY_AppIsActive(void);
+MTY_AppControllerRumble(uint32_t id, uint16_t low, uint16_t high);
 
 MTY_EXPORT MTY_Controller
-MTY_AppMapController(const MTY_Controller *c);
+MTY_AppControllerMap(const MTY_Controller *c);
+
+
+// @module gl
+
+MTY_EXPORT void *
+MTY_GLGetProcAddress(const char *name);
 
 
 #ifdef __cplusplus

@@ -314,7 +314,7 @@ uint32_t MTY_AppGetHotkey(MTY_Keymod mod, MTY_Scancode scancode)
 	return (uint32_t) (uintptr_t) MTY_HashGetInt(APP.hotkey, (mod << 16) | scancode);
 }
 
-void MTY_AppUnsetHotkeys(MTY_Hotkey mode)
+void MTY_AppRemoveHotkeys(MTY_Hotkey mode)
 {
 	if (mode == MTY_HOTKEY_GLOBAL) {
 		app_unregister_global_hotkeys();
@@ -616,7 +616,7 @@ static void app_gp_fit_to_u8(MTY_Controller *c, uint8_t i)
 	c->values[i].max = UINT8_MAX;
 }
 
-MTY_Controller MTY_AppMapController(const MTY_Controller *c)
+MTY_Controller MTY_AppControllerMap(const MTY_Controller *c)
 {
 	if (c->api == MTY_CONTROLLER_API_XINPUT)
 		return *c;
@@ -1002,7 +1002,7 @@ static void app_tray_msg(UINT msg, WPARAM wparam, LPARAM lparam, MTY_Msg *wmsg)
 	}
 }
 
-void MTY_AppAddTray(const char *tooltip, const MTY_MenuItem *items, uint32_t len)
+void MTY_AppSetTray(const char *tooltip, const MTY_MenuItem *items, uint32_t len)
 {
 	HWND hwnd = app_get_main_hwnd();
 	if (!hwnd)
@@ -1789,23 +1789,6 @@ bool MTY_AppCreate(void)
 		_XInputGetBaseBusInformation = (void *) GetProcAddress(APP.xinput1_4, (LPCSTR) 104);
 	}
 
-	/*
-	UINT n = 64;
-	RAWINPUTDEVICELIST list[64];
-	if (GetRawInputDeviceList(list, &n, sizeof(RAWINPUTDEVICELIST)) > 0) {
-		for (UINT x = 0; x < n; x++) {
-			RID_DEVICE_INFO di = {0};
-			UINT size = di.cbSize = sizeof(RID_DEVICE_INFO);
-			UINT e = GetRawInputDeviceInfo(list[x].hDevice, RIDI_DEVICEINFO, &di, &size);
-			if (e != 0xFFFFFFFF && e != 0) {
-				if (list[x].dwType == RIM_TYPEHID) {
-					printf("%X %X %X %X\n", di.hid.usUsage, di.hid.usUsagePage, di.hid.dwVendorId, di.hid.dwProductId);
-				}
-			}
-		}
-	}
-	*/
-
 	APP.init = true;
 
 	except:
@@ -2148,7 +2131,7 @@ float MTY_WindowGetScale(MTY_Window window)
 	return app_hwnd_get_scale(ctx->hwnd);
 }
 
-void MTY_WindowSetFullscreen(MTY_Window window, bool fullscreen)
+void MTY_WindowEnableFullscreen(MTY_Window window, bool fullscreen)
 {
 	struct window *ctx = app_get_window(window);
 	if (!ctx)
