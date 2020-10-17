@@ -195,9 +195,14 @@ static float app_hwnd_get_scale(HWND hwnd)
 	return 1.0f;
 }
 
+static bool app_hwnd_visible(HWND hwnd)
+{
+	return IsWindowVisible(hwnd) && !IsIconic(hwnd);
+}
+
 static bool app_hwnd_active(HWND hwnd)
 {
-	return GetForegroundWindow() == hwnd && IsWindowVisible(hwnd);
+	return GetForegroundWindow() == hwnd && app_hwnd_visible(hwnd);
 }
 
 static void app_register_raw_input(USHORT usage_page, USHORT usage, DWORD flags, HWND hwnd)
@@ -1549,36 +1554,6 @@ static LRESULT CALLBACK app_hwnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 	return DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
-void MTY_AppPoll(void)
-{
-	struct window *window = app_get_main_window();
-	if (!window)
-		return;
-
-	// Keyboard, mouse state changes
-	if (APP.prev_state != APP.state) {
-		bool focus = MTY_AppIsActive();
-		app_apply_clip(focus);
-		app_apply_cursor(focus);
-		app_apply_mouse_ri(focus);
-		app_apply_keyboard_state(focus);
-
-		APP.prev_state = APP.state;
-	}
-
-	// XInput
-	app_xinput(window);
-
-	// Tray retry in case of failure
-	app_tray_retry(window);
-
-	// Poll messages belonging to the current (main) thread
-	for (MSG msg; PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);) {
-		TranslateMessage(&msg);
-		DispatchMessage(&msg);
-	}
-}
-
 
 // Clipboard
 
@@ -1835,7 +1810,36 @@ void MTY_AppDestroy(void)
 
 void MTY_AppRun(MTY_AppFunc func, const void *opaque)
 {
-	while (func((void *) opaque));
+	for (bool cont = true; cont;) {
+		struct window *window = app_get_main_window();
+		if (!window)
+			return;
+
+		// Keyboard, mouse state changes
+		if (APP.prev_state != APP.state) {
+			bool focus = MTY_AppIsActive();
+			app_apply_clip(focus);
+			app_apply_cursor(focus);
+			app_apply_mouse_ri(focus);
+			app_apply_keyboard_state(focus);
+
+			APP.prev_state = APP.state;
+		}
+
+		// XInput
+		app_xinput(window);
+
+		// Tray retry in case of failure
+		app_tray_retry(window);
+
+		// Poll messages belonging to the current (main) thread
+		for (MSG msg; PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);) {
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+
+		cont = func((void *) opaque);
+	}
 }
 
 void MTY_AppDetach(MTY_Detach type)
@@ -2200,6 +2204,15 @@ void MTY_WindowWarpCursor(MTY_Window window, uint32_t x, uint32_t y)
 		SetCursorPos(p.x, p.y);
 
 	MTY_AppSetRelativeMouse(false);
+}
+
+bool MTY_WindowIsVisible(MTY_Window window)
+{
+	struct window *ctx = app_get_window(window);
+	if (!ctx)
+		return false;
+
+	return app_hwnd_visible(ctx->hwnd);
 }
 
 bool MTY_WindowIsActive(MTY_Window window)

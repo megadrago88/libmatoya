@@ -1222,7 +1222,6 @@ typedef struct {
 } MTY_WindowDesc;
 
 typedef void (*MTY_MsgFunc)(const MTY_Msg *wmsg, void *opaque);
-typedef bool (*MTY_AppFunc)(void *opaque);
 
 MTY_EXPORT MTY_Window
 MTY_WindowCreate(const char *title, const MTY_WindowDesc *desc, MTY_MsgFunc func, const void *opaque);
@@ -1241,6 +1240,9 @@ MTY_WindowGetScale(MTY_Window window);
 
 MTY_EXPORT void
 MTY_WindowSetTitle(MTY_Window window, const char *title);
+
+MTY_EXPORT bool
+MTY_WindowIsVisible(MTY_Window window);
 
 MTY_EXPORT bool
 MTY_WindowIsActive(MTY_Window window);
@@ -1310,6 +1312,8 @@ typedef struct {
 	bool (*checked)(void *opaque);
 } MTY_MenuItem;
 
+typedef bool (*MTY_AppFunc)(void *opaque);
+
 MTY_EXPORT void
 MTY_AppDestroy(void);
 
@@ -1318,9 +1322,6 @@ MTY_AppCreate(void);
 
 MTY_EXPORT void
 MTY_AppRun(MTY_AppFunc func, const void *opaque);
-
-MTY_EXPORT void
-MTY_AppPoll(void);
 
 MTY_EXPORT bool
 MTY_AppIsActive(void);
