@@ -13,9 +13,9 @@
 #include <windowsx.h>
 #include <shellapi.h>
 #include <shellscalingapi.h>
-#include <xinput.h>
 
 #include "mty-tls.h"
+#include "hid-xinput.h"
 #include "hid.h"
 
 #include "gfx/mod-ctx.h"
@@ -26,23 +26,6 @@ GFX_CTX_DECLARE_TABLE()
 
 #define WINDOW_CLASS_NAME L"MTY_Window"
 #define WINDOW_RI_MAX     (32 * 1024)
-
-typedef struct {
-	WORD vid;
-	WORD pid;
-	uint8_t _pad[64];
-} XINPUT_BASE_BUS_INFORMATION;
-
-struct gp {
-	RID_DEVICE_INFO di;
-	PHIDP_PREPARSED_DATA ppd;
-	HIDP_CAPS caps;
-	HIDP_BUTTON_CAPS *bcaps;
-	HIDP_VALUE_CAPS *vcaps;
-	uint32_t id;
-	wchar_t *name;
-	bool xinput;
-};
 
 struct window {
 	MTY_Window window;
@@ -72,7 +55,6 @@ struct app {
 	HICON cursor;
 	HICON custom_cursor;
 	HINSTANCE instance;
-	HMODULE xinput1_4;
 	HHOOK kbhook;
 	HWND kbhwnd;
 	bool pen_active;
@@ -85,22 +67,15 @@ struct app {
 	bool filter_move;
 	uint64_t prev_state;
 	uint64_t state;
-	uint32_t gp_id;
 	int32_t last_x;
 	int32_t last_y;
 	MTY_Detach detach;
 	MTY_Hash *hotkey;
 	MTY_Hash *ghotkey;
-	MTY_Hash *gp;
+	MTY_Hash *hid;
 
 	struct window *windows[MTY_WINDOW_MAX];
-
-	struct xip {
-		bool disabled;
-		bool was_enabled;
-		DWORD packet;
-		XINPUT_BASE_BUS_INFORMATION bbi;
-	} xinput[4];
+	struct xip xinput[4];
 
 	struct {
 		HMENU menu;
@@ -120,13 +95,6 @@ struct app {
 static HRESULT (WINAPI *_GetDpiForMonitor)(HMONITOR hmonitor, MONITOR_DPI_TYPE dpiType, UINT *dpiX, UINT *dpiY);
 static BOOL (WINAPI *_GetPointerType)(UINT32 pointerId, POINTER_INPUT_TYPE *pointerType);
 static BOOL (WINAPI *_GetPointerPenInfo)(UINT32 pointerId, POINTER_PEN_INFO *penInfo);
-
-
-// XInput Weak Linking
-
-static DWORD (WINAPI *_XInputGetState)(DWORD dwUserIndex, XINPUT_STATE *pState) = XInputGetState;
-static DWORD (WINAPI *_XInputSetState)(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration) = XInputSetState;
-static DWORD (WINAPI *_XInputGetBaseBusInformation)(DWORD dwUserIndex, XINPUT_BASE_BUS_INFORMATION *pBusInformation);
 
 
 // App Static Helpers
@@ -330,527 +298,6 @@ void MTY_AppRemoveHotkeys(MTY_Hotkey mode)
 	} else if (mode == MTY_HOTKEY_LOCAL) {
 		MTY_HashDestroy(&APP.hotkey, NULL);
 		APP.hotkey = MTY_HashCreate(0);
-	}
-}
-
-
-// XInput
-
-static void app_xinput_refresh(void)
-{
-	for (uint8_t x = 0; x < 4; x++)
-		APP.xinput[x].disabled = false;
-}
-
-void MTY_AppControllerRumble(uint32_t id, uint16_t low, uint16_t high)
-{
-	if (id >= 4)
-		return;
-
-	if (!APP.xinput[id].disabled) {
-		XINPUT_VIBRATION vb = {0};
-		vb.wLeftMotorSpeed = low;
-		vb.wRightMotorSpeed = high;
-
-		_XInputSetState(id, &vb);
-	}
-}
-
-static void app_xinput_to_mty(const XINPUT_STATE *xstate, MTY_Msg *wmsg)
-{
-	WORD b = xstate->Gamepad.wButtons;
-	MTY_Controller *c = &wmsg->controller;
-
-	c->buttons[MTY_CBUTTON_A] = b & XINPUT_GAMEPAD_A;
-	c->buttons[MTY_CBUTTON_B] = b & XINPUT_GAMEPAD_B;
-	c->buttons[MTY_CBUTTON_X] = b & XINPUT_GAMEPAD_X;
-	c->buttons[MTY_CBUTTON_Y] = b & XINPUT_GAMEPAD_Y;
-	c->buttons[MTY_CBUTTON_LEFT_SHOULDER] = b & XINPUT_GAMEPAD_LEFT_SHOULDER;
-	c->buttons[MTY_CBUTTON_RIGHT_SHOULDER] = b & XINPUT_GAMEPAD_RIGHT_SHOULDER;
-	c->buttons[MTY_CBUTTON_BACK] = b & XINPUT_GAMEPAD_BACK;
-	c->buttons[MTY_CBUTTON_START] = b & XINPUT_GAMEPAD_START;
-	c->buttons[MTY_CBUTTON_LEFT_THUMB] = b & XINPUT_GAMEPAD_LEFT_THUMB;
-	c->buttons[MTY_CBUTTON_RIGHT_THUMB] = b & XINPUT_GAMEPAD_RIGHT_THUMB;
-	c->buttons[MTY_CBUTTON_DPAD_UP] = b & XINPUT_GAMEPAD_DPAD_UP;
-	c->buttons[MTY_CBUTTON_DPAD_DOWN] = b & XINPUT_GAMEPAD_DPAD_DOWN;
-	c->buttons[MTY_CBUTTON_DPAD_LEFT] = b & XINPUT_GAMEPAD_DPAD_LEFT;
-	c->buttons[MTY_CBUTTON_DPAD_RIGHT] = b & XINPUT_GAMEPAD_DPAD_RIGHT;
-
-	c->values[MTY_CVALUE_THUMB_LX].data = xstate->Gamepad.sThumbLX;
-	c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
-	c->values[MTY_CVALUE_THUMB_LX].min = INT16_MIN;
-	c->values[MTY_CVALUE_THUMB_LX].max = INT16_MAX;
-
-	c->values[MTY_CVALUE_THUMB_LY].data = xstate->Gamepad.sThumbLY;
-	c->values[MTY_CVALUE_THUMB_LY].usage = 0x31;
-	c->values[MTY_CVALUE_THUMB_LY].min = INT16_MIN;
-	c->values[MTY_CVALUE_THUMB_LY].max = INT16_MAX;
-
-	c->values[MTY_CVALUE_THUMB_RX].data = xstate->Gamepad.sThumbRX;
-	c->values[MTY_CVALUE_THUMB_RX].usage = 0x32;
-	c->values[MTY_CVALUE_THUMB_RX].min = INT16_MIN;
-	c->values[MTY_CVALUE_THUMB_RX].max = INT16_MAX;
-
-	c->values[MTY_CVALUE_THUMB_RY].data = xstate->Gamepad.sThumbRY;
-	c->values[MTY_CVALUE_THUMB_RY].usage = 0x35;
-	c->values[MTY_CVALUE_THUMB_RY].min = INT16_MIN;
-	c->values[MTY_CVALUE_THUMB_RY].max = INT16_MAX;
-
-	c->values[MTY_CVALUE_TRIGGER_L].data = xstate->Gamepad.bLeftTrigger;
-	c->values[MTY_CVALUE_TRIGGER_L].usage = 0x33;
-	c->values[MTY_CVALUE_TRIGGER_L].min = 0;
-	c->values[MTY_CVALUE_TRIGGER_L].max = UINT8_MAX;
-
-	c->values[MTY_CVALUE_TRIGGER_R].data = xstate->Gamepad.bRightTrigger;
-	c->values[MTY_CVALUE_TRIGGER_R].usage = 0x34;
-	c->values[MTY_CVALUE_TRIGGER_R].min = 0;
-	c->values[MTY_CVALUE_TRIGGER_R].max = UINT8_MAX;
-}
-
-static void app_xinput(struct window *window)
-{
-	for (uint8_t x = 0; x < 4; x++) {
-		struct xip *xip = &APP.xinput[x];
-
-		if (!xip->disabled) {
-			MTY_Msg wmsg = {0};
-			wmsg.window = window->window;
-			wmsg.controller.api = MTY_CONTROLLER_API_XINPUT;
-			wmsg.controller.numButtons = 14;
-			wmsg.controller.numValues = 6;
-			wmsg.controller.id = x;
-
-			XINPUT_STATE xstate;
-			if (_XInputGetState(x, &xstate) == ERROR_SUCCESS) {
-				if (!xip->was_enabled) {
-					xip->bbi.vid = 0x045E;
-					xip->bbi.pid = 0x0000;
-
-					if (_XInputGetBaseBusInformation)
-						_XInputGetBaseBusInformation(x, &xip->bbi);
-
-					xip->was_enabled = true;
-				}
-
-				if (xstate.dwPacketNumber != xip->packet) {
-					wmsg.type = MTY_WINDOW_MSG_CONTROLLER;
-					wmsg.controller.vid = xip->bbi.vid;
-					wmsg.controller.pid = xip->bbi.pid;
-
-					app_xinput_to_mty(&xstate, &wmsg);
-					window->func(&wmsg, (void *) window->opaque);
-
-					xip->packet = xstate.dwPacketNumber;
-				}
-			} else {
-				xip->disabled = true;
-
-				if (xip->was_enabled) {
-					wmsg.type = MTY_WINDOW_MSG_DISCONNECT;
-					window->func(&wmsg, (void *) window->opaque);
-
-					xip->was_enabled = false;
-				}
-			}
-		}
-	}
-}
-
-
-// HID
-
-static void app_ri_gp_destroy(void *opaque)
-{
-	if (!opaque)
-		return;
-
-	struct gp *ctx = opaque;
-
-	MTY_Free(ctx->bcaps);
-	MTY_Free(ctx->vcaps);
-	MTY_Free(ctx->ppd);
-	MTY_Free(ctx->name);
-	MTY_Free(ctx);
-}
-
-static struct gp *app_ri_gp_create(HANDLE device)
-{
-	struct gp *ctx = MTY_Alloc(1, sizeof(struct gp));
-
-	bool r = true;
-
-	UINT size = 0;
-	UINT e = GetRawInputDeviceInfo(device, RIDI_PREPARSEDDATA, NULL, &size);
-	if (e != 0) {
-		r = false;
-		MTY_Log("'GetRawInputDeviceInfo' failed with error 0x%X", GetLastError());
-		goto except;
-	}
-
-	ctx->ppd = MTY_Alloc(size, 1);
-	e = GetRawInputDeviceInfo(device, RIDI_PREPARSEDDATA, ctx->ppd, &size);
-	if (e == 0xFFFFFFFF || e == 0) {
-		r = false;
-		MTY_Log("'GetRawInputDeviceInfo' failed with error 0x%X", GetLastError());
-		goto except;
-	}
-
-	NTSTATUS ne = HidP_GetCaps(ctx->ppd, &ctx->caps);
-	if (ne != HIDP_STATUS_SUCCESS) {
-		r = false;
-		MTY_Log("'HidP_GetCaps' failed with NTSTATUS 0x%X", ne);
-		goto except;
-	}
-
-	ctx->bcaps = MTY_Alloc(ctx->caps.NumberInputButtonCaps, sizeof(HIDP_BUTTON_CAPS));
-	ne = HidP_GetButtonCaps(HidP_Input, ctx->bcaps, &ctx->caps.NumberInputButtonCaps, ctx->ppd);
-	if (ne != HIDP_STATUS_SUCCESS) {
-		r = false;
-		MTY_Log("'HidP_GetButtonCaps' failed with NTSTATUS 0x%X", ne);
-		goto except;
-	}
-
-	ctx->vcaps = MTY_Alloc(ctx->caps.NumberInputValueCaps, sizeof(HIDP_VALUE_CAPS));
-	ne = HidP_GetValueCaps(HidP_Input, ctx->vcaps, &ctx->caps.NumberInputValueCaps, ctx->ppd);
-	if (ne != HIDP_STATUS_SUCCESS) {
-		r = false;
-		MTY_Log("'HidP_GetValueCaps' failed with NTSTATUS 0x%X", ne);
-		goto except;
-	}
-
-	ctx->di.cbSize = size = sizeof(RID_DEVICE_INFO);
-	e = GetRawInputDeviceInfo(device, RIDI_DEVICEINFO, &ctx->di, &size);
-	if (e == 0xFFFFFFFF || e == 0) {
-		r = false;
-		MTY_Log("'GetRawInputDeviceInfo' failed with error 0x%X", GetLastError());
-		goto except;
-	}
-
-	size = 0;
-	e = GetRawInputDeviceInfo(device, RIDI_DEVICENAME, NULL, &size);
-	if (e != 0) {
-		r = false;
-		MTY_Log("'GetRawInputDeviceInfo' failed with error 0x%X", GetLastError());
-		goto except;
-	}
-
-	ctx->name = MTY_Alloc(size, sizeof(wchar_t));
-	e = GetRawInputDeviceInfo(device, RIDI_DEVICENAME, ctx->name, &size);
-	if (e == 0xFFFFFFFF) {
-		r = false;
-		MTY_Log("'GetRawInputDeviceInfo' failed with error 0x%X", GetLastError());
-		goto except;
-	}
-
-	ctx->xinput = wcsstr(ctx->name, L"IG_") ? true : false;
-	ctx->id = APP.gp_id++;
-
-	except:
-
-	if (!r) {
-		app_ri_gp_destroy(ctx);
-		ctx = NULL;
-	}
-
-	return ctx;
-}
-
-static void app_ri_write(wchar_t *name, void *buf, DWORD size)
-{
-	OVERLAPPED ov = {0};
-	ov.hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
-
-	HANDLE device = CreateFile(name, GENERIC_WRITE | GENERIC_READ,
-		FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
-		FILE_FLAG_OVERLAPPED, NULL);
-
-	if (!device) {
-		MTY_Log("'CreateFile' failed with error 0x%X", GetLastError());
-		goto except;
-	}
-
-	if (!WriteFile(device, buf, size, NULL, &ov)) {
-		DWORD e = GetLastError();
-		if (e != ERROR_IO_PENDING) {
-			MTY_Log("'WriteFile' failed with error 0x%X", e);
-			goto except;
-		}
-	}
-
-	if (WaitForSingleObject(ov.hEvent, 1000) == WAIT_OBJECT_0) {
-		DWORD written = 0;
-		GetOverlappedResult(device, &ov, &written, FALSE);
-	}
-
-	except:
-
-	if (ov.hEvent)
-		CloseHandle(ov.hEvent);
-
-	if (device)
-		CloseHandle(device);
-}
-
-static void app_gp_set_dpad(bool up, bool right, bool down, bool left, MTY_Controller *c)
-{
-	c->buttons[MTY_CBUTTON_DPAD_UP] = up;
-	c->buttons[MTY_CBUTTON_DPAD_RIGHT] = right;
-	c->buttons[MTY_CBUTTON_DPAD_DOWN] = down;
-	c->buttons[MTY_CBUTTON_DPAD_LEFT] = left;
-}
-
-static void app_gp_fit_to_s16(MTY_Controller *c, uint8_t i, bool invert)
-{
-	float v = (float) c->values[i].data - (float) c->values[i].min;
-	float max = (float) c->values[i].max - (float) c->values[i].min;
-
-	int32_t d = lrint((v / max) * (float) UINT16_MAX);
-	c->values[i].data = (int16_t) (invert ? -(d - INT16_MAX) : (d - INT16_MAX - 1));
-	c->values[i].min = INT16_MIN;
-	c->values[i].max = INT16_MAX;
-}
-
-static void app_gp_fit_to_u8(MTY_Controller *c, uint8_t i)
-{
-	float v = (float) c->values[i].data - (float) c->values[i].min;
-	float max = (float) c->values[i].max - (float) c->values[i].min;
-
-	int32_t d = lrint((v / max) * (float) UINT8_MAX);
-	c->values[i].data = (int16_t) d;
-	c->values[i].min = 0;
-	c->values[i].max = UINT8_MAX;
-}
-
-MTY_Controller MTY_AppControllerMap(const MTY_Controller *c)
-{
-	if (c->api == MTY_CONTROLLER_API_XINPUT)
-		return *c;
-
-	MTY_Controller m = {0};
-	m.api = c->api;
-	m.id = c->id;
-	m.vid = c->vid;
-	m.pid = c->pid;
-	m.numButtons = 14;
-	m.numValues = 6;
-
-	// Values
-	bool have_lt = false;
-	bool have_rt = false;
-
-	for (uint8_t x = 0; x < c->numValues; x++) {
-		switch (c->values[x].usage) {
-			case 0x30: // X -> Left Stick X
-				m.values[MTY_CVALUE_THUMB_LX] = c->values[x];
-				app_gp_fit_to_s16(&m, MTY_CVALUE_THUMB_LX, false);
-				break;
-			case 0x31: // Y -> Left Stick Y
-				m.values[MTY_CVALUE_THUMB_LY] = c->values[x];
-				app_gp_fit_to_s16(&m, MTY_CVALUE_THUMB_LY, true);
-				break;
-			case 0x32: // Z -> Right Stick X
-				m.values[MTY_CVALUE_THUMB_RX] = c->values[x];
-				app_gp_fit_to_s16(&m, MTY_CVALUE_THUMB_RX, false);
-				break;
-			case 0x35: // Rz -> Right Stick Y
-				m.values[MTY_CVALUE_THUMB_RY] = c->values[x];
-				app_gp_fit_to_s16(&m, MTY_CVALUE_THUMB_RY, true);
-				break;
-			case 0x33: // Rx -> Left Trigger
-				m.values[MTY_CVALUE_TRIGGER_L] = c->values[x];
-				app_gp_fit_to_u8(&m, MTY_CVALUE_TRIGGER_L);
-				have_lt = true;
-				break;
-			case 0x34: // Ry -> Right Trigger
-				m.values[MTY_CVALUE_TRIGGER_R] = c->values[x];
-				app_gp_fit_to_u8(&m, MTY_CVALUE_TRIGGER_R);
-				have_rt = true;
-				break;
-			case 0x39: // Hat -> DPAD
-				switch (c->values[x].data) {
-					case 0: app_gp_set_dpad(1, 0, 0, 0, &m); break;
-					case 1: app_gp_set_dpad(1, 1, 0, 0, &m); break;
-					case 2: app_gp_set_dpad(0, 1, 0, 0, &m); break;
-					case 3: app_gp_set_dpad(0, 1, 1, 0, &m); break;
-					case 4: app_gp_set_dpad(0, 0, 1, 0, &m); break;
-					case 5: app_gp_set_dpad(0, 0, 1, 1, &m); break;
-					case 6: app_gp_set_dpad(0, 0, 0, 1, &m); break;
-					case 7: app_gp_set_dpad(1, 0, 0, 1, &m); break;
-					case 8: app_gp_set_dpad(0, 0, 0, 0, &m); break;
-				}
-				break;
-		}
-	}
-
-	// Buttons
-	m.buttons[MTY_CBUTTON_X] = c->buttons[0];
-	m.buttons[MTY_CBUTTON_A] = c->buttons[1];
-	m.buttons[MTY_CBUTTON_B] = c->buttons[2];
-	m.buttons[MTY_CBUTTON_Y] = c->buttons[3];
-	m.buttons[MTY_CBUTTON_LEFT_SHOULDER] = c->buttons[4];
-	m.buttons[MTY_CBUTTON_RIGHT_SHOULDER] = c->buttons[5];
-	m.buttons[MTY_CBUTTON_BACK] = c->buttons[8];
-	m.buttons[MTY_CBUTTON_START] = c->buttons[9];
-	m.buttons[MTY_CBUTTON_LEFT_THUMB] = c->buttons[10];
-	m.buttons[MTY_CBUTTON_RIGHT_THUMB] = c->buttons[11];
-
-	// Buttons -> Values
-	if (!have_lt) {
-		m.values[MTY_CVALUE_TRIGGER_L].usage = 0x33;
-		m.values[MTY_CVALUE_TRIGGER_L].data = c->buttons[6] ? UINT8_MAX : 0;
-		m.values[MTY_CVALUE_TRIGGER_L].min = 0;
-		m.values[MTY_CVALUE_TRIGGER_L].max = INT16_MAX;
-	}
-
-	if (!have_rt) {
-		m.values[MTY_CVALUE_TRIGGER_R].usage = 0x34;
-		m.values[MTY_CVALUE_TRIGGER_R].data = c->buttons[7] ? UINT8_MAX : 0;
-		m.values[MTY_CVALUE_TRIGGER_R].min = 0;
-		m.values[MTY_CVALUE_TRIGGER_R].max = INT16_MAX;
-	}
-
-	return m;
-}
-
-static void app_ri_hid(struct gp *gp, void *data, ULONG dsize, MTY_Msg *wmsg)
-{
-	MTY_Controller *c = &wmsg->controller;
-
-	// Buttons
-	for (uint32_t x = 0; x < gp->caps.NumberInputButtonCaps; x++) {
-		const HIDP_BUTTON_CAPS *bcap = &gp->bcaps[x];
-
-		// Should we consider usages other than 0x09 (Button)?
-		if (bcap->UsagePage == 0x09) {
-			c->numButtons += (uint8_t) (bcap->Range.UsageMax - bcap->Range.UsageMin + 1);
-
-			ULONG n = MTY_CBUTTON_MAX;
-			USAGE usages[MTY_CBUTTON_MAX];
-			NTSTATUS e = HidP_GetUsages(HidP_Input, bcap->UsagePage, 0, usages, &n, gp->ppd, data, dsize);
-			if (e != HIDP_STATUS_SUCCESS && e != HIDP_STATUS_INCOMPATIBLE_REPORT_ID) {
-				MTY_Log("'HidP_GetUsages' failed with NTSTATUS 0x%X", e);
-				return;
-			}
-
-			if (e == HIDP_STATUS_SUCCESS) {
-				for (ULONG y = 0; y < n; y++) {
-					uint32_t i = usages[y] - bcap->Range.UsageMin;
-					if (i < MTY_CBUTTON_MAX)
-						c->buttons[i] = true;
-				}
-			}
-		}
-	}
-
-	// Values
-	for (uint32_t x = 0; x < gp->caps.NumberInputValueCaps && x < MTY_CVALUE_MAX; x++) {
-		const HIDP_VALUE_CAPS *vcap = &gp->vcaps[x];
-
-		ULONG value = 0;
-		NTSTATUS e = HidP_GetUsageValue(HidP_Input, vcap->UsagePage, 0, vcap->Range.UsageMin, &value, gp->ppd, data, dsize);
-		if (e != HIDP_STATUS_SUCCESS && e != HIDP_STATUS_INCOMPATIBLE_REPORT_ID) {
-			MTY_Log("'HidP_GetUsageValue' failed with NTSTATUS 0x%X", e);
-			return;
-		}
-
-		if (e == HIDP_STATUS_SUCCESS) {
-			c->values[x].usage = vcap->Range.UsageMin;
-			c->values[x].data = (int16_t) value;
-			c->values[x].min = (int16_t) vcap->LogicalMin;
-			c->values[x].max = (int16_t) vcap->LogicalMax;
-
-			c->numValues++;
-		}
-	}
-
-	wmsg->type = MTY_WINDOW_MSG_CONTROLLER;
-	c->api = MTY_CONTROLLER_API_HID;
-	c->vid = (uint16_t) gp->di.hid.dwVendorId;
-	c->pid = (uint16_t) gp->di.hid.dwProductId;
-	c->id = gp->id;
-}
-
-
-// Switch
-
-static void app_ri_switch(struct gp *gp, const void *data, ULONG dsize, MTY_Msg *wmsg)
-{
-	const uint8_t *d = data;
-
-	// Switch Handshake 0
-	if (d[0] == 0x81 && d[1] == 0x01 && d[2] == 0x00 && d[3] == 0x03) {
-		uint8_t reply[64] = {0x80, 0x02};
-		app_ri_write(gp->name, reply, 64);
-
-	// Switch Handshake 1
-	} else if (d[0] == 0x81 && d[1] == 0x02 && d[2] == 0x00 && d[3] == 0x00) {
-		uint8_t reply[64] = {0x80, 0x04};
-		app_ri_write(gp->name, reply, 64);
-
-	// State
-	} else if (d[0] == 0x30) {
-		wmsg->type = MTY_WINDOW_MSG_CONTROLLER;
-
-		MTY_Controller *c = &wmsg->controller;
-		c->api = MTY_CONTROLLER_API_SWITCH;
-		c->vid = (uint16_t) gp->di.hid.dwVendorId;
-		c->pid = (uint16_t) gp->di.hid.dwProductId;
-		c->id = gp->id;
-
-		// Buttons
-		c->buttons[0] = d[3] & 0x01;
-		c->buttons[1] = d[3] & 0x04;
-		c->buttons[2] = d[3] & 0x08;
-		c->buttons[3] = d[3] & 0x02;
-		c->buttons[4] = d[5] & 0x40;
-		c->buttons[5] = d[3] & 0x40;
-		c->buttons[6] = d[5] & 0x80;
-		c->buttons[7] = d[3] & 0x80;
-		c->buttons[8] = d[4] & 0x01;
-		c->buttons[9] = d[4] & 0x02;
-		c->buttons[10] = d[4] & 0x08;
-		c->buttons[11] = d[4] & 0x04;
-
-		// Axis
-		uint16_t lx = d[6] | ((d[7] & 0x0F) << 8);
-		uint16_t ly = (d[7] >> 4) | (d[8] << 4);
-		uint16_t rx = d[9] | ((d[10] & 0x0F) << 8);
-		uint16_t ry = (d[10] >> 4) | (d[11] << 4);
-
-		c->values[0].data = lx;
-		c->values[0].usage = 0x30;
-		c->values[0].min = 300;
-		c->values[0].max = 3800;
-
-		c->values[1].data = ly;
-		c->values[1].usage = 0x31;
-		c->values[1].min = 300;
-		c->values[1].max = 3800;
-
-		c->values[2].data = rx;
-		c->values[2].usage = 0x32;
-		c->values[2].min = 300;
-		c->values[2].max = 3800;
-
-		c->values[3].data = ry;
-		c->values[3].usage = 0x35;
-		c->values[3].min = 300;
-		c->values[3].max = 3800;
-
-		// DPAD
-		bool up = d[5] & 0x02;
-		bool down = d[5] & 0x01;
-		bool left = d[5] & 0x08;
-		bool right = d[5] & 0x04;
-
-		c->values[4].data = up ? 0 : (up && right) ? 1 : right ? 2 : (right && down) ? 3 :
-			down ? 4 : (down && left) ? 5 : left ? 6 : (left && up) ? 7 : 8;
-		c->values[4].usage = 0x39;
-		c->values[4].min = 0;
-		c->values[4].max = 7;
-
-		c->numButtons = 12;
-		c->numValues = 5;
 	}
 }
 
@@ -1473,36 +920,25 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				app_ri_relative_mouse(hwnd, ctx->ri, &wmsg);
 
 			} else if (header->dwType == RIM_TYPEHID) {
-				struct gp *gp = MTY_HashGetInt(APP.gp, (intptr_t) ctx->ri->header.hDevice);
-
-				// XInput is handled directly
-				if (gp && !gp->xinput) {
-
-					// Nintendo Switch Pro
-					if (gp->di.hid.dwVendorId == 0x057E && gp->di.hid.dwProductId == 0x2009) {
-						app_ri_switch(gp, ctx->ri->data.hid.bRawData, ctx->ri->data.hid.dwSizeHid, &wmsg);
-
-					// Default HID behavior
-					} else {
-						app_ri_hid(gp, ctx->ri->data.hid.bRawData, ctx->ri->data.hid.dwSizeHid, &wmsg);
-					}
-				}
+				struct hid *hid = MTY_HashGetInt(APP.hid, (intptr_t) ctx->ri->header.hDevice);
+				if (hid)
+					hid_state(hid, ctx->ri->data.hid.bRawData, ctx->ri->data.hid.dwSizeHid, &wmsg);
 			}
 			break;
 		case WM_INPUT_DEVICE_CHANGE:
 			if (wparam == GIDC_ARRIVAL) {
-				app_xinput_refresh();
+				hid_xinput_refresh(APP.xinput);
 
-				struct gp *gp = app_ri_gp_create((HANDLE) lparam);
-				if (gp)
-					app_ri_gp_destroy(MTY_HashSetInt(APP.gp, lparam, gp));
+				struct hid *hid = hid_create((HANDLE) lparam);
+				if (hid)
+					hid_destroy(MTY_HashSetInt(APP.hid, lparam, hid));
 
 			} else if (wparam == GIDC_REMOVAL) {
-				struct gp *gp = MTY_HashPopInt(APP.gp, lparam);
-				if (gp) {
+				struct hid *hid = MTY_HashPopInt(APP.hid, lparam);
+				if (hid) {
 					wmsg.type = MTY_WINDOW_MSG_DISCONNECT;
-					wmsg.controller.id = gp->id;
-					app_ri_gp_destroy(gp);
+					wmsg.controller.id = hid->id;
+					hid_destroy(hid);
 				}
 			}
 			break;
@@ -1721,10 +1157,9 @@ bool MTY_AppCreate(void)
 
 	bool r = true;
 
-	APP.gp_id = 32;
 	APP.hotkey = MTY_HashCreate(0);
 	APP.ghotkey = MTY_HashCreate(0);
-	APP.gp = MTY_HashCreate(0);
+	APP.hid = MTY_HashCreate(0);
 	APP.instance = GetModuleHandle(NULL);
 	if (!APP.instance) {
 		r = false;
@@ -1757,12 +1192,7 @@ bool MTY_AppCreate(void)
 	_GetPointerPenInfo = (void *) GetProcAddress(user32, "GetPointerPenInfo");
 	_GetPointerType = (void *) GetProcAddress(user32, "GetPointerType");
 
-	APP.xinput1_4 = LoadLibrary(L"xinput1_4.dll");
-	if (APP.xinput1_4) {
-		_XInputGetState = (void *) GetProcAddress(APP.xinput1_4, "XInputGetState");
-		_XInputSetState = (void *) GetProcAddress(APP.xinput1_4, "XInputSetState");
-		_XInputGetBaseBusInformation = (void *) GetProcAddress(APP.xinput1_4, (LPCSTR) 104);
-	}
+	hid_xinput_init();
 
 	APP.init = true;
 
@@ -1789,7 +1219,7 @@ void MTY_AppDestroy(void)
 
 	MTY_HashDestroy(&APP.hotkey, NULL);
 	MTY_HashDestroy(&APP.ghotkey, NULL);
-	MTY_HashDestroy(&APP.gp, app_ri_gp_destroy);
+	MTY_HashDestroy(&APP.hid, hid_destroy);
 
 	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
 		MTY_WindowDestroy(x);
@@ -1797,13 +1227,7 @@ void MTY_AppDestroy(void)
 	if (APP.instance && APP.class != 0)
 		UnregisterClass(WINDOW_CLASS_NAME, APP.instance);
 
-	if (APP.xinput1_4) {
-		FreeLibrary(APP.xinput1_4);
-
-		_XInputGetState = XInputGetState;
-		_XInputSetState = XInputSetState;
-		_XInputGetBaseBusInformation = NULL;
-	}
+	hid_xinput_destroy();
 
 	memset(&APP, 0, sizeof(struct app));
 }
@@ -1827,7 +1251,7 @@ void MTY_AppRun(MTY_AppFunc func, const void *opaque)
 		}
 
 		// XInput
-		app_xinput(window);
+		hid_xinput_state(APP.xinput, window->window, window->func, (void *) window->opaque);
 
 		// Tray retry in case of failure
 		app_tray_retry(window);
@@ -1931,6 +1355,16 @@ void MTY_AppActivate(bool active)
 		return;
 
 	app_hwnd_activate(hwnd, active);
+}
+
+void MTY_AppControllerRumble(uint32_t id, uint16_t low, uint16_t high)
+{
+	hid_xinput_rumble(APP.xinput, id, low, high);
+}
+
+MTY_Controller MTY_AppControllerMap(const MTY_Controller *c)
+{
+	return hid_default_map(c);
 }
 
 

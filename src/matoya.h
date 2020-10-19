@@ -1102,10 +1102,11 @@ typedef enum {
 } MTY_PenFlag;
 
 typedef enum {
-	MTY_CONTROLLER_API_XINPUT = 1,
-	MTY_CONTROLLER_API_HID    = 2,
-	MTY_CONTROLLER_API_SWITCH = 3,
-} MTY_ControllerAPI;
+	MTY_HID_DRIVER_DEFAULT = 1,
+	MTY_HID_DRIVER_XINPUT  = 2,
+	MTY_HID_DRIVER_SWITCH  = 3,
+	MTY_HID_DRIVER_PS4     = 4,
+} MTY_HIDDriver;
 
 typedef enum {
 	MTY_CBUTTON_A              = 0,
@@ -1145,7 +1146,6 @@ typedef struct {
 } MTY_Value;
 
 typedef struct {
-	MTY_ControllerAPI api;
 	uint32_t id;
 	uint16_t vid;
 	uint16_t pid;
@@ -1153,6 +1153,7 @@ typedef struct {
 	uint8_t numValues;
 	bool buttons[MTY_CBUTTON_MAX];
 	MTY_Value values[MTY_CVALUE_MAX];
+	MTY_HIDDriver driver;
 } MTY_Controller;
 
 typedef struct {

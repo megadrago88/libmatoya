@@ -6,6 +6,9 @@
 
 #pragma once
 
+
+// Windows HID Parser
+
 typedef USHORT USAGE;
 typedef USAGE *PUSAGE;
 typedef struct _HIDP_PREPARSED_DATA *PHIDP_PREPARSED_DATA;
@@ -154,3 +157,196 @@ NTSTATUS __stdcall HidP_GetUsages(HIDP_REPORT_TYPE ReportType, USAGE UsagePage, 
 	PUSAGE UsageList, PULONG UsageLength, PHIDP_PREPARSED_DATA PreparsedData, PCHAR Report, ULONG ReportLength);
 NTSTATUS __stdcall HidP_GetUsageValue(HIDP_REPORT_TYPE ReportType, USAGE UsagePage, USHORT LinkCollection,
 	USAGE Usage, PULONG UsageValue, PHIDP_PREPARSED_DATA PreparsedData, PCHAR Report, ULONG ReportLength);
+
+
+// State, Drivers
+
+struct hid {
+	RID_DEVICE_INFO di;
+	PHIDP_PREPARSED_DATA ppd;
+	HIDP_CAPS caps;
+	HIDP_BUTTON_CAPS *bcaps;
+	HIDP_VALUE_CAPS *vcaps;
+	MTY_HIDDriver driver;
+	wchar_t *name;
+	uint32_t id;
+};
+
+static uint32_t HID_ID = 32;
+
+
+// IO, Driver Detection
+
+static void hid_write(wchar_t *name, void *buf, DWORD size)
+{
+	OVERLAPPED ov = {0};
+	ov.hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+
+	HANDLE device = CreateFile(name, GENERIC_WRITE | GENERIC_READ,
+		FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
+		FILE_FLAG_OVERLAPPED, NULL);
+
+	if (!device) {
+		MTY_Log("'CreateFile' failed with error 0x%X", GetLastError());
+		goto except;
+	}
+
+	if (!WriteFile(device, buf, size, NULL, &ov)) {
+		DWORD e = GetLastError();
+		if (e != ERROR_IO_PENDING) {
+			MTY_Log("'WriteFile' failed with error 0x%X", e);
+			goto except;
+		}
+	}
+
+	if (WaitForSingleObject(ov.hEvent, 1000) == WAIT_OBJECT_0) {
+		DWORD written = 0;
+		GetOverlappedResult(device, &ov, &written, FALSE);
+	}
+
+	except:
+
+	if (ov.hEvent)
+		CloseHandle(ov.hEvent);
+
+	if (device)
+		CloseHandle(device);
+}
+
+static MTY_HIDDriver hid_get_driver(uint16_t vid, uint16_t pid)
+{
+	uint32_t id = ((uint32_t) vid << 16) | pid;
+
+	switch (id) {
+		// Switch
+		case 0x057E2009: return MTY_HID_DRIVER_SWITCH; // Switch Pro
+	}
+
+	return MTY_HID_DRIVER_DEFAULT;
+}
+
+
+// Public
+
+#include "hid-default.h"
+#include "hid-switch.h"
+#include "hid-ps4.h"
+
+static void hid_destroy(void *opaque)
+{
+	if (!opaque)
+		return;
+
+	struct hid *ctx = opaque;
+
+	MTY_Free(ctx->bcaps);
+	MTY_Free(ctx->vcaps);
+	MTY_Free(ctx->ppd);
+	MTY_Free(ctx->name);
+	MTY_Free(ctx);
+}
+
+static struct hid *hid_create(HANDLE device)
+{
+	struct hid *ctx = MTY_Alloc(1, sizeof(struct hid));
+
+	bool r = true;
+
+	UINT size = 0;
+	UINT e = GetRawInputDeviceInfo(device, RIDI_PREPARSEDDATA, NULL, &size);
+	if (e != 0) {
+		r = false;
+		MTY_Log("'GetRawInputDeviceInfo' failed with error 0x%X", GetLastError());
+		goto except;
+	}
+
+	ctx->ppd = MTY_Alloc(size, 1);
+	e = GetRawInputDeviceInfo(device, RIDI_PREPARSEDDATA, ctx->ppd, &size);
+	if (e == 0xFFFFFFFF || e == 0) {
+		r = false;
+		MTY_Log("'GetRawInputDeviceInfo' failed with error 0x%X", GetLastError());
+		goto except;
+	}
+
+	NTSTATUS ne = HidP_GetCaps(ctx->ppd, &ctx->caps);
+	if (ne != HIDP_STATUS_SUCCESS) {
+		r = false;
+		MTY_Log("'HidP_GetCaps' failed with NTSTATUS 0x%X", ne);
+		goto except;
+	}
+
+	ctx->bcaps = MTY_Alloc(ctx->caps.NumberInputButtonCaps, sizeof(HIDP_BUTTON_CAPS));
+	ne = HidP_GetButtonCaps(HidP_Input, ctx->bcaps, &ctx->caps.NumberInputButtonCaps, ctx->ppd);
+	if (ne != HIDP_STATUS_SUCCESS) {
+		r = false;
+		MTY_Log("'HidP_GetButtonCaps' failed with NTSTATUS 0x%X", ne);
+		goto except;
+	}
+
+	ctx->vcaps = MTY_Alloc(ctx->caps.NumberInputValueCaps, sizeof(HIDP_VALUE_CAPS));
+	ne = HidP_GetValueCaps(HidP_Input, ctx->vcaps, &ctx->caps.NumberInputValueCaps, ctx->ppd);
+	if (ne != HIDP_STATUS_SUCCESS) {
+		r = false;
+		MTY_Log("'HidP_GetValueCaps' failed with NTSTATUS 0x%X", ne);
+		goto except;
+	}
+
+	ctx->di.cbSize = size = sizeof(RID_DEVICE_INFO);
+	e = GetRawInputDeviceInfo(device, RIDI_DEVICEINFO, &ctx->di, &size);
+	if (e == 0xFFFFFFFF || e == 0) {
+		r = false;
+		MTY_Log("'GetRawInputDeviceInfo' failed with error 0x%X", GetLastError());
+		goto except;
+	}
+
+	size = 0;
+	e = GetRawInputDeviceInfo(device, RIDI_DEVICENAME, NULL, &size);
+	if (e != 0) {
+		r = false;
+		MTY_Log("'GetRawInputDeviceInfo' failed with error 0x%X", GetLastError());
+		goto except;
+	}
+
+	ctx->name = MTY_Alloc(size, sizeof(wchar_t));
+	e = GetRawInputDeviceInfo(device, RIDI_DEVICENAME, ctx->name, &size);
+	if (e == 0xFFFFFFFF) {
+		r = false;
+		MTY_Log("'GetRawInputDeviceInfo' failed with error 0x%X", GetLastError());
+		goto except;
+	}
+
+	ctx->driver = wcsstr(ctx->name, L"IG_") ? MTY_HID_DRIVER_XINPUT :
+		hid_get_driver((uint16_t) ctx->di.hid.dwVendorId, (uint16_t) ctx->di.hid.dwProductId);
+	ctx->id = HID_ID++;
+
+	except:
+
+	if (!r) {
+		hid_destroy(ctx);
+		ctx = NULL;
+	}
+
+	return ctx;
+}
+
+
+// State Reports
+
+static void hid_state(struct hid *hid, void *data, ULONG dsize, MTY_Msg *wmsg)
+{
+	switch (hid->driver) {
+		case MTY_HID_DRIVER_SWITCH:
+			hid_switch_state(hid, data, dsize, wmsg);
+			break;
+		case MTY_HID_DRIVER_PS4:
+			hid_ps4_state(hid, data, dsize, wmsg);
+			break;
+		case MTY_HID_DRIVER_DEFAULT:
+			hid_default_state(hid, data, dsize, wmsg);
+			break;
+
+		// On Windows, XInput is handled by the canonical XInput API
+		case MTY_HID_DRIVER_XINPUT:
+			break;
+	}
+}
