@@ -6,6 +6,8 @@
 
 #pragma once
 
+#define MTY_HID_DRIVER_STATE_MAX 1024
+
 
 // Windows HID Parser
 
@@ -159,22 +161,6 @@ NTSTATUS __stdcall HidP_GetUsageValue(HIDP_REPORT_TYPE ReportType, USAGE UsagePa
 	USAGE Usage, PULONG UsageValue, PHIDP_PREPARSED_DATA PreparsedData, PCHAR Report, ULONG ReportLength);
 
 
-// State, Drivers
-
-struct hid {
-	RID_DEVICE_INFO di;
-	PHIDP_PREPARSED_DATA ppd;
-	HIDP_CAPS caps;
-	HIDP_BUTTON_CAPS *bcaps;
-	HIDP_VALUE_CAPS *vcaps;
-	MTY_HIDDriver driver;
-	wchar_t *name;
-	uint32_t id;
-};
-
-static uint32_t HID_ID = 32;
-
-
 // IO
 
 static void hid_write(wchar_t *name, void *buf, DWORD size)
@@ -216,9 +202,23 @@ static void hid_write(wchar_t *name, void *buf, DWORD size)
 
 // Drivers
 
+struct hid {
+	RID_DEVICE_INFO di;
+	PHIDP_PREPARSED_DATA ppd;
+	HIDP_CAPS caps;
+	HIDP_BUTTON_CAPS *bcaps;
+	HIDP_VALUE_CAPS *vcaps;
+	MTY_HIDDriver driver;
+	void *driver_state;
+	wchar_t *name;
+	uint32_t id;
+};
+
 #include "hid-default.h"
 #include "hid-switch.h"
 #include "hid-ps4.h"
+
+static uint32_t HID_ID = 32;
 
 static MTY_HIDDriver hid_get_driver(uint16_t vid, uint16_t pid)
 {
@@ -288,7 +288,7 @@ static void hid_init(struct hid *hid)
 {
 	switch (hid->driver) {
 		case MTY_HID_DRIVER_SWITCH:
-			hid_switch_init(hid);
+			hid_nx_init(hid);
 			break;
 	}
 }
@@ -297,7 +297,7 @@ static void hid_state(struct hid *hid, void *data, ULONG dsize, MTY_Msg *wmsg)
 {
 	switch (hid->driver) {
 		case MTY_HID_DRIVER_SWITCH:
-			hid_switch_state(hid, data, dsize, wmsg);
+			hid_nx_state(hid, data, dsize, wmsg);
 			break;
 		case MTY_HID_DRIVER_PS4:
 			hid_ps4_state(hid, data, dsize, wmsg);
@@ -326,6 +326,7 @@ static void hid_destroy(void *opaque)
 	MTY_Free(ctx->vcaps);
 	MTY_Free(ctx->ppd);
 	MTY_Free(ctx->name);
+	MTY_Free(ctx->driver_state);
 	MTY_Free(ctx);
 }
 
@@ -400,6 +401,7 @@ static struct hid *hid_create(HANDLE device)
 
 	ctx->driver = wcsstr(ctx->name, L"IG_") ? MTY_HID_DRIVER_XINPUT :
 		hid_get_driver((uint16_t) ctx->di.hid.dwVendorId, (uint16_t) ctx->di.hid.dwProductId);
+	ctx->driver_state = MTY_Alloc(MTY_HID_DRIVER_STATE_MAX, 1);
 	ctx->id = HID_ID++;
 
 	hid_init(ctx);
