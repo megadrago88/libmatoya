@@ -227,16 +227,18 @@ static MTY_HIDDriver hid_get_driver(uint16_t vid, uint16_t pid)
 	switch (id) {
 		// Switch
 		case 0x057E2009: // Nintendo Switch Pro
+		case 0x057E2006: // Nintendo Switch Joycon
+		case 0x057E2007: // Nintendo Switch Joycon
 		case 0x057E2017: // Nintendo Switch SNES Controller
-		case 0x0F0D00C1: // HORIPAD for Nintendo Switch
-		case 0x0F0D0092: // HORI Pokken Tournament DX Pro Pad
+		// case 0x0F0D00C1: // HORIPAD for Nintendo Switch
+		// case 0x0F0D0092: // HORI Pokken Tournament DX Pro Pad
 		case 0x0F0D00F6: // HORI Wireless Switch Pad
-		case 0x0E6F0185: // PDP Wired Fight Pad Pro for Nintendo Switch
-		case 0x0E6F0180: // PDP Faceoff Wired Pro Controller for Nintendo Switch
-		case 0x0E6F0181: // PDP Faceoff Deluxe Wired Pro Controller for Nintendo Switch
-		case 0x20D6A711: // PowerA Wired Controller Plus/PowerA Wired Controller Nintendo GameCube Style
-		case 0x20D6A712: // PowerA - Fusion Fight Pad
-		case 0x20D6A713: // PowerA - Super Mario Controller
+		// case 0x0E6F0185: // PDP Wired Fight Pad Pro for Nintendo Switch
+		// case 0x0E6F0180: // PDP Faceoff Wired Pro Controller for Nintendo Switch
+		// case 0x0E6F0181: // PDP Faceoff Deluxe Wired Pro Controller for Nintendo Switch
+		// case 0x20D6A711: // PowerA Wired Controller Plus/PowerA Wired Controller Nintendo GameCube Style
+		// case 0x20D6A712: // PowerA - Fusion Fight Pad
+		// case 0x20D6A713: // PowerA - Super Mario Controller
 			return MTY_HID_DRIVER_SWITCH;
 
 		// PS4

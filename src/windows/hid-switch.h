@@ -23,7 +23,7 @@ static void hid_switch_state(struct hid *hid, const void *data, ULONG dsize, MTY
 		uint8_t reply[HID_SWITCH_OUTPUT_MAX] = {0x80, 0x04};
 		hid_write(hid->name, reply, HID_SWITCH_OUTPUT_MAX);
 
-	// State
+	// State (Full)
 	} else if (d[0] == 0x30) {
 		wmsg->type = MTY_WINDOW_MSG_CONTROLLER;
 
@@ -92,6 +92,38 @@ static void hid_switch_state(struct hid *hid, const void *data, ULONG dsize, MTY
 
 		c->values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
 			(down && left) ? 5 : (left && up) ? 7 : up ? 0 : right ? 2 : down ? 4 : left ? 6 : 8;
+		c->values[MTY_CVALUE_DPAD].usage = 0x39;
+		c->values[MTY_CVALUE_DPAD].min = 0;
+		c->values[MTY_CVALUE_DPAD].max = 7;
+
+	// State (Simple)
+	} else if (d[0] == 0x3F) {
+		wmsg->type = MTY_WINDOW_MSG_CONTROLLER;
+
+		MTY_Controller *c = &wmsg->controller;
+		c->vid = (uint16_t) hid->di.hid.dwVendorId;
+		c->pid = (uint16_t) hid->di.hid.dwProductId;
+		c->numValues = 7;
+		c->numButtons = 14;
+		c->driver = hid->driver;
+		c->id = hid->id;
+
+		c->buttons[MTY_CBUTTON_X] = d[1] & 0x01;
+		c->buttons[MTY_CBUTTON_A] = d[1] & 0x04;
+		c->buttons[MTY_CBUTTON_B] = d[1] & 0x08;
+		c->buttons[MTY_CBUTTON_Y] = d[1] & 0x02;
+		c->buttons[MTY_CBUTTON_LEFT_SHOULDER] = d[1] & 0x10;
+		c->buttons[MTY_CBUTTON_RIGHT_SHOULDER] = d[1] & 0x20;
+		c->buttons[MTY_CBUTTON_LEFT_TRIGGER] = false;
+		c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] = false;
+		c->buttons[MTY_CBUTTON_BACK] = (d[2] & 0x01) || (d[2] & 0x10);  // Minus || Home
+		c->buttons[MTY_CBUTTON_START] = (d[2] & 0x02) || (d[2] & 0x20); // Home || Capture
+		c->buttons[MTY_CBUTTON_LEFT_THUMB] = (d[2] & 0x04) || (d[2] & 0x08); // Left Stick || Right Stick
+		c->buttons[MTY_CBUTTON_RIGHT_THUMB] = false;
+		c->buttons[MTY_CBUTTON_GUIDE] = false;
+		c->buttons[MTY_CBUTTON_TOUCHPAD] = false;
+
+		c->values[MTY_CVALUE_DPAD].data = d[3];
 		c->values[MTY_CVALUE_DPAD].usage = 0x39;
 		c->values[MTY_CVALUE_DPAD].min = 0;
 		c->values[MTY_CVALUE_DPAD].max = 7;
