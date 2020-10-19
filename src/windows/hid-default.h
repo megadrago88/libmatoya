@@ -67,14 +67,6 @@ static void hid_default_state(struct hid *hid, void *data, ULONG dsize, MTY_Msg 
 
 // Default Map
 
-static void hid_set_dpad(bool up, bool right, bool down, bool left, MTY_Controller *c)
-{
-	c->buttons[MTY_CBUTTON_DPAD_UP] = up;
-	c->buttons[MTY_CBUTTON_DPAD_RIGHT] = right;
-	c->buttons[MTY_CBUTTON_DPAD_DOWN] = down;
-	c->buttons[MTY_CBUTTON_DPAD_LEFT] = left;
-}
-
 static void hid_fit_to_s16(MTY_Controller *c, uint8_t i, bool invert)
 {
 	float v = (float) c->values[i].data - (float) c->values[i].min;
@@ -99,7 +91,7 @@ static void hid_fit_to_u8(MTY_Controller *c, uint8_t i)
 
 static MTY_Controller hid_default_map(const MTY_Controller *c)
 {
-	if (c->driver != MTY_HID_DRIVER_DEFAULT)
+	if (c->driver == MTY_HID_DRIVER_XINPUT)
 		return *c;
 
 	MTY_Controller m = {0};
@@ -143,44 +135,26 @@ static MTY_Controller hid_default_map(const MTY_Controller *c)
 				have_rt = true;
 				break;
 			case 0x39: // Hat -> DPAD
-				switch (c->values[x].data) {
-					case 0: hid_set_dpad(1, 0, 0, 0, &m); break;
-					case 1: hid_set_dpad(1, 1, 0, 0, &m); break;
-					case 2: hid_set_dpad(0, 1, 0, 0, &m); break;
-					case 3: hid_set_dpad(0, 1, 1, 0, &m); break;
-					case 4: hid_set_dpad(0, 0, 1, 0, &m); break;
-					case 5: hid_set_dpad(0, 0, 1, 1, &m); break;
-					case 6: hid_set_dpad(0, 0, 0, 1, &m); break;
-					case 7: hid_set_dpad(1, 0, 0, 1, &m); break;
-					case 8: hid_set_dpad(0, 0, 0, 0, &m); break;
-				}
+				m.values[MTY_CVALUE_DPAD] = c->values[x];
 				break;
 		}
 	}
 
 	// Buttons
-	m.buttons[MTY_CBUTTON_X] = c->buttons[0];
-	m.buttons[MTY_CBUTTON_A] = c->buttons[1];
-	m.buttons[MTY_CBUTTON_B] = c->buttons[2];
-	m.buttons[MTY_CBUTTON_Y] = c->buttons[3];
-	m.buttons[MTY_CBUTTON_LEFT_SHOULDER] = c->buttons[4];
-	m.buttons[MTY_CBUTTON_RIGHT_SHOULDER] = c->buttons[5];
-	m.buttons[MTY_CBUTTON_BACK] = c->buttons[8];
-	m.buttons[MTY_CBUTTON_START] = c->buttons[9];
-	m.buttons[MTY_CBUTTON_LEFT_THUMB] = c->buttons[10];
-	m.buttons[MTY_CBUTTON_RIGHT_THUMB] = c->buttons[11];
+	for (uint8_t x = 0; x < c->numButtons; x++)
+		m.buttons[x] = c->buttons[x];
 
 	// Buttons -> Values
 	if (!have_lt) {
 		m.values[MTY_CVALUE_TRIGGER_L].usage = 0x33;
-		m.values[MTY_CVALUE_TRIGGER_L].data = c->buttons[6] ? UINT8_MAX : 0;
+		m.values[MTY_CVALUE_TRIGGER_L].data = c->buttons[MTY_CBUTTON_LEFT_TRIGGER] ? UINT8_MAX : 0;
 		m.values[MTY_CVALUE_TRIGGER_L].min = 0;
 		m.values[MTY_CVALUE_TRIGGER_L].max = INT16_MAX;
 	}
 
 	if (!have_rt) {
 		m.values[MTY_CVALUE_TRIGGER_R].usage = 0x34;
-		m.values[MTY_CVALUE_TRIGGER_R].data = c->buttons[7] ? UINT8_MAX : 0;
+		m.values[MTY_CVALUE_TRIGGER_R].data = c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] ? UINT8_MAX : 0;
 		m.values[MTY_CVALUE_TRIGGER_R].min = 0;
 		m.values[MTY_CVALUE_TRIGGER_R].max = INT16_MAX;
 	}

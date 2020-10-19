@@ -76,8 +76,8 @@ static void hid_switch_state(struct hid *hid, const void *data, ULONG dsize, MTY
 		bool left = d[5] & 0x08;
 		bool right = d[5] & 0x04;
 
-		c->values[4].data = up ? 0 : (up && right) ? 1 : right ? 2 : (right && down) ? 3 :
-			down ? 4 : (down && left) ? 5 : left ? 6 : (left && up) ? 7 : 8;
+		c->values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
+			(down && left) ? 5 : (left && up) ? 7 : up ? 0 : right ? 2 : down ? 4 : left ? 6 : 8;
 		c->values[4].usage = 0x39;
 		c->values[4].min = 0;
 		c->values[4].max = 7;

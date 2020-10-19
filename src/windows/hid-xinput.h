@@ -47,18 +47,18 @@ static void hid_xinput_destroy(void)
 	}
 }
 
-static void hid_xinput_refresh(struct xip *xip)
+static void hid_xinput_refresh(struct xip *xips)
 {
 	for (uint8_t x = 0; x < 4; x++)
-		xip[x].disabled = false;
+		xips[x].disabled = false;
 }
 
-static void hid_xinput_rumble(struct xip *xip, uint32_t id, uint16_t low, uint16_t high)
+static void hid_xinput_rumble(struct xip *xips, uint32_t id, uint16_t low, uint16_t high)
 {
 	if (id >= 4)
 		return;
 
-	if (!xip[id].disabled) {
+	if (!xips[id].disabled) {
 		XINPUT_VIBRATION vb = {0};
 		vb.wLeftMotorSpeed = low;
 		vb.wRightMotorSpeed = high;
@@ -72,20 +72,18 @@ static void hid_xinput_to_mty(const XINPUT_STATE *xstate, MTY_Msg *wmsg)
 	WORD b = xstate->Gamepad.wButtons;
 	MTY_Controller *c = &wmsg->controller;
 
+	c->buttons[MTY_CBUTTON_X] = b & XINPUT_GAMEPAD_X;
 	c->buttons[MTY_CBUTTON_A] = b & XINPUT_GAMEPAD_A;
 	c->buttons[MTY_CBUTTON_B] = b & XINPUT_GAMEPAD_B;
-	c->buttons[MTY_CBUTTON_X] = b & XINPUT_GAMEPAD_X;
 	c->buttons[MTY_CBUTTON_Y] = b & XINPUT_GAMEPAD_Y;
 	c->buttons[MTY_CBUTTON_LEFT_SHOULDER] = b & XINPUT_GAMEPAD_LEFT_SHOULDER;
 	c->buttons[MTY_CBUTTON_RIGHT_SHOULDER] = b & XINPUT_GAMEPAD_RIGHT_SHOULDER;
+	c->buttons[MTY_CBUTTON_LEFT_TRIGGER] = xstate->Gamepad.bLeftTrigger > 0;
+	c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] = xstate->Gamepad.bRightTrigger > 0;
 	c->buttons[MTY_CBUTTON_BACK] = b & XINPUT_GAMEPAD_BACK;
 	c->buttons[MTY_CBUTTON_START] = b & XINPUT_GAMEPAD_START;
 	c->buttons[MTY_CBUTTON_LEFT_THUMB] = b & XINPUT_GAMEPAD_LEFT_THUMB;
 	c->buttons[MTY_CBUTTON_RIGHT_THUMB] = b & XINPUT_GAMEPAD_RIGHT_THUMB;
-	c->buttons[MTY_CBUTTON_DPAD_UP] = b & XINPUT_GAMEPAD_DPAD_UP;
-	c->buttons[MTY_CBUTTON_DPAD_DOWN] = b & XINPUT_GAMEPAD_DPAD_DOWN;
-	c->buttons[MTY_CBUTTON_DPAD_LEFT] = b & XINPUT_GAMEPAD_DPAD_LEFT;
-	c->buttons[MTY_CBUTTON_DPAD_RIGHT] = b & XINPUT_GAMEPAD_DPAD_RIGHT;
 
 	c->values[MTY_CVALUE_THUMB_LX].data = xstate->Gamepad.sThumbLX;
 	c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
@@ -116,17 +114,30 @@ static void hid_xinput_to_mty(const XINPUT_STATE *xstate, MTY_Msg *wmsg)
 	c->values[MTY_CVALUE_TRIGGER_R].usage = 0x34;
 	c->values[MTY_CVALUE_TRIGGER_R].min = 0;
 	c->values[MTY_CVALUE_TRIGGER_R].max = UINT8_MAX;
+
+	bool up = b & XINPUT_GAMEPAD_DPAD_UP;
+	bool down = b & XINPUT_GAMEPAD_DPAD_DOWN;
+	bool left = b & XINPUT_GAMEPAD_DPAD_LEFT;
+	bool right = b & XINPUT_GAMEPAD_DPAD_RIGHT;
+
+	c->values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
+		(down && left) ? 5 : (left && up) ? 7 : up ? 0 : right ? 2 : down ? 4 : left ? 6 : 8;
+	c->values[MTY_CVALUE_DPAD].usage = 0x39;
+	c->values[MTY_CVALUE_DPAD].min = 0;
+	c->values[MTY_CVALUE_DPAD].max = 7;
 }
 
-static void hid_xinput_state(struct xip *xip, MTY_Window window, MTY_MsgFunc func, void *opaque)
+static void hid_xinput_state(struct xip *xips, MTY_Window window, MTY_MsgFunc func, void *opaque)
 {
 	for (uint8_t x = 0; x < 4; x++) {
+		struct xip *xip = &xips[x];
+
 		if (!xip->disabled) {
 			MTY_Msg wmsg = {0};
 			wmsg.window = window;
 			wmsg.controller.driver = MTY_HID_DRIVER_XINPUT;
-			wmsg.controller.numButtons = 14;
-			wmsg.controller.numValues = 6;
+			wmsg.controller.numButtons = 12;
+			wmsg.controller.numValues = 7;
 			wmsg.controller.id = x;
 
 			XINPUT_STATE xstate;

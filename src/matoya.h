@@ -899,6 +899,12 @@ MTY_RevertTimerResolution(uint32_t res);
 #define MTY_TITLE_MAX   1024
 #define MTY_WINDOW_MAX  8
 
+#define MTY_DPAD(c)       ((c)->values[MTY_CVALUE_DPAD].data)
+#define MTY_DPAD_UP(c)    (MTY_DPAD(c) == 7 || MTY_DPAD(c) == 0 || MTY_DPAD(c) == 1)
+#define MTY_DPAD_RIGHT(c) (MTY_DPAD(c) == 1 || MTY_DPAD(c) == 2 || MTY_DPAD(c) == 3)
+#define MTY_DPAD_DOWN(c)  (MTY_DPAD(c) == 3 || MTY_DPAD(c) == 4 || MTY_DPAD(c) == 5)
+#define MTY_DPAD_LEFT(c)  (MTY_DPAD(c) == 5 || MTY_DPAD(c) == 6 || MTY_DPAD(c) == 7)
+
 typedef int8_t MTY_Window;
 
 typedef enum {
@@ -1109,20 +1115,20 @@ typedef enum {
 } MTY_HIDDriver;
 
 typedef enum {
-	MTY_CBUTTON_A              = 0,
-	MTY_CBUTTON_B              = 1,
-	MTY_CBUTTON_X              = 2,
+	MTY_CBUTTON_X              = 0,
+	MTY_CBUTTON_A              = 1,
+	MTY_CBUTTON_B              = 2,
 	MTY_CBUTTON_Y              = 3,
 	MTY_CBUTTON_LEFT_SHOULDER  = 4,
 	MTY_CBUTTON_RIGHT_SHOULDER = 5,
-	MTY_CBUTTON_BACK           = 6,
-	MTY_CBUTTON_START          = 7,
-	MTY_CBUTTON_LEFT_THUMB     = 8,
-	MTY_CBUTTON_RIGHT_THUMB    = 9,
-	MTY_CBUTTON_DPAD_UP        = 10,
-	MTY_CBUTTON_DPAD_DOWN      = 11,
-	MTY_CBUTTON_DPAD_LEFT      = 12,
-	MTY_CBUTTON_DPAD_RIGHT     = 13,
+	MTY_CBUTTON_LEFT_TRIGGER   = 6,
+	MTY_CBUTTON_RIGHT_TRIGGER  = 7,
+	MTY_CBUTTON_BACK           = 8,
+	MTY_CBUTTON_START          = 9,
+	MTY_CBUTTON_LEFT_THUMB     = 10,
+	MTY_CBUTTON_RIGHT_THUMB    = 11,
+	MTY_CBUTTON_GUIDE          = 12,
+	MTY_CBUTTON_TOUCHPAD       = 13,
 	MTY_CBUTTON_MAX            = 64,
 	MTY_CBUTTON_MAKE_32        = 0x7FFFFFFF,
 } MTY_CButton;
@@ -1134,6 +1140,7 @@ typedef enum {
 	MTY_CVALUE_THUMB_RY  = 3,
 	MTY_CVALUE_TRIGGER_L = 4,
 	MTY_CVALUE_TRIGGER_R = 5,
+	MTY_CVALUE_DPAD      = 6,
 	MTY_CVALUE_MAX       = 16,
 	MTY_CVALUE_MAKE_32   = 0x7FFFFFFF,
 } MTY_CValue;
