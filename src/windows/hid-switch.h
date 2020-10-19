@@ -6,19 +6,22 @@
 
 #pragma once
 
+#define HID_SWITCH_OUTPUT_MAX 64
+
+static void hid_switch_init(struct hid *hid)
+{
+	uint8_t reply[HID_SWITCH_OUTPUT_MAX] = {0x80, 0x02};
+	hid_write(hid->name, reply, HID_SWITCH_OUTPUT_MAX);
+}
+
 static void hid_switch_state(struct hid *hid, const void *data, ULONG dsize, MTY_Msg *wmsg)
 {
 	const uint8_t *d = data;
 
-	// Switch Handshake 0
-	if (d[0] == 0x81 && d[1] == 0x01 && d[2] == 0x00 && d[3] == 0x03) {
-		uint8_t reply[64] = {0x80, 0x02};
-		hid_write(hid->name, reply, 64);
-
-	// Switch Handshake 1
-	} else if (d[0] == 0x81 && d[1] == 0x02 && d[2] == 0x00 && d[3] == 0x00) {
-		uint8_t reply[64] = {0x80, 0x04};
-		hid_write(hid->name, reply, 64);
+	// Switch Handshake
+	if (d[0] == 0x81 && d[1] == 0x02 && d[2] == 0x00 && d[3] == 0x00) {
+		uint8_t reply[HID_SWITCH_OUTPUT_MAX] = {0x80, 0x04};
+		hid_write(hid->name, reply, HID_SWITCH_OUTPUT_MAX);
 
 	// State
 	} else if (d[0] == 0x30) {

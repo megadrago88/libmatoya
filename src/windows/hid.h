@@ -175,7 +175,7 @@ struct hid {
 static uint32_t HID_ID = 32;
 
 
-// IO, Driver Detection
+// IO
 
 static void hid_write(wchar_t *name, void *buf, DWORD size)
 {
@@ -212,6 +212,13 @@ static void hid_write(wchar_t *name, void *buf, DWORD size)
 	if (device)
 		CloseHandle(device);
 }
+
+
+// Drivers
+
+#include "hid-default.h"
+#include "hid-switch.h"
+#include "hid-ps4.h"
 
 static MTY_HIDDriver hid_get_driver(uint16_t vid, uint16_t pid)
 {
@@ -275,12 +282,36 @@ static MTY_HIDDriver hid_get_driver(uint16_t vid, uint16_t pid)
 	return MTY_HID_DRIVER_DEFAULT;
 }
 
+static void hid_init(struct hid *hid)
+{
+	switch (hid->driver) {
+		case MTY_HID_DRIVER_SWITCH:
+			hid_switch_init(hid);
+			break;
+	}
+}
+
+static void hid_state(struct hid *hid, void *data, ULONG dsize, MTY_Msg *wmsg)
+{
+	switch (hid->driver) {
+		case MTY_HID_DRIVER_SWITCH:
+			hid_switch_state(hid, data, dsize, wmsg);
+			break;
+		case MTY_HID_DRIVER_PS4:
+			hid_ps4_state(hid, data, dsize, wmsg);
+			break;
+		case MTY_HID_DRIVER_DEFAULT:
+			hid_default_state(hid, data, dsize, wmsg);
+			break;
+
+		// On Windows, XInput is handled by the canonical XInput API
+		case MTY_HID_DRIVER_XINPUT:
+			break;
+	}
+}
+
 
 // Public
-
-#include "hid-default.h"
-#include "hid-switch.h"
-#include "hid-ps4.h"
 
 static void hid_destroy(void *opaque)
 {
@@ -369,6 +400,8 @@ static struct hid *hid_create(HANDLE device)
 		hid_get_driver((uint16_t) ctx->di.hid.dwVendorId, (uint16_t) ctx->di.hid.dwProductId);
 	ctx->id = HID_ID++;
 
+	hid_init(ctx);
+
 	except:
 
 	if (!r) {
@@ -377,26 +410,4 @@ static struct hid *hid_create(HANDLE device)
 	}
 
 	return ctx;
-}
-
-
-// State Reports
-
-static void hid_state(struct hid *hid, void *data, ULONG dsize, MTY_Msg *wmsg)
-{
-	switch (hid->driver) {
-		case MTY_HID_DRIVER_SWITCH:
-			hid_switch_state(hid, data, dsize, wmsg);
-			break;
-		case MTY_HID_DRIVER_PS4:
-			hid_ps4_state(hid, data, dsize, wmsg);
-			break;
-		case MTY_HID_DRIVER_DEFAULT:
-			hid_default_state(hid, data, dsize, wmsg);
-			break;
-
-		// On Windows, XInput is handled by the canonical XInput API
-		case MTY_HID_DRIVER_XINPUT:
-			break;
-	}
 }
