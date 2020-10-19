@@ -6,9 +6,6 @@
 
 #pragma once
 
-#include "matoya.h"
-#include "hid.h"
-
 static void hid_default_state(struct hid *hid, void *data, ULONG dsize, MTY_Msg *wmsg)
 {
 	MTY_Controller *c = &wmsg->controller;

@@ -219,7 +219,12 @@ static MTY_HIDDriver hid_get_driver(uint16_t vid, uint16_t pid)
 
 	switch (id) {
 		// Switch
-		case 0x057E2009: return MTY_HID_DRIVER_SWITCH; // Switch Pro
+		case 0x057E2009: // Switch Pro
+			return MTY_HID_DRIVER_SWITCH;
+
+		// PS4
+		case 0x054C09CC: // Sony DualShock 4
+			return MTY_HID_DRIVER_PS4;
 	}
 
 	return MTY_HID_DRIVER_DEFAULT;
