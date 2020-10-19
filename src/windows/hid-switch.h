@@ -27,50 +27,61 @@ static void hid_switch_state(struct hid *hid, const void *data, ULONG dsize, MTY
 		MTY_Controller *c = &wmsg->controller;
 		c->vid = (uint16_t) hid->di.hid.dwVendorId;
 		c->pid = (uint16_t) hid->di.hid.dwProductId;
+		c->numValues = 7;
+		c->numButtons = 14;
 		c->driver = hid->driver;
 		c->id = hid->id;
 
-		// Buttons
-		c->buttons[0] = d[3] & 0x01;
-		c->buttons[1] = d[3] & 0x04;
-		c->buttons[2] = d[3] & 0x08;
-		c->buttons[3] = d[3] & 0x02;
-		c->buttons[4] = d[5] & 0x40;
-		c->buttons[5] = d[3] & 0x40;
-		c->buttons[6] = d[5] & 0x80;
-		c->buttons[7] = d[3] & 0x80;
-		c->buttons[8] = d[4] & 0x01;
-		c->buttons[9] = d[4] & 0x02;
-		c->buttons[10] = d[4] & 0x08;
-		c->buttons[11] = d[4] & 0x04;
+		c->buttons[MTY_CBUTTON_X] = d[3] & 0x01;
+		c->buttons[MTY_CBUTTON_A] = d[3] & 0x04;
+		c->buttons[MTY_CBUTTON_B] = d[3] & 0x08;
+		c->buttons[MTY_CBUTTON_Y] = d[3] & 0x02;
+		c->buttons[MTY_CBUTTON_LEFT_SHOULDER] = d[5] & 0x40;
+		c->buttons[MTY_CBUTTON_RIGHT_SHOULDER] = d[3] & 0x40;
+		c->buttons[MTY_CBUTTON_LEFT_TRIGGER] = d[5] & 0x80;
+		c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] = d[3] & 0x80;
+		c->buttons[MTY_CBUTTON_BACK] = d[4] & 0x01;
+		c->buttons[MTY_CBUTTON_START] = d[4] & 0x02;
+		c->buttons[MTY_CBUTTON_LEFT_THUMB] = d[4] & 0x08;
+		c->buttons[MTY_CBUTTON_RIGHT_THUMB] = d[4] & 0x04;
+		c->buttons[MTY_CBUTTON_GUIDE] = d[4] & 0x10;
+		c->buttons[MTY_CBUTTON_TOUCHPAD] = d[4] & 0x20; // The "Capture" button
 
-		// Axis
 		uint16_t lx = d[6] | ((d[7] & 0x0F) << 8);
 		uint16_t ly = (d[7] >> 4) | (d[8] << 4);
 		uint16_t rx = d[9] | ((d[10] & 0x0F) << 8);
 		uint16_t ry = (d[10] >> 4) | (d[11] << 4);
 
-		c->values[0].data = lx;
-		c->values[0].usage = 0x30;
-		c->values[0].min = 300;
-		c->values[0].max = 3800;
+		c->values[MTY_CVALUE_THUMB_LX].data = lx;
+		c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
+		c->values[MTY_CVALUE_THUMB_LX].min = 300;
+		c->values[MTY_CVALUE_THUMB_LX].max = 3800;
 
-		c->values[1].data = ly;
-		c->values[1].usage = 0x31;
-		c->values[1].min = 300;
-		c->values[1].max = 3800;
+		c->values[MTY_CVALUE_THUMB_LY].data = ly;
+		c->values[MTY_CVALUE_THUMB_LY].usage = 0x31;
+		c->values[MTY_CVALUE_THUMB_LY].min = 300;
+		c->values[MTY_CVALUE_THUMB_LY].max = 3800;
 
-		c->values[2].data = rx;
-		c->values[2].usage = 0x32;
-		c->values[2].min = 300;
-		c->values[2].max = 3800;
+		c->values[MTY_CVALUE_THUMB_RX].data = rx;
+		c->values[MTY_CVALUE_THUMB_RX].usage = 0x32;
+		c->values[MTY_CVALUE_THUMB_RX].min = 300;
+		c->values[MTY_CVALUE_THUMB_RX].max = 3800;
 
-		c->values[3].data = ry;
-		c->values[3].usage = 0x35;
-		c->values[3].min = 300;
-		c->values[3].max = 3800;
+		c->values[MTY_CVALUE_THUMB_RY].data = ry;
+		c->values[MTY_CVALUE_THUMB_RY].usage = 0x35;
+		c->values[MTY_CVALUE_THUMB_RY].min = 300;
+		c->values[MTY_CVALUE_THUMB_RY].max = 3800;
 
-		// DPAD
+		c->values[MTY_CVALUE_TRIGGER_L].usage = 0x33;
+		c->values[MTY_CVALUE_TRIGGER_L].data = c->buttons[MTY_CBUTTON_LEFT_TRIGGER] ? UINT8_MAX : 0;
+		c->values[MTY_CVALUE_TRIGGER_L].min = 0;
+		c->values[MTY_CVALUE_TRIGGER_L].max = UINT8_MAX;
+
+		c->values[MTY_CVALUE_TRIGGER_R].usage = 0x34;
+		c->values[MTY_CVALUE_TRIGGER_R].data = c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] ? UINT8_MAX : 0;
+		c->values[MTY_CVALUE_TRIGGER_R].min = 0;
+		c->values[MTY_CVALUE_TRIGGER_R].max = UINT8_MAX;
+
 		bool up = d[5] & 0x02;
 		bool down = d[5] & 0x01;
 		bool left = d[5] & 0x08;
@@ -78,11 +89,8 @@ static void hid_switch_state(struct hid *hid, const void *data, ULONG dsize, MTY
 
 		c->values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
 			(down && left) ? 5 : (left && up) ? 7 : up ? 0 : right ? 2 : down ? 4 : left ? 6 : 8;
-		c->values[4].usage = 0x39;
-		c->values[4].min = 0;
-		c->values[4].max = 7;
-
-		c->numButtons = 12;
-		c->numValues = 5;
+		c->values[MTY_CVALUE_DPAD].usage = 0x39;
+		c->values[MTY_CVALUE_DPAD].min = 0;
+		c->values[MTY_CVALUE_DPAD].max = 7;
 	}
 }
