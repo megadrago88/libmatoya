@@ -138,10 +138,10 @@ static void hid_nx_rumble(struct hid *hid, bool low, bool high)
 	hid_nx_rumble_off(&ctx->rumble[0]);
 	hid_nx_rumble_off(&ctx->rumble[1]);
 
-	if (high)
+	if (low)
 		hid_nx_rumble_on(&ctx->rumble[0]);
 
-	if (low)
+	if (high)
 		hid_nx_rumble_on(&ctx->rumble[1]);
 
 	ctx->rumble_on = low || high;

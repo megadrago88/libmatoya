@@ -96,8 +96,8 @@ static void hid_ps4_rumble(struct hid *hid, uint16_t low, uint16_t high)
 	}
 
 	struct ps4_effects *effects = (struct ps4_effects *) (data + offset);
-	effects->rumbleRight = low >> 8;
-	effects->rumbleLeft = high >> 8;
+	effects->rumbleLeft = low >> 8;
+	effects->rumbleRight = high >> 8;
 
 	uint8_t player = 0;
 	effects->ledRed = HID_PS4_COLORS[player][0];
