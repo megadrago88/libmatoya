@@ -15,8 +15,7 @@
 #include <shellscalingapi.h>
 
 #include "mty-tls.h"
-#include "hid-xinput.h"
-#include "hid.h"
+#include "hid/hid.h"
 
 #include "gfx/mod-ctx.h"
 GFX_CTX_PROTOTYPES(_gl_)

@@ -214,9 +214,10 @@ struct hid {
 	uint32_t id;
 };
 
-#include "hid-default.h"
-#include "hid-switch.h"
-#include "hid-ps4.h"
+#include "default.h"
+#include "xinput.h"
+#include "ps4.h"
+#include "nx.h"
 
 static uint32_t HID_ID = 32;
 
