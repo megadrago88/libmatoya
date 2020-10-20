@@ -55,6 +55,7 @@ struct nx_state {
 	bool home_led;
 	bool slot_led;
 	bool bluetooth;
+	bool mode;
 	bool usb;
 	bool rumble_on;
 	bool rumble_set;
@@ -416,6 +417,13 @@ static void hid_nx_state_machine(struct hid *hid)
 			uint8_t enabled = 1;
 			hid_nx_write_command(hid, 0x48, &enabled, 1);
 			ctx->vibration = true;
+		}
+
+		// Set to full / simple report mode
+		if (ctx->wready && !ctx->mode) {
+			uint8_t mode = ctx->bluetooth ? 0x3F : 0x30;
+			hid_nx_write_command(hid, 0x03, &mode, 1);
+			ctx->mode = true;
 		}
 
 		// Home LED
