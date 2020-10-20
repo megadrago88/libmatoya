@@ -7,31 +7,126 @@
 #pragma once
 
 struct ps4 {
-    uint8_t leftX;
-    uint8_t leftY;
-    uint8_t rightX;
-    uint8_t rightY;
-    uint8_t buttons[3];
-    uint8_t triggerLeft;
-    uint8_t triggerRight;
-    uint8_t _pad0[3];
-    int16_t gyroX;
-    int16_t gyroY;
-    int16_t gyroZ;
-    int16_t accelX;
-    int16_t accelY;
-    int16_t accelZ;
-    uint8_t _pad1[5];
-    uint8_t batteryLevel;
-    uint8_t _pad2[4];
-    uint8_t trackpadCounter1;
-    uint8_t trackpadData1[3];
-    uint8_t trackpadCounter2;
-    uint8_t trackpadData2[3];
+	uint8_t leftX;
+	uint8_t leftY;
+	uint8_t rightX;
+	uint8_t rightY;
+	uint8_t buttons[3];
+	uint8_t triggerLeft;
+	uint8_t triggerRight;
+	uint8_t _pad0[3];
+	int16_t gyroX;
+	int16_t gyroY;
+	int16_t gyroZ;
+	int16_t accelX;
+	int16_t accelY;
+	int16_t accelZ;
+	uint8_t _pad1[5];
+	uint8_t batteryLevel;
+	uint8_t _pad2[4];
+	uint8_t trackpadCounter1;
+	uint8_t trackpadData1[3];
+	uint8_t trackpadCounter2;
+	uint8_t trackpadData2[3];
 };
+
+struct ps4_effects {
+	uint8_t rumbleRight;
+	uint8_t rumbleLeft;
+	uint8_t ledRed;
+	uint8_t ledGreen;
+	uint8_t ledBlue;
+	uint8_t ledDelayOn;
+	uint8_t ledDelayOff;
+	uint8_t _pad[8];
+	uint8_t volumeLeft;
+	uint8_t volumeRight;
+	uint8_t volumeMic;
+	uint8_t volumeSpeaker;
+};
+
+struct ps4_state {
+	bool bluetooth;
+};
+
+static const uint8_t HID_PS4_COLORS[7][3] = {
+	{0x00, 0x00, 0x40}, // Blue
+	{0x40, 0x00, 0x00}, // Red
+	{0x00, 0x40, 0x00}, // Green
+	{0x20, 0x00, 0x20}, // Pink
+	{0x02, 0x01, 0x00}, // Orange
+	{0x00, 0x01, 0x01}, // Teal
+	{0x01, 0x01, 0x01}, // White
+};
+
+
+// Rumble
+
+static uint32_t hid_ps4_crc32_for_byte(uint32_t r)
+{
+	for (int32_t i = 0; i < 8; i++)
+		r = (r & 1 ? 0 : (uint32_t) 0xEDB88320L) ^ r >> 1;
+
+	return r ^ (uint32_t) 0xFF000000L;
+}
+
+static uint32_t hid_ps4_crc32(uint32_t crc, const void *data, int32_t count)
+{
+	for (int32_t i = 0; i < count; i++)
+		crc = hid_ps4_crc32_for_byte((uint8_t) crc ^ ((const uint8_t *) data)[i]) ^ crc >> 8;
+
+	return crc;
+}
+
+static void hid_ps4_rumble(struct hid *hid, uint16_t low, uint16_t high)
+{
+	struct ps4_state *ctx = hid->driver_state;
+
+	uint8_t data[78] = {0x05, 0x07};
+	uint32_t size = 32;
+	size_t offset = 4;
+
+	if (ctx->bluetooth) {
+		data[0] = 0x11;
+		data[1] = 0xC4;
+		data[3] = 0x03;
+
+		size = 78;
+		offset = 6;
+	}
+
+	struct ps4_effects *effects = (struct ps4_effects *) (data + offset);
+	effects->rumbleRight = low >> 8;
+	effects->rumbleLeft = high >> 8;
+
+	uint8_t player = 0;
+	effects->ledRed = HID_PS4_COLORS[player][0];
+	effects->ledGreen = HID_PS4_COLORS[player][1];
+	effects->ledBlue = HID_PS4_COLORS[player][2];
+
+	if (ctx->bluetooth) {
+		uint8_t hdr = 0xA2;
+		uint32_t crc = hid_ps4_crc32(0, &hdr, 1);
+		crc = hid_ps4_crc32(crc, data, size - 4);
+		memcpy(data + size - 4, &crc, 4);
+	}
+
+	hid_write(hid->name, data, size);
+}
+
+
+// State Reports
+
+static void hid_ps4_init(struct hid *hid)
+{
+	// For lights
+	hid_ps4_rumble(hid, 0, 0);
+}
 
 static void hid_ps4_state(struct hid *hid, const void *data, ULONG dsize, MTY_Msg *wmsg)
 {
+	struct ps4_state *ctx = hid->driver_state;
+
 	const uint8_t *d8 = data;
 	const struct ps4 *state = NULL;
 
@@ -41,6 +136,7 @@ static void hid_ps4_state(struct hid *hid, const void *data, ULONG dsize, MTY_Ms
 
 	// Bluetooth
 	} else if (d8[0] == 0x11) {
+		ctx->bluetooth = true;
 		state = (struct ps4 *) (d8 + 3);
 
 	} else {

@@ -291,6 +291,9 @@ static void hid_init(struct hid *hid)
 		case MTY_HID_DRIVER_SWITCH:
 			hid_nx_init(hid);
 			break;
+		case MTY_HID_DRIVER_PS4:
+			hid_ps4_init(hid);
+			break;
 	}
 }
 
@@ -320,6 +323,7 @@ static void hid_rumble(struct hid *hid, uint16_t low, uint16_t high)
 			hid_nx_rumble(hid, low > 0, high > 0);
 			break;
 		case MTY_HID_DRIVER_PS4:
+			hid_ps4_rumble(hid, low, high);
 			break;
 		case MTY_HID_DRIVER_DEFAULT:
 			break;
