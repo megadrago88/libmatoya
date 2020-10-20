@@ -119,14 +119,20 @@ static void hid_ps4_rumble(struct hid *hid, uint16_t low, uint16_t high)
 
 static void hid_ps4_init(struct hid *hid)
 {
+	struct ps4_state *ctx = hid->driver_state;
+
+	// Bluetooth detection, use the Serial Number feature report
+	DWORD n = 0;
+	uint8_t data[65] = {0x12};
+	uint8_t dataz[65] = {0};
+	ctx->bluetooth = !hid_get_feature(hid->name, data, 65, &n) && !memcmp(data + 1, dataz + 1, 64);
+
 	// For lights
 	hid_ps4_rumble(hid, 0, 0);
 }
 
 static void hid_ps4_state(struct hid *hid, const void *data, ULONG dsize, MTY_Msg *wmsg)
 {
-	struct ps4_state *ctx = hid->driver_state;
-
 	const uint8_t *d8 = data;
 	const struct ps4 *state = NULL;
 
@@ -136,7 +142,6 @@ static void hid_ps4_state(struct hid *hid, const void *data, ULONG dsize, MTY_Ms
 
 	// Bluetooth
 	} else if (d8[0] == 0x11) {
-		ctx->bluetooth = true;
 		state = (struct ps4 *) (d8 + 3);
 
 	} else {

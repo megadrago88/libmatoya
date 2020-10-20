@@ -11,6 +11,8 @@
 
 // Windows HID Parser
 
+#include <winioctl.h>
+
 typedef USHORT USAGE;
 typedef USAGE *PUSAGE;
 typedef struct _HIDP_PREPARSED_DATA *PHIDP_PREPARSED_DATA;
@@ -150,6 +152,11 @@ typedef struct _HIDP_VALUE_CAPS {
 #define HIDP_STATUS_REPORT_DOES_NOT_EXIST   (HIDP_ERROR_CODES(0xC,0x10))
 #define HIDP_STATUS_NOT_IMPLEMENTED         (HIDP_ERROR_CODES(0xC,0x20))
 
+#define HID_OUT_CTL_CODE(id)  \
+	CTL_CODE(FILE_DEVICE_KEYBOARD, (id), METHOD_OUT_DIRECT, FILE_ANY_ACCESS)
+
+#define IOCTL_HID_GET_FEATURE HID_OUT_CTL_CODE(100)
+
 NTSTATUS __stdcall HidP_GetCaps(PHIDP_PREPARSED_DATA PreparsedData, PHIDP_CAPS Capabilities);
 NTSTATUS __stdcall HidP_GetButtonCaps(HIDP_REPORT_TYPE ReportType, PHIDP_BUTTON_CAPS ButtonCaps,
 	PUSHORT ButtonCapsLength, PHIDP_PREPARSED_DATA PreparsedData);
@@ -197,6 +204,48 @@ static void hid_write(wchar_t *name, void *buf, DWORD size)
 
 	if (device)
 		CloseHandle(device);
+}
+
+static bool hid_get_feature(wchar_t *name, void *buf, DWORD size, DWORD *written)
+{
+	bool r = true;
+
+	*written = 0;
+	OVERLAPPED ov = {0};
+
+	HANDLE device = CreateFile(name, GENERIC_WRITE | GENERIC_READ,
+		FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
+		FILE_FLAG_OVERLAPPED, NULL);
+
+	if (!device) {
+		r = false;
+		MTY_Log("'CreateFile' failed with error 0x%X", GetLastError());
+		goto except;
+	}
+
+	if (!DeviceIoControl(device, IOCTL_HID_GET_FEATURE, buf, size, buf, size, written, &ov)) {
+		DWORD e = GetLastError();
+		if (e != ERROR_IO_PENDING) {
+			r = false;
+			MTY_Log("'DeviceIoControl' failed with error 0x%X", e);
+			goto except;
+		}
+	}
+
+	if (!GetOverlappedResult(device, &ov, written, TRUE)) {
+		r = false;
+		MTY_Log("'GetOverlappedResult' failed with error 0x%X", GetLastError());
+		goto except;
+	}
+
+	(*written)++;
+
+	except:
+
+	if (device)
+		CloseHandle(device);
+
+	return r;
 }
 
 
