@@ -312,6 +312,23 @@ static void hid_state(struct hid *hid, void *data, ULONG dsize, MTY_Msg *wmsg)
 	}
 }
 
+static void hid_rumble(struct hid *hid, uint16_t low, uint16_t high)
+{
+	switch (hid->driver) {
+		case MTY_HID_DRIVER_SWITCH:
+			hid_nx_rumble(hid, low > 0, high > 0);
+			break;
+		case MTY_HID_DRIVER_PS4:
+			break;
+		case MTY_HID_DRIVER_DEFAULT:
+			break;
+
+		// On Windows, XInput is handled by the canonical XInput API by player index (0-3)
+		case MTY_HID_DRIVER_XINPUT:
+			break;
+	}
+}
+
 
 // Public
 

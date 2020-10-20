@@ -73,6 +73,7 @@ struct app {
 	MTY_Hash *hotkey;
 	MTY_Hash *ghotkey;
 	MTY_Hash *hid;
+	MTY_Hash *hidid;
 
 	struct window *windows[MTY_WINDOW_MAX];
 	struct xip xinput[4];
@@ -930,14 +931,18 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				hid_xinput_refresh(APP.xinput);
 
 				struct hid *hid = hid_create((HANDLE) lparam);
-				if (hid)
+				if (hid) {
 					hid_destroy(MTY_HashSetInt(APP.hid, lparam, hid));
+					MTY_HashSetInt(APP.hidid, hid->id, hid);
+				}
 
 			} else if (wparam == GIDC_REMOVAL) {
 				struct hid *hid = MTY_HashPopInt(APP.hid, lparam);
 				if (hid) {
 					wmsg.type = MTY_WINDOW_MSG_DISCONNECT;
 					wmsg.controller.id = hid->id;
+
+					MTY_HashPopInt(APP.hidid, hid->id);
 					hid_destroy(hid);
 				}
 			}
@@ -1160,6 +1165,7 @@ bool MTY_AppCreate(void)
 	APP.hotkey = MTY_HashCreate(0);
 	APP.ghotkey = MTY_HashCreate(0);
 	APP.hid = MTY_HashCreate(0);
+	APP.hidid = MTY_HashCreate(0);
 	APP.instance = GetModuleHandle(NULL);
 	if (!APP.instance) {
 		r = false;
@@ -1220,6 +1226,7 @@ void MTY_AppDestroy(void)
 	MTY_HashDestroy(&APP.hotkey, NULL);
 	MTY_HashDestroy(&APP.ghotkey, NULL);
 	MTY_HashDestroy(&APP.hid, hid_destroy);
+	MTY_HashDestroy(&APP.hidid, NULL);
 
 	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
 		MTY_WindowDestroy(x);
@@ -1359,7 +1366,14 @@ void MTY_AppActivate(bool active)
 
 void MTY_AppControllerRumble(uint32_t id, uint16_t low, uint16_t high)
 {
-	hid_xinput_rumble(APP.xinput, id, low, high);
+	if (id < 4) {
+		hid_xinput_rumble(APP.xinput, id, low, high);
+
+	} else {
+		struct hid *hid = MTY_HashGetInt(APP.hidid, id);
+		if (hid)
+			hid_rumble(hid, low, high);
+	}
 }
 
 MTY_Controller MTY_AppControllerMap(const MTY_Controller *c)

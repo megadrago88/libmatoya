@@ -7,7 +7,7 @@
 #pragma once
 
 #define HID_NX_SUBCOMMAND_MAX 42
-#define HID_NX_OUTPUT_MAX     64
+#define HID_NX_OUTPUT_MAX	 64
 
 
 // Formatted Buffers
@@ -35,8 +35,8 @@ struct nx_output_common {
 
 struct nx_subcommand {
 	struct nx_output_common common;
-    uint8_t subcommandID;
-    uint8_t subcommandData[HID_NX_SUBCOMMAND_MAX];
+	uint8_t subcommandID;
+	uint8_t subcommandData[HID_NX_SUBCOMMAND_MAX];
 };
 #pragma pack()
 
@@ -91,22 +91,51 @@ static void hid_nx_write_command(struct hid *hid, uint8_t command, const void *d
 	ctx->reply = false;
 }
 
+static void hid_nx_rumble_off(struct nx_rumble *rmb)
+{
+	rmb->data[0] = 0x00;
+	rmb->data[1] = 0x01;
+	rmb->data[2] = 0x40;
+	rmb->data[3] = 0x40;
+}
+
+static void hid_nx_rumble_on(struct nx_rumble *rmb)
+{
+	rmb->data[0] = 0x74;
+	rmb->data[1] = 0xBE;
+	rmb->data[2] = 0xBD;
+	rmb->data[3] = 0x6F;
+}
+
 static void hid_nx_init(struct hid *hid)
 {
 	struct nx_state *ctx = hid->driver_state;
 	ctx->reply = true;
 
 	// Neutral rumble
-	ctx->rumble[0].data[0] = 0x00;
-	ctx->rumble[0].data[1] = 0x01;
-	ctx->rumble[0].data[2] = 0x40;
-	ctx->rumble[0].data[3] = 0x40;
-	ctx->rumble[1] = ctx->rumble[0];
+	hid_nx_rumble_off(&ctx->rumble[0]);
+	hid_nx_rumble_off(&ctx->rumble[1]);
 
 	// USB init packet (begins handshake)
 	uint8_t reply[HID_NX_OUTPUT_MAX] = {0x80, 0x02};
 	hid_write(hid->name, reply, HID_NX_OUTPUT_MAX);
 	ctx->reply = false;
+}
+
+static void hid_nx_rumble(struct hid *hid, bool low, bool high)
+{
+	struct nx_state *ctx = hid->driver_state;
+
+	hid_nx_rumble_off(&ctx->rumble[0]);
+	hid_nx_rumble_off(&ctx->rumble[1]);
+
+	if (low)
+		hid_nx_rumble_on(&ctx->rumble[0]);
+
+	if (high)
+		hid_nx_rumble_on(&ctx->rumble[1]);
+
+	ctx->vibration = false;
 }
 
 static void hid_nx_state_machine(struct hid *hid)
