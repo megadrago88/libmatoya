@@ -49,16 +49,6 @@ struct ps4_state {
 	bool bluetooth;
 };
 
-static const uint8_t HID_PS4_COLORS[7][3] = {
-	{0x00, 0x00, 0x40}, // Blue
-	{0x40, 0x00, 0x00}, // Red
-	{0x00, 0x40, 0x00}, // Green
-	{0x20, 0x00, 0x20}, // Pink
-	{0x02, 0x01, 0x00}, // Orange
-	{0x00, 0x01, 0x01}, // Teal
-	{0x01, 0x01, 0x01}, // White
-};
-
 
 // Rumble
 
@@ -99,10 +89,9 @@ static void hid_ps4_rumble(struct hid *hid, uint16_t low, uint16_t high)
 	effects->rumbleLeft = low >> 8;
 	effects->rumbleRight = high >> 8;
 
-	uint8_t player = 0;
-	effects->ledRed = HID_PS4_COLORS[player][0];
-	effects->ledGreen = HID_PS4_COLORS[player][1];
-	effects->ledBlue = HID_PS4_COLORS[player][2];
+	effects->ledRed = 0x00;
+	effects->ledGreen = 0x00;
+	effects->ledBlue = 0x40;
 
 	if (ctx->bluetooth) {
 		uint8_t hdr = 0xA2;
