@@ -30,8 +30,14 @@ static void hid_xinput_init(void)
 {
 	XINPUT1_4 = LoadLibrary(L"xinput1_4.dll");
 	if (XINPUT1_4) {
-		_XInputGetState = (void *) GetProcAddress(XINPUT1_4, "XInputGetState");
+		_XInputGetState = (void *) GetProcAddress(XINPUT1_4, (LPCSTR) 100);
+		if (!_XInputGetState)
+			_XInputGetState = XInputGetState;
+
 		_XInputSetState = (void *) GetProcAddress(XINPUT1_4, "XInputSetState");
+		if (!_XInputSetState)
+			_XInputSetState = XInputSetState;
+
 		_XInputGetBaseBusInformation = (void *) GetProcAddress(XINPUT1_4, (LPCSTR) 104);
 	}
 }
@@ -84,6 +90,7 @@ static void hid_xinput_to_mty(const XINPUT_STATE *xstate, MTY_Msg *wmsg)
 	c->buttons[MTY_CBUTTON_START] = b & XINPUT_GAMEPAD_START;
 	c->buttons[MTY_CBUTTON_LEFT_THUMB] = b & XINPUT_GAMEPAD_LEFT_THUMB;
 	c->buttons[MTY_CBUTTON_RIGHT_THUMB] = b & XINPUT_GAMEPAD_RIGHT_THUMB;
+	c->buttons[MTY_CBUTTON_GUIDE] = b & 0x0400;
 
 	c->values[MTY_CVALUE_THUMB_LX].data = xstate->Gamepad.sThumbLX;
 	c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
@@ -136,7 +143,7 @@ static void hid_xinput_state(struct xip *xips, MTY_Window window, MTY_MsgFunc fu
 			MTY_Msg wmsg = {0};
 			wmsg.window = window;
 			wmsg.controller.driver = MTY_HID_DRIVER_XINPUT;
-			wmsg.controller.numButtons = 12;
+			wmsg.controller.numButtons = 13;
 			wmsg.controller.numValues = 7;
 			wmsg.controller.id = x;
 

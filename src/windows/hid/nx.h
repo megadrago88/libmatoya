@@ -191,9 +191,9 @@ static void hid_nx_full_state(struct hid *hid, const uint8_t *d, MTY_Msg *wmsg)
 	c->buttons[MTY_CBUTTON_TOUCHPAD] = d[4] & 0x20; // The "Capture" button
 
 	int16_t lx = (d[6] | ((d[7] & 0x0F) << 8)) - ctx->lx.c;
-	int16_t ly = -(((d[7] >> 4) | (d[8] << 4)) - ctx->ly.c);
+	int16_t ly = ((d[7] >> 4) | (d[8] << 4) - ctx->ly.c);
 	int16_t rx = (d[9] | ((d[10] & 0x0F) << 8)) - ctx->rx.c;
-	int16_t ry = -(((d[10] >> 4) | (d[11] << 4)) - ctx->ry.c);
+	int16_t ry = ((d[10] >> 4) | (d[11] << 4)) - ctx->ry.c;
 
 	hid_nx_expand_min_max(lx, &ctx->lx);
 	hid_nx_expand_min_max(ly, &ctx->ly);
@@ -204,21 +204,25 @@ static void hid_nx_full_state(struct hid *hid, const uint8_t *d, MTY_Msg *wmsg)
 	c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
 	c->values[MTY_CVALUE_THUMB_LX].min = ctx->lx.min;
 	c->values[MTY_CVALUE_THUMB_LX].max = ctx->lx.max;
+	hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_LX]);
 
 	c->values[MTY_CVALUE_THUMB_LY].data = ly;
 	c->values[MTY_CVALUE_THUMB_LY].usage = 0x31;
 	c->values[MTY_CVALUE_THUMB_LY].min = ctx->ly.min;
 	c->values[MTY_CVALUE_THUMB_LY].max = ctx->ly.max;
+	hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_LY]);
 
 	c->values[MTY_CVALUE_THUMB_RX].data = rx;
 	c->values[MTY_CVALUE_THUMB_RX].usage = 0x32;
 	c->values[MTY_CVALUE_THUMB_RX].min = ctx->rx.min;
 	c->values[MTY_CVALUE_THUMB_RX].max = ctx->rx.max;
+	hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_RX]);
 
 	c->values[MTY_CVALUE_THUMB_RY].data = ry;
 	c->values[MTY_CVALUE_THUMB_RY].usage = 0x35;
 	c->values[MTY_CVALUE_THUMB_RY].min = ctx->ry.min;
 	c->values[MTY_CVALUE_THUMB_RY].max = ctx->ry.max;
+	hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_RY]);
 
 	c->values[MTY_CVALUE_TRIGGER_L].usage = 0x33;
 	c->values[MTY_CVALUE_TRIGGER_L].data = c->buttons[MTY_CBUTTON_LEFT_TRIGGER] ? UINT8_MAX : 0;
@@ -285,21 +289,25 @@ static void hid_nx_simple_state(struct hid *hid, const uint8_t *d, MTY_Msg *wmsg
 	c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
 	c->values[MTY_CVALUE_THUMB_LX].min = ctx->slx.min;
 	c->values[MTY_CVALUE_THUMB_LX].max = ctx->slx.max;
+	hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_LX]);
 
 	c->values[MTY_CVALUE_THUMB_LY].data = ly;
 	c->values[MTY_CVALUE_THUMB_LY].usage = 0x31;
 	c->values[MTY_CVALUE_THUMB_LY].min = ctx->sly.min;
 	c->values[MTY_CVALUE_THUMB_LY].max = ctx->sly.max;
+	hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_LY]);
 
 	c->values[MTY_CVALUE_THUMB_RX].data = rx;
 	c->values[MTY_CVALUE_THUMB_RX].usage = 0x32;
 	c->values[MTY_CVALUE_THUMB_RX].min = ctx->srx.min;
 	c->values[MTY_CVALUE_THUMB_RX].max = ctx->srx.max;
+	hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_RX]);
 
 	c->values[MTY_CVALUE_THUMB_RY].data = ry;
 	c->values[MTY_CVALUE_THUMB_RY].usage = 0x35;
 	c->values[MTY_CVALUE_THUMB_RY].min = ctx->sry.min;
 	c->values[MTY_CVALUE_THUMB_RY].max = ctx->sry.max;
+	hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_RY]);
 
 	c->values[MTY_CVALUE_TRIGGER_L].usage = 0x33;
 	c->values[MTY_CVALUE_TRIGGER_L].data = c->buttons[MTY_CBUTTON_LEFT_TRIGGER] ? UINT8_MAX : 0;
@@ -324,6 +332,12 @@ static void hid_nx_parse_pair(const uint8_t *data, uint8_t offset, uint16_t *v0,
 {
 	*v0 = ((data[offset + 1] << 8) & 0xF00) | data[offset];
 	*v1 = (data[offset + 2] << 4) | (data[offset + 1] >> 4);
+
+	if (*v0 == 0x0FFF)
+		*v0 = 0;
+
+	if (*v1 == 0x0FFF)
+		*v1 = 0;
 }
 
 static void hid_nx_parse_stick(const struct nx_spi_reply *spi, uint8_t min_offset, uint8_t c_offset, uint8_t max_offset,

@@ -1403,9 +1403,6 @@ MTY_AppSetOrientation(MTY_Orientation orientation);
 MTY_EXPORT void
 MTY_AppControllerRumble(uint32_t id, uint16_t low, uint16_t high);
 
-MTY_EXPORT MTY_Controller
-MTY_AppControllerMap(const MTY_Controller *c);
-
 
 // @module gl
 

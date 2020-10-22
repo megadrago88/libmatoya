@@ -166,21 +166,25 @@ static void hid_ps4_state(struct hid *hid, const void *data, ULONG dsize, MTY_Ms
 	c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
 	c->values[MTY_CVALUE_THUMB_LX].min = 0;
 	c->values[MTY_CVALUE_THUMB_LX].max = UINT8_MAX;
+	hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_LX], false);
 
 	c->values[MTY_CVALUE_THUMB_LY].data = state->leftY;
 	c->values[MTY_CVALUE_THUMB_LY].usage = 0x31;
 	c->values[MTY_CVALUE_THUMB_LY].min = 0;
 	c->values[MTY_CVALUE_THUMB_LY].max = UINT8_MAX;
+	hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_LY], true);
 
 	c->values[MTY_CVALUE_THUMB_RX].data = state->rightX;
 	c->values[MTY_CVALUE_THUMB_RX].usage = 0x32;
 	c->values[MTY_CVALUE_THUMB_RX].min = 0;
 	c->values[MTY_CVALUE_THUMB_RX].max = UINT8_MAX;
+	hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_RX], false);
 
 	c->values[MTY_CVALUE_THUMB_RY].data = state->rightY;
 	c->values[MTY_CVALUE_THUMB_RY].usage = 0x35;
 	c->values[MTY_CVALUE_THUMB_RY].min = 0;
 	c->values[MTY_CVALUE_THUMB_RY].max = UINT8_MAX;
+	hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_RY], true);
 
 	c->values[MTY_CVALUE_TRIGGER_L].data = state->triggerLeft;
 	c->values[MTY_CVALUE_TRIGGER_L].usage = 0x33;

@@ -249,6 +249,49 @@ static bool hid_get_feature(wchar_t *name, void *buf, DWORD size, DWORD *written
 }
 
 
+// Value Helpers
+
+static void hid_u_to_s16(MTY_Value *v, bool invert)
+{
+	if (v->max == 0 && v->min == 0)
+		return;
+
+	float data = (float) v->data - (float) v->min;
+	float max = (float) v->max - (float) v->min;
+
+	int32_t d = lrint((data / max) * (float) UINT16_MAX);
+	v->data = (int16_t) (invert ? -(d - INT16_MAX) : (d - INT16_MAX - 1));
+	v->min = INT16_MIN;
+	v->max = INT16_MAX;
+}
+
+static void hid_s_to_s16(MTY_Value *v)
+{
+	if (v->data < 0)
+		v->data = (int16_t) lrint((float) v->data / (float) v->min * (float) INT16_MIN);
+
+	if (v->data > 0)
+		v->data = (int16_t) lrint((float) v->data / (float) v->max * (float) INT16_MAX);
+
+	v->min = INT16_MIN;
+	v->max = INT16_MAX;
+}
+
+static void hid_u_to_u8(MTY_Value *v)
+{
+	if (v->max == 0 && v->min == 0)
+		return;
+
+	float data = (float) v->data - (float) v->min;
+	float max = (float) v->max - (float) v->min;
+
+	int32_t d = lrint((data / max) * (float) UINT8_MAX);
+	v->data = (int16_t) d;
+	v->min = 0;
+	v->max = UINT8_MAX;
+}
+
+
 // Drivers
 
 struct hid {
