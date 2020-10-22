@@ -272,13 +272,13 @@ static void hid_nx_simple_state(struct hid *hid, const uint8_t *d, MTY_Msg *wmsg
 	c->buttons[MTY_CBUTTON_START] = d[2] & 0x02;
 	c->buttons[MTY_CBUTTON_LEFT_THUMB] = d[2] & 0x04;
 	c->buttons[MTY_CBUTTON_RIGHT_THUMB] = d[2] & 0x08;
-	c->buttons[MTY_CBUTTON_GUIDE] = d[2] & 0x20;
-	c->buttons[MTY_CBUTTON_TOUCHPAD] = d[2] & 0x10;
+	c->buttons[MTY_CBUTTON_GUIDE] = d[2] & 0x10;
+	c->buttons[MTY_CBUTTON_TOUCHPAD] = d[2] & 0x20;
 
 	int16_t lx = (d[4] | (d[5] << 8)) - ctx->slx.c;
-	int16_t ly = (d[6] | (d[7] << 8)) - ctx->sly.c;
+	int16_t ly = -((d[6] | (d[7] << 8)) - ctx->sly.c);
 	int16_t rx = (d[8] | (d[9] << 8)) - ctx->srx.c;
-	int16_t ry = (d[10] | (d[11] << 8)) - ctx->sry.c;
+	int16_t ry = -((d[10] | (d[11] << 8)) - ctx->sry.c);
 
 	hid_nx_expand_min_max(lx, &ctx->slx);
 	hid_nx_expand_min_max(ly, &ctx->sly);
