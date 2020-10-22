@@ -931,6 +931,11 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 				struct hid *hid = hid_create((HANDLE) lparam);
 				if (hid) {
+					wmsg.type = MTY_WINDOW_MSG_CONNECT;
+					wmsg.controller.id = hid->id;
+					wmsg.controller.vid = hid_get_vid(hid);
+					wmsg.controller.pid = hid_get_pid(hid);
+
 					hid_destroy(MTY_HashSetInt(APP.hid, lparam, hid));
 					MTY_HashSetInt(APP.hidid, hid->id, hid);
 				}
@@ -940,6 +945,8 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				if (hid) {
 					wmsg.type = MTY_WINDOW_MSG_DISCONNECT;
 					wmsg.controller.id = hid->id;
+					wmsg.controller.vid = hid_get_vid(hid);
+					wmsg.controller.pid = hid_get_pid(hid);
 
 					MTY_HashPopInt(APP.hidid, hid->id);
 					hid_destroy(hid);

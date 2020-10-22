@@ -529,3 +529,13 @@ static struct hid *hid_create(HANDLE device)
 
 	return ctx;
 }
+
+static uint16_t hid_get_vid(struct hid *ctx)
+{
+	return (uint16_t) ctx->di.hid.dwVendorId;
+}
+
+static uint16_t hid_get_pid(struct hid *ctx)
+{
+	return (uint16_t) ctx->di.hid.dwProductId;
+}
