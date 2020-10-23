@@ -921,8 +921,13 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 			} else if (header->dwType == RIM_TYPEHID) {
 				struct hid *hid = MTY_HashGetInt(APP.hid, (intptr_t) ctx->ri->header.hDevice);
-				if (hid)
+				if (hid) {
 					hid_state(hid, ctx->ri->data.hid.bRawData, ctx->ri->data.hid.dwSizeHid, &wmsg);
+
+					// Prevent gamepad input while in the background
+					if (wmsg.type == MTY_WINDOW_MSG_CONTROLLER && !MTY_AppIsActive())
+						memset(&wmsg, 0, sizeof(MTY_Msg));
+				}
 			}
 			break;
 		case WM_INPUT_DEVICE_CHANGE:
