@@ -1257,9 +1257,10 @@ void MTY_AppRun(MTY_AppFunc func, const void *opaque)
 		if (!window)
 			return;
 
+		bool focus = MTY_AppIsActive();
+
 		// Keyboard, mouse state changes
 		if (APP.prev_state != APP.state) {
-			bool focus = MTY_AppIsActive();
 			app_apply_clip(focus);
 			app_apply_cursor(focus);
 			app_apply_mouse_ri(focus);
@@ -1269,7 +1270,8 @@ void MTY_AppRun(MTY_AppFunc func, const void *opaque)
 		}
 
 		// XInput
-		hid_xinput_state(APP.xinput, window->window, window->func, (void *) window->opaque);
+		if (focus)
+			hid_xinput_state(APP.xinput, window->window, window->func, (void *) window->opaque);
 
 		// Tray retry in case of failure
 		app_tray_retry(window);
