@@ -112,6 +112,9 @@ static void hid_default_map_values(MTY_Controller *c)
 		v->max = UINT8_MAX;
 
 		hid_default_swap_value(c->values, MTY_CVALUE_TRIGGER_L, v);
+
+		if (v->usage == 0x00)
+			c->numValues--;
 	}
 
 	if (!have_rt && c->numValues < MTY_CVALUE_MAX) {
@@ -123,6 +126,9 @@ static void hid_default_map_values(MTY_Controller *c)
 		v->max = UINT8_MAX;
 
 		hid_default_swap_value(c->values, MTY_CVALUE_TRIGGER_R, v);
+
+		if (v->usage == 0x00)
+			c->numValues--;
 	}
 }
 
