@@ -27,10 +27,9 @@ GFX_CTX_DECLARE_TABLE()
 #define WINDOW_RI_MAX     (32 * 1024)
 
 struct window {
+	MTY_App *app;
 	MTY_Window window;
-	MTY_MsgFunc func;
 	MTY_GFX api;
-	const void *opaque;
 	HWND hwnd;
 	uint32_t wx;
 	uint32_t wy;
@@ -45,8 +44,11 @@ struct window {
 	RAWINPUT *ri;
 };
 
-struct app {
-	bool init;
+struct MTY_App {
+	MTY_AppFunc app_func;
+	MTY_MsgFunc msg_func;
+	const void *opaque;
+
 	WNDCLASSEX wc;
 	ATOM class;
 	UINT tb_msg;
@@ -55,7 +57,6 @@ struct app {
 	HICON custom_cursor;
 	HINSTANCE instance;
 	HHOOK kbhook;
-	HWND kbhwnd;
 	bool pen_active;
 	bool touch_active;
 	bool relative;
@@ -87,7 +88,12 @@ struct app {
 		bool init;
 		bool want;
 	} tray;
-} APP;
+};
+
+
+// Low level keyboard hook needs a global HWND
+
+static HWND WINDOW_KB_HWND;
 
 
 // Weak Linking
@@ -99,37 +105,37 @@ static BOOL (WINAPI *_GetPointerPenInfo)(UINT32 pointerId, POINTER_PEN_INFO *pen
 
 // App Static Helpers
 
-static HWND app_get_main_hwnd(void)
+static HWND app_get_main_hwnd(MTY_App *app)
 {
-	if (!APP.windows[0])
+	if (!app->windows[0])
 		return NULL;
 
-	return APP.windows[0]->hwnd;
+	return app->windows[0]->hwnd;
 }
 
-static struct window *app_get_main_window(void)
+static struct window *app_get_main_window(MTY_App *app)
 {
-	return APP.windows[0];
+	return app->windows[0];
 }
 
-static struct window *app_get_window(MTY_Window window)
+static struct window *app_get_window(MTY_App *app, MTY_Window window)
 {
-	return window < 0 ? NULL : APP.windows[window];
+	return window < 0 ? NULL : app->windows[window];
 }
 
-static struct window *app_get_focus_window(void)
+static struct window *app_get_focus_window(MTY_App *app)
 {
 	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
-		if (MTY_WindowIsActive(x))
-			return app_get_window(x);
+		if (MTY_WindowIsActive(app, x))
+			return app_get_window(app, x);
 
 	return NULL;
 }
 
-static MTY_Window app_find_open_window(void)
+static MTY_Window app_find_open_window(MTY_App *app)
 {
 	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
-		if (!APP.windows[x])
+		if (!app->windows[x])
 			return x;
 
 	return -1;
@@ -187,23 +193,23 @@ static void app_register_raw_input(USHORT usage_page, USHORT usage, DWORD flags,
 
 // Hotkeys
 
-static void app_unregister_global_hotkeys(void)
+static void app_unregister_global_hotkeys(MTY_App *app)
 {
-	HWND hwnd = app_get_main_hwnd();
+	HWND hwnd = app_get_main_hwnd(app);
 	if (!hwnd)
 		return;
 
 	uint64_t i = 0;
 	int64_t key = 0;
 
-	while (MTY_HashNextKeyInt(APP.ghotkey, &i, &key))
+	while (MTY_HashNextKeyInt(app->ghotkey, &i, &key))
 		if (key > 0)
 			UnregisterHotKey(hwnd, (int32_t) key);
 }
 
-static void app_kb_to_hotkey(MTY_Msg *wmsg)
+static void app_kb_to_hotkey(MTY_App *app, MTY_Msg *wmsg)
 {
-	uint32_t hotkey = MTY_AppGetHotkey(wmsg->keyboard.mod, wmsg->keyboard.scancode);
+	uint32_t hotkey = MTY_AppGetHotkey(app, wmsg->keyboard.mod, wmsg->keyboard.scancode);
 	if (hotkey != 0) {
 		if (wmsg->keyboard.pressed) {
 			wmsg->type = MTY_WINDOW_MSG_HOTKEY;
@@ -227,7 +233,7 @@ static bool app_scancode_to_str(MTY_Scancode scancode, char *str, size_t len)
 	return false;
 }
 
-void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
+void MTY_AppHotkeyToString(MTY_App *app, MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
 {
 	memset(str, 0, len);
 
@@ -244,18 +250,18 @@ void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, siz
 	}
 }
 
-void MTY_AppEnableGlobalHotkeys(bool enable)
+void MTY_AppEnableGlobalHotkeys(MTY_App *app, bool enable)
 {
-	APP.ghk_disabled = !enable;
+	app->ghk_disabled = !enable;
 }
 
-void MTY_AppSetHotkey(MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, uint32_t id)
+void MTY_AppSetHotkey(MTY_App *app, MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, uint32_t id)
 {
 	if (mode == MTY_HOTKEY_LOCAL) {
-		MTY_HashSetInt(APP.hotkey, (mod << 16) | scancode, (void *) (uintptr_t) id);
+		MTY_HashSetInt(app->hotkey, (mod << 16) | scancode, (void *) (uintptr_t) id);
 
 	} else {
-		HWND hwnd = app_get_main_hwnd();
+		HWND hwnd = app_get_main_hwnd(app);
 		if (hwnd) {
 			UINT wmod = MOD_NOREPEAT |
 				((mod & MTY_KEYMOD_ALT) ? MOD_ALT : 0) |
@@ -268,7 +274,7 @@ void MTY_AppSetHotkey(MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, ui
 			if (vk > 0) {
 				uint32_t key = (wmod << 8) | vk;
 
-				if (MTY_HashGetInt(APP.ghotkey, key) || id == 0)
+				if (MTY_HashGetInt(app->ghotkey, key) || id == 0)
 					if (!UnregisterHotKey(hwnd, key))
 						MTY_Log("'UnregisterHotKey' failed with error 0x%X", GetLastError());
 
@@ -276,28 +282,28 @@ void MTY_AppSetHotkey(MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, ui
 					if (!RegisterHotKey(hwnd, key, wmod, vk))
 						MTY_Log("'RegisterHotKey' failed with error 0x%X", GetLastError());
 
-				MTY_HashSetInt(APP.ghotkey, key, (void *) (uintptr_t) id);
+				MTY_HashSetInt(app->ghotkey, key, (void *) (uintptr_t) id);
 			}
 		}
 	}
 }
 
-uint32_t MTY_AppGetHotkey(MTY_Keymod mod, MTY_Scancode scancode)
+uint32_t MTY_AppGetHotkey(MTY_App *app, MTY_Keymod mod, MTY_Scancode scancode)
 {
-	return (uint32_t) (uintptr_t) MTY_HashGetInt(APP.hotkey, (mod << 16) | scancode);
+	return (uint32_t) (uintptr_t) MTY_HashGetInt(app->hotkey, (mod << 16) | scancode);
 }
 
-void MTY_AppRemoveHotkeys(MTY_Hotkey mode)
+void MTY_AppRemoveHotkeys(MTY_App *app, MTY_Hotkey mode)
 {
 	if (mode == MTY_HOTKEY_GLOBAL) {
-		app_unregister_global_hotkeys();
+		app_unregister_global_hotkeys(app);
 
-		MTY_HashDestroy(&APP.ghotkey, NULL);
-		APP.ghotkey = MTY_HashCreate(0);
+		MTY_HashDestroy(&app->ghotkey, NULL);
+		app->ghotkey = MTY_HashCreate(0);
 
 	} else if (mode == MTY_HOTKEY_LOCAL) {
-		MTY_HashDestroy(&APP.hotkey, NULL);
-		APP.hotkey = MTY_HashCreate(0);
+		MTY_HashDestroy(&app->hotkey, NULL);
+		app->hotkey = MTY_HashCreate(0);
 	}
 }
 
@@ -371,31 +377,31 @@ static void app_tray_set_nid(NOTIFYICONDATA *nid, UINT uflags, HWND hwnd, HICON 
 	memset(nid->szInfo, 0, sizeof(nid->szInfo));
 }
 
-static void app_tray_recreate(struct window *ctx)
+static void app_tray_recreate(MTY_App *app, struct window *ctx)
 {
-	app_tray_set_nid(&APP.tray.nid, NIF_TIP | NIF_ICON, ctx->hwnd, APP.wc.hIconSm, APP.wc.hIcon);
+	app_tray_set_nid(&app->tray.nid, NIF_TIP | NIF_ICON, ctx->hwnd, app->wc.hIconSm, app->wc.hIcon);
 
-	if (APP.tray.init)
-		Shell_NotifyIcon(NIM_DELETE, &APP.tray.nid);
+	if (app->tray.init)
+		Shell_NotifyIcon(NIM_DELETE, &app->tray.nid);
 
-	APP.tray.init = Shell_NotifyIcon(NIM_ADD, &APP.tray.nid);
+	app->tray.init = Shell_NotifyIcon(NIM_ADD, &app->tray.nid);
 }
 
-static void app_tray_retry(struct window *ctx)
+static void app_tray_retry(MTY_App *app, struct window *ctx)
 {
-	if (!APP.tray.init && APP.tray.want) {
+	if (!app->tray.init && app->tray.want) {
 		int64_t now = MTY_Timestamp();
 
-		if (MTY_TimeDiff(APP.tray.rctimer, now) > 2000.0f) {
-			app_tray_recreate(ctx);
-			APP.tray.rctimer = now;
+		if (MTY_TimeDiff(app->tray.rctimer, now) > 2000.0f) {
+			app_tray_recreate(app, ctx);
+			app->tray.rctimer = now;
 		}
 	}
 }
 
-static void app_tray_msg(UINT msg, WPARAM wparam, LPARAM lparam, MTY_Msg *wmsg)
+static void app_tray_msg(MTY_App *app, UINT msg, WPARAM wparam, LPARAM lparam, MTY_Msg *wmsg)
 {
-	struct window *ctx = app_get_main_window();
+	struct window *ctx = app_get_main_window(app);
 	if (!ctx)
 		return;
 
@@ -403,30 +409,30 @@ static void app_tray_msg(UINT msg, WPARAM wparam, LPARAM lparam, MTY_Msg *wmsg)
 	if (msg == APP_TRAY_CALLBACK) {
 		switch (lparam) {
 			case NIN_BALLOONUSERCLICK:
-				MTY_AppActivate(true);
+				MTY_AppActivate(app, true);
 				break;
 			case WM_LBUTTONUP:
 				int64_t now = MTY_Timestamp();
 
-				if (MTY_TimeDiff(APP.tray.ts, now) > GetDoubleClickTime() * 2) {
-					MTY_AppActivate(true);
-					APP.tray.ts = now;
+				if (MTY_TimeDiff(app->tray.ts, now) > GetDoubleClickTime() * 2) {
+					MTY_AppActivate(app, true);
+					app->tray.ts = now;
 				}
 				break;
 			case WM_RBUTTONUP:
-				if (APP.tray.menu)
-					DestroyMenu(APP.tray.menu);
+				if (app->tray.menu)
+					DestroyMenu(app->tray.menu);
 
-				APP.tray.menu = app_tray_menu(APP.tray.items, APP.tray.len, ctx->opaque);
+				app->tray.menu = app_tray_menu(app->tray.items, app->tray.len, app->opaque);
 
-				if (APP.tray.menu) {
+				if (app->tray.menu) {
 					SetForegroundWindow(ctx->hwnd);
-					SendMessage(ctx->hwnd, WM_INITMENUPOPUP, (WPARAM) APP.tray.menu, 0);
+					SendMessage(ctx->hwnd, WM_INITMENUPOPUP, (WPARAM) app->tray.menu, 0);
 
 					uint32_t x = 0;
 					uint32_t y = 0;
 					if (app_tray_get_location(ctx->hwnd, &x, &y)) {
-						WORD cmd = (WORD) TrackPopupMenu(APP.tray.menu, TPM_LEFTALIGN | TPM_RIGHTBUTTON |
+						WORD cmd = (WORD) TrackPopupMenu(app->tray.menu, TPM_LEFTALIGN | TPM_RIGHTBUTTON |
 							TPM_RETURNCMD | TPM_NONOTIFY, x, y, 0, ctx->hwnd, NULL);
 
 						SendMessage(ctx->hwnd, WM_COMMAND, cmd, 0);
@@ -437,82 +443,82 @@ static void app_tray_msg(UINT msg, WPARAM wparam, LPARAM lparam, MTY_Msg *wmsg)
 		}
 
 	// Recreation on taskbar recreation (DPI changes)
-	} else if (msg == APP.tb_msg) {
-		if (APP.tray.init)
-			app_tray_recreate(ctx);
+	} else if (msg == app->tb_msg) {
+		if (app->tray.init)
+			app_tray_recreate(app, ctx);
 
 	// Menu command
-	} else if (msg == WM_COMMAND && wparam >= APP_TRAY_FIRST && APP.tray.menu) {
+	} else if (msg == WM_COMMAND && wparam >= APP_TRAY_FIRST && app->tray.menu) {
 		MENUITEMINFO item = {0};
 		item.cbSize = sizeof(MENUITEMINFO);
 		item.fMask = MIIM_ID | MIIM_DATA;
 
-		if (GetMenuItemInfo(APP.tray.menu, (UINT) wparam, FALSE, &item)) {
+		if (GetMenuItemInfo(app->tray.menu, (UINT) wparam, FALSE, &item)) {
 			wmsg->type = MTY_WINDOW_MSG_TRAY;
 			wmsg->trayID = (uint32_t) item.dwItemData;
 		}
 	}
 }
 
-void MTY_AppSetTray(const char *tooltip, const MTY_MenuItem *items, uint32_t len)
+void MTY_AppSetTray(MTY_App *app, const char *tooltip, const MTY_MenuItem *items, uint32_t len)
 {
-	HWND hwnd = app_get_main_hwnd();
+	HWND hwnd = app_get_main_hwnd(app);
 	if (!hwnd)
 		return;
 
-	MTY_AppRemoveTray();
+	MTY_AppRemoveTray(app);
 
-	APP.tray.want = true;
-	APP.tray.rctimer = MTY_Timestamp();
-	APP.tray.items = MTY_Dup(items, len * sizeof(MTY_MenuItem));
-	APP.tray.len = len;
+	app->tray.want = true;
+	app->tray.rctimer = MTY_Timestamp();
+	app->tray.items = MTY_Dup(items, len * sizeof(MTY_MenuItem));
+	app->tray.len = len;
 
-	app_tray_set_nid(&APP.tray.nid, NIF_TIP | NIF_ICON, hwnd, APP.wc.hIconSm, APP.wc.hIcon);
-	MTY_MultiToWide(tooltip, APP.tray.nid.szTip, sizeof(APP.tray.nid.szTip) / sizeof(wchar_t));
+	app_tray_set_nid(&app->tray.nid, NIF_TIP | NIF_ICON, hwnd, app->wc.hIconSm, app->wc.hIcon);
+	MTY_MultiToWide(tooltip, app->tray.nid.szTip, sizeof(app->tray.nid.szTip) / sizeof(wchar_t));
 
-	APP.tray.init = Shell_NotifyIcon(NIM_ADD, &APP.tray.nid);
-	if (!APP.tray.init)
+	app->tray.init = Shell_NotifyIcon(NIM_ADD, &app->tray.nid);
+	if (!app->tray.init)
 		MTY_Log("'Shell_NotifyIcon' failed");
 }
 
-void MTY_AppRemoveTray(void)
+void MTY_AppRemoveTray(MTY_App *app)
 {
-	HWND hwnd = app_get_main_hwnd();
+	HWND hwnd = app_get_main_hwnd(app);
 	if (!hwnd)
 		return;
 
-	MTY_Free(APP.tray.items);
-	APP.tray.want = false;
-	APP.tray.items = NULL;
-	APP.tray.len = 0;
+	MTY_Free(app->tray.items);
+	app->tray.want = false;
+	app->tray.items = NULL;
+	app->tray.len = 0;
 
-	app_tray_set_nid(&APP.tray.nid, NIF_TIP | NIF_ICON, hwnd, APP.wc.hIconSm, APP.wc.hIcon);
+	app_tray_set_nid(&app->tray.nid, NIF_TIP | NIF_ICON, hwnd, app->wc.hIconSm, app->wc.hIcon);
 
-	if (APP.tray.init)
-		Shell_NotifyIcon(NIM_DELETE, &APP.tray.nid);
+	if (app->tray.init)
+		Shell_NotifyIcon(NIM_DELETE, &app->tray.nid);
 
-	APP.tray.init = false;
-	memset(&APP.tray.nid, 0, sizeof(NOTIFYICONDATA));
+	app->tray.init = false;
+	memset(&app->tray.nid, 0, sizeof(NOTIFYICONDATA));
 }
 
-void MTY_AppNotification(const char *title, const char *msg)
+void MTY_AppNotification(MTY_App *app, const char *title, const char *msg)
 {
 	if (!title && !msg)
 		return;
 
-	HWND hwnd = app_get_main_hwnd();
+	HWND hwnd = app_get_main_hwnd(app);
 	if (!hwnd)
 		return;
 
-	app_tray_set_nid(&APP.tray.nid, NIF_INFO | NIF_REALTIME, hwnd, APP.wc.hIconSm, APP.wc.hIcon);
+	app_tray_set_nid(&app->tray.nid, NIF_INFO | NIF_REALTIME, hwnd, app->wc.hIconSm, app->wc.hIcon);
 
 	if (title)
-		MTY_MultiToWide(title, APP.tray.nid.szInfoTitle, sizeof(APP.tray.nid.szInfoTitle) / sizeof(wchar_t));
+		MTY_MultiToWide(title, app->tray.nid.szInfoTitle, sizeof(app->tray.nid.szInfoTitle) / sizeof(wchar_t));
 
 	if (msg)
-		MTY_MultiToWide(msg, APP.tray.nid.szInfo, sizeof(APP.tray.nid.szInfo) / sizeof(wchar_t));
+		MTY_MultiToWide(msg, app->tray.nid.szInfo, sizeof(app->tray.nid.szInfo) / sizeof(wchar_t));
 
-	Shell_NotifyIcon(NIM_MODIFY, &APP.tray.nid);
+	Shell_NotifyIcon(NIM_MODIFY, &app->tray.nid);
 }
 
 
@@ -529,7 +535,7 @@ static void app_make_movement(HWND hwnd)
 	app_hwnd_proc(hwnd, WM_MOUSEMOVE, 0x1100, p.x | (p.y << 16));
 }
 
-static void app_ri_relative_mouse(HWND hwnd, const RAWINPUT *ri, MTY_Msg *wmsg)
+static void app_ri_relative_mouse(MTY_App *app, HWND hwnd, const RAWINPUT *ri, MTY_Msg *wmsg)
 {
 	const RAWMOUSE *mouse = &ri->data.mouse;
 
@@ -540,7 +546,7 @@ static void app_ri_relative_mouse(HWND hwnd, const RAWINPUT *ri, MTY_Msg *wmsg)
 
 			// It seems that touch input reports lastX and lastY as screen coordinates,
 			// not normalized coordinates between 0-65535 as the documentation says
-			if (!APP.touch_active) {
+			if (!app->touch_active) {
 				bool virt = (mouse->usFlags & MOUSE_VIRTUAL_DESKTOP) ? true : false;
 				int32_t w = GetSystemMetrics(virt ? SM_CXVIRTUALSCREEN : SM_CXSCREEN);
 				int32_t h = GetSystemMetrics(virt ? SM_CYVIRTUALSCREEN : SM_CYSCREEN);
@@ -548,16 +554,16 @@ static void app_ri_relative_mouse(HWND hwnd, const RAWINPUT *ri, MTY_Msg *wmsg)
 				y = (int32_t) (((float) mouse->lLastY / 65535.0f) * h);
 			}
 
-			if (APP.last_x != -1 && APP.last_y != -1) {
+			if (app->last_x != -1 && app->last_y != -1) {
 				wmsg->type = MTY_WINDOW_MSG_MOUSE_MOTION;
 				wmsg->mouseMotion.relative = true;
 				wmsg->mouseMotion.synth = true;
-				wmsg->mouseMotion.x = (int32_t) (x - APP.last_x);
-				wmsg->mouseMotion.y = (int32_t) (y - APP.last_y);
+				wmsg->mouseMotion.x = (int32_t) (x - app->last_x);
+				wmsg->mouseMotion.y = (int32_t) (y - app->last_y);
 			}
 
-			APP.last_x = x;
-			APP.last_y = y;
+			app->last_x = x;
+			app->last_y = y;
 
 		} else {
 			wmsg->type = MTY_WINDOW_MSG_MOUSE_MOTION;
@@ -599,7 +605,7 @@ static MTY_Keymod app_get_keymod(void)
 
 static LRESULT CALLBACK app_ll_keyboard_proc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-	if (nCode == HC_ACTION) {
+	if (nCode == HC_ACTION && WINDOW_KB_HWND) {
 		const KBDLLHOOKSTRUCT *p = (const KBDLLHOOKSTRUCT *) lParam;
 
 		bool intercept = ((p->flags & LLKHF_ALTDOWN) && p->vkCode == VK_TAB) || // ALT + TAB
@@ -613,7 +619,7 @@ static LRESULT CALLBACK app_ll_keyboard_proc(int nCode, WPARAM wParam, LPARAM lP
 			wproc_lparam |= (p->flags & LLKHF_EXTENDED) ? (1 << 24) : 0;
 			wproc_lparam |= (p->flags & LLKHF_UP) ? (1 << 31) : 0;
 
-			SendMessage(APP.kbhwnd, (UINT) wParam, 0, wproc_lparam);
+			SendMessage(WINDOW_KB_HWND, (UINT) wParam, 0, wproc_lparam);
 			return 1;
 		}
 	}
@@ -621,14 +627,14 @@ static LRESULT CALLBACK app_ll_keyboard_proc(int nCode, WPARAM wParam, LPARAM lP
 	return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
 
-static void app_apply_clip(bool focus)
+static void app_apply_clip(MTY_App *app, bool focus)
 {
 	if (focus) {
-		if (APP.relative && APP.detach != MTY_DETACH_FULL) {
-			ClipCursor(&APP.clip);
+		if (app->relative && app->detach != MTY_DETACH_FULL) {
+			ClipCursor(&app->clip);
 
-		} else if (APP.mgrab && APP.detach == MTY_DETACH_NONE) {
-			struct window *ctx = app_get_focus_window();
+		} else if (app->mgrab && app->detach == MTY_DETACH_NONE) {
+			struct window *ctx = app_get_focus_window(app);
 			if (ctx) {
 				RECT r = {0};
 				if (GetClientRect(ctx->hwnd, &r)) {
@@ -645,25 +651,25 @@ static void app_apply_clip(bool focus)
 	}
 }
 
-static void app_apply_cursor(bool focus)
+static void app_apply_cursor(MTY_App *app, bool focus)
 {
-	if (focus && APP.relative && APP.detach == MTY_DETACH_NONE) {
-		APP.cursor = NULL;
+	if (focus && app->relative && app->detach == MTY_DETACH_NONE) {
+		app->cursor = NULL;
 
 	} else {
-		APP.cursor = (APP.custom_cursor && !APP.default_cursor) ? APP.custom_cursor :
+		app->cursor = (app->custom_cursor && !app->default_cursor) ? app->custom_cursor :
 			LoadCursor(NULL, IDC_ARROW);
 	}
 
-	if (GetCursor() != APP.cursor)
-		SetCursor(APP.cursor);
+	if (GetCursor() != app->cursor)
+		SetCursor(app->cursor);
 }
 
-static void app_apply_mouse_ri(bool focus)
+static void app_apply_mouse_ri(MTY_App *app, bool focus)
 {
-	if (APP.relative && !APP.pen_active) {
+	if (app->relative && !app->pen_active) {
 		if (focus) {
-			if (APP.detach == MTY_DETACH_FULL) {
+			if (app->detach == MTY_DETACH_FULL) {
 				app_register_raw_input(0x01, 0x02, 0, NULL);
 
 			} else {
@@ -674,33 +680,35 @@ static void app_apply_mouse_ri(bool focus)
 		}
 	} else {
 		// Exiting raw input generates a single WM_MOUSEMOVE, filter it
-		APP.filter_move = true;
+		app->filter_move = true;
 		app_register_raw_input(0x01, 0x02, RIDEV_REMOVE, NULL);
 	}
 }
 
-static void app_apply_keyboard_state(bool focus)
+static void app_apply_keyboard_state(MTY_App *app, bool focus)
 {
-	if (focus && APP.kbgrab && APP.detach == MTY_DETACH_NONE) {
-		if (!APP.kbhook) {
-			struct window *ctx = app_get_focus_window();
+	if (focus && app->kbgrab && app->detach == MTY_DETACH_NONE) {
+		if (!app->kbhook) {
+			struct window *ctx = app_get_focus_window(app);
 			if (ctx) {
-				APP.kbhwnd = ctx->hwnd;
-				APP.kbhook = SetWindowsHookEx(WH_KEYBOARD_LL, app_ll_keyboard_proc, APP.instance, 0);
+				WINDOW_KB_HWND = ctx->hwnd; // Unfortunately this needs to be global
+				app->kbhook = SetWindowsHookEx(WH_KEYBOARD_LL, app_ll_keyboard_proc, app->instance, 0);
 			}
 		}
 
 	} else {
-		if (APP.kbhook) {
-			UnhookWindowsHookEx(APP.kbhook);
-			APP.kbhook = NULL;
-			APP.kbhwnd = NULL;
+		if (app->kbhook) {
+			UnhookWindowsHookEx(app->kbhook);
+			WINDOW_KB_HWND = NULL;
+			app->kbhook = NULL;
 		}
 	}
 }
 
 static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
+	MTY_App *app = ctx->app;
+
 	MTY_Msg wmsg = {0};
 	wmsg.window = ctx->window;
 
@@ -713,9 +721,12 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		case WM_CLOSE:
 			wmsg.type = MTY_WINDOW_MSG_CLOSE;
 			break;
+		case WM_SIZE:
+			app->state++;
+			break;
 		case WM_SETCURSOR:
 			if (LOWORD(lparam) == HTCLIENT) {
-				app_apply_cursor(MTY_AppIsActive());
+				app_apply_cursor(app, MTY_AppIsActive(app));
 				creturn = true;
 				r = TRUE;
 			}
@@ -732,7 +743,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		case WM_KILLFOCUS:
 			wmsg.type = MTY_WINDOW_MSG_FOCUS;
 			wmsg.focus = msg == WM_SETFOCUS;
-			APP.state++;
+			app->state++;
 			break;
 		case WM_QUERYENDSESSION:
 		case WM_ENDSESSION:
@@ -759,7 +770,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				wmsg.keyboard.scancode |= 0x0100;
 			break;
 		case WM_MOUSEMOVE:
-			if (!APP.filter_move && !APP.pen_active && (!APP.relative || app_hwnd_active(hwnd))) {
+			if (!app->filter_move && !app->pen_active && (!app->relative || app_hwnd_active(hwnd))) {
 				wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
 				wmsg.mouseMotion.relative = false;
 				wmsg.mouseMotion.synth = false;
@@ -768,11 +779,11 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				wmsg.mouseMotion.click = wparam == 0x1100; // Generated by MTY
 			}
 
-			APP.filter_move = false;
+			app->filter_move = false;
 			break;
 		case WM_LBUTTONDOWN:
 		case WM_LBUTTONUP:
-			if (!APP.pen_active) {
+			if (!app->pen_active) {
 				wmsg.type = MTY_WINDOW_MSG_MOUSE_BUTTON;
 				wmsg.mouseButton.button = MTY_MOUSE_BUTTON_LEFT;
 				wmsg.mouseButton.pressed = msg == WM_LBUTTONDOWN;
@@ -780,7 +791,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		case WM_RBUTTONDOWN:
 		case WM_RBUTTONUP:
-			if (!APP.pen_active) {
+			if (!app->pen_active) {
 				wmsg.type = MTY_WINDOW_MSG_MOUSE_BUTTON;
 				wmsg.mouseButton.button = MTY_MOUSE_BUTTON_RIGHT;
 				wmsg.mouseButton.pressed = msg == WM_RBUTTONDOWN;
@@ -819,14 +830,14 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 			POINTER_INPUT_TYPE type = PT_POINTER;
 			if (_GetPointerType(id, &type)) {
-				APP.pen_active = type == PT_PEN;
-				APP.touch_active = type == PT_TOUCH || type == PT_TOUCHPAD;
+				app->pen_active = type == PT_PEN;
+				app->touch_active = type == PT_TOUCH || type == PT_TOUCHPAD;
 			}
 			break;
 		}
 		case WM_POINTERLEAVE:
-			APP.pen_active = false;
-			APP.touch_active = false;
+			app->pen_active = false;
+			app->touch_active = false;
 			break;
 		case WM_POINTERUPDATE:
 			if (!_GetPointerType || !_GetPointerPenInfo)
@@ -880,9 +891,9 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			defreturn = true;
 			break;
 		case WM_HOTKEY:
-			if (!APP.ghk_disabled) {
+			if (!app->ghk_disabled) {
 				wmsg.type = MTY_WINDOW_MSG_HOTKEY;
-				wmsg.hotkey = (uint32_t) (uintptr_t) MTY_HashGetInt(APP.ghotkey, (uint32_t) wparam);
+				wmsg.hotkey = (uint32_t) (uintptr_t) MTY_HashGetInt(app->ghotkey, (uint32_t) wparam);
 			}
 			break;
 		case WM_CHAR: {
@@ -917,22 +928,22 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 			RAWINPUTHEADER *header = &ctx->ri->header;
 			if (header->dwType == RIM_TYPEMOUSE) {
-				app_ri_relative_mouse(hwnd, ctx->ri, &wmsg);
+				app_ri_relative_mouse(app, hwnd, ctx->ri, &wmsg);
 
 			} else if (header->dwType == RIM_TYPEHID) {
-				struct hid *hid = MTY_HashGetInt(APP.hid, (intptr_t) ctx->ri->header.hDevice);
+				struct hid *hid = MTY_HashGetInt(app->hid, (intptr_t) ctx->ri->header.hDevice);
 				if (hid) {
 					hid_state(hid, ctx->ri->data.hid.bRawData, ctx->ri->data.hid.dwSizeHid, &wmsg);
 
 					// Prevent gamepad input while in the background
-					if (wmsg.type == MTY_WINDOW_MSG_CONTROLLER && !MTY_AppIsActive())
+					if (wmsg.type == MTY_WINDOW_MSG_CONTROLLER && !MTY_AppIsActive(app))
 						memset(&wmsg, 0, sizeof(MTY_Msg));
 				}
 			}
 			break;
 		case WM_INPUT_DEVICE_CHANGE:
 			if (wparam == GIDC_ARRIVAL) {
-				hid_xinput_refresh(APP.xinput);
+				hid_xinput_refresh(app->xinput);
 
 				struct hid *hid = hid_create((HANDLE) lparam);
 				if (hid) {
@@ -941,19 +952,19 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 					wmsg.controller.vid = hid_get_vid(hid);
 					wmsg.controller.pid = hid_get_pid(hid);
 
-					hid_destroy(MTY_HashSetInt(APP.hid, lparam, hid));
-					MTY_HashSetInt(APP.hidid, hid->id, hid);
+					hid_destroy(MTY_HashSetInt(app->hid, lparam, hid));
+					MTY_HashSetInt(app->hidid, hid->id, hid);
 				}
 
 			} else if (wparam == GIDC_REMOVAL) {
-				struct hid *hid = MTY_HashPopInt(APP.hid, lparam);
+				struct hid *hid = MTY_HashPopInt(app->hid, lparam);
 				if (hid) {
 					wmsg.type = MTY_WINDOW_MSG_DISCONNECT;
 					wmsg.controller.id = hid->id;
 					wmsg.controller.vid = hid_get_vid(hid);
 					wmsg.controller.pid = hid_get_pid(hid);
 
-					MTY_HashPopInt(APP.hidid, hid->id);
+					MTY_HashPopInt(app->hidid, hid->id);
 					hid_destroy(hid);
 				}
 			}
@@ -961,19 +972,19 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	}
 
 	// Tray
-	app_tray_msg(msg, wparam, lparam, &wmsg);
+	app_tray_msg(app, msg, wparam, lparam, &wmsg);
 
 	// Transform keyboard into hotkey
 	if (wmsg.type == MTY_WINDOW_MSG_KEYBOARD)
-		app_kb_to_hotkey(&wmsg);
+		app_kb_to_hotkey(app, &wmsg);
 
 	// For robustness, generate a WM_MOUSEMOVE on a mousedown
-	if (wmsg.type == MTY_WINDOW_MSG_MOUSE_BUTTON && wmsg.mouseButton.pressed && !APP.relative)
+	if (wmsg.type == MTY_WINDOW_MSG_MOUSE_BUTTON && wmsg.mouseButton.pressed && !app->relative)
 		app_make_movement(hwnd);
 
 	// Process the message
 	if (wmsg.type != MTY_WINDOW_MSG_NONE) {
-		ctx->func(&wmsg, (void *) ctx->opaque);
+		app->msg_func(&wmsg, (void *) app->opaque);
 
 		if (wmsg.type == MTY_WINDOW_MSG_DROP)
 			MTY_Free((void *) wmsg.drop.data);
@@ -994,9 +1005,6 @@ static LRESULT CALLBACK app_hwnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 		case WM_DESTROY:
 			PostQuitMessage(0);
 			break;
-		case WM_SIZE:
-			APP.state++;
-			break;
 		default:
 			struct window *ctx = (struct window *) GetWindowLongPtr(hwnd, 0);
 			if (ctx && hwnd)
@@ -1009,7 +1017,7 @@ static LRESULT CALLBACK app_hwnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
 // Clipboard
 
-char *MTY_AppGetClipboard(void)
+char *MTY_AppGetClipboard(MTY_App *app)
 {
 	char *text = NULL;
 
@@ -1031,7 +1039,7 @@ char *MTY_AppGetClipboard(void)
 	return text;
 }
 
-void MTY_AppSetClipboard(const char *text)
+void MTY_AppSetClipboard(MTY_App *app, const char *text)
 {
 	if (OpenClipboard(NULL)) {
 		wchar_t *wtext = MTY_MultiToWideD(text);
@@ -1060,7 +1068,7 @@ void MTY_AppSetClipboard(const char *text)
 
 // Cursor
 
-static void app_set_png_cursor(const void *image, size_t size, uint32_t hotX, uint32_t hotY)
+static void app_set_png_cursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
 	HDC dc = NULL;
 	ICONINFO ii = {0};
@@ -1120,8 +1128,8 @@ static void app_set_png_cursor(const void *image, size_t size, uint32_t hotX, ui
 		}
 	}
 
-	APP.custom_cursor = CreateIconIndirect(&ii);
-	if (!APP.custom_cursor) {
+	app->custom_cursor = CreateIconIndirect(&ii);
+	if (!app->custom_cursor) {
 		MTY_Log("'CreateIconIndirect' failed with error 0x%X", GetLastError());
 		goto except;
 	}
@@ -1141,67 +1149,68 @@ static void app_set_png_cursor(const void *image, size_t size, uint32_t hotX, ui
 	MTY_Free(rgba);
 }
 
-void MTY_AppSetPNGCursor(const void *image, size_t size, uint32_t hotX, uint32_t hotY)
+void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
-	if (APP.custom_cursor) {
-		DestroyIcon(APP.custom_cursor);
-		APP.custom_cursor = NULL;
-		APP.state++;
+	if (app->custom_cursor) {
+		DestroyIcon(app->custom_cursor);
+		app->custom_cursor = NULL;
+		app->state++;
 	}
 
 	if (image && size > 0) {
-		app_set_png_cursor(image, size, hotX, hotY);
-		APP.state++;
+		app_set_png_cursor(app, image, size, hotX, hotY);
+		app->state++;
 	}
 }
 
-void MTY_AppUseDefaultCursor(bool useDefault)
+void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 {
-	if (APP.default_cursor != useDefault) {
-		APP.default_cursor = useDefault;
-		APP.state++;
+	if (app->default_cursor != useDefault) {
+		app->default_cursor = useDefault;
+		app->state++;
 	}
 }
 
 
 // App
 
-bool MTY_AppCreate(void)
+MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, const void *opaque)
 {
-	if (APP.init)
-		return false;
-
 	bool r = true;
 
-	APP.hotkey = MTY_HashCreate(0);
-	APP.ghotkey = MTY_HashCreate(0);
-	APP.hid = MTY_HashCreate(0);
-	APP.hidid = MTY_HashCreate(0);
-	APP.instance = GetModuleHandle(NULL);
-	if (!APP.instance) {
+	MTY_App *app = MTY_Alloc(1, sizeof(MTY_App));
+	app->app_func = appFunc;
+	app->msg_func = msgFunc;
+	app->opaque = opaque;
+	app->hotkey = MTY_HashCreate(0);
+	app->ghotkey = MTY_HashCreate(0);
+	app->hid = MTY_HashCreate(0);
+	app->hidid = MTY_HashCreate(0);
+	app->instance = GetModuleHandle(NULL);
+	if (!app->instance) {
 		r = false;
 		goto except;
 	}
 
-	APP.wc.cbSize = sizeof(WNDCLASSEX);
-	APP.wc.cbWndExtra = sizeof(struct window *);
-	APP.wc.lpfnWndProc = app_hwnd_proc;
-	APP.wc.hInstance = APP.instance;
-	APP.wc.lpszClassName = WINDOW_CLASS_NAME;
+	app->wc.cbSize = sizeof(WNDCLASSEX);
+	app->wc.cbWndExtra = sizeof(struct window *);
+	app->wc.lpfnWndProc = app_hwnd_proc;
+	app->wc.hInstance = app->instance;
+	app->wc.lpszClassName = WINDOW_CLASS_NAME;
 
-	APP.cursor = LoadCursor(NULL, IDC_ARROW);
+	app->cursor = LoadCursor(NULL, IDC_ARROW);
 
 	wchar_t path[MTY_PATH_MAX];
-	GetModuleFileName(APP.instance, path, MTY_PATH_MAX);
-	ExtractIconEx(path, 0, &APP.wc.hIcon, &APP.wc.hIconSm, 1);
+	GetModuleFileName(app->instance, path, MTY_PATH_MAX);
+	ExtractIconEx(path, 0, &app->wc.hIcon, &app->wc.hIconSm, 1);
 
-	APP.class = RegisterClassEx(&APP.wc);
-	if (APP.class == 0) {
+	app->class = RegisterClassEx(&app->wc);
+	if (app->class == 0) {
 		r = false;
 		goto except;
 	}
 
-	APP.tb_msg = RegisterWindowMessage(L"TaskbarCreated");
+	app->tb_msg = RegisterWindowMessage(L"TaskbarCreated");
 
 	HMODULE user32 = GetModuleHandle(L"user32.dll");
 	HMODULE shcore = GetModuleHandle(L"shcore.dll");
@@ -1211,70 +1220,73 @@ bool MTY_AppCreate(void)
 
 	hid_xinput_init();
 
-	APP.init = true;
-
 	except:
 
 	if (!r)
-		MTY_AppDestroy();
+		MTY_AppDestroy(&app);
 
-	return r;
+	return app;
 }
 
-void MTY_AppDestroy(void)
+void MTY_AppDestroy(MTY_App **app_)
 {
-	if (!APP.init)
+	if (!app_ || !*app_)
 		return;
 
-	if (APP.custom_cursor)
-		DestroyIcon(APP.custom_cursor);
+	MTY_App *app = *app_;
 
-	MTY_AppRemoveTray();
-	MTY_AppEnableScreenSaver(true);
+	if (app->custom_cursor)
+		DestroyIcon(app->custom_cursor);
 
-	app_unregister_global_hotkeys();
+	MTY_AppRemoveTray(app);
+	MTY_AppEnableScreenSaver(app, true);
 
-	MTY_HashDestroy(&APP.hotkey, NULL);
-	MTY_HashDestroy(&APP.ghotkey, NULL);
-	MTY_HashDestroy(&APP.hid, hid_destroy);
-	MTY_HashDestroy(&APP.hidid, NULL);
+	app_unregister_global_hotkeys(app);
+
+	MTY_HashDestroy(&app->hotkey, NULL);
+	MTY_HashDestroy(&app->ghotkey, NULL);
+	MTY_HashDestroy(&app->hid, hid_destroy);
+	MTY_HashDestroy(&app->hidid, NULL);
 
 	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
-		MTY_WindowDestroy(x);
+		MTY_WindowDestroy(app, x);
 
-	if (APP.instance && APP.class != 0)
-		UnregisterClass(WINDOW_CLASS_NAME, APP.instance);
+	if (app->instance && app->class != 0)
+		UnregisterClass(WINDOW_CLASS_NAME, app->instance);
 
 	hid_xinput_destroy();
 
-	memset(&APP, 0, sizeof(struct app));
+	WINDOW_KB_HWND = NULL;
+
+	MTY_Free(app);
+	*app_ = NULL;
 }
 
-void MTY_AppRun(MTY_AppFunc func, const void *opaque)
+void MTY_AppRun(MTY_App *app)
 {
 	for (bool cont = true; cont;) {
-		struct window *window = app_get_main_window();
+		struct window *window = app_get_main_window(app);
 		if (!window)
 			return;
 
-		bool focus = MTY_AppIsActive();
+		bool focus = MTY_AppIsActive(app);
 
 		// Keyboard, mouse state changes
-		if (APP.prev_state != APP.state) {
-			app_apply_clip(focus);
-			app_apply_cursor(focus);
-			app_apply_mouse_ri(focus);
-			app_apply_keyboard_state(focus);
+		if (app->prev_state != app->state) {
+			app_apply_clip(app, focus);
+			app_apply_cursor(app, focus);
+			app_apply_mouse_ri(app, focus);
+			app_apply_keyboard_state(app, focus);
 
-			APP.prev_state = APP.state;
+			app->prev_state = app->state;
 		}
 
 		// XInput
 		if (focus)
-			hid_xinput_state(APP.xinput, window->window, window->func, (void *) window->opaque);
+			hid_xinput_state(app->xinput, window->window, app->msg_func, (void *) app->opaque);
 
 		// Tray retry in case of failure
-		app_tray_retry(window);
+		app_tray_retry(app, window);
 
 		// Poll messages belonging to the current (main) thread
 		for (MSG msg; PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);) {
@@ -1282,108 +1294,108 @@ void MTY_AppRun(MTY_AppFunc func, const void *opaque)
 			DispatchMessage(&msg);
 		}
 
-		cont = func((void *) opaque);
+		cont = app->app_func((void *) app->opaque);
 	}
 }
 
-void MTY_AppDetach(MTY_Detach type)
+void MTY_AppDetach(MTY_App *app, MTY_Detach type)
 {
-	if (APP.detach != type) {
-		APP.detach = type;
-		APP.state++;
+	if (app->detach != type) {
+		app->detach = type;
+		app->state++;
 	}
 }
 
-MTY_Detach MTY_AppGetDetached(void)
+MTY_Detach MTY_AppGetDetached(MTY_App *app)
 {
-	return APP.detach;
+	return app->detach;
 }
 
-void MTY_AppEnableScreenSaver(bool enable)
+void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 {
 	if (!SetThreadExecutionState(ES_CONTINUOUS | (!enable ? ES_DISPLAY_REQUIRED : 0)))
 		MTY_Log("'SetThreadExecutionState' failed");
 }
 
-void MTY_AppGrabKeyboard(bool grab)
+void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
 {
-	if (APP.kbgrab != grab) {
-		APP.kbgrab = grab;
-		APP.state++;
+	if (app->kbgrab != grab) {
+		app->kbgrab = grab;
+		app->state++;
 	}
 }
 
-void MTY_AppGrabMouse(bool grab)
+void MTY_AppGrabMouse(MTY_App *app, bool grab)
 {
-	if (APP.mgrab != grab) {
-		APP.mgrab = grab;
-		APP.state++;
+	if (app->mgrab != grab) {
+		app->mgrab = grab;
+		app->state++;
 	}
 }
 
-void MTY_AppSetRelativeMouse(bool relative)
+void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 {
-	if (relative && !APP.relative) {
-		APP.relative = true;
-		APP.last_x = APP.last_y = -1;
+	if (relative && !app->relative) {
+		app->relative = true;
+		app->last_x = app->last_y = -1;
 
 		POINT p = {0};
 		GetCursorPos(&p);
-		APP.clip.left = p.x;
-		APP.clip.right = p.x + 1;
-		APP.clip.top = p.y;
-		APP.clip.bottom = p.y + 1;
+		app->clip.left = p.x;
+		app->clip.right = p.x + 1;
+		app->clip.top = p.y;
+		app->clip.bottom = p.y + 1;
 
-	} else if (!relative && APP.relative) {
-		APP.relative = false;
-		APP.last_x = APP.last_y = -1;
+	} else if (!relative && app->relative) {
+		app->relative = false;
+		app->last_x = app->last_y = -1;
 	}
 
-	bool focus = MTY_AppIsActive();
-	app_apply_mouse_ri(focus);
-	app_apply_cursor(focus);
-	app_apply_clip(focus);
+	bool focus = MTY_AppIsActive(app);
+	app_apply_mouse_ri(app, focus);
+	app_apply_cursor(app, focus);
+	app_apply_clip(app, focus);
 }
 
-bool MTY_AppGetRelativeMouse(void)
+bool MTY_AppGetRelativeMouse(MTY_App *app)
 {
-	return APP.relative;
+	return app->relative;
 }
 
-void MTY_AppSetOnscreenKeyboard(bool enable)
-{
-}
-
-void MTY_AppSetOrientation(MTY_Orientation orientation)
+void MTY_AppSetOnscreenKeyboard(MTY_App *app, bool enable)
 {
 }
 
-bool MTY_AppIsActive(void)
+void MTY_AppSetOrientation(MTY_App *app, MTY_Orientation orientation)
+{
+}
+
+bool MTY_AppIsActive(MTY_App *app)
 {
 	bool r = false;
 
 	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
-		r = r || MTY_WindowIsActive(x);
+		r = r || MTY_WindowIsActive(app, x);
 
 	return r;
 }
 
-void MTY_AppActivate(bool active)
+void MTY_AppActivate(MTY_App *app, bool active)
 {
-	HWND hwnd = app_get_main_hwnd();
+	HWND hwnd = app_get_main_hwnd(app);
 	if (!hwnd)
 		return;
 
 	app_hwnd_activate(hwnd, active);
 }
 
-void MTY_AppControllerRumble(uint32_t id, uint16_t low, uint16_t high)
+void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {
 	if (id < 4) {
-		hid_xinput_rumble(APP.xinput, id, low, high);
+		hid_xinput_rumble(app->xinput, id, low, high);
 
 	} else {
-		struct hid *hid = MTY_HashGetInt(APP.hidid, id);
+		struct hid *hid = MTY_HashGetInt(app->hidid, id);
 		if (hid)
 			hid_rumble(hid, low, high);
 	}
@@ -1403,29 +1415,23 @@ static void window_client_to_full(uint32_t *width, uint32_t *height)
 	}
 }
 
-MTY_Window MTY_WindowCreate(const char *title, const MTY_WindowDesc *desc, MTY_MsgFunc func, const void *opaque)
+MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
 {
 	MTY_Window window = -1;
 	wchar_t *titlew = NULL;
 	bool r = true;
 
-	if (!APP.init) {
-		r = false;
-		goto except;
-	}
-
-	window = app_find_open_window();
+	window = app_find_open_window(app);
 	if (window == -1) {
 		r = false;
 		goto except;
 	}
 
 	struct window *ctx = MTY_Alloc(1, sizeof(struct window));
-	APP.windows[window] = ctx;
+	app->windows[window] = ctx;
 
-	ctx->opaque = opaque;
-	ctx->func = func;
 	ctx->ri = MTY_Alloc(WINDOW_RI_MAX, 1);
+	ctx->app = app;
 	ctx->window = window;
 	ctx->min_width = desc->minWidth;
 	ctx->min_height = desc->minHeight;
@@ -1475,7 +1481,7 @@ MTY_Window MTY_WindowCreate(const char *title, const MTY_WindowDesc *desc, MTY_M
 	titlew = MTY_MultiToWideD(title);
 
 	ctx->hwnd = CreateWindowEx(0, WINDOW_CLASS_NAME, titlew, style,
-		x, y, width, height, NULL, NULL, APP.instance, ctx);
+		x, y, width, height, NULL, NULL, app->instance, ctx);
 	if (!ctx->hwnd) {
 		r = false;
 		goto except;
@@ -1498,23 +1504,23 @@ MTY_Window MTY_WindowCreate(const char *title, const MTY_WindowDesc *desc, MTY_M
 	MTY_Free(titlew);
 
 	if (!r) {
-		MTY_WindowDestroy(window);
+		MTY_WindowDestroy(app, window);
 		window = -1;
 	}
 
 	return window;
 }
 
-void MTY_WindowDestroy(MTY_Window window)
+void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return;
 
-	struct window *focus = app_get_focus_window();
+	struct window *focus = app_get_focus_window(app);
 	if (ctx == focus) {
-		MTY_AppGrabKeyboard(false);
-		MTY_AppGrabMouse(false);
+		MTY_AppGrabKeyboard(app, false);
+		MTY_AppGrabMouse(app, false);
 	}
 
 	if (ctx->hwnd)
@@ -1522,12 +1528,12 @@ void MTY_WindowDestroy(MTY_Window window)
 
 	MTY_Free(ctx->ri);
 	MTY_Free(ctx);
-	APP.windows[window] = NULL;
+	app->windows[window] = NULL;
 }
 
-void MTY_WindowSetTitle(MTY_Window window, const char *title)
+void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return;
 
@@ -1536,9 +1542,9 @@ void MTY_WindowSetTitle(MTY_Window window, const char *title)
 	MTY_Free(titlew);
 }
 
-bool MTY_WindowGetSize(MTY_Window window, uint32_t *width, uint32_t *height)
+bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return false;
 
@@ -1566,9 +1572,9 @@ static bool window_get_monitor_info(HWND hwnd, MONITORINFOEX *info)
 	return false;
 }
 
-bool MTY_WindowGetScreenSize(MTY_Window window, uint32_t *width, uint32_t *height)
+bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return false;
 
@@ -1582,22 +1588,22 @@ bool MTY_WindowGetScreenSize(MTY_Window window, uint32_t *width, uint32_t *heigh
 	return false;
 }
 
-float MTY_WindowGetScale(MTY_Window window)
+float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return 1.0f;
 
 	return app_hwnd_get_scale(ctx->hwnd);
 }
 
-void MTY_WindowEnableFullscreen(MTY_Window window, bool fullscreen)
+void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return;
 
-	if (fullscreen && !MTY_WindowIsFullscreen(window)) {
+	if (fullscreen && !MTY_WindowIsFullscreen(app, window)) {
 		MONITORINFOEX info = {0};
 		if (window_get_monitor_info(ctx->hwnd, &info)) {
 			RECT r = {0};
@@ -1606,7 +1612,7 @@ void MTY_WindowEnableFullscreen(MTY_Window window, bool fullscreen)
 				ctx->wy = r.top;
 			}
 
-			MTY_WindowGetSize(window, &ctx->wwidth, &ctx->wheight);
+			MTY_WindowGetSize(app, window, &ctx->wwidth, &ctx->wheight);
 			window_client_to_full(&ctx->wwidth, &ctx->wheight);
 
 			uint32_t x = info.rcMonitor.left;
@@ -1618,7 +1624,7 @@ void MTY_WindowEnableFullscreen(MTY_Window window, bool fullscreen)
 			SetWindowPos(ctx->hwnd, HWND_TOP, x, y, w, h, SWP_FRAMECHANGED);
 		}
 
-	} else if (!fullscreen && MTY_WindowIsFullscreen(window)) {
+	} else if (!fullscreen && MTY_WindowIsFullscreen(app, window)) {
 		SetWindowLongPtr(ctx->hwnd, GWL_STYLE, WS_VISIBLE | WS_OVERLAPPEDWINDOW);
 		SetWindowPos(ctx->hwnd, HWND_TOP, ctx->wx, ctx->wy, ctx->wwidth, ctx->wheight, SWP_FRAMECHANGED);
 
@@ -1627,27 +1633,27 @@ void MTY_WindowEnableFullscreen(MTY_Window window, bool fullscreen)
 	}
 }
 
-bool MTY_WindowIsFullscreen(MTY_Window window)
+bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return false;
 
 	return GetWindowLongPtr(ctx->hwnd, GWL_STYLE) & WS_POPUP;
 }
 
-void MTY_WindowActivate(MTY_Window window, bool active)
+void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return;
 
 	app_hwnd_activate(ctx->hwnd, active);
 }
 
-void MTY_WindowWarpCursor(MTY_Window window, uint32_t x, uint32_t y)
+void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t y)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return;
 
@@ -1659,71 +1665,71 @@ void MTY_WindowWarpCursor(MTY_Window window, uint32_t x, uint32_t y)
 	if (ClientToScreen(ctx->hwnd, &p))
 		SetCursorPos(p.x, p.y);
 
-	MTY_AppSetRelativeMouse(false);
+	MTY_AppSetRelativeMouse(app, false);
 }
 
-bool MTY_WindowIsVisible(MTY_Window window)
+bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return false;
 
 	return app_hwnd_visible(ctx->hwnd);
 }
 
-bool MTY_WindowIsActive(MTY_Window window)
+bool MTY_WindowIsActive(MTY_App *app, MTY_Window window)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return false;
 
 	return app_hwnd_active(ctx->hwnd);
 }
 
-bool MTY_WindowExists(MTY_Window window)
+bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 {
-	return app_get_window(window) ? true : false;
+	return app_get_window(app, window) ? true : false;
 }
 
 
 // Window GFX
 
-void MTY_WindowPresent(MTY_Window window, uint32_t num_frames)
+void MTY_WindowPresent(MTY_App *app, MTY_Window window, uint32_t num_frames)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return;
 
 	GFX_CTX_API[ctx->api].gfx_ctx_present(ctx->gfx_ctx, num_frames);
 }
 
-MTY_Device *MTY_WindowGetDevice(MTY_Window window)
+MTY_Device *MTY_WindowGetDevice(MTY_App *app, MTY_Window window)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return NULL;
 
 	return GFX_CTX_API[ctx->api].gfx_ctx_get_device(ctx->gfx_ctx);
 }
 
-MTY_Context *MTY_WindowGetContext(MTY_Window window)
+MTY_Context *MTY_WindowGetContext(MTY_App *app, MTY_Window window)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return NULL;
 
 	return GFX_CTX_API[ctx->api].gfx_ctx_get_context(ctx->gfx_ctx);
 }
 
-MTY_Texture *MTY_WindowGetBackBuffer(MTY_Window window)
+MTY_Texture *MTY_WindowGetBackBuffer(MTY_App *app, MTY_Window window)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return NULL;
 
 	uint32_t width = 0;
 	uint32_t height = 0;
-	MTY_WindowGetSize(window, &width, &height);
+	MTY_WindowGetSize(app, window, &width, &height);
 
 	if (width != ctx->width || height != ctx->height) {
 		if (GFX_CTX_API[ctx->api].gfx_ctx_refresh(ctx->gfx_ctx)) {
@@ -1735,64 +1741,64 @@ MTY_Texture *MTY_WindowGetBackBuffer(MTY_Window window)
 	return GFX_CTX_API[ctx->api].gfx_ctx_get_buffer(ctx->gfx_ctx);
 }
 
-void MTY_WindowDrawQuad(MTY_Window window, const void *image, const MTY_RenderDesc *desc)
+void MTY_WindowDrawQuad(MTY_App *app, MTY_Window window, const void *image, const MTY_RenderDesc *desc)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return;
 
-	MTY_Texture *buffer = MTY_WindowGetBackBuffer(window);
+	MTY_Texture *buffer = MTY_WindowGetBackBuffer(app, window);
 	if (buffer) {
 		MTY_RenderDesc mutated = *desc;
 		mutated.viewWidth = ctx->width;
 		mutated.viewHeight = ctx->height;
 
-		MTY_Device *device = MTY_WindowGetDevice(window);
-		MTY_Context *context = MTY_WindowGetContext(window);
+		MTY_Device *device = MTY_WindowGetDevice(app, window);
+		MTY_Context *context = MTY_WindowGetContext(app, window);
 
 		MTY_RendererDrawQuad(ctx->renderer, ctx->api, device, context, image, &mutated, buffer);
 	}
 }
 
-void MTY_WindowDrawUI(MTY_Window window, const MTY_DrawData *dd)
+void MTY_WindowDrawUI(MTY_App *app, MTY_Window window, const MTY_DrawData *dd)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return;
 
-	MTY_Texture *buffer = MTY_WindowGetBackBuffer(window);
+	MTY_Texture *buffer = MTY_WindowGetBackBuffer(app, window);
 	if (buffer) {
-		MTY_Device *device = MTY_WindowGetDevice(window);
-		MTY_Context *context = MTY_WindowGetContext(window);
+		MTY_Device *device = MTY_WindowGetDevice(app, window);
+		MTY_Context *context = MTY_WindowGetContext(app, window);
 
 		MTY_RendererDrawUI(ctx->renderer, ctx->api, device, context, dd, buffer);
 	}
 }
 
-void MTY_WindowSetUITexture(MTY_Window window, uint32_t id, const void *rgba, uint32_t width, uint32_t height)
+void MTY_WindowSetUITexture(MTY_App *app, MTY_Window window, uint32_t id, const void *rgba, uint32_t width, uint32_t height)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return;
 
-	MTY_Device *device = MTY_WindowGetDevice(window);
-	MTY_Context *context = MTY_WindowGetContext(window);
+	MTY_Device *device = MTY_WindowGetDevice(app, window);
+	MTY_Context *context = MTY_WindowGetContext(app, window);
 
 	MTY_RendererSetUITexture(ctx->renderer, ctx->api, device, context, id, rgba, width, height);
 }
 
-void *MTY_WindowGetUITexture(MTY_Window window, uint32_t id)
+void *MTY_WindowGetUITexture(MTY_App *app, MTY_Window window, uint32_t id)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return NULL;
 
 	return MTY_RendererGetUITexture(ctx->renderer, id);
 }
 
-bool MTY_WindowSetGFX(MTY_Window window, MTY_GFX api, bool vsync)
+bool MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return false;
 
@@ -1807,7 +1813,7 @@ bool MTY_WindowSetGFX(MTY_Window window, MTY_GFX api, bool vsync)
 		ctx->gfx_ctx = GFX_CTX_API[api].gfx_ctx_create((void *) ctx->hwnd, vsync);
 
 		if (!ctx->gfx_ctx && (api == MTY_GFX_D3D11 || api == MTY_GFX_D3D9))
-			return MTY_WindowSetGFX(window, MTY_GFX_GL, vsync);
+			return MTY_WindowSetGFX(app, window, MTY_GFX_GL, vsync);
 
 		ctx->api = api;
 	}
@@ -1815,9 +1821,9 @@ bool MTY_WindowSetGFX(MTY_Window window, MTY_GFX api, bool vsync)
 	return ctx->gfx_ctx ? true : false;
 }
 
-MTY_GFX MTY_WindowGetGFX(MTY_Window window)
+MTY_GFX MTY_WindowGetGFX(MTY_App *app, MTY_Window window)
 {
-	struct window *ctx = app_get_window(window);
+	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return MTY_GFX_NONE;
 
