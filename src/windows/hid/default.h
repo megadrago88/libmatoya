@@ -82,21 +82,18 @@ static void hid_default_map_values(MTY_Controller *c)
 
 		switch (v->usage) {
 			case 0x30: // X -> Left Stick X
-				hid_u_to_s16(v, false);
-				break;
-			case 0x31: // Y -> Left Stick Y
-				hid_u_to_s16(v, true);
-				break;
 			case 0x32: // Z -> Right Stick X
 				hid_u_to_s16(v, false);
 				break;
+			case 0x31: // Y -> Left Stick Y
 			case 0x35: // Rz -> Right Stick Y
 				hid_u_to_s16(v, true);
 				break;
-			case 0x33: // Rx -> Left Trigger
-				hid_u_to_u8(v);
-				break;
-			case 0x34: // Ry -> Right Trigger
+
+			// Rx -> Left Trigger
+			// Ry -> Right Trigger
+			// Catch all
+			default:
 				hid_u_to_u8(v);
 				break;
 		}
