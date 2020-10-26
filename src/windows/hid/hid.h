@@ -99,8 +99,17 @@ static void hid_u_to_s16(MTY_Value *v, bool invert)
 	if (v->max == 0 && v->min == 0)
 		return;
 
-	float data = (float) v->data - (float) v->min;
-	float max = (float) v->max - (float) v->min;
+	float data = v->data;
+	float max = v->max;
+
+	if (v->min < 0) {
+		data += (float) abs(v->min);
+		max += (float) abs(v->min);
+
+	} else if (v->min > 0) {
+		data -= (float) v->min;
+		max -= (float) v->min;
+	}
 
 	int32_t d = lrint((data / max) * (float) UINT16_MAX);
 	v->data = (int16_t) (invert ? -(d - INT16_MAX) : (d - INT16_MAX - 1));
@@ -125,8 +134,17 @@ static void hid_u_to_u8(MTY_Value *v)
 	if (v->max == 0 && v->min == 0)
 		return;
 
-	float data = (float) v->data - (float) v->min;
-	float max = (float) v->max - (float) v->min;
+	float data = v->data;
+	float max = v->max;
+
+	if (v->min < 0) {
+		data += (float) abs(v->min);
+		max += (float) abs(v->min);
+
+	} else if (v->min > 0) {
+		data -= (float) v->min;
+		max -= (float) v->min;
+	}
 
 	int32_t d = lrint((data / max) * (float) UINT8_MAX);
 	v->data = (int16_t) d;
