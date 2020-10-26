@@ -233,7 +233,7 @@ static bool app_scancode_to_str(MTY_Scancode scancode, char *str, size_t len)
 	return false;
 }
 
-void MTY_AppHotkeyToString(MTY_App *app, MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
+void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
 {
 	memset(str, 0, len);
 
@@ -1017,7 +1017,7 @@ static LRESULT CALLBACK app_hwnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
 // Clipboard
 
-char *MTY_AppGetClipboard(MTY_App *app)
+char *MTY_AppGetClipboard(void)
 {
 	char *text = NULL;
 
@@ -1039,7 +1039,7 @@ char *MTY_AppGetClipboard(MTY_App *app)
 	return text;
 }
 
-void MTY_AppSetClipboard(MTY_App *app, const char *text)
+void MTY_AppSetClipboard(const char *text)
 {
 	if (OpenClipboard(NULL)) {
 		wchar_t *wtext = MTY_MultiToWideD(text);

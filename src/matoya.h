@@ -896,6 +896,9 @@ MTY_RevertTimerResolution(uint32_t res);
 
 // @module app
 
+#define MTY_TITLE_MAX   1024
+#define MTY_WINDOW_MAX  8
+
 #define MTY_DPAD(c)       ((c)->values[MTY_CVALUE_DPAD].data)
 #define MTY_DPAD_UP(c)    (MTY_DPAD(c) == 7 || MTY_DPAD(c) == 0 || MTY_DPAD(c) == 1)
 #define MTY_DPAD_RIGHT(c) (MTY_DPAD(c) == 1 || MTY_DPAD(c) == 2 || MTY_DPAD(c) == 3)
@@ -1149,6 +1152,11 @@ typedef enum {
 	MTY_CVALUE_MAKE_32   = 0x7FFFFFFF,
 } MTY_CValue;
 
+typedef enum {
+	MTY_POSITION_CENTER   = 0,
+	MTY_POSITION_ABSOLUTE = 1,
+} MTY_Position;
+
 typedef struct {
 	uint16_t usage;
 	int16_t data;
@@ -1226,6 +1234,19 @@ typedef struct {
 	bool (*checked)(void *opaque);
 } MTY_MenuItem;
 
+typedef struct {
+	MTY_Position position;
+	uint32_t width;
+	uint32_t height;
+	uint32_t minWidth;
+	uint32_t minHeight;
+	uint32_t x;
+	uint32_t y;
+	float creationHeight;
+	bool fullscreen;
+	bool hidden;
+} MTY_WindowDesc;
+
 typedef bool (*MTY_AppFunc)(void *opaque);
 typedef void (*MTY_MsgFunc)(const MTY_Msg *wmsg, void *opaque);
 
@@ -1256,10 +1277,10 @@ MTY_EXPORT void
 MTY_AppEnableScreenSaver(MTY_App *ctx, bool enable);
 
 MTY_EXPORT char *
-MTY_AppGetClipboard(MTY_App *ctx);
+MTY_AppGetClipboard(void);
 
 MTY_EXPORT void
-MTY_AppSetClipboard(MTY_App *ctx, const char *text);
+MTY_AppSetClipboard(const char *text);
 
 MTY_EXPORT void
 MTY_AppGrabKeyboard(MTY_App *ctx, bool grab);
@@ -1298,7 +1319,7 @@ MTY_EXPORT void
 MTY_AppUseDefaultCursor(MTY_App *ctx, bool useDefault);
 
 MTY_EXPORT void
-MTY_AppHotkeyToString(MTY_App *ctx, MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len);
+MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len);
 
 MTY_EXPORT void
 MTY_AppEnableGlobalHotkeys(MTY_App *ctx, bool enable);
@@ -1311,30 +1332,6 @@ MTY_AppSetOrientation(MTY_App *ctx, MTY_Orientation orientation);
 
 MTY_EXPORT void
 MTY_AppControllerRumble(MTY_App *ctx, uint32_t id, uint16_t low, uint16_t high);
-
-
-// @module window
-
-#define MTY_TITLE_MAX   1024
-#define MTY_WINDOW_MAX  8
-
-typedef enum {
-	MTY_POSITION_CENTER   = 0,
-	MTY_POSITION_ABSOLUTE = 1,
-} MTY_Position;
-
-typedef struct {
-	MTY_Position position;
-	uint32_t width;
-	uint32_t height;
-	uint32_t minWidth;
-	uint32_t minHeight;
-	uint32_t x;
-	uint32_t y;
-	float creationHeight;
-	bool fullscreen;
-	bool hidden;
-} MTY_WindowDesc;
 
 MTY_EXPORT MTY_Window
 MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc);
