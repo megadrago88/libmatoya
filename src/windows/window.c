@@ -141,10 +141,17 @@ static MTY_Window app_find_open_window(MTY_App *app)
 	return -1;
 }
 
+static bool app_hwnd_visible(HWND hwnd)
+{
+	return IsWindowVisible(hwnd) && !IsIconic(hwnd);
+}
+
 static void app_hwnd_activate(HWND hwnd, bool active)
 {
 	if (active) {
-		ShowWindow(hwnd, SW_RESTORE);
+		if (!app_hwnd_visible(hwnd))
+			ShowWindow(hwnd, SW_RESTORE);
+
 		SetForegroundWindow(hwnd);
 
 	} else {
@@ -167,11 +174,6 @@ static float app_hwnd_get_scale(HWND hwnd)
 	}
 
 	return 1.0f;
-}
-
-static bool app_hwnd_visible(HWND hwnd)
-{
-	return IsWindowVisible(hwnd) && !IsIconic(hwnd);
 }
 
 static bool app_hwnd_active(HWND hwnd)
