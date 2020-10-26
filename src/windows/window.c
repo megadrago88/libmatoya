@@ -462,10 +462,6 @@ static void app_tray_msg(MTY_App *app, UINT msg, WPARAM wparam, LPARAM lparam, M
 
 void MTY_AppSetTray(MTY_App *app, const char *tooltip, const MTY_MenuItem *items, uint32_t len)
 {
-	HWND hwnd = app_get_main_hwnd(app);
-	if (!hwnd)
-		return;
-
 	MTY_AppRemoveTray(app);
 
 	app->tray.want = true;
@@ -473,29 +469,31 @@ void MTY_AppSetTray(MTY_App *app, const char *tooltip, const MTY_MenuItem *items
 	app->tray.items = MTY_Dup(items, len * sizeof(MTY_MenuItem));
 	app->tray.len = len;
 
-	app_tray_set_nid(&app->tray.nid, NIF_TIP | NIF_ICON, hwnd, app->wc.hIconSm, app->wc.hIcon);
-	MTY_MultiToWide(tooltip, app->tray.nid.szTip, sizeof(app->tray.nid.szTip) / sizeof(wchar_t));
+	HWND hwnd = app_get_main_hwnd(app);
+	if (hwnd) {
+		app_tray_set_nid(&app->tray.nid, NIF_TIP | NIF_ICON, hwnd, app->wc.hIconSm, app->wc.hIcon);
+		MTY_MultiToWide(tooltip, app->tray.nid.szTip, sizeof(app->tray.nid.szTip) / sizeof(wchar_t));
 
-	app->tray.init = Shell_NotifyIcon(NIM_ADD, &app->tray.nid);
-	if (!app->tray.init)
-		MTY_Log("'Shell_NotifyIcon' failed");
+		app->tray.init = Shell_NotifyIcon(NIM_ADD, &app->tray.nid);
+		if (!app->tray.init)
+			MTY_Log("'Shell_NotifyIcon' failed");
+	}
 }
 
 void MTY_AppRemoveTray(MTY_App *app)
 {
-	HWND hwnd = app_get_main_hwnd(app);
-	if (!hwnd)
-		return;
-
 	MTY_Free(app->tray.items);
-	app->tray.want = false;
 	app->tray.items = NULL;
+	app->tray.want = false;
 	app->tray.len = 0;
 
-	app_tray_set_nid(&app->tray.nid, NIF_TIP | NIF_ICON, hwnd, app->wc.hIconSm, app->wc.hIcon);
+	HWND hwnd = app_get_main_hwnd(app);
+	if (hwnd) {
+		app_tray_set_nid(&app->tray.nid, NIF_TIP | NIF_ICON, hwnd, app->wc.hIconSm, app->wc.hIcon);
 
-	if (app->tray.init)
-		Shell_NotifyIcon(NIM_DELETE, &app->tray.nid);
+		if (app->tray.init)
+			Shell_NotifyIcon(NIM_DELETE, &app->tray.nid);
+	}
 
 	app->tray.init = false;
 	memset(&app->tray.nid, 0, sizeof(NOTIFYICONDATA));
