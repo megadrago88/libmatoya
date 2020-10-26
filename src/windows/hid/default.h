@@ -89,11 +89,11 @@ static void hid_default_map_values(MTY_Controller *c)
 			case 0x35: // Rz -> Right Stick Y
 				hid_u_to_s16(v, true);
 				break;
-
-			// Rx -> Left Trigger
-			// Ry -> Right Trigger
-			// Catch all
-			default:
+			case 0x33: // Rx -> Left Trigger
+			case 0x34: // Ry -> Right Trigger
+			case 0x36: // Slider
+			case 0x37: // Dial
+			case 0x38: // Wheel
 				hid_u_to_u8(v);
 				break;
 		}
