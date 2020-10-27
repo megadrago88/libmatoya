@@ -48,7 +48,7 @@ struct gfx_ui *gfx_gl_ui_create(MTY_Device *device)
 	if (!gl_dl_global_init())
 		return false;
 
-	struct gfx_gl_ui *ctx = calloc(1, sizeof(struct gfx_gl_ui));
+	struct gfx_gl_ui *ctx = MTY_Alloc(1, sizeof(struct gfx_gl_ui));
 
 	bool r = true;
 

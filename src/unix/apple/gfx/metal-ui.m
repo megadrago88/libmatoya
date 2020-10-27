@@ -27,7 +27,7 @@ struct gfx_metal_ui {
 
 struct gfx_ui *gfx_metal_ui_create(MTY_Device *device)
 {
-	struct gfx_metal_ui *ctx = calloc(1, sizeof(struct gfx_metal_ui));
+	struct gfx_metal_ui *ctx = MTY_Alloc(1, sizeof(struct gfx_metal_ui));
 	id<MTLDevice> _device = (__bridge id<MTLDevice>) device;
 
 	bool r = true;

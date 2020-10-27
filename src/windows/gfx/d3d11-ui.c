@@ -48,7 +48,7 @@ struct gfx_d3d11_ui_cb {
 
 struct gfx_ui *gfx_d3d11_ui_create(MTY_Device *device)
 {
-	struct gfx_d3d11_ui *ctx = calloc(1, sizeof(struct gfx_d3d11_ui));
+	struct gfx_d3d11_ui *ctx = MTY_Alloc(1, sizeof(struct gfx_d3d11_ui));
 	ID3D11Device *_device = (ID3D11Device *) device;
 
 	// Create vertex, pixel shaders from precompiled data from headers

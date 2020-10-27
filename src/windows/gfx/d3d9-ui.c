@@ -32,7 +32,7 @@ struct gfx_d3d9_ui_vtx {
 
 struct gfx_ui *gfx_d3d9_ui_create(MTY_Device *device)
 {
-	return calloc(1, sizeof(struct gfx_d3d9_ui));
+	return MTY_Alloc(1, sizeof(struct gfx_d3d9_ui));
 }
 
 bool gfx_d3d9_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *context,
@@ -55,8 +55,10 @@ bool gfx_d3d9_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *
 
 		HRESULT e = IDirect3DDevice9_CreateVertexBuffer(_device, (dd->vtxTotalLength + VTX_INCR) * sizeof(struct gfx_d3d9_ui_vtx),
 			D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, D3DFVF_CUSTOMVERTEX, D3DPOOL_DEFAULT, &ctx->vb, NULL);
-		if (e != D3D_OK)
+		if (e != D3D_OK) {
+			MTY_Log("'IDirect3DDevice9_CreateVertexBuffer' failed with HRESULT 0x%X", e);
 			return false;
+		}
 
 		ctx->vb_len = dd->vtxTotalLength + VTX_INCR;
 	}
@@ -69,8 +71,10 @@ bool gfx_d3d9_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *
 
 		HRESULT e = IDirect3DDevice9_CreateIndexBuffer(_device, (dd->idxTotalLength + IDX_INCR) * sizeof(uint16_t),
 			D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &ctx->ib, NULL);
-		if (e != D3D_OK)
+		if (e != D3D_OK) {
+			MTY_Log("'IDirect3DDevice9_CreateIndexBuffer' failed with HRESULT 0x%X", e);
 			return false;
+		}
 
 		ctx->idx_len = dd->idxTotalLength + IDX_INCR;
 	}
@@ -79,14 +83,19 @@ bool gfx_d3d9_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *
 	struct gfx_d3d9_ui_vtx *vtx_dst = NULL;
 	HRESULT e = IDirect3DVertexBuffer9_Lock(ctx->vb, 0, (UINT) (dd->vtxTotalLength * sizeof(struct gfx_d3d9_ui_vtx)),
 		(void **) &vtx_dst, D3DLOCK_DISCARD);
-	if (e != D3D_OK)
+	if (e != D3D_OK) {
+		MTY_Log("'IDirect3DVertexBuffer9_Lock' failed with HRESULT 0x%X", e);
 		return false;
+	}
 
 	uint16_t *idx_dst = NULL;
 	e = IDirect3DIndexBuffer9_Lock(ctx->ib, 0, (UINT) (dd->idxTotalLength * sizeof(uint16_t)),
 		(void **) &idx_dst, D3DLOCK_DISCARD);
-	if (e != D3D_OK)
+	if (e != D3D_OK) {
+		IDirect3DVertexBuffer9_Unlock(ctx->vb);
+		MTY_Log("'IDirect3DIndexBuffer9_Lock' failed with HRESULT 0x%X", e);
 		return false;
+	}
 
 	for (uint32_t n = 0; n < dd->cmdListLength; n++) {
 		MTY_CmdList *cmdList = &dd->cmdList[n];
@@ -231,12 +240,16 @@ void *gfx_d3d9_ui_create_texture(MTY_Device *device, const void *rgba, uint32_t 
 
 	HRESULT e = IDirect3DDevice9_CreateTexture(_device, width, height, 1, D3DUSAGE_DYNAMIC,
 		D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &texture, NULL);
-	if (e != D3D_OK)
+	if (e != D3D_OK) {
+		MTY_Log("'IDirect3DDevice9_CreateTexture' failed with HRESULT 0x%X", e);
 		goto except;
+	}
 
 	e = IDirect3DTexture9_LockRect(texture, 0, &rect, NULL, 0);
-	if (e != D3D_OK)
+	if (e != D3D_OK) {
+		MTY_Log("'IDirect3DDevice9_LockRect' failed with HRESULT 0x%X", e);
 		goto except;
+	}
 
 	for (uint32_t h = 0; h < height; h++) {
 		for (uint32_t w = 0; w < width * 4; w += 4) {
