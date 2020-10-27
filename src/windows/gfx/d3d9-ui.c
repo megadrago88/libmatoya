@@ -247,7 +247,7 @@ void *gfx_d3d9_ui_create_texture(MTY_Device *device, const void *rgba, uint32_t 
 
 	e = IDirect3DTexture9_LockRect(texture, 0, &rect, NULL, 0);
 	if (e != D3D_OK) {
-		MTY_Log("'IDirect3DDevice9_LockRect' failed with HRESULT 0x%X", e);
+		MTY_Log("'IDirect3DTexture9_LockRect' failed with HRESULT 0x%X", e);
 		goto except;
 	}
 

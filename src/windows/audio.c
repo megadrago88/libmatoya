@@ -39,12 +39,12 @@ struct MTY_Audio {
 	IAudioRenderClient *render;
 };
 
-static bool DEFAULT_CHANGED;
+static bool AUDIO_DEVICE_CHANGED;
 
 
 // "Overridden" IMMNotificationClient
 
-static HRESULT STDMETHODCALLTYPE LIB_IMMNotificationClient_QueryInterface(IMMNotificationClient *This,
+static HRESULT STDMETHODCALLTYPE _IMMNotificationClient_QueryInterface(IMMNotificationClient *This,
 	REFIID riid, void **ppvObject)
 {
 	if (IsEqualGUID(&IID_IMMNotificationClient, riid) || IsEqualGUID(&IID_IUnknown, riid)) {
@@ -57,56 +57,56 @@ static HRESULT STDMETHODCALLTYPE LIB_IMMNotificationClient_QueryInterface(IMMNot
 	}
 }
 
-static ULONG STDMETHODCALLTYPE LIB_IMMNotificationClient_AddRef(IMMNotificationClient *This)
+static ULONG STDMETHODCALLTYPE _IMMNotificationClient_AddRef(IMMNotificationClient *This)
 {
 	return 1;
 }
 
-static ULONG STDMETHODCALLTYPE LIB_IMMNotificationClient_Release(IMMNotificationClient *This)
+static ULONG STDMETHODCALLTYPE _IMMNotificationClient_Release(IMMNotificationClient *This)
 {
 	return 1;
 }
 
-static HRESULT STDMETHODCALLTYPE LIB_IMMNotificationClient_OnDeviceStateChanged(IMMNotificationClient *This,
+static HRESULT STDMETHODCALLTYPE _IMMNotificationClient_OnDeviceStateChanged(IMMNotificationClient *This,
 	LPCWSTR pwstrDeviceId, DWORD dwNewState)
 {
 	return S_OK;
 }
 
-static HRESULT STDMETHODCALLTYPE LIB_IMMNotificationClient_OnDeviceAdded(IMMNotificationClient *This, LPCWSTR pwstrDeviceId)
+static HRESULT STDMETHODCALLTYPE _IMMNotificationClient_OnDeviceAdded(IMMNotificationClient *This, LPCWSTR pwstrDeviceId)
 {
 	return S_OK;
 }
 
-static HRESULT STDMETHODCALLTYPE LIB_IMMNotificationClient_OnDeviceRemoved(IMMNotificationClient *This, LPCWSTR pwstrDeviceId)
+static HRESULT STDMETHODCALLTYPE _IMMNotificationClient_OnDeviceRemoved(IMMNotificationClient *This, LPCWSTR pwstrDeviceId)
 {
 	return S_OK;
 }
 
-static HRESULT STDMETHODCALLTYPE LIB_IMMNotificationClient_OnDefaultDeviceChanged(IMMNotificationClient *This,
+static HRESULT STDMETHODCALLTYPE _IMMNotificationClient_OnDefaultDeviceChanged(IMMNotificationClient *This,
 	EDataFlow flow, ERole role, LPCWSTR pwstrDeviceId)
 {
 	if (role == eConsole)
-		DEFAULT_CHANGED = true;
+		AUDIO_DEVICE_CHANGED = true;
 
 	return S_OK;
 }
 
-static HRESULT STDMETHODCALLTYPE LIB_IMMNotificationClient_OnPropertyValueChanged(IMMNotificationClient *This,
+static HRESULT STDMETHODCALLTYPE _IMMNotificationClient_OnPropertyValueChanged(IMMNotificationClient *This,
 	LPCWSTR pwstrDeviceId, const PROPERTYKEY key)
 {
 	return S_OK;
 }
 
-static CONST_VTBL IMMNotificationClientVtbl LIB_IMMNotificationClient = {
-	.QueryInterface         = LIB_IMMNotificationClient_QueryInterface,
-	.AddRef                 = LIB_IMMNotificationClient_AddRef,
-	.Release                = LIB_IMMNotificationClient_Release,
-	.OnDeviceStateChanged   = LIB_IMMNotificationClient_OnDeviceStateChanged,
-	.OnDeviceAdded          = LIB_IMMNotificationClient_OnDeviceAdded,
-	.OnDeviceRemoved        = LIB_IMMNotificationClient_OnDeviceRemoved,
-	.OnDefaultDeviceChanged = LIB_IMMNotificationClient_OnDefaultDeviceChanged,
-	.OnPropertyValueChanged = LIB_IMMNotificationClient_OnPropertyValueChanged,
+static CONST_VTBL IMMNotificationClientVtbl _IMMNotificationClient = {
+	.QueryInterface         = _IMMNotificationClient_QueryInterface,
+	.AddRef                 = _IMMNotificationClient_AddRef,
+	.Release                = _IMMNotificationClient_Release,
+	.OnDeviceStateChanged   = _IMMNotificationClient_OnDeviceStateChanged,
+	.OnDeviceAdded          = _IMMNotificationClient_OnDeviceAdded,
+	.OnDeviceRemoved        = _IMMNotificationClient_OnDeviceRemoved,
+	.OnDefaultDeviceChanged = _IMMNotificationClient_OnDefaultDeviceChanged,
+	.OnPropertyValueChanged = _IMMNotificationClient_OnPropertyValueChanged,
 };
 
 
@@ -132,10 +132,16 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 {
 	IMMDevice *device = NULL;
 	HRESULT e = IMMDeviceEnumerator_GetDefaultAudioEndpoint(ctx->enumerator, eRender, eConsole, &device);
-	if (e != S_OK) goto except;
+	if (e != S_OK) {
+		MTY_Log("'IMMDeviceEnumerator_GetDefaultAudioEndpoint' failed with HRESULT 0x%X", e);
+		goto except;
+	}
 
 	e = IMMDevice_Activate(device, &IID_IAudioClient, CLSCTX_ALL, NULL, &ctx->client);
-	if (e != S_OK) goto except;
+	if (e != S_OK) {
+		MTY_Log("'IMMDevice_Activate' failed with HRESULT 0x%X", e);
+		goto except;
+	}
 
 	WAVEFORMATEX pwfx = {0};
 	pwfx.wFormatTag = WAVE_FORMAT_PCM;
@@ -148,13 +154,22 @@ static HRESULT audio_device_create(MTY_Audio *ctx)
 	e = IAudioClient_Initialize(ctx->client, AUDCLNT_SHAREMODE_SHARED,
 		AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM | AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
 		AUDIO_BUFFER_SIZE, 0, &pwfx, NULL);
-	if (e != S_OK) goto except;
+	if (e != S_OK) {
+		MTY_Log("'IAudioClient_Initialize' failed with HRESULT 0x%X", e);
+		goto except;
+	}
 
 	e = IAudioClient_GetBufferSize(ctx->client, &ctx->buffer_size);
-	if (e != S_OK) goto except;
+	if (e != S_OK) {
+		MTY_Log("'IAudioClient_GetBufferSize' failed with HRESULT 0x%X", e);
+		goto except;
+	}
 
 	e = IAudioClient_GetService(ctx->client, &IID_IAudioRenderClient, &ctx->render);
-	if (e != S_OK) goto except;
+	if (e != S_OK) {
+		MTY_Log("'IAudioClient_GetService' failed with HRESULT 0x%X", e);
+		goto except;
+	}
 
 	except:
 
@@ -177,19 +192,31 @@ MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t max
 	ctx->max_buffer = maxBuffer * frames_per_ms;
 
 	ctx->coinit = true;
-	CoInitialize(NULL);
+	HRESULT e = CoInitialize(NULL);
+	if (e != S_OK) {
+		MTY_Log("'CoInitialize' failed with HRESULT 0x%X", e);
+		goto except;
 
-	HRESULT e = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL,
+	}
+
+	e = CoCreateInstance(&CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL,
 		&IID_IMMDeviceEnumerator, &ctx->enumerator);
-	if (e != S_OK) goto except;
+	if (e != S_OK) {
+		MTY_Log("'CoCreateInstance' failed with HRESULT 0x%X", e);
+		goto except;
+	}
 
-	ctx->notification.lpVtbl = &LIB_IMMNotificationClient;
+	ctx->notification.lpVtbl = &_IMMNotificationClient;
 	e = IMMDeviceEnumerator_RegisterEndpointNotificationCallback(ctx->enumerator, &ctx->notification);
-	if (e != S_OK) goto except;
+	if (e != S_OK) {
+		MTY_Log("'IMMDeviceEnumerator_RegisterEndpointNotificationCallback' failed with HRESULT 0x%X", e);
+		goto except;
+	}
 	ctx->notification_init = true;
 
 	e = audio_device_create(ctx);
-	if (e != S_OK) goto except;
+	if (e != S_OK)
+		goto except;
 
 	except:
 
@@ -201,8 +228,11 @@ MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t max
 
 uint32_t MTY_AudioGetQueuedFrames(MTY_Audio *ctx)
 {
+	if (!ctx->client)
+		return ctx->buffer_size;
+
 	UINT32 padding = 0;
-	if (ctx->client && IAudioClient_GetCurrentPadding(ctx->client, &padding) == S_OK)
+	if (IAudioClient_GetCurrentPadding(ctx->client, &padding) == S_OK)
 		return padding;
 
 	return ctx->buffer_size;
@@ -215,23 +245,23 @@ bool MTY_AudioIsPlaying(MTY_Audio *ctx)
 
 void MTY_AudioPlay(MTY_Audio *ctx)
 {
-	if (ctx->client && !ctx->playing) {
-		HRESULT e = IAudioClient_Start(ctx->client);
+	if (!ctx->client)
+		return;
 
-		if (e == S_OK)
-			ctx->playing = true;
-	}
+	if (!ctx->playing)
+		ctx->playing = IAudioClient_Start(ctx->client) == S_OK;
 }
 
 void MTY_AudioStop(MTY_Audio *ctx)
 {
-	if (ctx->client && ctx->playing) {
-		HRESULT e = IAudioClient_Stop(ctx->client);
-		if (e != S_OK)
+	if (!ctx->client)
+		return;
+
+	if (ctx->playing) {
+		if (IAudioClient_Stop(ctx->client) != S_OK)
 			return;
 
-		e = IAudioClient_Reset(ctx->client);
-		if (e != S_OK)
+		if (IAudioClient_Reset(ctx->client) != S_OK)
 			return;
 
 		ctx->playing = false;
@@ -240,7 +270,7 @@ void MTY_AudioStop(MTY_Audio *ctx)
 
 static bool audio_handle_device_change(MTY_Audio *ctx)
 {
-	if (DEFAULT_CHANGED) {
+	if (AUDIO_DEVICE_CHANGED) {
 		audio_device_destroy(ctx);
 
 		// When the default device is in the process of changing, this may fail
@@ -251,7 +281,7 @@ static bool audio_handle_device_change(MTY_Audio *ctx)
 			return false;
 
 		MTY_AudioPlay(ctx);
-		DEFAULT_CHANGED = false;
+		AUDIO_DEVICE_CHANGED = false;
 	}
 
 	return true;
