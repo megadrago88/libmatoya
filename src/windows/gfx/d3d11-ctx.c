@@ -55,7 +55,6 @@ static void gfx_d3d11_ctx_free(struct gfx_d3d11_ctx *ctx)
 
 static bool gfx_d3d11_ctx_init(struct gfx_d3d11_ctx *ctx)
 {
-	bool r = true;
 	IDXGIDevice2 *device2 = NULL;
 	IUnknown *unknown = NULL;
 	IDXGIAdapter *adapter = NULL;
@@ -74,70 +73,61 @@ static bool gfx_d3d11_ctx_init(struct gfx_d3d11_ctx *ctx)
 	HRESULT e = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0, levels,
 		sizeof(levels) / sizeof(D3D_FEATURE_LEVEL), D3D11_SDK_VERSION, &ctx->device, NULL, &ctx->context);
 	if (e != S_OK) {
-		r = false;
 		MTY_Log("'D3D11CreateDevice' failed with HRESULT 0x%X", e);
 		goto except;
 	}
 
 	e = ID3D11Device_QueryInterface(ctx->device, &IID_IDXGIDevice2, &device2);
 	if (e != S_OK) {
-		r = false;
 		MTY_Log("'ID3D11Device_QueryInterface' failed with HRESULT 0x%X", e);
 		goto except;
 	}
 
 	e = ID3D11Device_QueryInterface(ctx->device, &IID_IUnknown, &unknown);
 	if (e != S_OK) {
-		r = false;
 		MTY_Log("'ID3D11Device_QueryInterface' failed with HRESULT 0x%X", e);
 		goto except;
 	}
 
 	e = IDXGIDevice2_GetParent(device2, &IID_IDXGIAdapter, &adapter);
 	if (e != S_OK) {
-		r = false;
 		MTY_Log("'IDXGIDevice2_GetParent' failed with HRESULT 0x%X", e);
 		goto except;
 	}
 
 	e = IDXGIAdapter_GetParent(adapter, &IID_IDXGIFactory2, &factory2);
 	if (e != S_OK) {
-		r = false;
 		MTY_Log("'IDXGIAdapter_GetParent' failed with HRESULT 0x%X", e);
 		goto except;
 	}
 
 	e = IDXGIFactory2_CreateSwapChainForHwnd(factory2, unknown, ctx->hwnd, &sd, NULL, NULL, &swap_chain1);
 	if (e != S_OK) {
-		r = false;
 		MTY_Log("'IDXGIFactory2_CreateSwapChainForHwnd' failed with HRESULT 0x%X", e);
 		goto except;
 	}
 
 	e = IDXGISwapChain1_QueryInterface(swap_chain1, &IID_IDXGISwapChain2, &ctx->swap_chain2);
 	if (e != S_OK) {
-		r = false;
 		MTY_Log("'IDXGISwapChain1_QueryInterface' failed with HRESULT 0x%X", e);
 		goto except;
 	}
 
 	ctx->waitable = IDXGISwapChain2_GetFrameLatencyWaitableObject(ctx->swap_chain2);
 	if (!ctx->waitable) {
-		r = false;
+		e = !S_OK;
 		MTY_Log("'IDXGISwapChain2_GetFrameLatencyWaitableObject' failed");
 		goto except;
 	}
 
 	e = IDXGISwapChain2_SetMaximumFrameLatency(ctx->swap_chain2, 1);
 	if (e != S_OK) {
-		r = false;
 		MTY_Log("'IDXGISwapChain2_SetMaximumFrameLatency' failed with HRESULT 0x%X", e);
 		goto except;
 	}
 
 	e = IDXGIFactory2_MakeWindowAssociation(factory2, ctx->hwnd, DXGI_MWA_NO_WINDOW_CHANGES);
 	if (e != S_OK) {
-		r = false;
 		MTY_Log("'IDXGIFactory2_MakeWindowAssociation' failed with HRESULT 0x%X", e);
 		goto except;
 	}
