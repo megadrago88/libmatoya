@@ -38,34 +38,40 @@ struct gfx_ctx *gfx_gl_ctx_create(void *native_window, bool vsync)
 	ctx->hdc = GetDC(hwnd);
 	if (!ctx->hdc) {
 		r = false;
+		MTY_Log("'GetDC' failed");
 		goto except;
 	}
 
 	int32_t pf = ChoosePixelFormat(ctx->hdc, &pfd);
 	if (pf == 0) {
 		r = false;
+		MTY_Log("'ChoosePixelFormat' failed with error 0x%X", GetLastError());
 		goto except;
 	}
 
 	if (!SetPixelFormat(ctx->hdc, pf, &pfd)) {
 		r = false;
+		MTY_Log("'SetPixelFormat' failed with error 0x%X", GetLastError());
 		goto except;
 	}
 
 	ctx->hgl = wglCreateContext(ctx->hdc);
 	if (!ctx->hgl) {
 		r = false;
+		MTY_Log("'wglCreateContext' failed with error 0x%X", GetLastError());
 		goto except;
 	}
 
 	if (!wglMakeCurrent(ctx->hdc, ctx->hgl)) {
 		r = false;
+		MTY_Log("'wglMakeCurrent' failed with error 0x%X", GetLastError());
 		goto except;
 	}
 
 	wglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC) wglGetProcAddress("wglSwapIntervalEXT");
 	if (!wglSwapIntervalEXT) {
 		r = false;
+		MTY_Log("'wglGetProcAddress' failed to find 'wglSwapIntervalEXT'");
 		goto except;
 	}
 
@@ -126,10 +132,14 @@ void gfx_gl_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 	struct gfx_gl_ctx *ctx = (struct gfx_gl_ctx *) gfx_ctx;
 
 	if (interval != ctx->interval) {
-		wglSwapIntervalEXT(interval);
+		if (!wglSwapIntervalEXT(interval))
+			MTY_Log("'wglSwapIntervalEXT' failed with error 0x%X", GetLastError());
+
 		ctx->interval = interval;
 	}
 
-	wglSwapLayerBuffers(ctx->hdc, WGL_SWAP_MAIN_PLANE);
+	if (!wglSwapLayerBuffers(ctx->hdc, WGL_SWAP_MAIN_PLANE))
+		MTY_Log("'wglSwapLayerBuffers' failed with error 0x%X", GetLastError());
+
 	glFinish();
 }
