@@ -53,12 +53,16 @@ struct gfx_ui *gfx_d3d11_ui_create(MTY_Device *device)
 
 	// Create vertex, pixel shaders from precompiled data from headers
 	HRESULT e = ID3D11Device_CreateVertexShader(_device, vsui, sizeof(vsui), NULL, &ctx->vs);
-	if (e != S_OK)
+	if (e != S_OK) {
+		MTY_Log("'ID3D11Device_CreateVertexShader' failed with HRESULT 0x%X", e);
 		goto except;
+	}
 
 	e = ID3D11Device_CreatePixelShader(_device, psui, sizeof(psui), NULL, &ctx->ps);
-	if (e != S_OK)
+	if (e != S_OK) {
+		MTY_Log("'ID3D11Device_CreatePixelShader' failed with HRESULT 0x%X", e);
 		goto except;
+	}
 
 	// Input layout describing the shape of the vertex buffer
 	D3D11_INPUT_ELEMENT_DESC layout[] = {
@@ -67,8 +71,10 @@ struct gfx_ui *gfx_d3d11_ui_create(MTY_Device *device)
 		{"COLOR",	 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, offsetof(MTY_Vtx, col), D3D11_INPUT_PER_VERTEX_DATA, 0},
 	};
 	e = ID3D11Device_CreateInputLayout(_device, layout, 3, vsui, sizeof(vsui), &ctx->il);
-	if (e != S_OK)
+	if (e != S_OK) {
+		MTY_Log("'ID3D11Device_CreateInputLayout' failed with HRESULT 0x%X", e);
 		goto except;
+	}
 
 	// Pre create a constant buffer used for storing the vertex shader's projection data
 	D3D11_BUFFER_DESC desc = {0};
@@ -77,12 +83,16 @@ struct gfx_ui *gfx_d3d11_ui_create(MTY_Device *device)
 	desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	e = ID3D11Device_CreateBuffer(_device, &desc, NULL, &ctx->cb);
-	if (e != S_OK)
+	if (e != S_OK) {
+		MTY_Log("'ID3D11Device_CreateBuffer' failed with HRESULT 0x%X", e);
 		goto except;
+	}
 
 	e = ID3D11Buffer_QueryInterface(ctx->cb, &IID_ID3D11Resource, &ctx->cb_res);
-	if (e != S_OK)
+	if (e != S_OK) {
+		MTY_Log("'ID3D11Buffer_QueryInterface' failed with HRESULT 0x%X", e);
 		goto except;
+	}
 
 	// Blend state
 	D3D11_BLEND_DESC bdesc = {0};
@@ -96,8 +106,10 @@ struct gfx_ui *gfx_d3d11_ui_create(MTY_Device *device)
 	bdesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
 	bdesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 	e = ID3D11Device_CreateBlendState(_device, &bdesc, &ctx->bs);
-	if (e != S_OK)
+	if (e != S_OK) {
+		MTY_Log("'ID3D11Device_CreateBlendState' failed with HRESULT 0x%X", e);
 		goto except;
+	}
 
 	// Rastersizer state enabling scissoring
 	D3D11_RASTERIZER_DESC rdesc = {0};
@@ -106,8 +118,10 @@ struct gfx_ui *gfx_d3d11_ui_create(MTY_Device *device)
 	rdesc.ScissorEnable = true;
 	rdesc.DepthClipEnable = true;
 	e = ID3D11Device_CreateRasterizerState(_device, &rdesc, &ctx->rs);
-	if (e != S_OK)
+	if (e != S_OK) {
+		MTY_Log("'ID3D11Device_CreateRasterizerState' failed with HRESULT 0x%X", e);
 		goto except;
+	}
 
 	// Depth stencil state
 	D3D11_DEPTH_STENCIL_DESC sdesc = {0};
@@ -120,8 +134,10 @@ struct gfx_ui *gfx_d3d11_ui_create(MTY_Device *device)
 	sdesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
 	sdesc.BackFace = sdesc.FrontFace;
 	e = ID3D11Device_CreateDepthStencilState(_device, &sdesc, &ctx->dss);
-	if (e != S_OK)
+	if (e != S_OK) {
+		MTY_Log("'ID3D11Device_CreateDepthStencilState' failed with HRESULT 0x%X", e);
 		goto except;
+	}
 
 	// Sampler state for font texture
 	D3D11_SAMPLER_DESC samdesc = {0};
@@ -131,8 +147,10 @@ struct gfx_ui *gfx_d3d11_ui_create(MTY_Device *device)
 	samdesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
 	samdesc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
 	e = ID3D11Device_CreateSamplerState(_device, &samdesc, &ctx->sampler);
-	if (e != S_OK)
+	if (e != S_OK) {
+		MTY_Log("'ID3D11Device_CreateSamplerState' failed with HRESULT 0x%X", e);
 		goto except;
+	}
 
 	except:
 
@@ -162,12 +180,16 @@ static HRESULT gfx_d3d11_ui_resize_buffer(ID3D11Device *device, struct gfx_d3d11
 		desc.BindFlags = bind_flag;
 		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 		HRESULT e = ID3D11Device_CreateBuffer(device, &desc, NULL, &buf->b);
-		if (e != S_OK)
+		if (e != S_OK) {
+			MTY_Log("'ID3D11Device_CreateBuffer' failed with HRESULT 0x%X", e);
 			return e;
+		}
 
 		e = ID3D11Buffer_QueryInterface(buf->b, &IID_ID3D11Resource, &buf->res);
-		if (e != S_OK)
+		if (e != S_OK) {
+			MTY_Log("'ID3D11Buffer_QueryInterface' failed with HRESULT 0x%X", e);
 			return e;
+		}
 
 		buf->len = len + incr;
 	}
@@ -183,16 +205,15 @@ bool gfx_d3d11_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 	ID3D11DeviceContext *_context = (ID3D11DeviceContext *) context;
 	ID3D11Texture2D *_dest = (ID3D11Texture2D *) dest;
 
-	HRESULT e = !S_OK;
 	ID3D11Resource *tex_res = NULL;
 	ID3D11RenderTargetView *rtv = NULL;
 
 	// Prevent rendering under invalid scenarios
 	if ((dd->displaySize.x <= 0 || dd->displaySize.y <= 0 || dd->cmdListLength == 0) && !dd->clear)
-		goto except;
+		return false;
 
 	// Resize vertex and index buffers if necessary
-	e = gfx_d3d11_ui_resize_buffer(_device, &ctx->vb, dd->vtxTotalLength, VTX_INCR, sizeof(MTY_Vtx),
+	HRESULT e = gfx_d3d11_ui_resize_buffer(_device, &ctx->vb, dd->vtxTotalLength, VTX_INCR, sizeof(MTY_Vtx),
 		D3D11_BIND_VERTEX_BUFFER);
 	if (e != S_OK)
 		goto except;
@@ -205,13 +226,17 @@ bool gfx_d3d11_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 	// Map both vertex and index buffers and bulk copy the data
 	D3D11_MAPPED_SUBRESOURCE vtx_map = {0};
 	e = ID3D11DeviceContext_Map(_context, ctx->vb.res, 0, D3D11_MAP_WRITE_DISCARD, 0, &vtx_map);
-	if (e != S_OK)
+	if (e != S_OK) {
+		MTY_Log("'ID3D11DeviceContext_Map' failed with HRESULT 0x%X", e);
 		goto except;
+	}
 
 	D3D11_MAPPED_SUBRESOURCE idx_map = {0};
 	e = ID3D11DeviceContext_Map(_context, ctx->ib.res, 0, D3D11_MAP_WRITE_DISCARD, 0, &idx_map);
-	if (e != S_OK)
+	if (e != S_OK) {
+		MTY_Log("'ID3D11DeviceContext_Map' failed with HRESULT 0x%X", e);
 		goto except;
+	}
 
 	MTY_Vtx *vtx_dst = (MTY_Vtx *) vtx_map.pData;
 	uint16_t *idx_dst = (uint16_t *) idx_map.pData;
@@ -258,12 +283,16 @@ bool gfx_d3d11_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 	// Set render target (wraps the texture)
 	if (_dest) {
 		e = ID3D11Texture2D_QueryInterface(_dest, &IID_ID3D11Resource, &tex_res);
-		if (e != S_OK)
+		if (e != S_OK) {
+			MTY_Log("'ID3D11Texture2D_QueryInterface' failed with HRESULT 0x%X", e);
 			goto except;
+		}
 
 		e = ID3D11Device_CreateRenderTargetView(_device, tex_res, NULL, &rtv);
-		if (e != S_OK)
+		if (e != S_OK) {
+			MTY_Log("'ID3D11Device_CreateRenderTargetView' failed with HRESULT 0x%X", e);
 			goto except;
+		}
 
 		ID3D11DeviceContext_OMSetRenderTargets(_context, 1, &rtv, NULL);
 	}
@@ -365,20 +394,26 @@ void *gfx_d3d11_ui_create_texture(MTY_Device *device, const void *rgba, uint32_t
 	subres.pSysMem = rgba;
 	subres.SysMemPitch = tdesc.Width * 4;
 	HRESULT e = ID3D11Device_CreateTexture2D(_device, &tdesc, &subres, &tex);
-	if (e != S_OK)
+	if (e != S_OK) {
+		MTY_Log("'ID3D11Device_CreateTexture2D' failed with HRESULT 0x%X", e);
 		goto except;
+	}
 
 	e = ID3D11Texture2D_QueryInterface(tex, &IID_ID3D11Resource, &res);
-	if (e != S_OK)
+	if (e != S_OK) {
+		MTY_Log("'ID3D11Texture2D_QueryInterface' failed with HRESULT 0x%X", e);
 		goto except;
+	}
 
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {0};
 	srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Texture2D.MipLevels = tdesc.MipLevels;
 	e = ID3D11Device_CreateShaderResourceView(_device, res, &srvDesc, &srv);
-	if (e != S_OK)
+	if (e != S_OK) {
+		MTY_Log("'ID3D11Device_CreateShaderResourceView' failed with HRESULT 0x%X", e);
 		goto except;
+	}
 
 	except:
 
