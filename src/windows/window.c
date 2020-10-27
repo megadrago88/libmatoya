@@ -206,7 +206,8 @@ static void app_unregister_global_hotkeys(MTY_App *app)
 
 	while (MTY_HashNextKeyInt(app->ghotkey, &i, &key))
 		if (key > 0)
-			UnregisterHotKey(hwnd, (int32_t) key);
+			if (!UnregisterHotKey(hwnd, (int32_t) key))
+				MTY_Log("'UnregisterHotKey' failed with error 0x%X", GetLastError());
 }
 
 static void app_kb_to_hotkey(MTY_App *app, MTY_Msg *wmsg)
@@ -216,6 +217,7 @@ static void app_kb_to_hotkey(MTY_App *app, MTY_Msg *wmsg)
 		if (wmsg->keyboard.pressed) {
 			wmsg->type = MTY_WINDOW_MSG_HOTKEY;
 			wmsg->hotkey = hotkey;
+
 		} else {
 			wmsg->type = MTY_WINDOW_MSG_NONE;
 		}
@@ -693,12 +695,18 @@ static void app_apply_keyboard_state(MTY_App *app, bool focus)
 			if (ctx) {
 				WINDOW_KB_HWND = ctx->hwnd; // Unfortunately this needs to be global
 				app->kbhook = SetWindowsHookEx(WH_KEYBOARD_LL, app_ll_keyboard_proc, app->instance, 0);
+				if (!app->kbhook) {
+					WINDOW_KB_HWND = NULL;
+					MTY_Log("'SetWindowsHookEx' failed with error 0x%X", GetLastError());
+				}
 			}
 		}
 
 	} else {
 		if (app->kbhook) {
-			UnhookWindowsHookEx(app->kbhook);
+			if (!UnhookWindowsHookEx(app->kbhook))
+				MTY_Log("'UnhookWindowsHookEx' failed with error 0x%X", GetLastError());
+
 			WINDOW_KB_HWND = NULL;
 			app->kbhook = NULL;
 		}
@@ -923,8 +931,10 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		case WM_INPUT:
 			UINT rsize = WINDOW_RI_MAX;
 			UINT e = GetRawInputData((HRAWINPUT) lparam, RID_INPUT, ctx->ri, &rsize, sizeof(RAWINPUTHEADER));
-			if (e == 0 || e == 0xFFFFFFFF)
+			if (e == 0 || e == 0xFFFFFFFF) {
+				MTY_Log("'GetRawInputData' failed with error 0x%X", e);
 				break;
+			}
 
 			RAWINPUTHEADER *header = &ctx->ri->header;
 			if (header->dwType == RIM_TYPEMOUSE) {
@@ -1189,6 +1199,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, const void *opa
 	app->instance = GetModuleHandle(NULL);
 	if (!app->instance) {
 		r = false;
+		MTY_Log("'GetModuleHandle' failed with error 0x%X", GetLastError());
 		goto except;
 	}
 
@@ -1207,6 +1218,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, const void *opa
 	app->class = RegisterClassEx(&app->wc);
 	if (app->class == 0) {
 		r = false;
+		MTY_Log("'RegisterClassEx' failed with error 0x%X", GetLastError());
 		goto except;
 	}
 
@@ -1424,6 +1436,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	window = app_find_open_window(app);
 	if (window == -1) {
 		r = false;
+		MTY_Log("Maximum windows (MTY_WINDOW_MAX) of %u reached", MTY_WINDOW_MAX);
 		goto except;
 	}
 
@@ -1484,6 +1497,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 		x, y, width, height, NULL, NULL, app->instance, ctx);
 	if (!ctx->hwnd) {
 		r = false;
+		MTY_Log("'CreateWindowEx' failed with error 0x%X", GetLastError());
 		goto except;
 	}
 
@@ -1525,6 +1539,9 @@ void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 
 	if (ctx->hwnd)
 		DestroyWindow(ctx->hwnd);
+
+	if (ctx->gfx_ctx || ctx->renderer)
+		MTY_Log("Window destroyed with GFX still attached");
 
 	MTY_Free(ctx->ri);
 	MTY_Free(ctx);
