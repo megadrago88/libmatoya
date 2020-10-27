@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "hidp.h"
+#include "hidpi.h"
 
 #define MTY_HID_DRIVER_STATE_MAX 1024
 

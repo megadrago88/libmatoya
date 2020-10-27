@@ -6,6 +6,8 @@
 
 #pragma once
 
+// Stand in for the official hidpi.h shipped with the WDK
+
 #include <winioctl.h>
 
 typedef USHORT USAGE;
