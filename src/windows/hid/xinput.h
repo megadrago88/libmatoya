@@ -28,18 +28,27 @@ static DWORD (WINAPI *_XInputGetBaseBusInformation)(DWORD dwUserIndex, XINPUT_BA
 
 static void hid_xinput_init(void)
 {
+	bool fallback = false;
+
 	XINPUT1_4 = LoadLibrary(L"xinput1_4.dll");
 	if (XINPUT1_4) {
 		_XInputGetState = (void *) GetProcAddress(XINPUT1_4, (LPCSTR) 100);
-		if (!_XInputGetState)
+		if (!_XInputGetState) {
+			fallback = true;
 			_XInputGetState = XInputGetState;
+		}
 
 		_XInputSetState = (void *) GetProcAddress(XINPUT1_4, "XInputSetState");
-		if (!_XInputSetState)
+		if (!_XInputSetState) {
+			fallback = true;
 			_XInputSetState = XInputSetState;
+		}
 
 		_XInputGetBaseBusInformation = (void *) GetProcAddress(XINPUT1_4, (LPCSTR) 104);
 	}
+
+	if (!XINPUT1_4 || !_XInputGetBaseBusInformation || fallback)
+		MTY_Log("Failed to load full XInput 1.4 interface");
 }
 
 static void hid_xinput_destroy(void)
@@ -69,7 +78,9 @@ static void hid_xinput_rumble(struct xip *xips, uint32_t id, uint16_t low, uint1
 		vb.wLeftMotorSpeed = low;
 		vb.wRightMotorSpeed = high;
 
-		_XInputSetState(id, &vb);
+		DWORD e = _XInputSetState(id, &vb);
+		if (e != ERROR_SUCCESS)
+			MTY_Log("'XInputSetState' failed with error 0x%X", e);
 	}
 }
 
@@ -153,8 +164,11 @@ static void hid_xinput_state(struct xip *xips, MTY_Window window, MTY_MsgFunc fu
 					xip->bbi.vid = 0x045E;
 					xip->bbi.pid = 0x0000;
 
-					if (_XInputGetBaseBusInformation)
-						_XInputGetBaseBusInformation(x, &xip->bbi);
+					if (_XInputGetBaseBusInformation) {
+						DWORD e = _XInputGetBaseBusInformation(x, &xip->bbi);
+						if (e != ERROR_SUCCESS)
+							MTY_Log("'XInputGetBaseBusInformation' failed with error 0x%X", e);
+					}
 
 					xip->was_enabled = true;
 				}
