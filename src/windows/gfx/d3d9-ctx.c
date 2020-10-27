@@ -27,65 +27,6 @@ struct gfx_d3d9_ctx {
 	IDirect3DSurface9 *back_buffer;
 };
 
-static bool gfx_d3d9_ctx_init(struct gfx_d3d9_ctx *ctx)
-{
-	IDirect3DSwapChain9 *swap_chain = NULL;
-
-	HRESULT e = Direct3DCreate9Ex(D3D_SDK_VERSION, &ctx->factory);
-	if (e != S_OK)
-		goto except;
-
-	D3DPRESENT_PARAMETERS pp = {0};
-	pp.BackBufferFormat = D3DFMT_UNKNOWN;
-	pp.BackBufferCount = 1;
-	pp.SwapEffect = D3DSWAPEFFECT_FLIPEX;
-	pp.hDeviceWindow = ctx->hwnd;
-	pp.Windowed = TRUE;
-
-	DWORD flags = D3DCREATE_HARDWARE_VERTEXPROCESSING | D3DCREATE_PUREDEVICE |
-		D3DCREATE_NOWINDOWCHANGES | D3DCREATE_MULTITHREADED | D3DCREATE_DISABLE_PSGP_THREADING;
-
-	e = IDirect3D9Ex_CreateDeviceEx(ctx->factory, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, ctx->hwnd,
-		flags, &pp, NULL, &ctx->device);
-	if (e != S_OK)
-		goto except;
-
-	e = IDirect3DDevice9Ex_SetMaximumFrameLatency(ctx->device, 1);
-	if (e != S_OK)
-		goto except;
-
-	e = IDirect3DDevice9Ex_QueryInterface(ctx->device, &IID_IDirect3DDevice9, (void **) &ctx->device_og);
-	if (e != S_OK)
-		goto except;
-
-	e = IDirect3DDevice9Ex_GetSwapChain(ctx->device, 0, &swap_chain);
-	if (e != S_OK)
-		goto except;
-
-	e = IDirect3DSwapChain9_QueryInterface(swap_chain, &IID_IDirect3DSwapChain9Ex, (void **) &ctx->swap_chain);
-	if (e != S_OK)
-		goto except;
-
-	except:
-
-	if (swap_chain)
-		IDirect3DSwapChain9_Release(swap_chain);
-
-	return e == S_OK;
-}
-
-struct gfx_ctx *gfx_d3d9_ctx_create(void *native_window, bool vsync)
-{
-	struct gfx_d3d9_ctx *ctx = MTY_Alloc(1, sizeof(struct gfx_d3d9_ctx));
-	ctx->hwnd = (HWND) native_window;
-	ctx->vsync = vsync;
-
-	if (!gfx_d3d9_ctx_init(ctx))
-		gfx_d3d9_ctx_destroy((struct gfx_ctx **) &ctx);
-
-	return (struct gfx_ctx *) ctx;
-}
-
 static void gfx_d3d9_ctx_free(struct gfx_d3d9_ctx *ctx)
 {
 	if (ctx->back_buffer)
@@ -108,6 +49,80 @@ static void gfx_d3d9_ctx_free(struct gfx_d3d9_ctx *ctx)
 	ctx->device_og = NULL;
 	ctx->device = NULL;
 	ctx->factory = NULL;
+}
+
+static bool gfx_d3d9_ctx_init(struct gfx_d3d9_ctx *ctx)
+{
+	IDirect3DSwapChain9 *swap_chain = NULL;
+
+	HRESULT e = Direct3DCreate9Ex(D3D_SDK_VERSION, &ctx->factory);
+	if (e != S_OK) {
+		MTY_Log("'Direct3DCreate9Ex' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	D3DPRESENT_PARAMETERS pp = {0};
+	pp.BackBufferFormat = D3DFMT_UNKNOWN;
+	pp.BackBufferCount = 1;
+	pp.SwapEffect = D3DSWAPEFFECT_FLIPEX;
+	pp.hDeviceWindow = ctx->hwnd;
+	pp.Windowed = TRUE;
+
+	DWORD flags = D3DCREATE_HARDWARE_VERTEXPROCESSING | D3DCREATE_PUREDEVICE |
+		D3DCREATE_NOWINDOWCHANGES | D3DCREATE_MULTITHREADED | D3DCREATE_DISABLE_PSGP_THREADING;
+
+	e = IDirect3D9Ex_CreateDeviceEx(ctx->factory, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, ctx->hwnd,
+		flags, &pp, NULL, &ctx->device);
+	if (e != S_OK) {
+		MTY_Log("'IDirect3D9Ex_CreateDeviceEx' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	e = IDirect3DDevice9Ex_SetMaximumFrameLatency(ctx->device, 1);
+	if (e != S_OK) {
+		MTY_Log("'IDirect3DDevice9Ex_SetMaximumFrameLatency' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	e = IDirect3DDevice9Ex_QueryInterface(ctx->device, &IID_IDirect3DDevice9, &ctx->device_og);
+	if (e != S_OK) {
+		MTY_Log("'IDirect3DDevice9Ex_QueryInterface' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	e = IDirect3DDevice9Ex_GetSwapChain(ctx->device, 0, &swap_chain);
+	if (e != S_OK) {
+		MTY_Log("'IDirect3DDevice9Ex_GetSwapChain' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	e = IDirect3DSwapChain9_QueryInterface(swap_chain, &IID_IDirect3DSwapChain9Ex, &ctx->swap_chain);
+	if (e != S_OK) {
+		MTY_Log("'IDirect3DSwapChain9_QueryInterface' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	except:
+
+	if (swap_chain)
+		IDirect3DSwapChain9_Release(swap_chain);
+
+	if (e != S_OK)
+		gfx_d3d9_ctx_free(ctx);
+
+	return e == S_OK;
+}
+
+struct gfx_ctx *gfx_d3d9_ctx_create(void *native_window, bool vsync)
+{
+	struct gfx_d3d9_ctx *ctx = MTY_Alloc(1, sizeof(struct gfx_d3d9_ctx));
+	ctx->hwnd = (HWND) native_window;
+	ctx->vsync = vsync;
+
+	if (!gfx_d3d9_ctx_init(ctx))
+		gfx_d3d9_ctx_destroy((struct gfx_ctx **) &ctx);
+
+	return (struct gfx_ctx *) ctx;
 }
 
 void gfx_d3d9_ctx_destroy(struct gfx_ctx **gfx_ctx)
@@ -139,15 +154,19 @@ MTY_Texture *gfx_d3d9_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 {
 	struct gfx_d3d9_ctx *ctx = (struct gfx_d3d9_ctx *) gfx_ctx;
 
-	if (!ctx->back_buffer) {
+	if (ctx->device && !ctx->back_buffer) {
 		HRESULT e = IDirect3DSwapChain9Ex_GetBackBuffer(ctx->swap_chain, 0,
 			D3DBACKBUFFER_TYPE_MONO, &ctx->back_buffer);
-		if (e != S_OK)
+		if (e != S_OK) {
+			MTY_Log("'IDirect3DSwapChain9Ex_GetBackBuffer' failed with HRESULT 0x%X", e);
 			goto except;
+		}
 
 		e = IDirect3DDevice9Ex_BeginScene(ctx->device);
-		if (e != S_OK)
+		if (e != S_OK) {
+			MTY_Log("'IDirect3DDevice9Ex_BeginScene' failed with HRESULT 0x%X", e);
 			goto except;
+		}
 
 		except:
 
@@ -165,6 +184,9 @@ MTY_Texture *gfx_d3d9_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 bool gfx_d3d9_ctx_refresh(struct gfx_ctx *gfx_ctx)
 {
 	struct gfx_d3d9_ctx *ctx = (struct gfx_d3d9_ctx *) gfx_ctx;
+
+	if (!ctx->device)
+		return false;
 
 	D3DPRESENT_PARAMETERS pp = {0};
 	pp.BackBufferFormat = D3DFMT_UNKNOWN;
@@ -197,9 +219,13 @@ void gfx_d3d9_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 			e = IDirect3DDevice9Ex_PresentEx(ctx->device, NULL, NULL, NULL, NULL, 0);
 
 			if (D3D_FATAL(e)) {
+				MTY_Log("'IDirect3DDevice9Ex_PresentEx' failed with HRESULT 0x%X", e);
 				gfx_d3d9_ctx_free(ctx);
 				gfx_d3d9_ctx_init(ctx);
 			}
+
+		} else {
+			MTY_Log("'IDirect3DDevice9Ex_EndScene' failed with HRESULT 0x%X", e);
 		}
 
 		if (ctx->back_buffer) {

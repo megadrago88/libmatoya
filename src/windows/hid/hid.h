@@ -10,6 +10,20 @@
 
 #define MTY_HID_DRIVER_STATE_MAX 1024
 
+struct hid {
+	RID_DEVICE_INFO di;
+	PHIDP_PREPARSED_DATA ppd;
+	HIDP_CAPS caps;
+	HIDP_BUTTON_CAPS *bcaps;
+	HIDP_VALUE_CAPS *vcaps;
+	MTY_HIDDriver driver;
+	void *driver_state;
+	wchar_t *name;
+	uint32_t id;
+};
+
+static uint32_t HID_ID = 32;
+
 
 // IO
 
@@ -37,7 +51,10 @@ static void hid_write(wchar_t *name, void *buf, DWORD size)
 
 	if (WaitForSingleObject(ov.hEvent, 1000) == WAIT_OBJECT_0) {
 		DWORD written = 0;
-		GetOverlappedResult(device, &ov, &written, FALSE);
+		if (!GetOverlappedResult(device, &ov, &written, FALSE)) {
+			MTY_Log("'GetOverlappedResult' failed with error 0x%X", GetLastError());
+			goto except;
+		}
 	}
 
 	except:
@@ -155,24 +172,10 @@ static void hid_u_to_u8(MTY_Value *v)
 
 // Drivers
 
-struct hid {
-	RID_DEVICE_INFO di;
-	PHIDP_PREPARSED_DATA ppd;
-	HIDP_CAPS caps;
-	HIDP_BUTTON_CAPS *bcaps;
-	HIDP_VALUE_CAPS *vcaps;
-	MTY_HIDDriver driver;
-	void *driver_state;
-	wchar_t *name;
-	uint32_t id;
-};
-
 #include "default.h"
 #include "xinput.h"
 #include "ps4.h"
 #include "nx.h"
-
-static uint32_t HID_ID = 32;
 
 static MTY_HIDDriver hid_get_driver(uint16_t vid, uint16_t pid)
 {
@@ -262,10 +265,6 @@ static void hid_state(struct hid *hid, void *data, ULONG dsize, MTY_Msg *wmsg)
 		case MTY_HID_DRIVER_DEFAULT:
 			hid_default_state(hid, data, dsize, wmsg);
 			break;
-
-		// On Windows, XInput is handled by the canonical XInput API
-		case MTY_HID_DRIVER_XINPUT:
-			break;
 	}
 }
 
@@ -277,12 +276,6 @@ static void hid_rumble(struct hid *hid, uint16_t low, uint16_t high)
 			break;
 		case MTY_HID_DRIVER_PS4:
 			hid_ps4_rumble(hid, low, high);
-			break;
-		case MTY_HID_DRIVER_DEFAULT:
-			break;
-
-		// On Windows, XInput is handled by the canonical XInput API by player index (0-3)
-		case MTY_HID_DRIVER_XINPUT:
 			break;
 	}
 }
