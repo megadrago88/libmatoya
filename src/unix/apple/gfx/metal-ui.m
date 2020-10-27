@@ -13,9 +13,6 @@ GFX_UI_PROTOTYPES(_metal_)
 
 #include "shaders/metal/ui.h"
 
-#define VTX_INCR (1024 * 5)
-#define IDX_INCR (1024 * 10)
-
 struct gfx_metal_ui {
 	id<MTLRenderPipelineState> rps;
 	id<MTLTexture> niltex;
@@ -108,12 +105,12 @@ bool gfx_metal_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 
 	// Resize vertex and index buffers if necessary
 	if (dd->vtxTotalLength > ctx->vb_len) {
-		ctx->vb_len = dd->vtxTotalLength + VTX_INCR;
+		ctx->vb_len = dd->vtxTotalLength + GFX_UI_VTX_INCR;
 		ctx->vb = [_device newBufferWithLength:ctx->vb_len * sizeof(MTY_Vtx) options:MTLResourceCPUCacheModeWriteCombined];
 	}
 
 	if (dd->idxTotalLength > ctx->ib_len) {
-		ctx->ib_len = dd->idxTotalLength + IDX_INCR;
+		ctx->ib_len = dd->idxTotalLength + GFX_UI_IDX_INCR;
 		ctx->ib = [_device newBufferWithLength:ctx->ib_len * sizeof(uint16_t) options:MTLResourceCPUCacheModeWriteCombined];
 	}
 

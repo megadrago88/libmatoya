@@ -14,6 +14,9 @@
 
 struct gfx_ui;
 
+#define GFX_UI_VTX_INCR (1024 * 5)
+#define GFX_UI_IDX_INCR (1024 * 10)
+
 #define GFX_UI_PROTO(func) func
 #define GFX_UI_FP(func)    (*func)
 

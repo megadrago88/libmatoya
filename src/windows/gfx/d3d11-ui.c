@@ -19,9 +19,6 @@ static
 static
 #include "shaders/d3d11/vsui.h"
 
-#define VTX_INCR (1024 * 5)
-#define IDX_INCR (1024 * 10)
-
 struct gfx_d3d11_ui_buffer {
 	ID3D11Buffer *b;
 	ID3D11Resource *res;
@@ -213,12 +210,12 @@ bool gfx_d3d11_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 		return false;
 
 	// Resize vertex and index buffers if necessary
-	HRESULT e = gfx_d3d11_ui_resize_buffer(_device, &ctx->vb, dd->vtxTotalLength, VTX_INCR, sizeof(MTY_Vtx),
+	HRESULT e = gfx_d3d11_ui_resize_buffer(_device, &ctx->vb, dd->vtxTotalLength, GFX_UI_VTX_INCR, sizeof(MTY_Vtx),
 		D3D11_BIND_VERTEX_BUFFER);
 	if (e != S_OK)
 		goto except;
 
-	e = gfx_d3d11_ui_resize_buffer(_device, &ctx->ib, dd->idxTotalLength, IDX_INCR, sizeof(uint16_t),
+	e = gfx_d3d11_ui_resize_buffer(_device, &ctx->ib, dd->idxTotalLength, GFX_UI_IDX_INCR, sizeof(uint16_t),
 		D3D11_BIND_INDEX_BUFFER);
 	if (e != S_OK)
 		goto except;

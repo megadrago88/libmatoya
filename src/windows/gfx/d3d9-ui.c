@@ -14,9 +14,6 @@ GFX_UI_PROTOTYPES(_d3d9_)
 
 #define D3DFVF_CUSTOMVERTEX (D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1)
 
-#define VTX_INCR (1024 * 5)
-#define IDX_INCR (1024 * 10)
-
 struct gfx_d3d9_ui {
 	IDirect3DVertexBuffer9 *vb;
 	IDirect3DIndexBuffer9 *ib;
@@ -53,14 +50,14 @@ bool gfx_d3d9_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *
 			ctx->vb = NULL;
 		}
 
-		HRESULT e = IDirect3DDevice9_CreateVertexBuffer(_device, (dd->vtxTotalLength + VTX_INCR) * sizeof(struct gfx_d3d9_ui_vtx),
+		HRESULT e = IDirect3DDevice9_CreateVertexBuffer(_device, (dd->vtxTotalLength + GFX_UI_VTX_INCR) * sizeof(struct gfx_d3d9_ui_vtx),
 			D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, D3DFVF_CUSTOMVERTEX, D3DPOOL_DEFAULT, &ctx->vb, NULL);
 		if (e != D3D_OK) {
 			MTY_Log("'IDirect3DDevice9_CreateVertexBuffer' failed with HRESULT 0x%X", e);
 			return false;
 		}
 
-		ctx->vb_len = dd->vtxTotalLength + VTX_INCR;
+		ctx->vb_len = dd->vtxTotalLength + GFX_UI_VTX_INCR;
 	}
 
 	if (ctx->idx_len < dd->idxTotalLength) {
@@ -69,14 +66,14 @@ bool gfx_d3d9_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *
 			ctx->ib = NULL;
 		}
 
-		HRESULT e = IDirect3DDevice9_CreateIndexBuffer(_device, (dd->idxTotalLength + IDX_INCR) * sizeof(uint16_t),
+		HRESULT e = IDirect3DDevice9_CreateIndexBuffer(_device, (dd->idxTotalLength + GFX_UI_IDX_INCR) * sizeof(uint16_t),
 			D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &ctx->ib, NULL);
 		if (e != D3D_OK) {
 			MTY_Log("'IDirect3DDevice9_CreateIndexBuffer' failed with HRESULT 0x%X", e);
 			return false;
 		}
 
-		ctx->idx_len = dd->idxTotalLength + IDX_INCR;
+		ctx->idx_len = dd->idxTotalLength + GFX_UI_IDX_INCR;
 	}
 
 	// Lock both vertex and index buffers and bulk copy the data
