@@ -350,7 +350,8 @@ bool gfx_d3d11_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 				ID3D11DeviceContext_PSSetShaderResources(_context, 0, 1, &srv);
 
 				// Draw indexed
-				ID3D11DeviceContext_DrawIndexed(_context, pcmd->elemCount, pcmd->idxOffset + idxOffset, pcmd->vtxOffset + vtxOffset);
+				ID3D11DeviceContext_DrawIndexed(_context, pcmd->elemCount, pcmd->idxOffset + idxOffset,
+					pcmd->vtxOffset + vtxOffset);
 			}
 		}
 
