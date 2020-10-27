@@ -248,8 +248,15 @@ void MTY_AudioPlay(MTY_Audio *ctx)
 	if (!ctx->client)
 		return;
 
-	if (!ctx->playing)
-		ctx->playing = IAudioClient_Start(ctx->client) == S_OK;
+	if (!ctx->playing) {
+		HRESULT e = IAudioClient_Start(ctx->client);
+		if (e != S_OK) {
+			MTY_Log("'IAudioClient_Start' failed with HRESULT 0x%X", e);
+			return;
+		}
+
+		ctx->playing = true;
+	}
 }
 
 void MTY_AudioStop(MTY_Audio *ctx)
@@ -258,11 +265,17 @@ void MTY_AudioStop(MTY_Audio *ctx)
 		return;
 
 	if (ctx->playing) {
-		if (IAudioClient_Stop(ctx->client) != S_OK)
+		HRESULT e = IAudioClient_Stop(ctx->client);
+		if (e != S_OK) {
+			MTY_Log("'IAudioClient_Stop' failed with HRESULT 0x%X", e);
 			return;
+		}
 
-		if (IAudioClient_Reset(ctx->client) != S_OK)
+		e = IAudioClient_Reset(ctx->client);
+		if (e != S_OK) {
+			MTY_Log("'IAudioClient_Reset' failed with HRESULT 0x%X", e);
 			return;
+		}
 
 		ctx->playing = false;
 	}
