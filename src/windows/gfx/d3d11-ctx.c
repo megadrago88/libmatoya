@@ -17,6 +17,8 @@ GFX_CTX_PROTOTYPES(_d3d11_)
 	(e) == DXGI_ERROR_DEVICE_RESET \
 )
 
+#define GFX_D3D11_CTX_WAIT 2000
+
 struct gfx_d3d11_ctx {
 	HWND hwnd;
 	ID3D11Device *device;
@@ -26,93 +28,6 @@ struct gfx_d3d11_ctx {
 	HANDLE waitable;
 	UINT swflags;
 };
-
-static bool gfx_d3d11_ctx_init(struct gfx_d3d11_ctx *ctx)
-{
-	bool r = true;
-	IDXGIDevice2 *device2 = NULL;
-	IUnknown *unknown = NULL;
-	IDXGIAdapter *adapter = NULL;
-	IDXGIFactory2 *factory2 = NULL;
-	IDXGISwapChain1 *swap_chain1 = NULL;
-
-	DXGI_SWAP_CHAIN_DESC1 sd = {0};
-	sd.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-	sd.SampleDesc.Count = 1;
-	sd.BufferCount = 2;
-	sd.Flags = ctx->swflags;
-
-	D3D_FEATURE_LEVEL levels[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
-	HRESULT e = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0, levels,
-		sizeof(levels) / sizeof(D3D_FEATURE_LEVEL), D3D11_SDK_VERSION, &ctx->device, NULL, &ctx->context);
-	if (e != S_OK) {r = false; goto except;}
-
-	e = ID3D11Device_QueryInterface(ctx->device, &IID_IDXGIDevice2, &device2);
-	if (e != S_OK) {r = false; goto except;}
-
-	e = ID3D11Device_QueryInterface(ctx->device, &IID_IUnknown, &unknown);
-	if (e != S_OK) {r = false; goto except;}
-
-	e = IDXGIDevice2_GetParent(device2, &IID_IDXGIAdapter, &adapter);
-	if (e != S_OK) {r = false; goto except;}
-
-	e = IDXGIAdapter_GetParent(adapter, &IID_IDXGIFactory2, &factory2);
-	if (e != S_OK) {r = false; goto except;}
-
-	e = IDXGIFactory2_CreateSwapChainForHwnd(factory2, unknown, ctx->hwnd, &sd, NULL, NULL, &swap_chain1);
-	if (e != S_OK) {r = false; goto except;}
-
-	e = IDXGISwapChain1_QueryInterface(swap_chain1, &IID_IDXGISwapChain2, &ctx->swap_chain2);
-	if (e != S_OK) {r = false; goto except;}
-
-	ctx->waitable = IDXGISwapChain2_GetFrameLatencyWaitableObject(ctx->swap_chain2);
-	if (!ctx->waitable) {r = false; goto except;}
-
-	e = IDXGISwapChain2_SetMaximumFrameLatency(ctx->swap_chain2, 1);
-	if (e != S_OK) {r = false; goto except;}
-
-	e = IDXGIFactory2_MakeWindowAssociation(factory2, ctx->hwnd, DXGI_MWA_NO_WINDOW_CHANGES);
-	if (e != S_OK) {r = false; goto except;}
-
-	// The docs say that the app should wait on this handle even before the first frame
-	WaitForSingleObjectEx(ctx->waitable, INFINITE, TRUE);
-
-	except:
-
-	if (swap_chain1)
-		IDXGISwapChain1_Release(swap_chain1);
-
-	if (factory2)
-		IDXGIFactory2_Release(factory2);
-
-	if (adapter)
-		IDXGIAdapter_Release(adapter);
-
-	if (unknown)
-		IUnknown_Release(unknown);
-
-	if (device2)
-		IDXGIDevice2_Release(device2);
-
-	return e == S_OK;
-}
-
-struct gfx_ctx *gfx_d3d11_ctx_create(void *native_window, bool vsync)
-{
-	struct gfx_d3d11_ctx *ctx = MTY_Alloc(1, sizeof(struct gfx_d3d11_ctx));
-	ctx->hwnd = (HWND) native_window;
-	ctx->swflags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
-
-	if (vsync)
-		ctx->swflags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
-
-	if (!gfx_d3d11_ctx_init(ctx))
-		gfx_d3d11_ctx_destroy((struct gfx_ctx **) &ctx);
-
-	return (struct gfx_ctx *) ctx;
-}
 
 static void gfx_d3d11_ctx_free(struct gfx_d3d11_ctx *ctx)
 {
@@ -136,6 +51,138 @@ static void gfx_d3d11_ctx_free(struct gfx_d3d11_ctx *ctx)
 	ctx->swap_chain2 = NULL;
 	ctx->context = NULL;
 	ctx->device = NULL;
+}
+
+static bool gfx_d3d11_ctx_init(struct gfx_d3d11_ctx *ctx)
+{
+	bool r = true;
+	IDXGIDevice2 *device2 = NULL;
+	IUnknown *unknown = NULL;
+	IDXGIAdapter *adapter = NULL;
+	IDXGIFactory2 *factory2 = NULL;
+	IDXGISwapChain1 *swap_chain1 = NULL;
+
+	DXGI_SWAP_CHAIN_DESC1 sd = {0};
+	sd.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+	sd.SampleDesc.Count = 1;
+	sd.BufferCount = 2;
+	sd.Flags = ctx->swflags;
+
+	D3D_FEATURE_LEVEL levels[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0};
+	HRESULT e = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, 0, levels,
+		sizeof(levels) / sizeof(D3D_FEATURE_LEVEL), D3D11_SDK_VERSION, &ctx->device, NULL, &ctx->context);
+	if (e != S_OK) {
+		r = false;
+		MTY_Log("'D3D11CreateDevice' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	e = ID3D11Device_QueryInterface(ctx->device, &IID_IDXGIDevice2, &device2);
+	if (e != S_OK) {
+		r = false;
+		MTY_Log("'ID3D11Device_QueryInterface' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	e = ID3D11Device_QueryInterface(ctx->device, &IID_IUnknown, &unknown);
+	if (e != S_OK) {
+		r = false;
+		MTY_Log("'ID3D11Device_QueryInterface' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	e = IDXGIDevice2_GetParent(device2, &IID_IDXGIAdapter, &adapter);
+	if (e != S_OK) {
+		r = false;
+		MTY_Log("'IDXGIDevice2_GetParent' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	e = IDXGIAdapter_GetParent(adapter, &IID_IDXGIFactory2, &factory2);
+	if (e != S_OK) {
+		r = false;
+		MTY_Log("'IDXGIAdapter_GetParent' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	e = IDXGIFactory2_CreateSwapChainForHwnd(factory2, unknown, ctx->hwnd, &sd, NULL, NULL, &swap_chain1);
+	if (e != S_OK) {
+		r = false;
+		MTY_Log("'IDXGIFactory2_CreateSwapChainForHwnd' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	e = IDXGISwapChain1_QueryInterface(swap_chain1, &IID_IDXGISwapChain2, &ctx->swap_chain2);
+	if (e != S_OK) {
+		r = false;
+		MTY_Log("'IDXGISwapChain1_QueryInterface' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	ctx->waitable = IDXGISwapChain2_GetFrameLatencyWaitableObject(ctx->swap_chain2);
+	if (!ctx->waitable) {
+		r = false;
+		MTY_Log("'IDXGISwapChain2_GetFrameLatencyWaitableObject' failed");
+		goto except;
+	}
+
+	e = IDXGISwapChain2_SetMaximumFrameLatency(ctx->swap_chain2, 1);
+	if (e != S_OK) {
+		r = false;
+		MTY_Log("'IDXGISwapChain2_SetMaximumFrameLatency' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	e = IDXGIFactory2_MakeWindowAssociation(factory2, ctx->hwnd, DXGI_MWA_NO_WINDOW_CHANGES);
+	if (e != S_OK) {
+		r = false;
+		MTY_Log("'IDXGIFactory2_MakeWindowAssociation' failed with HRESULT 0x%X", e);
+		goto except;
+	}
+
+	// The docs say that the app should wait on this handle even before the first frame
+	DWORD we = WaitForSingleObjectEx(ctx->waitable, GFX_D3D11_CTX_WAIT, TRUE);
+	if (we != WAIT_OBJECT_0)
+		MTY_Log("'WaitForSingleObjectEx' failed with error 0x%X", we);
+
+	except:
+
+	if (swap_chain1)
+		IDXGISwapChain1_Release(swap_chain1);
+
+	if (factory2)
+		IDXGIFactory2_Release(factory2);
+
+	if (adapter)
+		IDXGIAdapter_Release(adapter);
+
+	if (unknown)
+		IUnknown_Release(unknown);
+
+	if (device2)
+		IDXGIDevice2_Release(device2);
+
+	if (e != S_OK)
+		gfx_d3d11_ctx_free(ctx);
+
+	return e == S_OK;
+}
+
+struct gfx_ctx *gfx_d3d11_ctx_create(void *native_window, bool vsync)
+{
+	struct gfx_d3d11_ctx *ctx = MTY_Alloc(1, sizeof(struct gfx_d3d11_ctx));
+	ctx->hwnd = (HWND) native_window;
+	ctx->swflags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
+
+	if (vsync)
+		ctx->swflags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+
+	if (!gfx_d3d11_ctx_init(ctx))
+		gfx_d3d11_ctx_destroy((struct gfx_ctx **) &ctx);
+
+	return (struct gfx_ctx *) ctx;
 }
 
 void gfx_d3d11_ctx_destroy(struct gfx_ctx **gfx_ctx)
@@ -169,8 +216,11 @@ MTY_Texture *gfx_d3d11_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 {
 	struct gfx_d3d11_ctx *ctx = (struct gfx_d3d11_ctx *) gfx_ctx;
 
-	if (!ctx->back_buffer)
-		IDXGISwapChain2_GetBuffer(ctx->swap_chain2, 0, &IID_ID3D11Texture2D, &ctx->back_buffer);
+	if (ctx->swap_chain2 && !ctx->back_buffer) {
+		HRESULT e = IDXGISwapChain2_GetBuffer(ctx->swap_chain2, 0, &IID_ID3D11Texture2D, &ctx->back_buffer);
+		if (e != S_OK)
+			MTY_Log("'IDXGISwapChain2_GetBuffer' failed with HRESULT 0x%X", e);
+	}
 
 	return (MTY_Texture *) ctx->back_buffer;
 }
@@ -179,10 +229,14 @@ bool gfx_d3d11_ctx_refresh(struct gfx_ctx *gfx_ctx)
 {
 	struct gfx_d3d11_ctx *ctx = (struct gfx_d3d11_ctx *) gfx_ctx;
 
+	if (!ctx->swap_chain2)
+		return false;
+
 	HRESULT e = IDXGISwapChain2_ResizeBuffers(ctx->swap_chain2, 0, 0, 0,
 		DXGI_FORMAT_UNKNOWN, ctx->swflags);
 
 	if (DXGI_FATAL(e)) {
+		MTY_Log("'IDXGISwapChain2_ResizeBuffers' failed with HRESULT 0x%X", e);
 		gfx_d3d11_ctx_free(ctx);
 		gfx_d3d11_ctx_init(ctx);
 	}
@@ -204,11 +258,14 @@ void gfx_d3d11_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 		ctx->back_buffer = NULL;
 
 		if (DXGI_FATAL(e)) {
+			MTY_Log("'IDXGISwapChain2_Present' failed with HRESULT 0x%X", e);
 			gfx_d3d11_ctx_free(ctx);
 			gfx_d3d11_ctx_init(ctx);
 
 		} else {
-			WaitForSingleObjectEx(ctx->waitable, INFINITE, TRUE);
+			DWORD we = WaitForSingleObjectEx(ctx->waitable, GFX_D3D11_CTX_WAIT, TRUE);
+			if (we != WAIT_OBJECT_0)
+				MTY_Log("'WaitForSingleObjectEx' failed with error 0x%X", we);
 		}
 	}
 }
