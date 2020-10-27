@@ -123,7 +123,7 @@ MTY_Texture *gfx_metal_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 	}
 }
 
-void gfx_metal_ctx_refresh(struct gfx_ctx *gfx_ctx)
+bool gfx_metal_ctx_refresh(struct gfx_ctx *gfx_ctx)
 {
 	struct gfx_metal_ctx *ctx = (struct gfx_metal_ctx *) gfx_ctx;
 
@@ -134,6 +134,8 @@ void gfx_metal_ctx_refresh(struct gfx_ctx *gfx_ctx)
 	size.height *= scale;
 
 	ctx->layer.drawableSize = size;
+
+	return true;
 }
 
 void gfx_metal_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)

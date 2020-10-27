@@ -96,8 +96,8 @@ bool gfx_metal_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 	id<MTLCommandQueue> cq = (__bridge id<MTLCommandQueue>) context;
 	id<MTLTexture> _dest = (__bridge id<MTLTexture>) dest;
 
-	int32_t fb_width = lrint(dd->displaySize.x * dd->fbScale.x);
-	int32_t fb_height = lrint(dd->displaySize.y * dd->fbScale.y);
+	int32_t fb_width = lrint(dd->displaySize.x);
+	int32_t fb_height = lrint(dd->displaySize.y);
 
 	// Prevent rendering under invalid scenarios
 	if ((fb_width <= 0 || fb_height <= 0 || dd->cmdListLength == 0) && !dd->clear)
@@ -115,10 +115,10 @@ bool gfx_metal_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 	}
 
 	// Update the vertex shader's projection data based on the current display size
-	float L = dd->displayPos.x;
-	float R = dd->displayPos.x + dd->displaySize.x;
-	float T = dd->displayPos.y;
-	float B = dd->displayPos.y + dd->displaySize.y;
+	float L = 0;
+	float R = dd->displaySize.x;
+	float T = 0;
+	float B = dd->displaySize.y;
 	const float proj[4][4] = {
 		{2.0f / (R-L),   0.0f,         0.0f,  0.0f},
 		{0.0f,           2.0f / (T-B), 0.0f,  0.0f},
@@ -128,8 +128,8 @@ bool gfx_metal_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 
 	// Set viewport based on display size
 	MTLViewport viewport = {0};
-	viewport.width = dd->displaySize.x * dd->fbScale.x;
-	viewport.height = dd->displaySize.y * dd->fbScale.y;
+	viewport.width = dd->displaySize.x;
+	viewport.height = dd->displaySize.y;
 	viewport.zfar = 1.0;
 
 	// Begin render pass, pipeline has been created in advance
@@ -162,10 +162,10 @@ bool gfx_metal_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 
 			// Use the clip to apply scissor
 			MTY_Vec4 r = {0};
-			r.x = (pcmd->clip.x - dd->displayPos.x) * dd->fbScale.x;
-			r.y = (pcmd->clip.y - dd->displayPos.y) * dd->fbScale.y;
-			r.z = (pcmd->clip.z - dd->displayPos.x) * dd->fbScale.x;
-			r.w = (pcmd->clip.w - dd->displayPos.y) * dd->fbScale.y;
+			r.x = pcmd->clip.x;
+			r.y = pcmd->clip.y;
+			r.z = pcmd->clip.z;
+			r.w = pcmd->clip.w;
 
 			// Make sure the rect is actually in the viewport
 			if (r.x < fb_width && r.y < fb_height && r.z >= 0.0f && r.w >= 0.0f) {

@@ -20,6 +20,8 @@ struct MTY_Audio {
 	AudioQueueBufferRef audio_buf[AUDIO_BUFS];
 	size_t queued;
 	uint32_t sample_rate;
+	uint32_t min_buffer;
+	uint32_t max_buffer;
 	bool playing;
 };
 
@@ -57,10 +59,14 @@ static void audio_queue_callback(void *opaque, AudioQueueRef q, AudioQueueBuffer
 	MTY_MutexUnlock(ctx->mutex);
 }
 
-MTY_Audio *MTY_AudioCreate(uint32_t sampleRate)
+MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer)
 {
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
 	ctx->sample_rate = sampleRate;
+
+	uint32_t frames_per_ms = lrint((float) sampleRate / 1000.0f);
+	ctx->min_buffer = minBuffer * frames_per_ms;
+	ctx->max_buffer = maxBuffer * frames_per_ms;
 
 	ctx->mutex = MTY_MutexCreate();
 
