@@ -10,11 +10,11 @@ GFX_CTX_PROTOTYPES(_d3d9_)
 #define COBJMACROS
 #include <d3d9.h>
 
-#define D3D_FATAL(e) (              \
+#define D3D_FATAL(e) ( \
 	(e) == D3DERR_DEVICEREMOVED  || \
 	(e) == D3DERR_DEVICELOST     || \
 	(e) == D3DERR_DEVICEHUNG     || \
-	(e) == D3DERR_DEVICENOTRESET    \
+	(e) == D3DERR_DEVICENOTRESET \
 )
 
 struct gfx_d3d9_ctx {

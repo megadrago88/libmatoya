@@ -11,10 +11,10 @@ GFX_CTX_PROTOTYPES(_d3d11_)
 #include <d3d11.h>
 #include <dxgi1_3.h>
 
-#define DXGI_FATAL(e) (                 \
+#define DXGI_FATAL(e) ( \
 	(e) == DXGI_ERROR_DEVICE_REMOVED || \
 	(e) == DXGI_ERROR_DEVICE_HUNG    || \
-	(e) == DXGI_ERROR_DEVICE_RESET      \
+	(e) == DXGI_ERROR_DEVICE_RESET \
 )
 
 struct gfx_d3d11_ctx {

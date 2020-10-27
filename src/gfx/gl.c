@@ -94,6 +94,13 @@ struct gfx *gfx_gl_create(MTY_Device *device)
 	glAttachShader(ctx->prog, ctx->fs);
 	glLinkProgram(ctx->prog);
 
+	glGetProgramiv(ctx->prog, GL_LINK_STATUS, &status);
+	if (status == GL_FALSE) {
+		MTY_Log("Program failed to link");
+		r = false;
+		goto except;
+	}
+
 	ctx->loc_pos = glGetAttribLocation(ctx->prog, "position");
 	ctx->loc_uv = glGetAttribLocation(ctx->prog, "texcoord");
 	ctx->loc_fcb = glGetUniformLocation(ctx->prog, "fcb");
@@ -220,7 +227,7 @@ bool gfx_gl_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	const void *image, const MTY_RenderDesc *desc, MTY_Texture *dest)
 {
 	struct gfx_gl *ctx = (struct gfx_gl *) gfx;
-	GLuint _dest = *((GLuint *) dest);
+	GLuint _dest = dest ? *((GLuint *) dest) : 0;
 
 	// Don't do anything until we have real data
 	if (desc->format != MTY_COLOR_FORMAT_UNKNOWN) {
@@ -326,17 +333,6 @@ void gfx_gl_destroy(struct gfx **gfx)
 }
 
 
-// Misc
-
-void gfx_gl_finish(void)
-{
-	if (!gl_dl_global_init())
-		return;
-
-	glFinish();
-}
-
-
 // State
 
 struct gfx_gl_state {
@@ -425,4 +421,15 @@ void gfx_gl_free_state(void **state)
 
 	MTY_Free(s);
 	*state = NULL;
+}
+
+
+// Misc
+
+void gfx_gl_finish(void)
+{
+	if (!gl_dl_global_init())
+		return;
+
+	glFinish();
 }

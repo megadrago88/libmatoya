@@ -83,7 +83,7 @@ struct gfx_ui *gfx_gl_ui_create(MTY_Device *device)
 
 	glGetProgramiv(ctx->prog, GL_LINK_STATUS, &status);
 	if (status == GL_FALSE) {
-		fprintf(stderr, "Program failed to link\n");
+		MTY_Log("Program failed to link");
 		r = false;
 		goto except;
 	}
@@ -98,6 +98,13 @@ struct gfx_ui *gfx_gl_ui_create(MTY_Device *device)
 	// Pre create dynamically resizing vertex, index (element) buffers
 	glGenBuffers(1, &ctx->vb);
 	glGenBuffers(1, &ctx->eb);
+
+	GLenum e = glGetError();
+	if (e != GL_NO_ERROR) {
+		MTY_Log("'glGetError' returned %d", e);
+		r = false;
+		goto except;
+	}
 
 	except:
 
@@ -179,8 +186,8 @@ bool gfx_gl_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *co
 		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr) cmdList->vtxLength * sizeof(MTY_Vtx), cmdList->vtx, GL_STREAM_DRAW);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr) cmdList->idxLength * sizeof(uint16_t), cmdList->idx, GL_STREAM_DRAW);
 
-		for (uint32_t cmd_i = 0; cmd_i < cmdList->cmdLength; cmd_i++) {
-			MTY_Cmd *pcmd = &cmdList->cmd[cmd_i];
+		for (uint32_t i = 0; i < cmdList->cmdLength; i++) {
+			MTY_Cmd *pcmd = &cmdList->cmd[i];
 
 			// Use the clip to apply scissor
 			MTY_Vec4 r = {0};
