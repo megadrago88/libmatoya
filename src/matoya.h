@@ -611,6 +611,7 @@ typedef struct MTY_Device MTY_Device;
 typedef struct MTY_Context MTY_Context;
 typedef struct MTY_Texture MTY_Texture;
 typedef struct MTY_Renderer MTY_Renderer;
+typedef struct MTY_RenderState MTY_RenderState;
 
 MTY_EXPORT MTY_Renderer *
 MTY_RendererCreate(void);
@@ -636,6 +637,16 @@ MTY_RendererDestroy(MTY_Renderer **renderer);
 
 MTY_EXPORT uint32_t
 MTY_GetAvailableGFX(MTY_GFX *apis);
+
+MTY_EXPORT MTY_RenderState *
+MTY_GetRenderState(MTY_GFX api, MTY_Device *device, MTY_Context *context);
+
+MTY_EXPORT void
+MTY_SetRenderState(MTY_GFX api, MTY_Device *device, MTY_Context *context,
+	MTY_RenderState *state);
+
+MTY_EXPORT void
+MTY_FreeRenderState(MTY_RenderState **state);
 
 
 /// @module sort

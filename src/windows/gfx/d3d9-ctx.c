@@ -45,7 +45,7 @@ static bool gfx_d3d9_ctx_init(struct gfx_d3d9_ctx *ctx)
 	DWORD flags = D3DCREATE_HARDWARE_VERTEXPROCESSING | D3DCREATE_PUREDEVICE |
 		D3DCREATE_NOWINDOWCHANGES | D3DCREATE_MULTITHREADED | D3DCREATE_DISABLE_PSGP_THREADING;
 
-	e = IDirect3D9Ex_CreateDeviceEx(ctx->factory, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, NULL,
+	e = IDirect3D9Ex_CreateDeviceEx(ctx->factory, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, ctx->hwnd,
 		flags, &pp, NULL, &ctx->device);
 	if (e != S_OK)
 		goto except;

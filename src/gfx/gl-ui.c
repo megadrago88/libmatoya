@@ -111,7 +111,7 @@ bool gfx_gl_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *co
 	const MTY_DrawData *dd, MTY_Hash *cache, MTY_Texture *dest)
 {
 	struct gfx_gl_ui *ctx = (struct gfx_gl_ui *) gfx_ui;
-	GLuint _dest = *((GLuint *) dest);
+	GLuint _dest = dest ? *((GLuint *) dest) : 0;
 
 	int32_t fb_width = lrint(dd->displaySize.x);
 	int32_t fb_height = lrint(dd->displaySize.y);

@@ -335,3 +335,94 @@ void gfx_gl_finish(void)
 
 	glFinish();
 }
+
+
+// State
+
+struct gfx_gl_state {
+	GLint array_buffer;
+	GLenum active_texture;
+	GLint program;
+	GLint texture;
+	GLint viewport[4];
+	GLint scissor_box[4];
+	GLenum blend_src_rgb;
+	GLenum blend_dst_rgb;
+	GLenum blend_src_alpha;
+	GLenum blend_dst_alpha;
+	GLenum blend_equation_rgb;
+	GLenum blend_equation_alpha;
+	GLboolean blend;
+	GLboolean cull_face;
+	GLboolean depth_test;
+	GLboolean scissor_test;
+};
+
+void *gfx_gl_get_state(MTY_Device *device, MTY_Context *_context)
+{
+	if (!gl_dl_global_init())
+		return NULL;
+
+	struct gfx_gl_state *s = MTY_Alloc(1, sizeof(struct gfx_gl_state));
+
+	glGetIntegerv(GL_ACTIVE_TEXTURE, (GLint *) &s->active_texture);
+	glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &s->array_buffer);
+	glGetIntegerv(GL_CURRENT_PROGRAM, &s->program);
+	glGetIntegerv(GL_TEXTURE_BINDING_2D, &s->texture);
+	glGetIntegerv(GL_VIEWPORT, s->viewport);
+	glGetIntegerv(GL_SCISSOR_BOX, s->scissor_box);
+	glGetIntegerv(GL_BLEND_SRC_RGB, (GLint *) &s->blend_src_rgb);
+	glGetIntegerv(GL_BLEND_DST_RGB, (GLint *) &s->blend_dst_rgb);
+	glGetIntegerv(GL_BLEND_SRC_ALPHA, (GLint *) &s->blend_src_alpha);
+	glGetIntegerv(GL_BLEND_DST_ALPHA, (GLint *) &s->blend_dst_alpha);
+	glGetIntegerv(GL_BLEND_EQUATION_RGB, (GLint *) &s->blend_equation_rgb);
+	glGetIntegerv(GL_BLEND_EQUATION_ALPHA, (GLint *) &s->blend_equation_alpha);
+	s->blend = glIsEnabled(GL_BLEND);
+	s->cull_face = glIsEnabled(GL_CULL_FACE);
+	s->depth_test = glIsEnabled(GL_DEPTH_TEST);
+	s->scissor_test = glIsEnabled(GL_SCISSOR_TEST);
+
+	return s;
+}
+
+static void gfx_gl_enable(GLenum cap, bool enable)
+{
+	if (enable) {
+		glEnable(cap);
+
+	} else {
+		glDisable(cap);
+	}
+}
+
+void gfx_gl_set_state(MTY_Device *device, MTY_Context *_context, void *state)
+{
+	if (!gl_dl_global_init())
+		return;
+
+	struct gfx_gl_state *s = state;
+
+	glUseProgram(s->program);
+	glBindTexture(GL_TEXTURE_2D, s->texture);
+	glActiveTexture(s->active_texture);
+	glBindBuffer(GL_ARRAY_BUFFER, s->array_buffer);
+	glBlendEquationSeparate(s->blend_equation_rgb, s->blend_equation_alpha);
+	glBlendFuncSeparate(s->blend_src_rgb, s->blend_dst_rgb, s->blend_src_alpha, s->blend_dst_alpha);
+	gfx_gl_enable(GL_BLEND, s->blend);
+	gfx_gl_enable(GL_CULL_FACE, s->cull_face);
+	gfx_gl_enable(GL_DEPTH_TEST, s->depth_test);
+	gfx_gl_enable(GL_SCISSOR_TEST, s->scissor_test);
+	glViewport(s->viewport[0], s->viewport[1], s->viewport[2], s->viewport[3]);
+	glScissor(s->scissor_box[0], s->scissor_box[1], s->scissor_box[2], s->scissor_box[3]);
+}
+
+void gfx_gl_free_state(void **state)
+{
+	if (!state || !*state)
+		return;
+
+	struct gfx_gl_state *s = *state;
+
+	MTY_Free(s);
+	*state = NULL;
+}

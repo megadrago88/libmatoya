@@ -440,3 +440,63 @@ void gfx_d3d9_destroy(struct gfx **gfx)
 	MTY_Free(ctx);
 	*gfx = NULL;
 }
+
+
+// State
+
+struct gfx_d3d9s {
+	IDirect3DStateBlock9 *block;
+	D3DMATRIX world;
+	D3DMATRIX view;
+	D3DMATRIX proj;
+};
+
+void *gfx_d3d9_get_state(MTY_Device *device, MTY_Context *context)
+{
+	struct gfx_d3d9s *state = MTY_Alloc(1, sizeof(struct gfx_d3d9s));
+
+	bool r = false;
+	IDirect3DDevice9 *_device = (IDirect3DDevice9 *) device;
+
+	HRESULT e = IDirect3DDevice9_CreateStateBlock(_device, D3DSBT_ALL, &state->block);
+	if (e != D3D_OK) {
+		r = false;
+		goto except;
+	}
+
+	IDirect3DDevice9_GetTransform(_device, D3DTS_WORLD, &state->world);
+	IDirect3DDevice9_GetTransform(_device, D3DTS_VIEW, &state->view);
+	IDirect3DDevice9_GetTransform(_device, D3DTS_PROJECTION, &state->proj);
+
+	except:
+
+	if (!r)
+		gfx_d3d9_free_state((void **) &state);
+
+	return state;
+}
+
+void gfx_d3d9_set_state(MTY_Device *device, MTY_Context *context, void *state)
+{
+	struct gfx_d3d9s *s = state;
+	IDirect3DDevice9 *_device = (IDirect3DDevice9 *) device;
+
+	IDirect3DDevice9_SetTransform(_device, D3DTS_WORLD, &s->world);
+	IDirect3DDevice9_SetTransform(_device, D3DTS_VIEW, &s->view);
+	IDirect3DDevice9_SetTransform(_device, D3DTS_PROJECTION, &s->proj);
+
+	IDirect3DStateBlock9_Apply(s->block);
+}
+
+void gfx_d3d9_free_state(void **state)
+{
+	if (!state || !*state)
+		return;
+
+	struct gfx_d3d9s *s = *state;
+
+	IDirect3DStateBlock9_Release(s->block);
+
+	MTY_Free(s);
+	*state = NULL;
+}

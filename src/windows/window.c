@@ -1802,11 +1802,15 @@ bool MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync)
 	if (!ctx)
 		return false;
 
-	MTY_RendererDestroy(&ctx->renderer);
-	ctx->renderer = NULL;
+	if (ctx->api == api)
+		return true;
 
-	if (ctx->api != MTY_GFX_NONE)
+	MTY_RendererDestroy(&ctx->renderer);
+
+	if (ctx->api != MTY_GFX_NONE) {
 		GFX_CTX_API[ctx->api].gfx_ctx_destroy(&ctx->gfx_ctx);
+		ctx->api = MTY_GFX_NONE;
+	}
 
 	if (api != MTY_GFX_NONE) {
 		ctx->renderer = MTY_RendererCreate();

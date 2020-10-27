@@ -30,16 +30,24 @@ struct MTY_Renderer {
 	struct gfx_ui *gfx_ui;
 };
 
+struct MTY_RenderState {
+	MTY_GFX api;
+	void *opaque;
+};
+
 MTY_Renderer *MTY_RendererCreate(void)
 {
 	MTY_Renderer *ctx = MTY_Alloc(1, sizeof(MTY_Renderer));
-	ctx->textures = MTY_HashCreate(100);
+	ctx->textures = MTY_HashCreate(0);
 
 	return ctx;
 }
 
 static void render_destroy_api(MTY_Renderer *ctx, MTY_GFX api)
 {
+	if (api == MTY_GFX_NONE)
+		return;
+
 	GFX_API[api].gfx_destroy(&ctx->gfx);
 	GFX_UI_API[api].gfx_ui_destroy(&ctx->gfx_ui);
 
@@ -73,6 +81,9 @@ static bool render_create_api(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device
 
 static bool renderer_begin(MTY_Renderer *ctx, MTY_GFX api, MTY_Context *context, MTY_Device *device)
 {
+	if (api == MTY_GFX_NONE)
+		return false;
+
 	if (!GFX_API_SUPPORTED(api)) {
 		MTY_Log("MTY_GFX %d is unsupported", api);
 		return false;
@@ -80,7 +91,7 @@ static bool renderer_begin(MTY_Renderer *ctx, MTY_GFX api, MTY_Context *context,
 
 	// Any change in API or device means we need to rebuild the state
 	if (ctx->api != api || ctx->device != device)
-		render_destroy_api(ctx, api);
+		render_destroy_api(ctx, ctx->api);
 
 	// Compile shaders, create buffers and staging areas
 	return !ctx->gfx || !ctx->gfx_ui ? render_create_api(ctx, api, device) : true;
@@ -138,6 +149,38 @@ uint32_t MTY_GetAvailableGFX(MTY_GFX *apis)
 	return r;
 }
 
+MTY_RenderState *MTY_GetRenderState(MTY_GFX api, MTY_Device *device, MTY_Context *context)
+{
+	MTY_RenderState *state = MTY_Alloc(1, sizeof(MTY_RenderState));
+
+	state->api = api;
+	state->opaque = GFX_API[api].gfx_get_state(device, context);
+
+	return state;
+}
+
+void MTY_SetRenderState(MTY_GFX api, MTY_Device *device, MTY_Context *context,
+	MTY_RenderState *state)
+{
+	if (!state || !state->opaque || state->api != api)
+		return;
+
+	GFX_API[api].gfx_set_state(device, context, state->opaque);
+}
+
+void MTY_FreeRenderState(MTY_RenderState **state)
+{
+	if (!state || !*state)
+		return;
+
+	MTY_RenderState *s = *state;
+
+	GFX_API[s->api].gfx_free_state(&s->opaque);
+
+	MTY_Free(s);
+	*state = NULL;
+}
+
 void MTY_RendererDestroy(MTY_Renderer **renderer)
 {
 	if (!renderer || !*renderer)
@@ -145,9 +188,7 @@ void MTY_RendererDestroy(MTY_Renderer **renderer)
 
 	MTY_Renderer *ctx = *renderer;
 
-	if (ctx->api != MTY_GFX_NONE)
-		render_destroy_api(ctx, ctx->api);
-
+	render_destroy_api(ctx, ctx->api);
 	MTY_HashDestroy(&ctx->textures, NULL);
 
 	MTY_Free(ctx);

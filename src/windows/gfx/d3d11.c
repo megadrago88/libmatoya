@@ -492,3 +492,146 @@ void gfx_d3d11_destroy(struct gfx **gfx)
 	MTY_Free(ctx);
 	*gfx = NULL;
 }
+
+
+// State
+
+struct gfx_d3d11_state {
+	UINT sr_count;
+	UINT vp_count;
+	D3D11_RECT sr[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE];
+	D3D11_VIEWPORT vp[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE];
+	ID3D11RasterizerState *rs;
+	ID3D11BlendState *bs;
+	FLOAT bf[4];
+	UINT mask;
+	UINT stencil_ref;
+	ID3D11DepthStencilState *dss;
+	ID3D11ShaderResourceView *ps_srv;
+	ID3D11SamplerState *sampler;
+	ID3D11PixelShader *ps;
+	ID3D11VertexShader *vs;
+	ID3D11GeometryShader *gs;
+	UINT ps_count;
+	UINT vs_count;
+	UINT gs_count;
+	ID3D11ClassInstance *ps_inst[256];
+	ID3D11ClassInstance *vs_inst[256];
+	ID3D11ClassInstance *gs_inst[256];
+	D3D11_PRIMITIVE_TOPOLOGY topology;
+	ID3D11Buffer *ib;
+	ID3D11Buffer *vb;
+	ID3D11Buffer *vs_cb;
+	UINT ib_offset;
+	UINT vb_stride;
+	UINT vb_offset;
+	DXGI_FORMAT ib_fmt;
+	ID3D11InputLayout *il;
+};
+
+void *gfx_d3d11_get_state(MTY_Device *device, MTY_Context *_context)
+{
+	struct gfx_d3d11_state *s = MTY_Alloc(1, sizeof(struct gfx_d3d11_state));
+	ID3D11DeviceContext *context = (ID3D11DeviceContext *) _context;
+
+	s->sr_count = s->vp_count = D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE;
+	ID3D11DeviceContext_RSGetScissorRects(context, &s->sr_count, s->sr);
+	ID3D11DeviceContext_RSGetViewports(context, &s->vp_count, s->vp);
+	ID3D11DeviceContext_RSGetState(context, &s->rs);
+	ID3D11DeviceContext_OMGetBlendState(context, &s->bs, s->bf, &s->mask);
+	ID3D11DeviceContext_OMGetDepthStencilState(context, &s->dss, &s->stencil_ref);
+	ID3D11DeviceContext_PSGetShaderResources(context, 0, 1, &s->ps_srv);
+	ID3D11DeviceContext_PSGetSamplers(context, 0, 1, &s->sampler);
+
+	s->ps_count = s->vs_count = s->gs_count = 256;
+	ID3D11DeviceContext_PSGetShader(context, &s->ps, s->ps_inst, &s->ps_count);
+	ID3D11DeviceContext_VSGetShader(context, &s->vs, s->vs_inst, &s->vs_count);
+	ID3D11DeviceContext_VSGetConstantBuffers(context, 0, 1, &s->vs_cb);
+	ID3D11DeviceContext_GSGetShader(context, &s->gs, s->gs_inst, &s->gs_count);
+
+	ID3D11DeviceContext_IAGetPrimitiveTopology(context, &s->topology);
+	ID3D11DeviceContext_IAGetIndexBuffer(context, &s->ib, &s->ib_fmt, &s->ib_offset);
+	ID3D11DeviceContext_IAGetVertexBuffers(context, 0, 1, &s->vb, &s->vb_stride, &s->vb_offset);
+	ID3D11DeviceContext_IAGetInputLayout(context, &s->il);
+
+	return s;
+}
+
+void gfx_d3d11_set_state(MTY_Device *device, MTY_Context *_context, void *state)
+{
+	struct gfx_d3d11_state *s = state;
+	ID3D11DeviceContext *context = (ID3D11DeviceContext *) _context;
+
+	ID3D11DeviceContext_IASetInputLayout(context, s->il);
+	ID3D11DeviceContext_IASetVertexBuffers(context, 0, 1, &s->vb, &s->vb_stride, &s->vb_offset);
+	ID3D11DeviceContext_IASetIndexBuffer(context, s->ib, s->ib_fmt, s->ib_offset);
+	ID3D11DeviceContext_IASetPrimitiveTopology(context, s->topology);
+
+	ID3D11DeviceContext_GSSetShader(context, s->gs, s->gs_inst, s->gs_count);
+	ID3D11DeviceContext_VSSetConstantBuffers(context, 0, 1, &s->vs_cb);
+	ID3D11DeviceContext_VSSetShader(context, s->vs, s->vs_inst, s->vs_count);
+	ID3D11DeviceContext_PSSetShader(context, s->ps, s->ps_inst, s->ps_count);
+
+	ID3D11DeviceContext_PSSetSamplers(context, 0, 1, &s->sampler);
+	ID3D11DeviceContext_PSSetShaderResources(context, 0, 1, &s->ps_srv);
+	ID3D11DeviceContext_OMSetDepthStencilState(context, s->dss, s->stencil_ref);
+	ID3D11DeviceContext_OMSetBlendState(context, s->bs, s->bf, s->mask);
+	ID3D11DeviceContext_RSSetState(context, s->rs);
+	ID3D11DeviceContext_RSSetViewports(context, s->vp_count, s->vp);
+	ID3D11DeviceContext_RSSetScissorRects(context, s->sr_count, s->sr);
+}
+
+void gfx_d3d11_free_state(void **state)
+{
+	if (!state || !*state)
+		return;
+
+	struct gfx_d3d11_state *s = *state;
+
+	if (s->il)
+		ID3D11InputLayout_Release(s->il);
+
+	if (s->vb)
+		ID3D11Buffer_Release(s->vb);
+
+	if (s->ib)
+		ID3D11Buffer_Release(s->ib);
+
+	if (s->gs)
+		ID3D11GeometryShader_Release(s->gs);
+
+	if (s->vs_cb)
+		ID3D11Buffer_Release(s->vs_cb);
+
+	for (UINT i = 0; i < s->vs_count; i++)
+		if (s->vs_inst[i])
+			ID3D11ClassInstance_Release(s->vs_inst[i]);
+
+	if (s->vs)
+		ID3D11VertexShader_Release(s->vs);
+
+	for (UINT i = 0; i < s->ps_count; i++)
+		if (s->ps_inst[i])
+			ID3D11ClassInstance_Release(s->ps_inst[i]);
+
+	if (s->ps)
+		ID3D11PixelShader_Release(s->ps);
+
+	if (s->sampler)
+		ID3D11SamplerState_Release(s->sampler);
+
+	if (s->ps_srv)
+		ID3D11ShaderResourceView_Release(s->ps_srv);
+
+	if (s->dss)
+		ID3D11DepthStencilState_Release(s->dss);
+
+	if (s->bs)
+		ID3D11BlendState_Release(s->bs);
+
+	if (s->rs)
+		ID3D11RasterizerState_Release(s->rs);
+
+	MTY_Free(s);
+	*state = NULL;
+}
