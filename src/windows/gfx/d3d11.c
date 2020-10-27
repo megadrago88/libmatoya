@@ -360,7 +360,8 @@ bool gfx_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	// Refresh textures and load texture data
 	// If format == MTY_COLOR_FORMAT_UNKNOWN, texture refreshing/loading is skipped and the previous frame is rendered
 	HRESULT e = gfx_d3d11_reload_textures(ctx, _device, _context, image, desc);
-	if (e != S_OK) return false;
+	if (e != S_OK)
+		return false;
 
 	// Viewport
 	D3D11_VIEWPORT vp = {0};
@@ -529,56 +530,56 @@ struct gfx_d3d11_state {
 	ID3D11InputLayout *il;
 };
 
-void *gfx_d3d11_get_state(MTY_Device *device, MTY_Context *_context)
+void *gfx_d3d11_get_state(MTY_Device *device, MTY_Context *context)
 {
 	struct gfx_d3d11_state *s = MTY_Alloc(1, sizeof(struct gfx_d3d11_state));
-	ID3D11DeviceContext *context = (ID3D11DeviceContext *) _context;
+	ID3D11DeviceContext *_context = (ID3D11DeviceContext *) context;
 
 	s->sr_count = s->vp_count = D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE;
-	ID3D11DeviceContext_RSGetScissorRects(context, &s->sr_count, s->sr);
-	ID3D11DeviceContext_RSGetViewports(context, &s->vp_count, s->vp);
-	ID3D11DeviceContext_RSGetState(context, &s->rs);
-	ID3D11DeviceContext_OMGetBlendState(context, &s->bs, s->bf, &s->mask);
-	ID3D11DeviceContext_OMGetDepthStencilState(context, &s->dss, &s->stencil_ref);
-	ID3D11DeviceContext_PSGetShaderResources(context, 0, 1, &s->ps_srv);
-	ID3D11DeviceContext_PSGetSamplers(context, 0, 1, &s->sampler);
+	ID3D11DeviceContext_RSGetScissorRects(_context, &s->sr_count, s->sr);
+	ID3D11DeviceContext_RSGetViewports(_context, &s->vp_count, s->vp);
+	ID3D11DeviceContext_RSGetState(_context, &s->rs);
+	ID3D11DeviceContext_OMGetBlendState(_context, &s->bs, s->bf, &s->mask);
+	ID3D11DeviceContext_OMGetDepthStencilState(_context, &s->dss, &s->stencil_ref);
+	ID3D11DeviceContext_PSGetShaderResources(_context, 0, 1, &s->ps_srv);
+	ID3D11DeviceContext_PSGetSamplers(_context, 0, 1, &s->sampler);
 
 	s->ps_count = s->vs_count = s->gs_count = 256;
-	ID3D11DeviceContext_PSGetShader(context, &s->ps, s->ps_inst, &s->ps_count);
-	ID3D11DeviceContext_VSGetShader(context, &s->vs, s->vs_inst, &s->vs_count);
-	ID3D11DeviceContext_VSGetConstantBuffers(context, 0, 1, &s->vs_cb);
-	ID3D11DeviceContext_GSGetShader(context, &s->gs, s->gs_inst, &s->gs_count);
+	ID3D11DeviceContext_PSGetShader(_context, &s->ps, s->ps_inst, &s->ps_count);
+	ID3D11DeviceContext_VSGetShader(_context, &s->vs, s->vs_inst, &s->vs_count);
+	ID3D11DeviceContext_VSGetConstantBuffers(_context, 0, 1, &s->vs_cb);
+	ID3D11DeviceContext_GSGetShader(_context, &s->gs, s->gs_inst, &s->gs_count);
 
-	ID3D11DeviceContext_IAGetPrimitiveTopology(context, &s->topology);
-	ID3D11DeviceContext_IAGetIndexBuffer(context, &s->ib, &s->ib_fmt, &s->ib_offset);
-	ID3D11DeviceContext_IAGetVertexBuffers(context, 0, 1, &s->vb, &s->vb_stride, &s->vb_offset);
-	ID3D11DeviceContext_IAGetInputLayout(context, &s->il);
+	ID3D11DeviceContext_IAGetPrimitiveTopology(_context, &s->topology);
+	ID3D11DeviceContext_IAGetIndexBuffer(_context, &s->ib, &s->ib_fmt, &s->ib_offset);
+	ID3D11DeviceContext_IAGetVertexBuffers(_context, 0, 1, &s->vb, &s->vb_stride, &s->vb_offset);
+	ID3D11DeviceContext_IAGetInputLayout(_context, &s->il);
 
 	return s;
 }
 
-void gfx_d3d11_set_state(MTY_Device *device, MTY_Context *_context, void *state)
+void gfx_d3d11_set_state(MTY_Device *device, MTY_Context *context, void *state)
 {
 	struct gfx_d3d11_state *s = state;
-	ID3D11DeviceContext *context = (ID3D11DeviceContext *) _context;
+	ID3D11DeviceContext *_context = (ID3D11DeviceContext *) context;
 
-	ID3D11DeviceContext_IASetInputLayout(context, s->il);
-	ID3D11DeviceContext_IASetVertexBuffers(context, 0, 1, &s->vb, &s->vb_stride, &s->vb_offset);
-	ID3D11DeviceContext_IASetIndexBuffer(context, s->ib, s->ib_fmt, s->ib_offset);
-	ID3D11DeviceContext_IASetPrimitiveTopology(context, s->topology);
+	ID3D11DeviceContext_IASetInputLayout(_context, s->il);
+	ID3D11DeviceContext_IASetVertexBuffers(_context, 0, 1, &s->vb, &s->vb_stride, &s->vb_offset);
+	ID3D11DeviceContext_IASetIndexBuffer(_context, s->ib, s->ib_fmt, s->ib_offset);
+	ID3D11DeviceContext_IASetPrimitiveTopology(_context, s->topology);
 
-	ID3D11DeviceContext_GSSetShader(context, s->gs, s->gs_inst, s->gs_count);
-	ID3D11DeviceContext_VSSetConstantBuffers(context, 0, 1, &s->vs_cb);
-	ID3D11DeviceContext_VSSetShader(context, s->vs, s->vs_inst, s->vs_count);
-	ID3D11DeviceContext_PSSetShader(context, s->ps, s->ps_inst, s->ps_count);
+	ID3D11DeviceContext_GSSetShader(_context, s->gs, s->gs_inst, s->gs_count);
+	ID3D11DeviceContext_VSSetConstantBuffers(_context, 0, 1, &s->vs_cb);
+	ID3D11DeviceContext_VSSetShader(_context, s->vs, s->vs_inst, s->vs_count);
+	ID3D11DeviceContext_PSSetShader(_context, s->ps, s->ps_inst, s->ps_count);
 
-	ID3D11DeviceContext_PSSetSamplers(context, 0, 1, &s->sampler);
-	ID3D11DeviceContext_PSSetShaderResources(context, 0, 1, &s->ps_srv);
-	ID3D11DeviceContext_OMSetDepthStencilState(context, s->dss, s->stencil_ref);
-	ID3D11DeviceContext_OMSetBlendState(context, s->bs, s->bf, s->mask);
-	ID3D11DeviceContext_RSSetState(context, s->rs);
-	ID3D11DeviceContext_RSSetViewports(context, s->vp_count, s->vp);
-	ID3D11DeviceContext_RSSetScissorRects(context, s->sr_count, s->sr);
+	ID3D11DeviceContext_PSSetSamplers(_context, 0, 1, &s->sampler);
+	ID3D11DeviceContext_PSSetShaderResources(_context, 0, 1, &s->ps_srv);
+	ID3D11DeviceContext_OMSetDepthStencilState(_context, s->dss, s->stencil_ref);
+	ID3D11DeviceContext_OMSetBlendState(_context, s->bs, s->bf, s->mask);
+	ID3D11DeviceContext_RSSetState(_context, s->rs);
+	ID3D11DeviceContext_RSSetViewports(_context, s->vp_count, s->vp);
+	ID3D11DeviceContext_RSSetScissorRects(_context, s->sr_count, s->sr);
 }
 
 void gfx_d3d11_free_state(void **state)

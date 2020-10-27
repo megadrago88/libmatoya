@@ -455,12 +455,11 @@ void *gfx_d3d9_get_state(MTY_Device *device, MTY_Context *context)
 {
 	struct gfx_d3d9s *state = MTY_Alloc(1, sizeof(struct gfx_d3d9s));
 
-	bool r = false;
 	IDirect3DDevice9 *_device = (IDirect3DDevice9 *) device;
 
 	HRESULT e = IDirect3DDevice9_CreateStateBlock(_device, D3DSBT_ALL, &state->block);
 	if (e != D3D_OK) {
-		r = false;
+		MTY_Log("'IDirect3DDevice9_CreateStateBlock' failed with HRESULT 0x%X", e);
 		goto except;
 	}
 
@@ -470,7 +469,7 @@ void *gfx_d3d9_get_state(MTY_Device *device, MTY_Context *context)
 
 	except:
 
-	if (!r)
+	if (e != D3D_OK)
 		gfx_d3d9_free_state((void **) &state);
 
 	return state;

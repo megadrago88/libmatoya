@@ -43,20 +43,19 @@ MTY_Renderer *MTY_RendererCreate(void)
 	return ctx;
 }
 
-static void render_destroy_api(MTY_Renderer *ctx, MTY_GFX api)
+static void render_destroy_api(MTY_Renderer *ctx)
 {
-	if (api == MTY_GFX_NONE)
+	if (ctx->api == MTY_GFX_NONE)
 		return;
 
-	GFX_API[api].gfx_destroy(&ctx->gfx);
-	GFX_UI_API[api].gfx_ui_destroy(&ctx->gfx_ui);
+	GFX_API[ctx->api].gfx_destroy(&ctx->gfx);
+	GFX_UI_API[ctx->api].gfx_ui_destroy(&ctx->gfx_ui);
 
 	uint64_t i = 0;
 	int64_t id = 0;
-
 	while (MTY_HashNextKeyInt(ctx->textures, &i, &id)) {
 		void *texture = MTY_HashPopInt(ctx->textures, id);
-		GFX_UI_API[api].gfx_ui_destroy_texture(&texture);
+		GFX_UI_API[ctx->api].gfx_ui_destroy_texture(&texture);
 	}
 
 	ctx->api = MTY_GFX_NONE;
@@ -64,22 +63,6 @@ static void render_destroy_api(MTY_Renderer *ctx, MTY_GFX api)
 }
 
 static bool render_create_api(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device)
-{
-	ctx->gfx = GFX_API[api].gfx_create(device);
-	ctx->gfx_ui = GFX_UI_API[api].gfx_ui_create(device);
-
-	if (!ctx->gfx || !ctx->gfx_ui) {
-		render_destroy_api(ctx, api);
-		return false;
-	}
-
-	ctx->api = api;
-	ctx->device = device;
-
-	return true;
-}
-
-static bool renderer_begin(MTY_Renderer *ctx, MTY_GFX api, MTY_Context *context, MTY_Device *device)
 {
 	if (api == MTY_GFX_NONE)
 		return false;
@@ -89,12 +72,29 @@ static bool renderer_begin(MTY_Renderer *ctx, MTY_GFX api, MTY_Context *context,
 		return false;
 	}
 
-	// Any change in API or device means we need to rebuild the state
-	if (ctx->api != api || ctx->device != device)
-		render_destroy_api(ctx, ctx->api);
+	ctx->api = api;
+	ctx->device = device;
 
-	// Compile shaders, create buffers and staging areas
-	return !ctx->gfx || !ctx->gfx_ui ? render_create_api(ctx, api, device) : true;
+	ctx->gfx = GFX_API[api].gfx_create(device);
+	ctx->gfx_ui = GFX_UI_API[api].gfx_ui_create(device);
+
+	if (!ctx->gfx || !ctx->gfx_ui) {
+		render_destroy_api(ctx);
+		return false;
+	}
+
+	return true;
+}
+
+static bool renderer_begin(MTY_Renderer *ctx, MTY_GFX api, MTY_Context *context, MTY_Device *device)
+{
+	if (ctx->api != api || ctx->device != device)
+		render_destroy_api(ctx);
+
+	if (!ctx->gfx || !ctx->gfx_ui)
+		return render_create_api(ctx, api, device);
+
+	return true;
 }
 
 bool MTY_RendererDrawQuad(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device, MTY_Context *context,
@@ -188,7 +188,7 @@ void MTY_RendererDestroy(MTY_Renderer **renderer)
 
 	MTY_Renderer *ctx = *renderer;
 
-	render_destroy_api(ctx, ctx->api);
+	render_destroy_api(ctx);
 	MTY_HashDestroy(&ctx->textures, NULL);
 
 	MTY_Free(ctx);
