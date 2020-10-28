@@ -1854,9 +1854,10 @@ bool MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync)
 
 			if (api == MTY_GFX_D3D9)
 				return MTY_WindowSetGFX(app, window, MTY_GFX_GL, vsync);
-		}
 
-		ctx->api = api;
+		} else {
+			ctx->api = api;
+		}
 	}
 
 	return ctx->gfx_ctx ? true : false;
