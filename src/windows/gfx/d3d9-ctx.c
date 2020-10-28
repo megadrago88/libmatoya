@@ -188,6 +188,10 @@ bool gfx_d3d9_ctx_refresh(struct gfx_ctx *gfx_ctx)
 	if (!ctx->device)
 		return false;
 
+	// ResetEx will fail if the window is minimized
+	if (IsIconic(ctx->hwnd))
+		return false;
+
 	D3DPRESENT_PARAMETERS pp = {0};
 	pp.BackBufferFormat = D3DFMT_UNKNOWN;
 	pp.BackBufferCount = 1;

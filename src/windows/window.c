@@ -212,7 +212,9 @@ static void app_unregister_global_hotkeys(MTY_App *app)
 
 static void app_kb_to_hotkey(MTY_App *app, MTY_Msg *wmsg)
 {
-	uint32_t hotkey = MTY_AppGetHotkey(app, wmsg->keyboard.mod, wmsg->keyboard.scancode);
+	MTY_Keymod mod = wmsg->keyboard.mod & 0xFF;
+
+	uint32_t hotkey = MTY_AppGetHotkey(app, mod, wmsg->keyboard.scancode);
 	if (hotkey != 0) {
 		if (wmsg->keyboard.pressed) {
 			wmsg->type = MTY_WINDOW_MSG_HOTKEY;
@@ -261,6 +263,8 @@ void MTY_AppEnableGlobalHotkeys(MTY_App *app, bool enable)
 
 void MTY_AppSetHotkey(MTY_App *app, MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, uint32_t id)
 {
+	mod &= 0xFF;
+
 	if (mode == MTY_HOTKEY_LOCAL) {
 		MTY_HashSetInt(app->hotkey, (mod << 16) | scancode, (void *) (uintptr_t) id);
 
@@ -294,6 +298,8 @@ void MTY_AppSetHotkey(MTY_App *app, MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancod
 
 uint32_t MTY_AppGetHotkey(MTY_App *app, MTY_Keymod mod, MTY_Scancode scancode)
 {
+	mod &= 0xFF;
+
 	return (uint32_t) (uintptr_t) MTY_HashGetInt(app->hotkey, (mod << 16) | scancode);
 }
 
@@ -602,7 +608,9 @@ static MTY_Keymod app_get_keymod(void)
 		((GetKeyState(VK_LMENU)    & 0x8000) >> 11) |
 		((GetKeyState(VK_RMENU)    & 0x8000) >> 10) |
 		((GetKeyState(VK_LWIN)     & 0x8000) >> 9)  |
-		((GetKeyState(VK_RWIN)     & 0x8000) >> 8);
+		((GetKeyState(VK_RWIN)     & 0x8000) >> 8)  |
+		((GetKeyState(VK_CAPITAL)  & 0x0001) << 8)  |
+		((GetKeyState(VK_NUMLOCK)  & 0x0001) << 9);
 }
 
 static LRESULT CALLBACK app_ll_keyboard_proc(int nCode, WPARAM wParam, LPARAM lParam)
