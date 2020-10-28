@@ -1487,8 +1487,21 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 		window_client_to_full(&width, &height);
 
 		if (desc->position == MTY_POSITION_CENTER) {
-			x += (rect.right - width) / 2;
-			y += (rect.bottom - height) / 2;
+			if (rect.right > (int32_t) width) {
+				x += (rect.right - width) / 2;
+
+			} else {
+				x = rect.left;
+				width = desktop_width;
+			}
+
+			if (rect.bottom > (int32_t) height) {
+				y += (rect.bottom - height) / 2;
+
+			} else {
+				y = rect.top;
+				height = desktop_height;
+			}
 		}
 	}
 
