@@ -238,12 +238,7 @@ uint32_t MTY_AudioGetQueuedFrames(MTY_Audio *ctx)
 	return ctx->buffer_size;
 }
 
-bool MTY_AudioIsPlaying(MTY_Audio *ctx)
-{
-	return ctx->playing;
-}
-
-void MTY_AudioPlay(MTY_Audio *ctx)
+static void audio_play(MTY_Audio *ctx)
 {
 	if (!ctx->client)
 		return;
@@ -293,7 +288,6 @@ static bool audio_handle_device_change(MTY_Audio *ctx)
 		if (!ctx->client)
 			return false;
 
-		MTY_AudioPlay(ctx);
 		AUDIO_DEVICE_CHANGED = false;
 	}
 
@@ -308,7 +302,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 	uint32_t queued = MTY_AudioGetQueuedFrames(ctx);
 
 	// Stop playing and flush if we've exceeded the maximum buffer or underrun
-	if (MTY_AudioIsPlaying(ctx) && queued > ctx->max_buffer || queued == 0)
+	if (ctx->playing && queued > ctx->max_buffer || queued == 0)
 		MTY_AudioStop(ctx);
 
 	if (ctx->buffer_size - queued >= count) {
@@ -321,8 +315,8 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 		}
 
 		// Begin playing again when the minimum buffer has been reached
-		if (!MTY_AudioIsPlaying(ctx) && queued + count >= ctx->min_buffer)
-			MTY_AudioPlay(ctx);
+		if (!ctx->playing && queued + count >= ctx->min_buffer)
+			audio_play(ctx);
 	}
 }
 
