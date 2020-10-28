@@ -76,7 +76,7 @@ bool MTY_HashNextKeyInt(MTY_Hash *ctx, uint64_t *iter, int64_t *key)
 	r = r && key_str[0] == '#';
 
 	if (r)
-		*key = r ? strtoll(key_str + 1, NULL, 16) : 0;
+		*key = strtoll(key_str + 1, NULL, 16);
 
 	return r;
 }
@@ -106,7 +106,7 @@ void MTY_HashDestroy(MTY_Hash **hash, void (*freeFunc)(void *value))
 	MTY_Free(ctx->buckets);
 
 	MTY_Free(ctx);
-	hash = NULL;
+	*hash = NULL;
 }
 
 static void *hash_get(MTY_Hash *ctx, const char *key, bool pop)

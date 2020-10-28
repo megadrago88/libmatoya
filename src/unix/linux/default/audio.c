@@ -27,7 +27,7 @@ static void __attribute__((destructor)) audio_global_destroy(void)
 MTY_Audio *MTY_AudioCreate(uint32_t sampleRate)
 {
 	if (!asound_dl_global_init())
-		return false;
+		return NULL;
 
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
 

@@ -19,11 +19,11 @@ void *MTY_ReadFile(const char *path, size_t *size)
 
 	*size = mty_file_size(path);
 	if (*size == 0)
-		return false;
+		return NULL;
 
 	FILE *f = mty_fopen(path, "rb");
 	if (!f)
-		return false;
+		return NULL;
 
 	void *data = MTY_Alloc(*size + 1, 1);
 

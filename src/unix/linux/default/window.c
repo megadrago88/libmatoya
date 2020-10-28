@@ -48,7 +48,7 @@ MTY_Window *MTY_WindowCreate(const char *title, MTY_MsgFunc msg_func, const void
 	uint32_t width, uint32_t height, bool fullscreen)
 {
 	if (!x_dl_global_init())
-		return false;
+		return NULL;
 
 	MTY_Window *ctx = MTY_Alloc(1, sizeof(MTY_Window));
 	ctx->opaque = opaque;

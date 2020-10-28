@@ -160,7 +160,7 @@ void MTY_QueueReleaseBuffer(MTY_Queue *ctx)
 
 bool MTY_QueuePushPtr(MTY_Queue *ctx, void *opaque, size_t size)
 {
-	uint8_t *buffer = MTY_QueueAcquireBuffer(ctx);
+	void *buffer = MTY_QueueAcquireBuffer(ctx);
 
 	if (buffer) {
 		memcpy(buffer, &opaque, sizeof(void *));
@@ -174,9 +174,9 @@ bool MTY_QueuePushPtr(MTY_Queue *ctx, void *opaque, size_t size)
 
 bool MTY_QueuePopPtr(MTY_Queue *ctx, int32_t timeout, void **opaque, size_t *size)
 {
-	uint8_t *buffer = NULL;
+	void *buffer = NULL;
 
-	if (queue_pop(ctx, timeout, false, (void **) &buffer, size)) {
+	if (queue_pop(ctx, timeout, false, &buffer, size)) {
 		memcpy(opaque, buffer, sizeof(void *));
 		MTY_QueueReleaseBuffer(ctx);
 

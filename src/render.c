@@ -119,7 +119,7 @@ void *MTY_RendererSetUITexture(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *devic
 	MTY_Context *context, uint32_t id, const void *rgba, uint32_t width, uint32_t height)
 {
 	if (!renderer_begin(ctx, api, context, device))
-		return false;
+		return NULL;
 
 	void *texture = MTY_HashPopInt(ctx->textures, id);
 	if (texture)

@@ -60,7 +60,7 @@ static void gfx_gl_log_shader_errors(GLuint shader)
 struct gfx *gfx_gl_create(MTY_Device *device)
 {
 	if (!gl_dl_global_init())
-		return false;
+		return NULL;
 
 	struct gfx_gl *ctx = MTY_Alloc(1, sizeof(struct gfx_gl));
 
