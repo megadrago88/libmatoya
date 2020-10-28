@@ -545,11 +545,13 @@ void MTY_AppNotification(MTY_App *app, const char *title, const char *msg)
 
 char *MTY_AppGetClipboard(void)
 {
+	// NSPasteboard
 	return MTY_Alloc(1, 1);
 }
 
 void MTY_AppSetClipboard(const char *text)
 {
+	// NSPasteboard
 }
 
 void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)

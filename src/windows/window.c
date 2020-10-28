@@ -1230,6 +1230,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, const void *opa
 	_GetPointerPenInfo = (void *) GetProcAddress(user32, "GetPointerPenInfo");
 	_GetPointerType = (void *) GetProcAddress(user32, "GetPointerType");
 
+	ImmDisableIME(0);
 	hid_xinput_init();
 
 	except:
