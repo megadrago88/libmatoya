@@ -226,7 +226,7 @@ MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t max
 	return ctx;
 }
 
-uint32_t MTY_AudioGetQueuedFrames(MTY_Audio *ctx)
+static uint32_t audio_get_queued_frames(MTY_Audio *ctx)
 {
 	if (!ctx->client)
 		return ctx->buffer_size;
@@ -236,6 +236,11 @@ uint32_t MTY_AudioGetQueuedFrames(MTY_Audio *ctx)
 		return padding;
 
 	return ctx->buffer_size;
+}
+
+uint32_t MTY_AudioGetQueuedMs(MTY_Audio *ctx)
+{
+	return lrint((float) audio_get_queued_frames(ctx) / ((float) ctx->sample_rate / 1000.0f));
 }
 
 static void audio_play(MTY_Audio *ctx)
@@ -299,7 +304,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 	if (!audio_handle_device_change(ctx))
 		return;
 
-	uint32_t queued = MTY_AudioGetQueuedFrames(ctx);
+	uint32_t queued = audio_get_queued_frames(ctx);
 
 	// Stop playing and flush if we've exceeded the maximum buffer or underrun
 	if (ctx->playing && queued > ctx->max_buffer || queued == 0)
