@@ -1847,8 +1847,14 @@ bool MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync)
 		ctx->renderer = MTY_RendererCreate();
 		ctx->gfx_ctx = GFX_CTX_API[api].gfx_ctx_create((void *) ctx->hwnd, vsync);
 
-		if (!ctx->gfx_ctx && (api == MTY_GFX_D3D11 || api == MTY_GFX_D3D9))
-			return MTY_WindowSetGFX(app, window, MTY_GFX_GL, vsync);
+		// Fallback
+		if (!ctx->gfx_ctx) {
+			if (api == MTY_GFX_D3D11)
+				return MTY_WindowSetGFX(app, window, MTY_GFX_D3D9, vsync);
+
+			if (api == MTY_GFX_D3D9)
+				return MTY_WindowSetGFX(app, window, MTY_GFX_GL, vsync);
+		}
 
 		ctx->api = api;
 	}
