@@ -394,7 +394,7 @@ MTY_JSONArrayAppend(MTY_JSON *json, const MTY_JSON *value);
 /// @module log
 
 MTY_EXPORT void
-MTY_SetLogCallback(void (*callback)(const char *msg, void *opaque), const void *opaque);
+MTY_SetLogCallback(void (*callback)(const char *msg, void *opaque), void *opaque);
 
 MTY_EXPORT void
 MTY_DisableLog(bool disabled);
@@ -429,8 +429,8 @@ MTY_Realloc(void *mem, size_t nelem, size_t elsize);
 MTY_EXPORT void *
 MTY_Dup(const void *mem, size_t size);
 
-MTY_EXPORT void *
-MTY_Strdup(const void *str);
+MTY_EXPORT char *
+MTY_Strdup(const char *str);
 
 MTY_EXPORT void
 MTY_Free(void *mem);
@@ -678,10 +678,10 @@ MTY_EXPORT void *
 MTY_HashGetInt(MTY_Hash *ctx, int64_t key);
 
 MTY_EXPORT void *
-MTY_HashSet(MTY_Hash *ctx, const char *key, const void *value);
+MTY_HashSet(MTY_Hash *ctx, const char *key, void *value);
 
 MTY_EXPORT void *
-MTY_HashSetInt(MTY_Hash *ctx, int64_t key, const void *value);
+MTY_HashSetInt(MTY_Hash *ctx, int64_t key, void *value);
 
 MTY_EXPORT void *
 MTY_HashPop(MTY_Hash *ctx, const char *key);
@@ -720,7 +720,7 @@ MTY_EXPORT void
 MTY_QueueReleaseBuffer(MTY_Queue *ctx);
 
 MTY_EXPORT bool
-MTY_QueuePushPtr(MTY_Queue *ctx, const void *opaque, size_t size);
+MTY_QueuePushPtr(MTY_Queue *ctx, void *opaque, size_t size);
 
 MTY_EXPORT bool
 MTY_QueuePopPtr(MTY_Queue *ctx, int32_t timeout, void **opaque, size_t *size);
@@ -738,7 +738,7 @@ MTY_EXPORT MTY_ListNode *
 MTY_ListFirst(MTY_List *ctx);
 
 MTY_EXPORT void
-MTY_ListAppend(MTY_List *ctx, const void *value);
+MTY_ListAppend(MTY_List *ctx, void *value);
 
 MTY_EXPORT void *
 MTY_ListRemove(MTY_List *ctx, MTY_ListNode *node);
@@ -773,10 +773,10 @@ typedef struct MTY_Sync MTY_Sync;
 typedef struct MTY_ThreadPool MTY_ThreadPool;
 
 MTY_EXPORT MTY_Thread *
-MTY_ThreadCreate(void *(*func)(void *opaque), const void *opaque);
+MTY_ThreadCreate(void *(*func)(void *opaque), void *opaque);
 
 MTY_EXPORT void
-MTY_ThreadDetach(void *(*func)(void *opaque), const void *opaque);
+MTY_ThreadDetach(void *(*func)(void *opaque), void *opaque);
 
 MTY_EXPORT int64_t
 MTY_ThreadGetID(MTY_Thread *ctx);
@@ -845,7 +845,7 @@ MTY_EXPORT MTY_ThreadPool *
 MTY_ThreadPoolCreate(uint32_t maxThreads);
 
 MTY_EXPORT uint32_t
-MTY_ThreadPoolStart(MTY_ThreadPool *ctx, void (*func)(void *opaque), const void *opaque);
+MTY_ThreadPoolStart(MTY_ThreadPool *ctx, void (*func)(void *opaque), void *opaque);
 
 MTY_EXPORT void
 MTY_ThreadPoolDetach(MTY_ThreadPool *ctx, uint32_t index, void (*detach)(void *opaque));
@@ -1264,7 +1264,7 @@ typedef void (*MTY_MsgFunc)(const MTY_Msg *wmsg, void *opaque);
 typedef struct MTY_App MTY_App;
 
 MTY_EXPORT MTY_App *
-MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, const void *opaque);
+MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque);
 
 MTY_EXPORT void
 MTY_AppDestroy(MTY_App **app);

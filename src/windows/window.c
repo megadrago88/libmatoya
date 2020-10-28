@@ -47,7 +47,7 @@ struct window {
 struct MTY_App {
 	MTY_AppFunc app_func;
 	MTY_MsgFunc msg_func;
-	const void *opaque;
+	void *opaque;
 
 	WNDCLASSEX wc;
 	ATOM class;
@@ -318,7 +318,7 @@ void MTY_AppRemoveHotkeys(MTY_App *app, MTY_Hotkey mode)
 #define APP_TRAY_UID      1337
 #define APP_TRAY_FIRST    1000
 
-static HMENU app_tray_menu(MTY_MenuItem *items, uint32_t len, const void *opaque)
+static HMENU app_tray_menu(MTY_MenuItem *items, uint32_t len, void *opaque)
 {
 	HMENU menu = CreatePopupMenu();
 
@@ -331,7 +331,7 @@ static HMENU app_tray_menu(MTY_MenuItem *items, uint32_t len, const void *opaque
 			item.dwTypeData = items[x].label;
 			item.dwItemData = (ULONG_PTR) items[x].trayID;
 
-			if (items[x].checked && items[x].checked((void *) opaque))
+			if (items[x].checked && items[x].checked(opaque))
 				item.fState |= MFS_CHECKED;
 
 			InsertMenuItem(menu, APP_TRAY_FIRST + x, TRUE, &item);
@@ -994,7 +994,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 	// Process the message
 	if (wmsg.type != MTY_WINDOW_MSG_NONE) {
-		app->msg_func(&wmsg, (void *) app->opaque);
+		app->msg_func(&wmsg, app->opaque);
 
 		if (wmsg.type == MTY_WINDOW_MSG_DROP)
 			MTY_Free((void *) wmsg.drop.data);
@@ -1184,7 +1184,7 @@ void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 
 // App
 
-MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, const void *opaque)
+MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 {
 	bool r = true;
 
@@ -1231,6 +1231,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, const void *opa
 	_GetPointerType = (void *) GetProcAddress(user32, "GetPointerType");
 
 	ImmDisableIME(0);
+
 	hid_xinput_init();
 
 	except:
@@ -1241,46 +1242,46 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, const void *opa
 	return app;
 }
 
-void MTY_AppDestroy(MTY_App **app_)
+void MTY_AppDestroy(MTY_App **app)
 {
-	if (!app_ || !*app_)
+	if (!app || !*app)
 		return;
 
-	MTY_App *app = *app_;
+	MTY_App *ctx = *app;
 
-	if (app->custom_cursor)
-		DestroyIcon(app->custom_cursor);
+	if (ctx->custom_cursor)
+		DestroyIcon(ctx->custom_cursor);
 
-	MTY_AppRemoveTray(app);
-	MTY_AppEnableScreenSaver(app, true);
+	MTY_AppRemoveTray(ctx);
+	MTY_AppEnableScreenSaver(ctx, true);
 
-	app_unregister_global_hotkeys(app);
+	app_unregister_global_hotkeys(ctx);
 
-	MTY_HashDestroy(&app->hotkey, NULL);
-	MTY_HashDestroy(&app->ghotkey, NULL);
-	MTY_HashDestroy(&app->hid, hid_destroy);
-	MTY_HashDestroy(&app->hidid, NULL);
+	MTY_HashDestroy(&ctx->hotkey, NULL);
+	MTY_HashDestroy(&ctx->ghotkey, NULL);
+	MTY_HashDestroy(&ctx->hid, hid_destroy);
+	MTY_HashDestroy(&ctx->hidid, NULL);
 
 	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
-		MTY_WindowDestroy(app, x);
+		MTY_WindowDestroy(ctx, x);
 
-	if (app->instance && app->class != 0)
-		UnregisterClass(WINDOW_CLASS_NAME, app->instance);
+	if (ctx->instance && ctx->class != 0)
+		UnregisterClass(WINDOW_CLASS_NAME, ctx->instance);
 
 	hid_xinput_destroy();
 
 	WINDOW_KB_HWND = NULL;
 
-	MTY_Free(app);
-	*app_ = NULL;
+	MTY_Free(ctx);
+	*app = NULL;
 }
 
 void MTY_AppRun(MTY_App *app)
 {
-	for (bool cont = true; cont;) {
+	do {
 		struct window *window = app_get_main_window(app);
 		if (!window)
-			return;
+			break;
 
 		bool focus = MTY_AppIsActive(app);
 
@@ -1296,7 +1297,7 @@ void MTY_AppRun(MTY_App *app)
 
 		// XInput
 		if (focus)
-			hid_xinput_state(app->xinput, window->window, app->msg_func, (void *) app->opaque);
+			hid_xinput_state(app->xinput, window->window, app->msg_func, app->opaque);
 
 		// Tray retry in case of failure
 		app_tray_retry(app, window);
@@ -1307,8 +1308,7 @@ void MTY_AppRun(MTY_App *app)
 			DispatchMessage(&msg);
 		}
 
-		cont = app->app_func((void *) app->opaque);
-	}
+	} while (app->app_func(app->opaque));
 }
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)

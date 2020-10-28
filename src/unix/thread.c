@@ -37,11 +37,11 @@ static void *thread_func(void *opaque)
 	return NULL;
 }
 
-static MTY_Thread *thread_create(void *(*func)(void *opaque), const void *opaque, bool detach)
+static MTY_Thread *thread_create(void *(*func)(void *opaque), void *opaque, bool detach)
 {
 	MTY_Thread *ctx = MTY_Alloc(1, sizeof(MTY_Thread));
 	ctx->func = func;
-	ctx->opaque = (void *) opaque;
+	ctx->opaque = opaque;
 	ctx->detach = detach;
 
 	int32_t e = pthread_create(&ctx->thread, NULL, thread_func, ctx);
@@ -61,12 +61,12 @@ static MTY_Thread *thread_create(void *(*func)(void *opaque), const void *opaque
 	return ctx;
 }
 
-MTY_Thread *MTY_ThreadCreate(void *(*func)(void *opaque), const void *opaque)
+MTY_Thread *MTY_ThreadCreate(void *(*func)(void *opaque), void *opaque)
 {
 	return thread_create(func, opaque, false);
 }
 
-void MTY_ThreadDetach(void *(*func)(void *opaque), const void *opaque)
+void MTY_ThreadDetach(void *(*func)(void *opaque), void *opaque)
 {
 	thread_create(func, opaque, true);
 }

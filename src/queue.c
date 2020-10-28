@@ -158,7 +158,7 @@ void MTY_QueueReleaseBuffer(MTY_Queue *ctx)
 	MTY_Atomic32Set(&ctx->slots[lock_pos].state, QUEUE_EMPTY);
 }
 
-bool MTY_QueuePushPtr(MTY_Queue *ctx, const void *opaque, size_t size)
+bool MTY_QueuePushPtr(MTY_Queue *ctx, void *opaque, size_t size)
 {
 	uint8_t *buffer = MTY_QueueAcquireBuffer(ctx);
 

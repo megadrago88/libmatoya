@@ -21,10 +21,10 @@ MTY_ListNode *MTY_ListFirst(MTY_List *ctx)
 	return ctx->first;
 }
 
-void MTY_ListAppend(MTY_List *ctx, const void *value)
+void MTY_ListAppend(MTY_List *ctx, void *value)
 {
 	MTY_ListNode *node = MTY_Alloc(1, sizeof(MTY_ListNode));
-	node->value = (void *) value;
+	node->value = value;
 
 	if (!ctx->first) {
 		ctx->first = ctx->last = node;

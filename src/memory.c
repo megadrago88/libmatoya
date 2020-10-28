@@ -41,7 +41,7 @@ void *MTY_Dup(const void *mem, size_t size)
 	return dup;
 }
 
-void *MTY_Strdup(const void *str)
+char *MTY_Strdup(const char *str)
 {
 	return MTY_Dup(str, strlen(str) + 1);
 }

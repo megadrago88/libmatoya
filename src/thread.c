@@ -119,7 +119,7 @@ static void *thread_pool_func(void *opaque)
 	return NULL;
 }
 
-uint32_t MTY_ThreadPoolStart(MTY_ThreadPool *ctx, void (*func)(void *opaque), const void *opaque)
+uint32_t MTY_ThreadPoolStart(MTY_ThreadPool *ctx, void (*func)(void *opaque), void *opaque)
 {
 	uint32_t index = 0;
 
@@ -135,7 +135,7 @@ uint32_t MTY_ThreadPoolStart(MTY_ThreadPool *ctx, void (*func)(void *opaque), co
 
 		if (ti->status == MTY_THREAD_STATE_EMPTY) {
 			ti->func = func;
-			ti->opaque = (void *) opaque;
+			ti->opaque = opaque;
 			ti->detach = NULL;
 			ti->status = MTY_THREAD_STATE_RUNNING;
 			ti->t = MTY_ThreadCreate(thread_pool_func, ti);

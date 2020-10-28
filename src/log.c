@@ -56,10 +56,10 @@ void MTY_FatalParams(const char *func, const char *msg, ...)
 	_Exit(EXIT_FAILURE);
 }
 
-void MTY_SetLogCallback(void (*callback)(const char *msg, void *opaque), const void *opaque)
+void MTY_SetLogCallback(void (*callback)(const char *msg, void *opaque), void *opaque)
 {
 	LOG_CALLBACK = callback ? callback : log_none;
-	LOG_OPAQUE = (void *) opaque;
+	LOG_OPAQUE = opaque;
 }
 
 void MTY_DisableLog(bool disabled)
