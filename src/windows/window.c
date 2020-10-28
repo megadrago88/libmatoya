@@ -1712,13 +1712,13 @@ bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 
 // Window GFX
 
-void MTY_WindowPresent(MTY_App *app, MTY_Window window, uint32_t num_frames)
+void MTY_WindowPresent(MTY_App *app, MTY_Window window, uint32_t numFrames)
 {
 	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return;
 
-	GFX_CTX_API[ctx->api].gfx_ctx_present(ctx->gfx_ctx, num_frames);
+	GFX_CTX_API[ctx->api].gfx_ctx_present(ctx->gfx_ctx, numFrames);
 }
 
 MTY_Device *MTY_WindowGetDevice(MTY_App *app, MTY_Window window)

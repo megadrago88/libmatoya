@@ -1393,7 +1393,7 @@ MTY_EXPORT void
 MTY_WindowDrawUI(MTY_App *app, MTY_Window window, const MTY_DrawData *dd);
 
 MTY_EXPORT void
-MTY_WindowPresent(MTY_App *app, MTY_Window window, uint32_t num_frames);
+MTY_WindowPresent(MTY_App *app, MTY_Window window, uint32_t numFrames);
 
 MTY_EXPORT void *
 MTY_WindowGetUITexture(MTY_App *app, MTY_Window window, uint32_t id);
