@@ -507,3 +507,176 @@ void MTY_WindowDestroy(MTY_Window **window)
 	MTY_Free(ctx);
 	*window = NULL;
 }
+
+/*
+
+void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
+{
+}
+
+void MTY_AppEnableGlobalHotkeys(MTY_App *app, bool enable)
+{
+}
+
+void MTY_AppSetHotkey(MTY_App *app, MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, uint32_t id)
+{
+}
+
+uint32_t MTY_AppGetHotkey(MTY_App *app, MTY_Keymod mod, MTY_Scancode scancode)
+{
+	return 0;
+}
+
+void MTY_AppRemoveHotkeys(MTY_App *app, MTY_Hotkey mode)
+{
+}
+
+void MTY_AppSetTray(MTY_App *app, const char *tooltip, const MTY_MenuItem *items, uint32_t len)
+{
+}
+
+void MTY_AppRemoveTray(MTY_App *app)
+{
+}
+
+void MTY_AppNotification(MTY_App *app, const char *title, const char *msg)
+{
+}
+
+char *MTY_AppGetClipboard(void)
+{
+	return MTY_Alloc(1, 1);
+}
+
+void MTY_AppSetClipboard(const char *text)
+{
+}
+
+void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
+{
+	// https://developer.apple.com/documentation/uikit/uiimage/1624106-initwithdata?language=objc
+	// https://developer.apple.com/documentation/appkit/nscursor/1524612-initwithimage?language=objc
+}
+
+void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
+{
+}
+
+MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, const void *opaque)
+{
+	return MTY_Alloc(1, 1);
+}
+
+void MTY_AppDestroy(MTY_App **app_)
+{
+}
+
+void MTY_AppRun(MTY_App *app)
+{
+}
+
+void MTY_AppDetach(MTY_App *app, MTY_Detach type)
+{
+}
+
+MTY_Detach MTY_AppGetDetached(MTY_App *app)
+{
+}
+
+void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
+{
+}
+
+void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
+{
+}
+
+void MTY_AppGrabMouse(MTY_App *app, bool grab)
+{
+}
+
+void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
+{
+}
+
+bool MTY_AppGetRelativeMouse(MTY_App *app)
+{
+}
+
+void MTY_AppSetOnscreenKeyboard(MTY_App *app, bool enable)
+{
+}
+
+void MTY_AppSetOrientation(MTY_App *app, MTY_Orientation orientation)
+{
+}
+
+bool MTY_AppIsActive(MTY_App *app)
+{
+}
+
+void MTY_AppActivate(MTY_App *app, bool active)
+{
+}
+
+void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
+{
+}
+
+MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
+{
+}
+
+void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
+{
+}
+
+void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)
+{
+}
+
+bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
+{
+}
+
+bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
+{
+}
+
+float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
+{
+}
+
+void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
+{
+}
+
+bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
+{
+}
+
+void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
+{
+}
+
+void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t y)
+{
+	// CGWarpMouseCursorPosition
+}
+
+bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
+{
+}
+
+bool MTY_WindowIsActive(MTY_App *app, MTY_Window window)
+{
+}
+
+bool MTY_WindowExists(MTY_App *app, MTY_Window window)
+{
+}
+
+void *MTY_GLGetProcAddress(const char *name)
+{
+}
+*/
