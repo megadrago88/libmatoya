@@ -18,12 +18,26 @@ static bool hid_default_swap_value(MTY_Value *values, MTY_CValue a, MTY_CValue b
 	return false;
 }
 
-static void hid_default_append_value(MTY_Controller *c, MTY_Value *v)
+static void hid_default_move_value(MTY_Controller *c, MTY_Value *v, uint16_t usage,
+	int16_t data, int16_t min, int16_t max)
 {
-	if (c->numValues < MTY_CVALUE_MAX) {
-		MTY_Value *end = &c->values[c->numValues++];
-		*end = *v;
-		memset(v, 0, sizeof(MTY_Value));
+	if (v->usage != usage && c->numValues < MTY_CVALUE_MAX) {
+		if (v->usage != 0x00) {
+			MTY_Value *end = &c->values[c->numValues++];
+			*end = *v;
+		}
+
+		v->usage = usage;
+		v->data = data;
+		v->min = min;
+		v->max = max;
+
+		// Fill in trigger values if they do not exist
+		if (v->usage == 0x33)
+			v->data = c->buttons[MTY_CBUTTON_LEFT_TRIGGER] ? UINT8_MAX : 0;
+
+		if (v->usage == 0x34)
+			v->data = c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] ? UINT8_MAX : 0;
 	}
 }
 
@@ -74,13 +88,13 @@ static void hid_default_map_values(MTY_Controller *c)
 		MTY_Value *v = &c->values[x];
 
 		switch (x) {
-			case MTY_CVALUE_THUMB_LX: if (v->usage != 0x30) hid_default_append_value(c, v); break;
-			case MTY_CVALUE_THUMB_LY: if (v->usage != 0x31) hid_default_append_value(c, v); break;
-			case MTY_CVALUE_THUMB_RX: if (v->usage != 0x32) hid_default_append_value(c, v); break;
-			case MTY_CVALUE_THUMB_RY: if (v->usage != 0x35) hid_default_append_value(c, v); break;
-			case MTY_CVALUE_TRIGGER_L: if (v->usage != 0x33) hid_default_append_value(c, v); break;
-			case MTY_CVALUE_TRIGGER_R: if (v->usage != 0x34) hid_default_append_value(c, v); break;
-			case MTY_CVALUE_DPAD: if (v->usage != 0x39) hid_default_append_value(c, v); break;
+			case MTY_CVALUE_THUMB_LX:  hid_default_move_value(c, v, 0x30, 0, INT16_MIN, INT16_MAX); break;
+			case MTY_CVALUE_THUMB_LY:  hid_default_move_value(c, v, 0x31, 0, INT16_MIN, INT16_MAX); break;
+			case MTY_CVALUE_THUMB_RX:  hid_default_move_value(c, v, 0x32, 0, INT16_MIN, INT16_MAX); break;
+			case MTY_CVALUE_THUMB_RY:  hid_default_move_value(c, v, 0x35, 0, INT16_MIN, INT16_MAX); break;
+			case MTY_CVALUE_TRIGGER_L: hid_default_move_value(c, v, 0x33, 0, 0, UINT8_MAX); break;
+			case MTY_CVALUE_TRIGGER_R: hid_default_move_value(c, v, 0x34, 0, 0, UINT8_MAX); break;
+			case MTY_CVALUE_DPAD:      hid_default_move_value(c, v, 0x39, 8, 0, 7); break;
 		}
 	}
 
@@ -105,23 +119,6 @@ static void hid_default_map_values(MTY_Controller *c)
 				hid_u_to_u8(v);
 				break;
 		}
-	}
-
-	// Add left and right trigger values if necessary
-	if (c->values[MTY_CVALUE_TRIGGER_L].usage == 0x00) {
-		MTY_Value *v = &c->values[MTY_CVALUE_TRIGGER_L];
-		v->usage = 0x33;
-		v->data = c->buttons[MTY_CBUTTON_LEFT_TRIGGER] ? UINT8_MAX : 0;
-		v->min = 0;
-		v->max = UINT8_MAX;
-	}
-
-	if (c->values[MTY_CVALUE_TRIGGER_R].usage == 0x00) {
-		MTY_Value *v = &c->values[MTY_CVALUE_TRIGGER_R];
-		v->usage = 0x34;
-		v->data = c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] ? UINT8_MAX : 0;
-		v->min = 0;
-		v->max = UINT8_MAX;
 	}
 }
 
