@@ -6,11 +6,16 @@
 
 #pragma once
 
-static void hid_default_swap_value(MTY_Value *values, MTY_CValue i, MTY_Value *v)
+static bool hid_default_swap_value(MTY_Value *values, MTY_CValue a, MTY_CValue b)
 {
-	MTY_Value tmp = values[i];
-	values[i] = *v;
-	*v = tmp;
+	if (a != b && values[a].usage != values[b].usage) {
+		MTY_Value tmp = values[b];
+		values[b] = values[a];
+		values[a] = tmp;
+		return true;
+	}
+
+	return false;
 }
 
 static void hid_default_map_values(MTY_Controller *c)
@@ -23,62 +28,41 @@ static void hid_default_map_values(MTY_Controller *c)
 		c->numValues = MTY_CVALUE_DPAD + 1;
 
 	// Swap positions
-	for (uint8_t i = 0; i < 3; i++) {
-		bool swapped = false;
+	for (uint8_t x = 0; x < c->numValues; x++) {
+		retry:
 
-		for (uint8_t x = 0; x < c->numValues; x++) {
-			MTY_Value *v = &c->values[x];
-
-			switch (v->usage) {
-				case 0x30: // X -> Left Stick X
-					if (x != MTY_CVALUE_THUMB_LX) {
-						hid_default_swap_value(c->values, MTY_CVALUE_THUMB_LX, v);
-						swapped = true;
-					}
-					break;
-				case 0x31: // Y -> Left Stick Y
-					if (x != MTY_CVALUE_THUMB_LY) {
-						hid_default_swap_value(c->values, MTY_CVALUE_THUMB_LY, v);
-						swapped = true;
-					}
-					break;
-				case 0x32: // Z -> Right Stick X
-					if (x != MTY_CVALUE_THUMB_RX) {
-						hid_default_swap_value(c->values, MTY_CVALUE_THUMB_RX, v);
-						swapped = true;
-					}
-					break;
-				case 0x35: // Rz -> Right Stick Y
-					if (x != MTY_CVALUE_THUMB_RY) {
-						hid_default_swap_value(c->values, MTY_CVALUE_THUMB_RY, v);
-						swapped = true;
-					}
-					break;
-				case 0x33: // Rx -> Left Trigger
-					have_lt = true;
-					if (x != MTY_CVALUE_TRIGGER_L) {
-						hid_default_swap_value(c->values, MTY_CVALUE_TRIGGER_L, v);
-						swapped = true;
-					}
-					break;
-				case 0x34: // Ry -> Right Trigger
-					have_rt = true;
-					if (x != MTY_CVALUE_TRIGGER_R) {
-						hid_default_swap_value(c->values, MTY_CVALUE_TRIGGER_R, v);
-						swapped = true;
-					}
-					break;
-				case 0x39: // Hat -> DPAD
-					if (x != MTY_CVALUE_DPAD) {
-						hid_default_swap_value(c->values, MTY_CVALUE_DPAD, v);
-						swapped = true;
-					}
-					break;
-			}
+		switch (c->values[x].usage) {
+			case 0x30: // X -> Left Stick X
+				if (hid_default_swap_value(c->values, x, MTY_CVALUE_THUMB_LX))
+					goto retry;
+				break;
+			case 0x31: // Y -> Left Stick Y
+				if (hid_default_swap_value(c->values, x, MTY_CVALUE_THUMB_LY))
+					goto retry;
+				break;
+			case 0x32: // Z -> Right Stick X
+				if (hid_default_swap_value(c->values, x, MTY_CVALUE_THUMB_RX))
+					goto retry;
+				break;
+			case 0x35: // Rz -> Right Stick Y
+				if (hid_default_swap_value(c->values, x, MTY_CVALUE_THUMB_RY))
+					goto retry;
+				break;
+			case 0x33: // Rx -> Left Trigger
+				have_lt = true;
+				if (hid_default_swap_value(c->values, x, MTY_CVALUE_TRIGGER_L))
+					goto retry;
+				break;
+			case 0x34: // Ry -> Right Trigger
+				have_rt = true;
+				if (hid_default_swap_value(c->values, x, MTY_CVALUE_TRIGGER_R))
+					goto retry;
+				break;
+			case 0x39: // Hat -> DPAD
+				if (hid_default_swap_value(c->values, x, MTY_CVALUE_DPAD))
+					goto retry;
+				break;
 		}
-
-		if (!swapped)
-			break;
 	}
 
 	// Convert to int16_t
@@ -106,30 +90,32 @@ static void hid_default_map_values(MTY_Controller *c)
 
 	// Add left and right trigger values if necessary
 	if (!have_lt && c->numValues < MTY_CVALUE_MAX) {
-		MTY_Value *v = &c->values[c->numValues++];
+		MTY_CValue x = c->numValues++;
 
+		MTY_Value *v = &c->values[x];
 		v->usage = 0x33;
 		v->data = c->buttons[MTY_CBUTTON_LEFT_TRIGGER] ? UINT8_MAX : 0;
 		v->min = 0;
 		v->max = UINT8_MAX;
 
-		hid_default_swap_value(c->values, MTY_CVALUE_TRIGGER_L, v);
+		hid_default_swap_value(c->values, x, MTY_CVALUE_TRIGGER_L);
 
-		if (v->usage == 0x00)
+		if (c->values[x].usage == 0x00)
 			c->numValues--;
 	}
 
 	if (!have_rt && c->numValues < MTY_CVALUE_MAX) {
-		MTY_Value *v = &c->values[c->numValues++];
+		MTY_CValue x = c->numValues++;
+		MTY_Value *v = &c->values[x];
 
 		v->usage = 0x34;
 		v->data = c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] ? UINT8_MAX : 0;
 		v->min = 0;
 		v->max = UINT8_MAX;
 
-		hid_default_swap_value(c->values, MTY_CVALUE_TRIGGER_R, v);
+		hid_default_swap_value(c->values, x, MTY_CVALUE_TRIGGER_R);
 
-		if (v->usage == 0x00)
+		if (c->values[x].usage == 0x00)
 			c->numValues--;
 	}
 }
