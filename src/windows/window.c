@@ -784,6 +784,10 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			wmsg.keyboard.scancode = lparam >> 16 & 0xFF;
 			if (lparam >> 24 & 0x01)
 				wmsg.keyboard.scancode |= 0x0100;
+
+			// Print Screen needs a synthesized WM_KEYDOWN
+			if (!wmsg.keyboard.pressed && wmsg.keyboard.scancode == MTY_SCANCODE_PRINT_SCREEN)
+				app_custom_hwnd_proc(ctx, hwnd, WM_KEYDOWN, wparam, lparam & 0x7FFFFFFF);
 			break;
 		case WM_MOUSEMOVE:
 			if (!app->filter_move && !app->pen_active && (!app->relative || app_hwnd_active(hwnd))) {
