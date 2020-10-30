@@ -38,6 +38,7 @@ OBJS = \
 	src\thread.obj \
 	src\gfx\gl.obj \
 	src\gfx\gl-ui.obj \
+	src\gfx\window-ctx.obj \
 	src\render.obj
 
 OBJS = $(OBJS) \

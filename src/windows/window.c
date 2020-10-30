@@ -17,12 +17,6 @@
 #include "mty-tls.h"
 #include "hid/hid.h"
 
-#include "gfx/mod-ctx.h"
-GFX_CTX_PROTOTYPES(_gl_)
-GFX_CTX_PROTOTYPES(_d3d9_)
-GFX_CTX_PROTOTYPES(_d3d11_)
-GFX_CTX_DECLARE_TABLE()
-
 #define WINDOW_CLASS_NAME L"MTY_Window"
 #define WINDOW_RI_MAX     (32 * 1024)
 
@@ -1730,120 +1724,37 @@ bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 }
 
 
-// Window GFX
+// Window Private
 
-void MTY_WindowPresent(MTY_App *app, MTY_Window window, uint32_t numFrames)
+void window_set_gfx(MTY_App *app, MTY_Window window, MTY_GFX api, struct gfx_ctx *gfx_ctx)
 {
 	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return;
 
-	GFX_CTX_API[ctx->api].gfx_ctx_present(ctx->gfx_ctx, numFrames);
+	ctx->api = api;
+	ctx->gfx_ctx = gfx_ctx;
 }
 
-MTY_Device *MTY_WindowGetDevice(MTY_App *app, MTY_Window window)
-{
-	struct window *ctx = app_get_window(app, window);
-	if (!ctx)
-		return NULL;
-
-	return GFX_CTX_API[ctx->api].gfx_ctx_get_device(ctx->gfx_ctx);
-}
-
-MTY_Context *MTY_WindowGetContext(MTY_App *app, MTY_Window window)
-{
-	struct window *ctx = app_get_window(app, window);
-	if (!ctx)
-		return NULL;
-
-	return GFX_CTX_API[ctx->api].gfx_ctx_get_context(ctx->gfx_ctx);
-}
-
-MTY_Texture *MTY_WindowGetBackBuffer(MTY_App *app, MTY_Window window)
-{
-	struct window *ctx = app_get_window(app, window);
-	if (!ctx)
-		return NULL;
-
-	return GFX_CTX_API[ctx->api].gfx_ctx_get_buffer(ctx->gfx_ctx);
-}
-
-void MTY_WindowDrawQuad(MTY_App *app, MTY_Window window, const void *image, const MTY_RenderDesc *desc)
-{
-	struct window *ctx = app_get_window(app, window);
-	if (!ctx)
-		return;
-
-	GFX_CTX_API[ctx->api].gfx_ctx_draw_quad(ctx->gfx_ctx, image, desc);
-}
-
-void MTY_WindowDrawUI(MTY_App *app, MTY_Window window, const MTY_DrawData *dd)
-{
-	struct window *ctx = app_get_window(app, window);
-	if (!ctx)
-		return;
-
-	GFX_CTX_API[ctx->api].gfx_ctx_draw_ui(ctx->gfx_ctx, dd);
-}
-
-void MTY_WindowSetUITexture(MTY_App *app, MTY_Window window, uint32_t id, const void *rgba, uint32_t width, uint32_t height)
-{
-	struct window *ctx = app_get_window(app, window);
-	if (!ctx)
-		return;
-
-	GFX_CTX_API[ctx->api].gfx_ctx_set_ui_texture(ctx->gfx_ctx, id, rgba, width, height);
-}
-
-void *MTY_WindowGetUITexture(MTY_App *app, MTY_Window window, uint32_t id)
-{
-	struct window *ctx = app_get_window(app, window);
-	if (!ctx)
-		return NULL;
-
-	return GFX_CTX_API[ctx->api].gfx_ctx_get_ui_texture(ctx->gfx_ctx, id);
-}
-
-bool MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync)
-{
-	struct window *ctx = app_get_window(app, window);
-	if (!ctx)
-		return false;
-
-	if (ctx->api == api)
-		return true;
-
-	if (ctx->api != MTY_GFX_NONE) {
-		GFX_CTX_API[ctx->api].gfx_ctx_destroy(&ctx->gfx_ctx);
-		ctx->api = MTY_GFX_NONE;
-	}
-
-	if (api != MTY_GFX_NONE) {
-		ctx->gfx_ctx = GFX_CTX_API[api].gfx_ctx_create((void *) ctx->hwnd, vsync);
-
-		// Fallback
-		if (!ctx->gfx_ctx) {
-			if (api == MTY_GFX_D3D11)
-				return MTY_WindowSetGFX(app, window, MTY_GFX_D3D9, vsync);
-
-			if (api == MTY_GFX_D3D9)
-				return MTY_WindowSetGFX(app, window, MTY_GFX_GL, vsync);
-
-		} else {
-			ctx->api = api;
-		}
-	}
-
-	return ctx->gfx_ctx ? true : false;
-}
-
-MTY_GFX MTY_WindowGetGFX(MTY_App *app, MTY_Window window)
+MTY_GFX window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx_ctx)
 {
 	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return MTY_GFX_NONE;
 
+	if (gfx_ctx)
+		*gfx_ctx = ctx->gfx_ctx;
+
 	return ctx->api;
+}
+
+void *window_get_native(MTY_App *app, MTY_Window window)
+{
+	struct window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return NULL;
+
+	return (void *) ctx->hwnd;
 }
 
 
