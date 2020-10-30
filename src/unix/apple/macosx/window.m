@@ -230,6 +230,10 @@ void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 
 MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, const void *opaque)
 {
+	[NSApplication sharedApplication];
+	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+	[NSApp finishLaunching];
+
 	return MTY_Alloc(1, 1);
 }
 
@@ -415,10 +419,6 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	ctx->opaque = opaque;
 	ctx->api = api == MTY_GFX_NONE ? MTY_GFX_METAL : api;
 
-	[NSApplication sharedApplication];
-	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-	[NSApp finishLaunching];
-
 	NSRect rect = NSMakeRect(0, 0, width, height);
 	NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable;
 	ctx->nswindow = [[MTYWindow alloc] initWithContentRect:rect styleMask:style
@@ -502,7 +502,6 @@ bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 
 void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
 {
-	return ctx->nswindow.isKeyWindow;
 }
 
 void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t y)
@@ -516,6 +515,7 @@ bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
 
 bool MTY_WindowIsActive(MTY_App *app, MTY_Window window)
 {
+	return ctx->nswindow.isKeyWindow;
 }
 
 bool MTY_WindowExists(MTY_App *app, MTY_Window window)
