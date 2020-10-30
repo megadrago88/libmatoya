@@ -1084,11 +1084,11 @@ void MTY_AppSetClipboard(MTY_App *app, const char *text)
 
 				EmptyClipboard();
 				SetClipboardData(CF_UNICODETEXT, mem);
-				app->cb_seq = GetClipboardSequenceNumber();
 			}
 		}
 
 		CloseClipboard();
+		app->cb_seq = GetClipboardSequenceNumber();
 	}
 }
 
