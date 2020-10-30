@@ -1076,8 +1076,6 @@ void MTY_AppSetClipboard(const char *text)
 
 				GlobalUnlock(mem);
 			}
-
-			EmptyClipboard();
 		}
 
 		CloseClipboard();
