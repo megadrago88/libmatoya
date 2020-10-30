@@ -29,7 +29,8 @@ OBJS = \
 	src/thread.o \
 	src/gfx/gl.o \
 	src/gfx/gl-ui.o \
-	src/render.o
+	src/gfx/render.o \
+	src/gfx/window-ctx.o
 
 OBJS := $(OBJS) \
 	src/unix/fs.o \
