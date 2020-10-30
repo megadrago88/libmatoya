@@ -46,74 +46,6 @@ struct MTY_Window {
 	MTY_Renderer *renderer;
 };
 
-MTY_Window *MTY_WindowCreate(const char *title, MTY_MsgFunc msg_func, const void *opaque,
-	uint32_t width, uint32_t height, bool fullscreen, MTY_GFX api)
-{
-	bool r = true;
-	MTY_Window *ctx = MTY_Alloc(1, sizeof(MTY_Window));
-	ctx->msg_func = msg_func;
-	ctx->opaque = opaque;
-	ctx->api = api == MTY_GFX_NONE ? MTY_GFX_METAL : api;
-
-	[NSApplication sharedApplication];
-	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-	[NSApp finishLaunching];
-
-	NSRect rect = NSMakeRect(0, 0, width, height);
-	NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable;
-	ctx->nswindow = [[MTYWindow alloc] initWithContentRect:rect styleMask:style
-		backing:NSBackingStoreBuffered defer:NO];
-
-	ctx->nswindow.title = [NSString stringWithUTF8String:title];
-	[ctx->nswindow center];
-
-	[ctx->nswindow makeKeyAndOrderFront:ctx->nswindow];
-
-	ctx->renderer = MTY_RendererCreate();
-
-	ctx->gfx_ctx = GFX_CTX_API[ctx->api].gfx_ctx_create((__bridge void *) ctx->nswindow);
-	if (!ctx->gfx_ctx) {
-		r = false;
-		goto except;
-	}
-
-	except:
-
-	if (!r)
-		MTY_WindowDestroy(&ctx);
-
-	return ctx;
-}
-
-void MTY_AppRun(MTY_AppFunc func, const void *opaque)
-{
-	while (func((void *) opaque));
-}
-
-void MTY_WindowSetTitle(MTY_Window *ctx, const char *title, const char *subtitle)
-{
-	char ctitle[MTY_TITLE_MAX];
-	if (subtitle) {
-		snprintf(ctitle, MTY_TITLE_MAX, "%s - %s", title, subtitle);
-	} else {
-		snprintf(ctitle, MTY_TITLE_MAX, "%s", title);
-	}
-
-	NSString *nss = [NSString stringWithUTF8String:ctitle];
-	ctx->nswindow.title = nss;
-}
-
-bool MTY_WindowGetSize(MTY_Window *ctx, uint32_t *width, uint32_t *height)
-{
-	CGSize size = ctx->nswindow.contentView.frame.size;
-	CGFloat scale = ctx->nswindow.screen.backingScaleFactor;
-
-	*width = lrint(size.width * scale);
-	*height = lrint(size.height * scale);
-
-	return true;
-}
-
 static MTY_Scancode window_keycode_to_wmsg(unsigned short kc)
 {
 	switch (kc) {
@@ -242,164 +174,6 @@ static MTY_Scancode window_keycode_to_wmsg(unsigned short kc)
 	return MTY_SCANCODE_NONE;
 }
 
-void MTY_WindowPoll(MTY_Window *ctx)
-{
-	CGSize size = ctx->nswindow.contentView.frame.size;
-	uint32_t scale = lrint(ctx->nswindow.screen.backingScaleFactor);
-
-	while (true) {
-		NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:nil inMode:NSDefaultRunLoopMode dequeue:YES];
-		if (!event)
-			break;
-
-		bool block_app = false;
-		MTY_Msg wmsg = {0};
-
-		switch (event.type) {
-			case NSEventTypeKeyUp:
-			case NSEventTypeKeyDown:
-			case NSEventTypeFlagsChanged: {
-				wmsg.keyboard.scancode = window_keycode_to_wmsg(event.keyCode);
-
-				if (wmsg.keyboard.scancode != MTY_SCANCODE_NONE) {
-					block_app = true;
-					wmsg.type = MTY_WINDOW_MSG_KEYBOARD;
-
-					if (event.type == NSEventTypeFlagsChanged) {
-						switch (event.keyCode) {
-							case kVK_Shift:         wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELSHIFTKEYMASK;       break;
-							case kVK_CapsLock:      wmsg.keyboard.pressed = event.modifierFlags & NSEventModifierFlagCapsLock;  break;
-							case kVK_Option:        wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELALTKEYMASK;         break;
-							case kVK_Control:       wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELCTLKEYMASK;         break;
-							case kVK_RightShift:    wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERSHIFTKEYMASK;       break;
-							case kVK_RightOption:   wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERALTKEYMASK;         break;
-							case kVK_RightControl:  wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERCTLKEYMASK;         break;
-							case kVK_Command:       wmsg.keyboard.pressed = event.modifierFlags & NX_COMMANDMASK;               break;
-							default:
-								block_app = false;
-								wmsg.type = MTY_WINDOW_MSG_NONE;
-								break;
-						}
-					} else {
-						wmsg.keyboard.pressed = event.type == NSEventTypeKeyDown;
-					}
-				}
-				break;
-			}
-			case NSEventTypeScrollWheel:
-				wmsg.type = MTY_WINDOW_MSG_MOUSE_WHEEL;
-				wmsg.mouseWheel.x = lrint(event.deltaX);
-				wmsg.mouseWheel.y = lrint(event.deltaY);
-				break;
-			case NSEventTypeLeftMouseDown:
-			case NSEventTypeLeftMouseUp:
-			case NSEventTypeRightMouseDown:
-			case NSEventTypeRightMouseUp:
-			case NSEventTypeOtherMouseDown:
-			case NSEventTypeOtherMouseUp:
-				wmsg.type = MTY_WINDOW_MSG_MOUSE_BUTTON;
-				wmsg.mouseButton.pressed = event.type == NSEventTypeLeftMouseDown || event.type == NSEventTypeRightMouseDown ||
-					event.type == NSEventTypeOtherMouseDown;
-
-				switch (event.buttonNumber) {
-					case 0: wmsg.mouseButton.button = MTY_MOUSE_BUTTON_L; break;
-					case 1: wmsg.mouseButton.button = MTY_MOUSE_BUTTON_R; break;
-				}
-				break;
-			case NSEventTypeLeftMouseDragged:
-			case NSEventTypeRightMouseDragged:
-			case NSEventTypeOtherMouseDragged:
-			case NSEventTypeMouseMoved: {
-				if (ctx->relative) {
-					wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
-					wmsg.mouseMotion.relative = true;
-					wmsg.mouseMotion.x = event.deltaX;
-					wmsg.mouseMotion.y = event.deltaY;
-
-				} else {
-					NSPoint p = [ctx->nswindow mouseLocationOutsideOfEventStream];
-					int32_t x = lrint(p.x);
-					int32_t y = lrint(size.height - p.y);
-
-					if (x >= 0 && y >= 0 && x <= size.width && y <= size.height) {
-						wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
-						wmsg.mouseMotion.x = x * scale;
-						wmsg.mouseMotion.y = y * scale;
-					}
-				}
-				break;
-			}
-		}
-
-		if ([ctx->nswindow wasClosed])
-			wmsg.type = MTY_WINDOW_MSG_CLOSE;
-
-		if (wmsg.type != MTY_WINDOW_MSG_NONE)
-			ctx->msg_func(&wmsg, (void *) ctx->opaque);
-
-		if (!block_app)
-			[NSApp sendEvent:event];
-	}
-
-	size.width *= scale;
-	size.height *= scale;
-
-	if (size.width != ctx->width || size.height != ctx->height) {
-		GFX_CTX_API[ctx->api].gfx_ctx_refresh(ctx->gfx_ctx);
-
-		ctx->width = size.width;
-		ctx->height = size.height;
-	}
-}
-
-void MTY_WindowSetRelativeMouse(MTY_Window *ctx, bool relative)
-{
-	if (relative && !ctx->relative) {
-		ctx->relative = true;
-		CGAssociateMouseAndMouseCursorPosition(NO);
-		CGDisplayHideCursor(kCGDirectMainDisplay);
-
-	} else if (!relative && ctx->relative) {
-		ctx->relative = false;
-		CGAssociateMouseAndMouseCursorPosition(YES);
-		CGDisplayShowCursor(kCGDirectMainDisplay);
-	}
-}
-
-float MTY_WindowGetScale(MTY_Window *ctx)
-{
-	// macOS scales the display as though it switches resolutions,
-	// so all we need to report is the high DPI device multiplier
-
-	return [ctx->nswindow screen].backingScaleFactor;
-}
-
-void MTY_WindowSetFullscreen(MTY_Window *ctx)
-{
-	if (!MTY_WindowIsFullscreen(ctx))
-		[ctx->nswindow toggleFullScreen:ctx->nswindow];
-}
-
-bool MTY_WindowIsFullscreen(MTY_Window *ctx)
-{
-	return [ctx->nswindow styleMask] & NSWindowStyleMaskFullScreen;
-}
-
-void MTY_WindowDestroy(MTY_Window **window)
-{
-	if (!window || !*window)
-		return;
-
-	MTY_Window *ctx = *window;
-
-	ctx->nswindow = nil;
-
-	MTY_Free(ctx);
-	*window = NULL;
-}
-
-/*
-
 void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
 {
 }
@@ -465,6 +239,114 @@ void MTY_AppDestroy(MTY_App **app_)
 
 void MTY_AppRun(MTY_App *app)
 {
+	do {
+		CGSize size = ctx->nswindow.contentView.frame.size;
+		uint32_t scale = lrint(ctx->nswindow.screen.backingScaleFactor);
+
+		while (true) {
+			NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:nil inMode:NSDefaultRunLoopMode dequeue:YES];
+			if (!event)
+				break;
+
+			bool block_app = false;
+			MTY_Msg wmsg = {0};
+
+			switch (event.type) {
+				case NSEventTypeKeyUp:
+				case NSEventTypeKeyDown:
+				case NSEventTypeFlagsChanged: {
+					wmsg.keyboard.scancode = window_keycode_to_wmsg(event.keyCode);
+
+					if (wmsg.keyboard.scancode != MTY_SCANCODE_NONE) {
+						block_app = true;
+						wmsg.type = MTY_WINDOW_MSG_KEYBOARD;
+
+						if (event.type == NSEventTypeFlagsChanged) {
+							switch (event.keyCode) {
+								case kVK_Shift:         wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELSHIFTKEYMASK;       break;
+								case kVK_CapsLock:      wmsg.keyboard.pressed = event.modifierFlags & NSEventModifierFlagCapsLock;  break;
+								case kVK_Option:        wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELALTKEYMASK;         break;
+								case kVK_Control:       wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELCTLKEYMASK;         break;
+								case kVK_RightShift:    wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERSHIFTKEYMASK;       break;
+								case kVK_RightOption:   wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERALTKEYMASK;         break;
+								case kVK_RightControl:  wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERCTLKEYMASK;         break;
+								case kVK_Command:       wmsg.keyboard.pressed = event.modifierFlags & NX_COMMANDMASK;               break;
+								default:
+									block_app = false;
+									wmsg.type = MTY_WINDOW_MSG_NONE;
+									break;
+							}
+						} else {
+							wmsg.keyboard.pressed = event.type == NSEventTypeKeyDown;
+						}
+					}
+					break;
+				}
+				case NSEventTypeScrollWheel:
+					wmsg.type = MTY_WINDOW_MSG_MOUSE_WHEEL;
+					wmsg.mouseWheel.x = lrint(event.deltaX);
+					wmsg.mouseWheel.y = lrint(event.deltaY);
+					break;
+				case NSEventTypeLeftMouseDown:
+				case NSEventTypeLeftMouseUp:
+				case NSEventTypeRightMouseDown:
+				case NSEventTypeRightMouseUp:
+				case NSEventTypeOtherMouseDown:
+				case NSEventTypeOtherMouseUp:
+					wmsg.type = MTY_WINDOW_MSG_MOUSE_BUTTON;
+					wmsg.mouseButton.pressed = event.type == NSEventTypeLeftMouseDown || event.type == NSEventTypeRightMouseDown ||
+						event.type == NSEventTypeOtherMouseDown;
+
+					switch (event.buttonNumber) {
+						case 0: wmsg.mouseButton.button = MTY_MOUSE_BUTTON_L; break;
+						case 1: wmsg.mouseButton.button = MTY_MOUSE_BUTTON_R; break;
+					}
+					break;
+				case NSEventTypeLeftMouseDragged:
+				case NSEventTypeRightMouseDragged:
+				case NSEventTypeOtherMouseDragged:
+				case NSEventTypeMouseMoved: {
+					if (ctx->relative) {
+						wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
+						wmsg.mouseMotion.relative = true;
+						wmsg.mouseMotion.x = event.deltaX;
+						wmsg.mouseMotion.y = event.deltaY;
+
+					} else {
+						NSPoint p = [ctx->nswindow mouseLocationOutsideOfEventStream];
+						int32_t x = lrint(p.x);
+						int32_t y = lrint(size.height - p.y);
+
+						if (x >= 0 && y >= 0 && x <= size.width && y <= size.height) {
+							wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
+							wmsg.mouseMotion.x = x * scale;
+							wmsg.mouseMotion.y = y * scale;
+						}
+					}
+					break;
+				}
+			}
+
+			if ([ctx->nswindow wasClosed])
+				wmsg.type = MTY_WINDOW_MSG_CLOSE;
+
+			if (wmsg.type != MTY_WINDOW_MSG_NONE)
+				ctx->msg_func(&wmsg, (void *) ctx->opaque);
+
+			if (!block_app)
+				[NSApp sendEvent:event];
+		}
+
+		size.width *= scale;
+		size.height *= scale;
+
+		if (size.width != ctx->width || size.height != ctx->height) {
+			GFX_CTX_API[ctx->api].gfx_ctx_refresh(ctx->gfx_ctx);
+
+			ctx->width = size.width;
+			ctx->height = size.height;
+		}
+	} while (func(opaque));
 }
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
@@ -489,6 +371,16 @@ void MTY_AppGrabMouse(MTY_App *app, bool grab)
 
 void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 {
+	if (relative && !ctx->relative) {
+		ctx->relative = true;
+		CGAssociateMouseAndMouseCursorPosition(NO);
+		CGDisplayHideCursor(kCGDirectMainDisplay);
+
+	} else if (!relative && ctx->relative) {
+		ctx->relative = false;
+		CGAssociateMouseAndMouseCursorPosition(YES);
+		CGDisplayShowCursor(kCGDirectMainDisplay);
+	}
 }
 
 bool MTY_AppGetRelativeMouse(MTY_App *app)
@@ -517,18 +409,70 @@ void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t h
 
 MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
 {
+	bool r = true;
+	MTY_Window *ctx = MTY_Alloc(1, sizeof(MTY_Window));
+	ctx->msg_func = msg_func;
+	ctx->opaque = opaque;
+	ctx->api = api == MTY_GFX_NONE ? MTY_GFX_METAL : api;
+
+	[NSApplication sharedApplication];
+	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+	[NSApp finishLaunching];
+
+	NSRect rect = NSMakeRect(0, 0, width, height);
+	NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable;
+	ctx->nswindow = [[MTYWindow alloc] initWithContentRect:rect styleMask:style
+		backing:NSBackingStoreBuffered defer:NO];
+
+	ctx->nswindow.title = [NSString stringWithUTF8String:title];
+	[ctx->nswindow center];
+
+	[ctx->nswindow makeKeyAndOrderFront:ctx->nswindow];
+
+	ctx->renderer = MTY_RendererCreate();
+
+	ctx->gfx_ctx = GFX_CTX_API[ctx->api].gfx_ctx_create((__bridge void *) ctx->nswindow);
+	if (!ctx->gfx_ctx) {
+		r = false;
+		goto except;
+	}
+
+	except:
+
+	if (!r)
+		MTY_WindowDestroy(&ctx);
+
+	return ctx;
 }
 
 void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 {
+	if (!window || !*window)
+		return;
+
+	MTY_Window *ctx = *window;
+
+	ctx->nswindow = nil;
+
+	MTY_Free(ctx);
+	*window = NULL;
 }
 
 void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)
 {
+	NSString *nss = [NSString stringWithUTF8String:title];
+	ctx->nswindow.title = nss;
 }
 
 bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
 {
+	CGSize size = ctx->nswindow.contentView.frame.size;
+	CGFloat scale = ctx->nswindow.screen.backingScaleFactor;
+
+	*width = lrint(size.width * scale);
+	*height = lrint(size.height * scale);
+
+	return true;
 }
 
 bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
@@ -537,14 +481,23 @@ bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, u
 
 float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
 {
+	// macOS scales the display as though it switches resolutions,
+	// so all we need to report is the high DPI device multiplier
+
+	return [ctx->nswindow screen].backingScaleFactor;
 }
 
 void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
 {
+	bool is_fullscreen = MTY_WindowIsFullscreen(ctx);
+
+	if ((!is_fullscreen && fullscreen) || (is_fullscreen && !fullscreen))
+		[ctx->nswindow toggleFullScreen:ctx->nswindow];
 }
 
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 {
+	return [ctx->nswindow styleMask] & NSWindowStyleMaskFullScreen;
 }
 
 void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
@@ -572,4 +525,3 @@ bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 void *MTY_GLGetProcAddress(const char *name)
 {
 }
-*/
