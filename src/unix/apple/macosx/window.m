@@ -357,11 +357,6 @@ void MTY_WindowPoll(MTY_Window *ctx)
 	}
 }
 
-bool MTY_WindowIsForeground(MTY_Window *ctx)
-{
-	return ctx->nswindow.isKeyWindow;
-}
-
 void MTY_WindowSetRelativeMouse(MTY_Window *ctx, bool relative)
 {
 	if (relative && !ctx->relative) {
@@ -376,21 +371,7 @@ void MTY_WindowSetRelativeMouse(MTY_Window *ctx, bool relative)
 	}
 }
 
-uint32_t MTY_WindowGetRefreshRate(MTY_Window *ctx)
-{
-	NSNumber *n = ctx->nswindow.screen.deviceDescription[@"NSScreenNumber"];
-	CGDirectDisplayID display_id = [n intValue];
-
-	CGDisplayModeRef mode = CGDisplayCopyDisplayMode(display_id);
-
-	// FIXME This doesn't seem to be correct
-
-	CGDisplayModeRelease(mode);
-
-	return 60;
-}
-
-float MTY_WindowGetDPIScale(MTY_Window *ctx)
+float MTY_WindowGetScale(MTY_Window *ctx)
 {
 	// macOS scales the display as though it switches resolutions,
 	// so all we need to report is the high DPI device multiplier
@@ -404,93 +385,9 @@ void MTY_WindowSetFullscreen(MTY_Window *ctx)
 		[ctx->nswindow toggleFullScreen:ctx->nswindow];
 }
 
-void MTY_WindowSetSize(MTY_Window *ctx, uint32_t width, uint32_t height)
-{
-}
-
 bool MTY_WindowIsFullscreen(MTY_Window *ctx)
 {
 	return [ctx->nswindow styleMask] & NSWindowStyleMaskFullScreen;
-}
-
-void MTY_WindowPresent(MTY_Window *ctx, uint32_t num_frames)
-{
-	GFX_CTX_API[ctx->api].gfx_ctx_present(ctx->gfx_ctx, num_frames);
-}
-
-MTY_Device *MTY_WindowGetDevice(MTY_Window *ctx)
-{
-	return GFX_CTX_API[ctx->api].gfx_ctx_get_device(ctx->gfx_ctx);
-}
-
-MTY_Context *MTY_WindowGetContext(MTY_Window *ctx)
-{
-	return GFX_CTX_API[ctx->api].gfx_ctx_get_context(ctx->gfx_ctx);
-}
-
-MTY_Texture *MTY_WindowGetBackBuffer(MTY_Window *ctx)
-{
-	return GFX_CTX_API[ctx->api].gfx_ctx_get_buffer(ctx->gfx_ctx);
-}
-
-void MTY_WindowDrawQuad(MTY_Window *ctx, const void *image, const MTY_RenderDesc *desc)
-{
-	MTY_Texture *buffer = MTY_WindowGetBackBuffer(ctx);
-	if (buffer) {
-		MTY_RenderDesc mutated = *desc;
-		mutated.viewWidth = lrint(ctx->width);
-		mutated.viewHeight = lrint(ctx->height);
-
-		MTY_Device *device = MTY_WindowGetDevice(ctx);
-		MTY_Context *context = MTY_WindowGetContext(ctx);
-
-		MTY_RendererDrawQuad(ctx->renderer, ctx->api, device, context, image, &mutated, buffer);
-	}
-}
-
-void MTY_WindowDrawUI(MTY_Window *ctx, const MTY_DrawData *dd)
-{
-	MTY_Texture *buffer = MTY_WindowGetBackBuffer(ctx);
-	if (buffer) {
-		MTY_Device *device = MTY_WindowGetDevice(ctx);
-		MTY_Context *context = MTY_WindowGetContext(ctx);
-
-		MTY_RendererDrawUI(ctx->renderer, ctx->api, device, context, dd, buffer);
-	}
-}
-
-void MTY_WindowSetUITexture(MTY_Window *ctx, uint32_t id, const void *rgba, uint32_t width, uint32_t height)
-{
-	MTY_Device *device = MTY_WindowGetDevice(ctx);
-	MTY_Context *context = MTY_WindowGetContext(ctx);
-
-	MTY_RendererSetUITexture(ctx->renderer, ctx->api, device, context, id, rgba, width, height);
-}
-
-bool MTY_WindowGetUITexture(MTY_Window *ctx, uint32_t id)
-{
-	return MTY_RendererGetUITexture(ctx->renderer, id);
-}
-
-void MTY_WindowSetGFX(MTY_Window *ctx, MTY_GFX api)
-{
-	MTY_RendererDestroy(&ctx->renderer);
-	ctx->renderer = MTY_RendererCreate();
-
-	GFX_CTX_API[ctx->api].gfx_ctx_destroy(&ctx->gfx_ctx);
-
-	ctx->api = api;
-	ctx->gfx_ctx = GFX_CTX_API[ctx->api].gfx_ctx_create((__bridge void *) ctx->nswindow);
-}
-
-MTY_GFX MTY_WindowGetGFX(MTY_Window *ctx)
-{
-	return ctx->api;
-}
-
-bool MTY_WindowGFXSetCurrent(MTY_Window *ctx)
-{
-	return GFX_CTX_API[ctx->api].gfx_ctx_set_current(ctx->gfx_ctx);
 }
 
 void MTY_WindowDestroy(MTY_Window **window)
@@ -499,8 +396,6 @@ void MTY_WindowDestroy(MTY_Window **window)
 		return;
 
 	MTY_Window *ctx = *window;
-
-	MTY_RendererDestroy(&ctx->renderer);
 
 	ctx->nswindow = nil;
 
@@ -659,6 +554,7 @@ bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 
 void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
 {
+	return ctx->nswindow.isKeyWindow;
 }
 
 void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t y)
