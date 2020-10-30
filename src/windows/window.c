@@ -31,10 +31,8 @@ struct window {
 	MTY_Window window;
 	MTY_GFX api;
 	HWND hwnd;
-	uint32_t wx;
-	uint32_t wy;
-	uint32_t wwidth;
-	uint32_t wheight;
+	uint32_t x;
+	uint32_t y;
 	uint32_t width;
 	uint32_t height;
 	uint32_t min_width;
@@ -1079,7 +1077,7 @@ void MTY_AppSetClipboard(const char *text)
 				GlobalUnlock(mem);
 			}
 
-			GlobalFree(mem);
+			EmptyClipboard();
 		}
 
 		CloseClipboard();
@@ -1650,12 +1648,12 @@ void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen
 		if (window_get_monitor_info(ctx->hwnd, &info)) {
 			RECT r = {0};
 			if (GetWindowRect(ctx->hwnd, &r)) {
-				ctx->wx = r.left;
-				ctx->wy = r.top;
+				ctx->x = r.left;
+				ctx->y = r.top;
 			}
 
-			MTY_WindowGetSize(app, window, &ctx->wwidth, &ctx->wheight);
-			window_client_to_full(&ctx->wwidth, &ctx->wheight);
+			MTY_WindowGetSize(app, window, &ctx->width, &ctx->height);
+			window_client_to_full(&ctx->width, &ctx->height);
 
 			uint32_t x = info.rcMonitor.left;
 			uint32_t y = info.rcMonitor.top;
@@ -1668,7 +1666,7 @@ void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen
 
 	} else if (!fullscreen && MTY_WindowIsFullscreen(app, window)) {
 		SetWindowLongPtr(ctx->hwnd, GWL_STYLE, WS_VISIBLE | WS_OVERLAPPEDWINDOW);
-		SetWindowPos(ctx->hwnd, HWND_TOP, ctx->wx, ctx->wy, ctx->wwidth, ctx->wheight, SWP_FRAMECHANGED);
+		SetWindowPos(ctx->hwnd, HWND_TOP, ctx->x, ctx->y, ctx->width, ctx->height, SWP_FRAMECHANGED);
 
 		PostMessage(ctx->hwnd, WM_SETICON, ICON_BIG, GetClassLongPtr(ctx->hwnd, GCLP_HICON));
 		PostMessage(ctx->hwnd, WM_SETICON, ICON_SMALL, GetClassLongPtr(ctx->hwnd, GCLP_HICONSM));
