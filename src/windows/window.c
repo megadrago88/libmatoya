@@ -1770,17 +1770,6 @@ MTY_Texture *MTY_WindowGetBackBuffer(MTY_App *app, MTY_Window window)
 	if (!ctx)
 		return NULL;
 
-	uint32_t width = 0;
-	uint32_t height = 0;
-	MTY_WindowGetSize(app, window, &width, &height);
-
-	if (width != ctx->width || height != ctx->height) {
-		if (GFX_CTX_API[ctx->api].gfx_ctx_refresh(ctx->gfx_ctx)) {
-			ctx->width = width;
-			ctx->height = height;
-		}
-	}
-
 	return GFX_CTX_API[ctx->api].gfx_ctx_get_buffer(ctx->gfx_ctx);
 }
 

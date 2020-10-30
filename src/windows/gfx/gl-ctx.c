@@ -13,18 +13,31 @@ GFX_CTX_PROTOTYPES(_gl_)
 typedef BOOL (*PFNWGLSWAPINTERVALEXTPROC)(int interval);
 
 struct gfx_gl_ctx {
-	HDC hdc;
+	HWND hwnd;
 	HGLRC hgl;
+	HDC hdc;
+	MTY_Renderer *renderer;
 	uint32_t interval;
+	uint32_t width;
+	uint32_t height;
 	uint32_t fb0;
 };
 
 static PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT;
 
+static void gfx_gl_ctx_get_size(struct gfx_gl_ctx *ctx, uint32_t *width, uint32_t *height)
+{
+	RECT rect = {0};
+	GetClientRect(ctx->hwnd, &rect);
+
+	*width = rect.right - rect.left;
+	*height = rect.bottom - rect.top;
+}
+
 struct gfx_ctx *gfx_gl_ctx_create(void *native_window, bool vsync)
 {
 	struct gfx_gl_ctx *ctx = MTY_Alloc(1, sizeof(struct gfx_gl_ctx));
-	HWND hwnd = (HWND) native_window;
+	ctx->hwnd = (HWND) native_window;
 
 	bool r = true;
 
@@ -35,7 +48,7 @@ struct gfx_ctx *gfx_gl_ctx_create(void *native_window, bool vsync)
 		PFD_DOUBLEBUFFER | PFD_SWAP_LAYER_BUFFERS | PFD_SWAP_EXCHANGE;
 	pfd.iPixelType = PFD_TYPE_RGBA;
 
-	ctx->hdc = GetDC(hwnd);
+	ctx->hdc = GetDC(ctx->hwnd);
 	if (!ctx->hdc) {
 		r = false;
 		MTY_Log("'GetDC' failed");
@@ -75,6 +88,8 @@ struct gfx_ctx *gfx_gl_ctx_create(void *native_window, bool vsync)
 		goto except;
 	}
 
+	gfx_gl_ctx_get_size(ctx, &ctx->width, &ctx->height);
+
 	except:
 
 	if (!r)
@@ -95,11 +110,8 @@ void gfx_gl_ctx_destroy(struct gfx_ctx **gfx_ctx)
 	if (ctx->hgl)
 		wglDeleteContext(ctx->hgl);
 
-	if (ctx->hdc) {
-		HWND hwnd = WindowFromDC(ctx->hdc);
-		if (hwnd)
-			ReleaseDC(hwnd, ctx->hdc);
-	}
+	if (ctx->hwnd && ctx->hdc)
+		ReleaseDC(ctx->hwnd, ctx->hdc);
 
 	MTY_Free(ctx);
 	*gfx_ctx = NULL;
@@ -120,11 +132,6 @@ MTY_Texture *gfx_gl_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 	struct gfx_gl_ctx *ctx = (struct gfx_gl_ctx *) gfx_ctx;
 
 	return (MTY_Texture *) &ctx->fb0;
-}
-
-bool gfx_gl_ctx_refresh(struct gfx_ctx *gfx_ctx)
-{
-	return true;
 }
 
 void gfx_gl_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)

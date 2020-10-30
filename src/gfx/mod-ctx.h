@@ -20,11 +20,16 @@ struct gfx_ctx;
 #define GFX_CTX_DECLARE_API(api, wrap) \
 	struct gfx_ctx *wrap(gfx##api##ctx_create)(void *native_window, bool vsync); \
 	void wrap(gfx##api##ctx_destroy)(struct gfx_ctx **gfx_ctx); \
-	bool wrap(gfx##api##ctx_refresh)(struct gfx_ctx *gfx_ctx); \
 	void wrap(gfx##api##ctx_present)(struct gfx_ctx *gfx_ctx, uint32_t num_frames); \
 	MTY_Device *wrap(gfx##api##ctx_get_device)(struct gfx_ctx *gfx_ctx); \
 	MTY_Context *wrap(gfx##api##ctx_get_context)(struct gfx_ctx *gfx_ctx); \
-	MTY_Texture *wrap(gfx##api##ctx_get_buffer)(struct gfx_ctx *gfx_ctx);
+	MTY_Texture *wrap(gfx##api##ctx_get_buffer)(struct gfx_ctx *gfx_ctx); \
+	void wrap(gfx##api##ctx_draw_quad)(struct gfx_ctx *gfx_ctx, const void *image, \
+		const MTY_RenderDesc *desc); \
+	void wrap(gfx##api##ctx_draw_ui)(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd); \
+	void wrap(gfx##api##ctx_set_ui_texture)(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba, \
+		uint32_t width, uint32_t height); \
+	void *wrap(gfx##api##ctx_get_ui_texture)(struct gfx_ctx *gfx_ctx, uint32_t id);
 
 #define GFX_CTX_PROTOTYPES(api) \
 	GFX_CTX_DECLARE_API(api, GFX_CTX_PROTO)
@@ -33,9 +38,12 @@ struct gfx_ctx;
 	[MTY_GFX_##API] = { \
 		gfx##api##ctx_create, \
 		gfx##api##ctx_destroy, \
-		gfx##api##ctx_refresh, \
 		gfx##api##ctx_present, \
 		gfx##api##ctx_get_device, \
 		gfx##api##ctx_get_context, \
 		gfx##api##ctx_get_buffer, \
+		gfx##api##ctx_draw_quad, \
+		gfx##api##ctx_draw_ui, \
+		gfx##api##ctx_set_ui_texture, \
+		gfx##api##ctx_get_ui_texture, \
 	},

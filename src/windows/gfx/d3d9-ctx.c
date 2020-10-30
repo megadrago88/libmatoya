@@ -20,12 +20,24 @@ GFX_CTX_PROTOTYPES(_d3d9_)
 struct gfx_d3d9_ctx {
 	HWND hwnd;
 	bool vsync;
+	uint32_t width;
+	uint32_t height;
+	MTY_Renderer *renderer;
 	IDirect3D9Ex *factory;
 	IDirect3DDevice9Ex *device;
 	IDirect3DDevice9 *device_og;
 	IDirect3DSwapChain9Ex *swap_chain;
 	IDirect3DSurface9 *back_buffer;
 };
+
+static void gfx_d3d9_ctx_get_size(struct gfx_d3d9_ctx *ctx, uint32_t *width, uint32_t *height)
+{
+	RECT rect = {0};
+	GetClientRect(ctx->hwnd, &rect);
+
+	*width = rect.right - rect.left;
+	*height = rect.bottom - rect.top;
+}
 
 static void gfx_d3d9_ctx_free(struct gfx_d3d9_ctx *ctx)
 {
@@ -119,6 +131,8 @@ struct gfx_ctx *gfx_d3d9_ctx_create(void *native_window, bool vsync)
 	ctx->hwnd = (HWND) native_window;
 	ctx->vsync = vsync;
 
+	gfx_d3d9_ctx_get_size(ctx, &ctx->width, &ctx->height);
+
 	if (!gfx_d3d9_ctx_init(ctx))
 		gfx_d3d9_ctx_destroy((struct gfx_ctx **) &ctx);
 
@@ -150,11 +164,52 @@ MTY_Context *gfx_d3d9_ctx_get_context(struct gfx_ctx *gfx_ctx)
 	return NULL;
 }
 
+static void gfx_d3d9_ctx_refresh(struct gfx_d3d9_ctx *ctx)
+{
+	// ResetEx will fail if the window is minimized
+	if (IsIconic(ctx->hwnd))
+		return;
+
+	uint32_t width = ctx->width;
+	uint32_t height = ctx->height;
+
+	gfx_d3d9_ctx_get_size(ctx, &width, &height);
+
+	if (ctx->width != width || ctx->height != height) {
+		D3DPRESENT_PARAMETERS pp = {0};
+		pp.BackBufferFormat = D3DFMT_UNKNOWN;
+		pp.BackBufferCount = 1;
+		pp.SwapEffect = D3DSWAPEFFECT_FLIPEX;
+		pp.hDeviceWindow = ctx->hwnd;
+		pp.Windowed = TRUE;
+
+		HRESULT e = IDirect3DDevice9Ex_ResetEx(ctx->device, &pp, NULL);
+
+		if (e == S_OK) {
+			ctx->width = width;
+			ctx->height = height;
+
+		} else {
+			MTY_Log("'IDirect3DDevice9Ex_ResetEx' failed with HRESULT 0x%X", e);
+		}
+
+		if (D3D_FATAL(e)) {
+			gfx_d3d9_ctx_free(ctx);
+			gfx_d3d9_ctx_init(ctx);
+		}
+	}
+}
+
 MTY_Texture *gfx_d3d9_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 {
 	struct gfx_d3d9_ctx *ctx = (struct gfx_d3d9_ctx *) gfx_ctx;
 
-	if (ctx->device && !ctx->back_buffer) {
+	if (!ctx->device)
+		return (MTY_Texture *) ctx->back_buffer;
+
+	if (!ctx->back_buffer) {
+		gfx_d3d9_ctx_refresh(ctx);
+
 		HRESULT e = IDirect3DSwapChain9Ex_GetBackBuffer(ctx->swap_chain, 0,
 			D3DBACKBUFFER_TYPE_MONO, &ctx->back_buffer);
 		if (e != S_OK) {
@@ -179,37 +234,6 @@ MTY_Texture *gfx_d3d9_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 	}
 
 	return (MTY_Texture *) ctx->back_buffer;
-}
-
-bool gfx_d3d9_ctx_refresh(struct gfx_ctx *gfx_ctx)
-{
-	struct gfx_d3d9_ctx *ctx = (struct gfx_d3d9_ctx *) gfx_ctx;
-
-	if (!ctx->device)
-		return false;
-
-	// ResetEx will fail if the window is minimized
-	if (IsIconic(ctx->hwnd))
-		return false;
-
-	D3DPRESENT_PARAMETERS pp = {0};
-	pp.BackBufferFormat = D3DFMT_UNKNOWN;
-	pp.BackBufferCount = 1;
-	pp.SwapEffect = D3DSWAPEFFECT_FLIPEX;
-	pp.hDeviceWindow = ctx->hwnd;
-	pp.Windowed = TRUE;
-
-	HRESULT e = IDirect3DDevice9Ex_ResetEx(ctx->device, &pp, NULL);
-
-	if (e != S_OK)
-		MTY_Log("'IDirect3DDevice9Ex_ResetEx' failed with HRESULT 0x%X", e);
-
-	if (D3D_FATAL(e)) {
-		gfx_d3d9_ctx_free(ctx);
-		gfx_d3d9_ctx_init(ctx);
-	}
-
-	return e == S_OK;
 }
 
 void gfx_d3d9_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
