@@ -9,28 +9,23 @@
 #include <AppKit/AppKit.h>
 #include <Carbon/Carbon.h>
 
-#include "gfx/mod-ctx.h"
-GFX_CTX_PROTOTYPES(_gl_)
-GFX_CTX_PROTOTYPES(_metal_)
-GFX_CTX_DECLARE_TABLE()
-
 @interface MTYWindow : NSWindow
 	- (BOOL)windowShouldClose:(NSWindow *)sender;
 @end
 
 @implementation MTYWindow : NSWindow
-	bool _closed = false;
+	bool closed = false;
 
 	- (BOOL)windowShouldClose:(NSWindow *)sender
 	{
-		_closed = true;
+		closed = true;
 		return NO;
 	}
 
 	- (bool)wasClosed
 	{
 		bool closed = _closed;
-		_closed = false;
+		closed = false;
 
 		return closed;
 	}
