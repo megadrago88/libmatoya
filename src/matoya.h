@@ -1284,10 +1284,10 @@ MTY_EXPORT void
 MTY_AppEnableScreenSaver(MTY_App *ctx, bool enable);
 
 MTY_EXPORT char *
-MTY_AppGetClipboard(void);
+MTY_AppGetClipboard(MTY_App *app);
 
 MTY_EXPORT void
-MTY_AppSetClipboard(const char *text);
+MTY_AppSetClipboard(MTY_App *app, const char *text);
 
 MTY_EXPORT void
 MTY_AppGrabKeyboard(MTY_App *ctx, bool grab);

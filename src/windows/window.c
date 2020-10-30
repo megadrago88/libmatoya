@@ -48,6 +48,7 @@ struct MTY_App {
 	HICON custom_cursor;
 	HINSTANCE instance;
 	HHOOK kbhook;
+	DWORD cb_seq;
 	bool pen_active;
 	bool touch_active;
 	bool relative;
@@ -914,9 +915,14 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				wmsg.type = MTY_WINDOW_MSG_TEXT;
 			break;
 		}
-		case WM_CLIPBOARDUPDATE:
-			wmsg.type = MTY_WINDOW_MSG_CLIPBOARD;
+		case WM_CLIPBOARDUPDATE: {
+			DWORD cb_seq = GetClipboardSequenceNumber();
+			if (cb_seq != app->cb_seq) {
+				wmsg.type = MTY_WINDOW_MSG_CLIPBOARD;
+				app->cb_seq = cb_seq;
+			}
 			break;
+		}
 		case WM_DROPFILES:
 			wchar_t namew[MTY_PATH_MAX];
 
@@ -1030,31 +1036,41 @@ static LRESULT CALLBACK app_hwnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM
 
 // Clipboard
 
-char *MTY_AppGetClipboard(void)
+char *MTY_AppGetClipboard(MTY_App *app)
 {
+	struct window *ctx = app_get_main_window(app);
+	if (!ctx)
+		return NULL;
+
 	char *text = NULL;
 
-	if (IsClipboardFormatAvailable(CF_UNICODETEXT) && OpenClipboard(NULL)) {
-		HGLOBAL clipbuffer = GetClipboardData(CF_UNICODETEXT);
+	if (IsClipboardFormatAvailable(CF_UNICODETEXT)) {
+		if (OpenClipboard(ctx->hwnd)) {
+			HGLOBAL clipbuffer = GetClipboardData(CF_UNICODETEXT);
 
-		if (clipbuffer) {
-			wchar_t *locked = GlobalLock(clipbuffer);
+			if (clipbuffer) {
+				wchar_t *locked = GlobalLock(clipbuffer);
 
-			if (locked) {
-				text = MTY_WideToMultiD(locked);
-				GlobalUnlock(clipbuffer);
+				if (locked) {
+					text = MTY_WideToMultiD(locked);
+					GlobalUnlock(clipbuffer);
+				}
 			}
-		}
 
-		CloseClipboard();
+			CloseClipboard();
+		}
 	}
 
 	return text;
 }
 
-void MTY_AppSetClipboard(const char *text)
+void MTY_AppSetClipboard(MTY_App *app, const char *text)
 {
-	if (OpenClipboard(NULL)) {
+	struct window *ctx = app_get_main_window(app);
+	if (!ctx)
+		return;
+
+	if (OpenClipboard(ctx->hwnd)) {
 		wchar_t *wtext = MTY_MultiToWideD(text);
 		size_t size = (wcslen(wtext) + 1) * sizeof(wchar_t);
 
@@ -1063,12 +1079,12 @@ void MTY_AppSetClipboard(const char *text)
 			wchar_t *locked = GlobalLock(mem);
 
 			if (locked) {
-				if (EmptyClipboard()) {
-					memcpy(locked, wtext, size);
-					SetClipboardData(CF_UNICODETEXT, mem);
-				}
-
+				memcpy(locked, wtext, size);
 				GlobalUnlock(mem);
+
+				EmptyClipboard();
+				SetClipboardData(CF_UNICODETEXT, mem);
+				app->cb_seq = GetClipboardSequenceNumber();
 			}
 		}
 
