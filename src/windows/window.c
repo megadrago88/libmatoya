@@ -40,7 +40,6 @@ struct window {
 	uint32_t min_width;
 	uint32_t min_height;
 	struct gfx_ctx *gfx_ctx;
-	MTY_Renderer *renderer;
 	RAWINPUT *ri;
 };
 
@@ -1566,7 +1565,7 @@ void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 	if (ctx->hwnd)
 		DestroyWindow(ctx->hwnd);
 
-	if (ctx->gfx_ctx || ctx->renderer)
+	if (ctx->gfx_ctx)
 		MTY_Log("Window destroyed with GFX still attached");
 
 	MTY_Free(ctx->ri);
@@ -1779,17 +1778,7 @@ void MTY_WindowDrawQuad(MTY_App *app, MTY_Window window, const void *image, cons
 	if (!ctx)
 		return;
 
-	MTY_Texture *buffer = MTY_WindowGetBackBuffer(app, window);
-	if (buffer) {
-		MTY_RenderDesc mutated = *desc;
-		mutated.viewWidth = ctx->width;
-		mutated.viewHeight = ctx->height;
-
-		MTY_Device *device = MTY_WindowGetDevice(app, window);
-		MTY_Context *context = MTY_WindowGetContext(app, window);
-
-		MTY_RendererDrawQuad(ctx->renderer, ctx->api, device, context, image, &mutated, buffer);
-	}
+	GFX_CTX_API[ctx->api].gfx_ctx_draw_quad(ctx->gfx_ctx, image, desc);
 }
 
 void MTY_WindowDrawUI(MTY_App *app, MTY_Window window, const MTY_DrawData *dd)
@@ -1798,13 +1787,7 @@ void MTY_WindowDrawUI(MTY_App *app, MTY_Window window, const MTY_DrawData *dd)
 	if (!ctx)
 		return;
 
-	MTY_Texture *buffer = MTY_WindowGetBackBuffer(app, window);
-	if (buffer) {
-		MTY_Device *device = MTY_WindowGetDevice(app, window);
-		MTY_Context *context = MTY_WindowGetContext(app, window);
-
-		MTY_RendererDrawUI(ctx->renderer, ctx->api, device, context, dd, buffer);
-	}
+	GFX_CTX_API[ctx->api].gfx_ctx_draw_ui(ctx->gfx_ctx, dd);
 }
 
 void MTY_WindowSetUITexture(MTY_App *app, MTY_Window window, uint32_t id, const void *rgba, uint32_t width, uint32_t height)
@@ -1813,10 +1796,7 @@ void MTY_WindowSetUITexture(MTY_App *app, MTY_Window window, uint32_t id, const 
 	if (!ctx)
 		return;
 
-	MTY_Device *device = MTY_WindowGetDevice(app, window);
-	MTY_Context *context = MTY_WindowGetContext(app, window);
-
-	MTY_RendererSetUITexture(ctx->renderer, ctx->api, device, context, id, rgba, width, height);
+	GFX_CTX_API[ctx->api].gfx_ctx_set_ui_texture(ctx->gfx_ctx, id, rgba, width, height);
 }
 
 void *MTY_WindowGetUITexture(MTY_App *app, MTY_Window window, uint32_t id)
@@ -1825,7 +1805,7 @@ void *MTY_WindowGetUITexture(MTY_App *app, MTY_Window window, uint32_t id)
 	if (!ctx)
 		return NULL;
 
-	return MTY_RendererGetUITexture(ctx->renderer, id);
+	return GFX_CTX_API[ctx->api].gfx_ctx_get_ui_texture(ctx->gfx_ctx, id);
 }
 
 bool MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync)
@@ -1837,15 +1817,12 @@ bool MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync)
 	if (ctx->api == api)
 		return true;
 
-	MTY_RendererDestroy(&ctx->renderer);
-
 	if (ctx->api != MTY_GFX_NONE) {
 		GFX_CTX_API[ctx->api].gfx_ctx_destroy(&ctx->gfx_ctx);
 		ctx->api = MTY_GFX_NONE;
 	}
 
 	if (api != MTY_GFX_NONE) {
-		ctx->renderer = MTY_RendererCreate();
 		ctx->gfx_ctx = GFX_CTX_API[api].gfx_ctx_create((void *) ctx->hwnd, vsync);
 
 		// Fallback

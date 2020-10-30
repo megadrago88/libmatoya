@@ -229,15 +229,15 @@ static void gfx_d3d11_ctx_refresh(struct gfx_d3d11_ctx *ctx)
 		HRESULT e = IDXGISwapChain2_ResizeBuffers(ctx->swap_chain2, 0, 0, 0,
 			DXGI_FORMAT_UNKNOWN, ctx->swflags);
 
+		if (e == S_OK) {
+			ctx->width = width;
+			ctx->height = height;
+		}
+
 		if (DXGI_FATAL(e)) {
 			MTY_Log("'IDXGISwapChain2_ResizeBuffers' failed with HRESULT 0x%X", e);
 			gfx_d3d11_ctx_free(ctx);
 			gfx_d3d11_ctx_init(ctx);
-		}
-
-		if (e == S_OK) {
-			ctx->width = width;
-			ctx->height = height;
 		}
 	}
 }
@@ -289,22 +289,42 @@ void gfx_d3d11_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 void gfx_d3d11_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const MTY_RenderDesc *desc)
 {
 	struct gfx_d3d11_ctx *ctx = (struct gfx_d3d11_ctx *) gfx_ctx;
+
+	gfx_d3d11_ctx_get_buffer(gfx_ctx);
+
+	if (ctx->back_buffer) {
+		MTY_RenderDesc mutated = *desc;
+		mutated.viewWidth = ctx->width;
+		mutated.viewHeight = ctx->height;
+
+		MTY_RendererDrawQuad(ctx->renderer, MTY_GFX_D3D11, (MTY_Device *) ctx->device,
+			(MTY_Context *) ctx->context, image, &mutated, (MTY_Texture *) ctx->back_buffer);
+	}
 }
 
 void gfx_d3d11_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 {
 	struct gfx_d3d11_ctx *ctx = (struct gfx_d3d11_ctx *) gfx_ctx;
+
+	gfx_d3d11_ctx_get_buffer(gfx_ctx);
+
+	if (ctx->back_buffer)
+		MTY_RendererDrawUI(ctx->renderer, MTY_GFX_D3D11, (MTY_Device *) ctx->device,
+			(MTY_Context *) ctx->context, dd, (MTY_Texture *) ctx->back_buffer);
 }
 
 void gfx_d3d11_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,
 	uint32_t width, uint32_t height)
 {
 	struct gfx_d3d11_ctx *ctx = (struct gfx_d3d11_ctx *) gfx_ctx;
+
+	MTY_RendererSetUITexture(ctx->renderer, MTY_GFX_D3D11, (MTY_Device *) ctx->device,
+		(MTY_Context *) ctx->context, id, rgba, width, height);
 }
 
 void *gfx_d3d11_ctx_get_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
 {
 	struct gfx_d3d11_ctx *ctx = (struct gfx_d3d11_ctx *) gfx_ctx;
 
-	return NULL;
+	return MTY_RendererGetUITexture(ctx->renderer, id);
 }
