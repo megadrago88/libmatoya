@@ -48,6 +48,9 @@ struct MTY_Window {
 	MTY_Renderer *renderer;
 };
 
+
+// Hotkeys
+
 void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
 {
 }
@@ -65,6 +68,9 @@ void MTY_AppRemoveHotkeys(MTY_App *app, MTY_Hotkey mode)
 {
 }
 
+
+// Clipboard
+
 char *MTY_AppGetClipboard(void)
 {
 	// NSPasteboard
@@ -76,6 +82,9 @@ void MTY_AppSetClipboard(const char *text)
 	// NSPasteboard
 }
 
+
+// Cursor
+
 void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
 	// https://developer.apple.com/documentation/uikit/uiimage/1624106-initwithdata?language=objc
@@ -86,18 +95,8 @@ void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 {
 }
 
-MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, const void *opaque)
-{
-	[NSApplication sharedApplication];
-	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-	[NSApp finishLaunching];
 
-	return MTY_Alloc(1, 1);
-}
-
-void MTY_AppDestroy(MTY_App **app)
-{
-}
+// Event processing
 
 static void app_events()
 {
@@ -209,6 +208,22 @@ static void app_events()
 	}
 }
 
+
+// App
+
+MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, const void *opaque)
+{
+	[NSApplication sharedApplication];
+	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+	[NSApp finishLaunching];
+
+	return MTY_Alloc(1, 1);
+}
+
+void MTY_AppDestroy(MTY_App **app)
+{
+}
+
 void MTY_AppRun(MTY_App *app)
 {
 	do {
@@ -266,6 +281,9 @@ void MTY_AppActivate(MTY_App *app, bool active)
 void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {
 }
+
+
+// Window
 
 MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
 {
