@@ -71,15 +71,26 @@ void MTY_AppRemoveHotkeys(MTY_App *app, MTY_Hotkey mode)
 
 // Clipboard
 
-char *MTY_AppGetClipboard(void)
+char *MTY_AppGetClipboard(MTY_App *app)
 {
-	// NSPasteboard
-	return MTY_Alloc(1, 1);
+	char *text = NULL;
+
+	NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+	NSString *available = [pasteboard availableTypeFromArray:[NSArray arrayWithObject:NSPasteboardTypeString]];
+	if ([available isEqualToString:NSPasteboardTypeString]) {
+		NSString *string = [pasteboard stringForType:NSPasteboardTypeString];
+		if (string)
+			text = MTY_Strdup([string UTF8String]);
+	}
+
+	return text;
 }
 
-void MTY_AppSetClipboard(const char *text)
+void MTY_AppSetClipboard(MTY_App *app, const char *text)
 {
-	// NSPasteboard
+	NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+	app->cb_seq = [pasteboard declareTypes:[NSArray arrayWithObject:NSPasteboardTypeString] owner:nil];
+	[pasteboard setString:[NSString stringWithUTF8String:text] forType:NSPasteboardTypeString];
 }
 
 
@@ -89,6 +100,8 @@ void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t 
 {
 	// https://developer.apple.com/documentation/uikit/uiimage/1624106-initwithdata?language=objc
 	// https://developer.apple.com/documentation/appkit/nscursor/1524612-initwithimage?language=objc
+	// [[NSCursor alloc] initWithImage:nsimage hotSpot:NSMakePoint(hot_x, hot_y)];
+	// [NSCursor arrowCursor]
 }
 
 void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
@@ -242,6 +255,7 @@ MTY_Detach MTY_AppGetDetached(MTY_App *app)
 
 void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 {
+	// IOPMAssertionCreateWithDescription
 }
 
 void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
@@ -381,6 +395,7 @@ void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
 void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t y)
 {
 	// CGWarpMouseCursorPosition
+	// CGAssociateMouseAndMouseCursorPosition(YES) to prevent delay
 }
 
 bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
