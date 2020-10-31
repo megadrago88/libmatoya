@@ -1392,14 +1392,6 @@ bool MTY_AppGetRelativeMouse(MTY_App *app)
 	return app->relative;
 }
 
-void MTY_AppSetOnscreenKeyboard(MTY_App *app, bool enable)
-{
-}
-
-void MTY_AppSetOrientation(MTY_App *app, MTY_Orientation orientation)
-{
-}
-
 bool MTY_AppIsActive(MTY_App *app)
 {
 	bool r = false;
@@ -1784,4 +1776,15 @@ void *MTY_GLGetProcAddress(const char *name)
 		p = GetProcAddress(GetModuleHandleA("opengl32.dll"), name);
 
 	return p;
+}
+
+
+// Unimplemented
+
+void MTY_AppSetOnscreenKeyboard(MTY_App *app, bool enable)
+{
+}
+
+void MTY_AppSetOrientation(MTY_App *app, MTY_Orientation orientation)
+{
 }
