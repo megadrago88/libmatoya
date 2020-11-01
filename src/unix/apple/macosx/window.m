@@ -41,11 +41,7 @@ struct MTY_Window {
 	bool relative;
 
 	MTY_GFX api;
-	float width;
-	float height;
 	struct gfx_ctx *gfx_ctx;
-
-	MTY_Renderer *renderer;
 };
 
 
@@ -209,16 +205,6 @@ static void app_events()
 		if (!block_app)
 			[NSApp sendEvent:event];
 	}
-
-	size.width *= scale;
-	size.height *= scale;
-
-	if (size.width != ctx->width || size.height != ctx->height) {
-		GFX_CTX_API[ctx->api].gfx_ctx_refresh(ctx->gfx_ctx);
-
-		ctx->width = size.width;
-		ctx->height = size.height;
-	}
 }
 
 
@@ -302,10 +288,8 @@ void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t h
 MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
 {
 	bool r = true;
-	MTY_Window *ctx = MTY_Alloc(1, sizeof(MTY_Window));
-	ctx->msg_func = msg_func;
-	ctx->opaque = opaque;
-	ctx->api = api == MTY_GFX_NONE ? MTY_GFX_METAL : api;
+
+	MTY_Window ctx = 0;
 
 	NSRect rect = NSMakeRect(0, 0, width, height);
 	NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable;
@@ -317,18 +301,12 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	[ctx->nswindow makeKeyAndOrderFront:ctx->nswindow];
 
-	ctx->renderer = MTY_RendererCreate();
-
-	ctx->gfx_ctx = GFX_CTX_API[ctx->api].gfx_ctx_create((__bridge void *) ctx->nswindow);
-	if (!ctx->gfx_ctx) {
-		r = false;
-		goto except;
-	}
-
 	except:
 
-	if (!r)
-		MTY_WindowDestroy(&ctx);
+	if (!r) {
+		MTY_WindowDestroy(app, ctx);
+		ctx = -1;
+	}
 
 	return ctx;
 }

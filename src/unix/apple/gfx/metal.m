@@ -303,3 +303,19 @@ void gfx_metal_destroy(struct gfx **gfx)
 	MTY_Free(ctx);
 	*gfx = NULL;
 }
+
+
+// State
+
+void *gfx_metal_get_state(MTY_Device *device, MTY_Context *context)
+{
+	return NULL;
+}
+
+void gfx_metal_set_state(MTY_Device *device, MTY_Context *context, void *state)
+{
+}
+
+void gfx_metal_free_state(void **state)
+{
+}

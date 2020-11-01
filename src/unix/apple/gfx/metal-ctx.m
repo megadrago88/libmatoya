@@ -18,9 +18,22 @@ struct gfx_metal_ctx {
 	dispatch_semaphore_t semaphore;
 	id<CAMetalDrawable> back_buffer;
 	id<MTLCommandQueue> cq;
+	MTY_Renderer *renderer;
+	CGSize size;
 };
 
-static CVReturn window_display_link(CVDisplayLinkRef displayLink, const CVTimeStamp *inNow,
+static CGSize gfx_metal_ctx_get_size(struct gfx_metal_ctx *ctx)
+{
+	CGSize size = ctx->window.contentView.frame.size;
+	float scale = ctx->window.screen.backingScaleFactor;
+
+	size.width *= scale;
+	size.height *= scale;
+
+	return size;
+}
+
+static CVReturn gfx_metal_ctx_display_link(CVDisplayLinkRef displayLink, const CVTimeStamp *inNow,
 	const CVTimeStamp *inOutputTime, CVOptionFlags flagsIn, CVOptionFlags *flagsOut, void *displayLinkContext)
 {
 	struct gfx_metal_ctx *ctx = (struct gfx_metal_ctx *) displayLinkContext;
@@ -34,6 +47,7 @@ struct gfx_ctx *gfx_metal_ctx_create(void *native_window, bool vsync)
 {
 	struct gfx_metal_ctx *ctx = MTY_Alloc(1, sizeof(struct gfx_metal_ctx));
 	ctx->window = CFBridgingRelease(native_window);
+	ctx->renderer = MTY_RendererCreate();
 
 	bool r = true;
 
@@ -57,7 +71,7 @@ struct gfx_ctx *gfx_metal_ctx_create(void *native_window, bool vsync)
 
 	ctx->semaphore = dispatch_semaphore_create(0);
 
-	CVDisplayLinkSetOutputCallback(ctx->display_link, window_display_link, ctx);
+	CVDisplayLinkSetOutputCallback(ctx->display_link, gfx_metal_ctx_display_link, ctx);
 	CVDisplayLinkStart(ctx->display_link);
 
 	except:
@@ -74,6 +88,8 @@ void gfx_metal_ctx_destroy(struct gfx_ctx **gfx_ctx)
 		return;
 
 	struct gfx_metal_ctx *ctx = (struct gfx_metal_ctx *) *gfx_ctx;
+
+	MTY_RendererDestroy(&ctx->renderer);
 
 	ctx->layer = nil;
 	ctx->cq = nil;
@@ -111,31 +127,28 @@ MTY_Context *gfx_metal_ctx_get_context(struct gfx_ctx *gfx_ctx)
 	return (__bridge MTY_Context *) ctx->cq;
 }
 
+static void gfx_metal_ctx_refresh(struct gfx_metal_ctx *ctx)
+{
+	CGSize size = gfx_metal_ctx_get_size(ctx);
+
+	if (size.width != ctx->size.width || size.height != ctx->size.height) {
+		ctx->layer.drawableSize = size;
+		ctx->size = size;
+	}
+}
+
 MTY_Texture *gfx_metal_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 {
 	struct gfx_metal_ctx *ctx = (struct gfx_metal_ctx *) gfx_ctx;
 
 	@autoreleasepool {
-		if (!ctx->back_buffer)
+		if (!ctx->back_buffer) {
+			gfx_metal_ctx_refresh(ctx);
 			ctx->back_buffer = [ctx->layer nextDrawable];
+		}
 
 		return (__bridge MTY_Texture *) ctx->back_buffer.texture;
 	}
-}
-
-bool gfx_metal_ctx_refresh(struct gfx_ctx *gfx_ctx)
-{
-	struct gfx_metal_ctx *ctx = (struct gfx_metal_ctx *) gfx_ctx;
-
-	CGSize size = ctx->window.contentView.frame.size;
-	float scale = ctx->window.screen.backingScaleFactor;
-
-	size.width *= scale;
-	size.height *= scale;
-
-	ctx->layer.drawableSize = size;
-
-	return true;
 }
 
 void gfx_metal_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
@@ -154,7 +167,45 @@ void gfx_metal_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 	}
 }
 
-bool gfx_metal_ctx_set_current(struct gfx_ctx *gfx_ctx)
+void gfx_metal_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const MTY_RenderDesc *desc)
 {
-	return true;
+	struct gfx_metal_ctx *ctx = (struct gfx_metal_ctx *) gfx_ctx;
+
+	gfx_metal_ctx_get_buffer(gfx_ctx);
+
+	if (ctx->back_buffer) {
+		MTY_RenderDesc mutated = *desc;
+		mutated.viewWidth = lrint(ctx->size.width);
+		mutated.viewHeight = lrint(ctx->size.height);
+
+		MTY_RendererDrawQuad(ctx->renderer, MTY_GFX_METAL, (__bridge MTY_Device *) ctx->cq.device,
+			(__bridge MTY_Context *) ctx->cq, image, &mutated, (__bridge MTY_Texture *) ctx->back_buffer);
+	}
+}
+
+void gfx_metal_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
+{
+	struct gfx_metal_ctx *ctx = (struct gfx_metal_ctx *) gfx_ctx;
+
+	gfx_metal_ctx_get_buffer(gfx_ctx);
+
+	if (ctx->back_buffer)
+		MTY_RendererDrawUI(ctx->renderer, MTY_GFX_METAL, (__bridge MTY_Device *) ctx->cq.device,
+			(__bridge MTY_Context *) ctx->cq, dd, (__bridge MTY_Texture *) ctx->back_buffer);
+}
+
+void gfx_metal_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,
+	uint32_t width, uint32_t height)
+{
+	struct gfx_metal_ctx *ctx = (struct gfx_metal_ctx *) gfx_ctx;
+
+	MTY_RendererSetUITexture(ctx->renderer, MTY_GFX_METAL, (__bridge MTY_Device *) ctx->cq.device,
+		(__bridge MTY_Context *) ctx->cq, id, rgba, width, height);
+}
+
+void *gfx_metal_ctx_get_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
+{
+	struct gfx_metal_ctx *ctx = (struct gfx_metal_ctx *) gfx_ctx;
+
+	return MTY_RendererGetUITexture(ctx->renderer, id);
 }
