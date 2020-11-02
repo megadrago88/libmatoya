@@ -177,6 +177,18 @@ static MTY_Window app_find_open_window(MTY_App *app)
 	return -1;
 }
 
+static MTY_Window app_get_mty_window_by_number(App *ctx, NSInteger number)
+{
+	for (int8_t x = 0; x < MTY_WINDOW_MAX; x++) {
+		Window *window = (__bridge Window *) ctx.windows[x];
+
+		if (window.windowNumber == number)
+			return x;
+	}
+
+	return 0;
+}
+
 
 // Hotkeys
 
@@ -254,20 +266,30 @@ static bool app_next_event(App *ctx)
 	NSPoint p = {0};
 	MTY_Msg wmsg = {0};
 
-	Window *window = (Window *) event.window;
+	if (event.window) {
+		size = event.window.contentView.frame.size;
+		scale = lrint(event.window.screen.backingScaleFactor);
+		p = [event.window mouseLocationOutsideOfEventStream];
 
-	if (window) {
-		size = window.contentView.frame.size;
-		scale = lrint(window.screen.backingScaleFactor);
-		p = [window mouseLocationOutsideOfEventStream];
-		wmsg.window = window.window;
+		wmsg.window = app_get_mty_window_by_number(ctx, event.window.windowNumber);
 	}
 
 	switch (event.type) {
-		case NSEventTypeKeyUp:
+		case NSEventTypeKeyUp: {
+			const char *text = [event.characters UTF8String];
+			if (text && text[0]) {
+				wmsg.type = MTY_WINDOW_MSG_TEXT;
+
+				snprintf(wmsg.text, 8, "%s", text);
+				ctx.msg_func(&wmsg, ctx.opaque);
+				wmsg.type = MTY_WINDOW_MSG_NONE;
+			}
+		}
+
 		case NSEventTypeKeyDown:
 		case NSEventTypeFlagsChanged: {
 			wmsg.keyboard.scancode = keycode_to_scancode(event.keyCode);
+			wmsg.keyboard.mod = 0; // TODO
 
 			if (wmsg.keyboard.scancode != MTY_SCANCODE_NONE) {
 				block_app = true;
@@ -336,11 +358,6 @@ static bool app_next_event(App *ctx)
 			}
 			break;
 		}
-	}
-
-	if (window && window.closed) {
-		wmsg.type = MTY_WINDOW_MSG_CLOSE;
-		window.closed = false;
 	}
 
 	if (wmsg.type != MTY_WINDOW_MSG_NONE)
@@ -494,9 +511,10 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	}
 
 	NSRect rect = NSMakeRect(0, 0, desc->width, desc->height);
-	NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable;
-	ctx = [[Window alloc] initWithContentRect:rect styleMask:style
-		backing:NSBackingStoreBuffered defer:NO];
+	NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
+		NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable;
+
+	ctx = [[Window alloc] initWithContentRect:rect styleMask:style backing:NSBackingStoreBuffered defer:NO];
 	ctx.window = window;
 
 	app_ctx = (__bridge App *) app;
@@ -619,9 +637,19 @@ void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
 
 void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t y)
 {
-	// TODO
-	// CGWarpMouseCursorPosition
-	// CGAssociateMouseAndMouseCursorPosition(YES) to prevent delay
+	Window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return;
+
+	CGFloat title_bar_h = ctx.frame.size.height - ctx.contentView.frame.size.height;
+	CGFloat window_bottom = ctx.screen.frame.origin.y + ctx.frame.origin.y + ctx.frame.size.height;
+
+	NSPoint pscreen = {0};
+	pscreen.x = ctx.screen.frame.origin.x + ctx.frame.origin.x + x;
+	pscreen.y = ctx.screen.frame.size.height - window_bottom + title_bar_h + y;
+
+	CGWarpMouseCursorPosition(pscreen);
+	CGAssociateMouseAndMouseCursorPosition(YES);
 }
 
 bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
