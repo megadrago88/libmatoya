@@ -242,111 +242,114 @@ void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 
 // Event processing
 
-static void app_events(App *ctx)
+static bool app_next_event(App *ctx)
 {
-	while (true) {
-		NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:nil inMode:NSDefaultRunLoopMode dequeue:YES];
-		if (!event)
-			break;
+	NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:nil inMode:NSDefaultRunLoopMode dequeue:YES];
+	if (!event)
+		return false;
 
-		Window *window = (Window *) event.window;
-		if (!window)
-			continue;
+	bool block_app = false;
+	CGSize size = {0};
+	uint32_t scale = 1.0f;
+	NSPoint p = {0};
+	MTY_Msg wmsg = {0};
 
-		CGSize size = window.contentView.frame.size;
-		uint32_t scale = lrint(window.screen.backingScaleFactor);
+	Window *window = (Window *) event.window;
 
-		bool block_app = false;
-		MTY_Msg wmsg = {0};
+	if (window) {
+		size = window.contentView.frame.size;
+		scale = lrint(window.screen.backingScaleFactor);
+		p = [window mouseLocationOutsideOfEventStream];
 		wmsg.window = window.window;
-
-		switch (event.type) {
-			case NSEventTypeKeyUp:
-			case NSEventTypeKeyDown:
-			case NSEventTypeFlagsChanged: {
-				wmsg.keyboard.scancode = keycode_to_scancode(event.keyCode);
-
-				if (wmsg.keyboard.scancode != MTY_SCANCODE_NONE) {
-					block_app = true;
-					wmsg.type = MTY_WINDOW_MSG_KEYBOARD;
-
-					if (event.type == NSEventTypeFlagsChanged) {
-						switch (event.keyCode) {
-							case kVK_Shift:         wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELSHIFTKEYMASK;       break;
-							case kVK_CapsLock:      wmsg.keyboard.pressed = event.modifierFlags & NSEventModifierFlagCapsLock;  break;
-							case kVK_Option:        wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELALTKEYMASK;         break;
-							case kVK_Control:       wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELCTLKEYMASK;         break;
-							case kVK_RightShift:    wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERSHIFTKEYMASK;       break;
-							case kVK_RightOption:   wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERALTKEYMASK;         break;
-							case kVK_RightControl:  wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERCTLKEYMASK;         break;
-							case kVK_Command:       wmsg.keyboard.pressed = event.modifierFlags & NX_COMMANDMASK;               break;
-							default:
-								block_app = false;
-								wmsg.type = MTY_WINDOW_MSG_NONE;
-								break;
-						}
-					} else {
-						wmsg.keyboard.pressed = event.type == NSEventTypeKeyDown;
-					}
-				}
-				break;
-			}
-			case NSEventTypeScrollWheel:
-				wmsg.type = MTY_WINDOW_MSG_MOUSE_WHEEL;
-				wmsg.mouseWheel.x = lrint(event.deltaX);
-				wmsg.mouseWheel.y = lrint(event.deltaY);
-				break;
-			case NSEventTypeLeftMouseDown:
-			case NSEventTypeLeftMouseUp:
-			case NSEventTypeRightMouseDown:
-			case NSEventTypeRightMouseUp:
-			case NSEventTypeOtherMouseDown:
-			case NSEventTypeOtherMouseUp:
-				wmsg.type = MTY_WINDOW_MSG_MOUSE_BUTTON;
-				wmsg.mouseButton.pressed = event.type == NSEventTypeLeftMouseDown || event.type == NSEventTypeRightMouseDown ||
-					event.type == NSEventTypeOtherMouseDown;
-
-				switch (event.buttonNumber) {
-					case 0: wmsg.mouseButton.button = MTY_MOUSE_BUTTON_LEFT; break;
-					case 1: wmsg.mouseButton.button = MTY_MOUSE_BUTTON_RIGHT; break;
-				}
-				break;
-			case NSEventTypeLeftMouseDragged:
-			case NSEventTypeRightMouseDragged:
-			case NSEventTypeOtherMouseDragged:
-			case NSEventTypeMouseMoved: {
-				if (ctx.relative) {
-					wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
-					wmsg.mouseMotion.relative = true;
-					wmsg.mouseMotion.x = event.deltaX;
-					wmsg.mouseMotion.y = event.deltaY;
-
-				} else {
-					NSPoint p = [window mouseLocationOutsideOfEventStream];
-					int32_t x = lrint(p.x);
-					int32_t y = lrint(size.height - p.y);
-
-					if (x >= 0 && y >= 0 && x <= size.width && y <= size.height) {
-						wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
-						wmsg.mouseMotion.x = x * scale;
-						wmsg.mouseMotion.y = y * scale;
-					}
-				}
-				break;
-			}
-		}
-
-		if (window.closed) {
-			wmsg.type = MTY_WINDOW_MSG_CLOSE;
-			window.closed = false;
-		}
-
-		if (wmsg.type != MTY_WINDOW_MSG_NONE)
-			ctx.msg_func(&wmsg, (void *) ctx.opaque);
-
-		if (!block_app)
-			[NSApp sendEvent:event];
 	}
+
+	switch (event.type) {
+		case NSEventTypeKeyUp:
+		case NSEventTypeKeyDown:
+		case NSEventTypeFlagsChanged: {
+			wmsg.keyboard.scancode = keycode_to_scancode(event.keyCode);
+
+			if (wmsg.keyboard.scancode != MTY_SCANCODE_NONE) {
+				block_app = true;
+				wmsg.type = MTY_WINDOW_MSG_KEYBOARD;
+
+				if (event.type == NSEventTypeFlagsChanged) {
+					switch (event.keyCode) {
+						case kVK_Shift:         wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELSHIFTKEYMASK;       break;
+						case kVK_CapsLock:      wmsg.keyboard.pressed = event.modifierFlags & NSEventModifierFlagCapsLock;  break;
+						case kVK_Option:        wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELALTKEYMASK;         break;
+						case kVK_Control:       wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELCTLKEYMASK;         break;
+						case kVK_RightShift:    wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERSHIFTKEYMASK;       break;
+						case kVK_RightOption:   wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERALTKEYMASK;         break;
+						case kVK_RightControl:  wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERCTLKEYMASK;         break;
+						case kVK_Command:       wmsg.keyboard.pressed = event.modifierFlags & NX_COMMANDMASK;               break;
+						default:
+							block_app = false;
+							wmsg.type = MTY_WINDOW_MSG_NONE;
+							break;
+					}
+				} else {
+					wmsg.keyboard.pressed = event.type == NSEventTypeKeyDown;
+				}
+			}
+			break;
+		}
+		case NSEventTypeScrollWheel:
+			wmsg.type = MTY_WINDOW_MSG_MOUSE_WHEEL;
+			wmsg.mouseWheel.x = lrint(event.deltaX);
+			wmsg.mouseWheel.y = lrint(event.deltaY);
+			break;
+		case NSEventTypeLeftMouseDown:
+		case NSEventTypeLeftMouseUp:
+		case NSEventTypeRightMouseDown:
+		case NSEventTypeRightMouseUp:
+		case NSEventTypeOtherMouseDown:
+		case NSEventTypeOtherMouseUp:
+			wmsg.type = MTY_WINDOW_MSG_MOUSE_BUTTON;
+			wmsg.mouseButton.pressed = event.type == NSEventTypeLeftMouseDown || event.type == NSEventTypeRightMouseDown ||
+				event.type == NSEventTypeOtherMouseDown;
+
+			switch (event.buttonNumber) {
+				case 0: wmsg.mouseButton.button = MTY_MOUSE_BUTTON_LEFT; break;
+				case 1: wmsg.mouseButton.button = MTY_MOUSE_BUTTON_RIGHT; break;
+			}
+			break;
+		case NSEventTypeLeftMouseDragged:
+		case NSEventTypeRightMouseDragged:
+		case NSEventTypeOtherMouseDragged:
+		case NSEventTypeMouseMoved: {
+			if (ctx.relative) {
+				wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
+				wmsg.mouseMotion.relative = true;
+				wmsg.mouseMotion.x = event.deltaX;
+				wmsg.mouseMotion.y = event.deltaY;
+
+			} else {
+				int32_t x = lrint(p.x);
+				int32_t y = lrint(size.height - p.y);
+
+				if (x >= 0 && y >= 0 && x <= size.width && y <= size.height) {
+					wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
+					wmsg.mouseMotion.x = x * scale;
+					wmsg.mouseMotion.y = y * scale;
+				}
+			}
+			break;
+		}
+	}
+
+	if (window && window.closed) {
+		wmsg.type = MTY_WINDOW_MSG_CLOSE;
+		window.closed = false;
+	}
+
+	if (wmsg.type != MTY_WINDOW_MSG_NONE)
+		ctx.msg_func(&wmsg, ctx.opaque);
+
+	if (!block_app)
+		[NSApp sendEvent:event];
+
+	return true;
 }
 
 
@@ -388,36 +391,43 @@ void MTY_AppRun(MTY_App *app)
 	App *ctx = (__bridge App *) app;
 
 	do {
-		app_events(ctx);
+		while (app_next_event(ctx));
 
 	} while (ctx.app_func(ctx.opaque));
 }
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
 {
+	// TODO
 }
 
 MTY_Detach MTY_AppGetDetached(MTY_App *app)
 {
+	// TODO
 	return MTY_DETACH_NONE;
 }
 
 void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 {
+	// TODO
 	// IOPMAssertionCreateWithDescription
 }
 
 void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
 {
+	// TODO
 }
 
 void MTY_AppGrabMouse(MTY_App *app, bool grab)
 {
+	// TODO
 }
 
 void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 {
 	App *ctx = (__bridge App *) app;
+
+	// NOTE: Argument is unused in CGDisplayXXXCursor functions
 
 	if (relative && !ctx.relative) {
 		ctx.relative = true;
@@ -450,12 +460,20 @@ bool MTY_AppIsActive(MTY_App *app)
 
 void MTY_AppActivate(MTY_App *app, bool active)
 {
-	MTY_WindowActivate(app, 0, true);
-	[NSApp activateIgnoringOtherApps:YES];
+	App *ctx = (__bridge App *) app;
+
+	if (active) {
+		[NSApp unhide:ctx];
+		[NSApp activateIgnoringOtherApps:YES];
+
+	} else {
+		[NSApp hide:ctx];
+	}
 }
 
 void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {
+	// TODO
 }
 
 
@@ -601,6 +619,7 @@ void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
 
 void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t y)
 {
+	// TODO
 	// CGWarpMouseCursorPosition
 	// CGAssociateMouseAndMouseCursorPosition(YES) to prevent delay
 }
