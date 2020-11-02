@@ -146,9 +146,9 @@ MTY_Texture *gfx_metal_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 			gfx_metal_ctx_refresh(ctx);
 			ctx->back_buffer = [ctx->layer nextDrawable];
 		}
-
-		return (__bridge MTY_Texture *) ctx->back_buffer.texture;
 	}
+
+	return (__bridge MTY_Texture *) ctx->back_buffer.texture;
 }
 
 void gfx_metal_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
@@ -179,7 +179,7 @@ void gfx_metal_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const M
 		mutated.viewHeight = lrint(ctx->size.height);
 
 		MTY_RendererDrawQuad(ctx->renderer, MTY_GFX_METAL, (__bridge MTY_Device *) ctx->cq.device,
-			(__bridge MTY_Context *) ctx->cq, image, &mutated, (__bridge MTY_Texture *) ctx->back_buffer);
+			(__bridge MTY_Context *) ctx->cq, image, &mutated, (__bridge MTY_Texture *) ctx->back_buffer.texture);
 	}
 }
 
@@ -191,7 +191,7 @@ void gfx_metal_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 
 	if (ctx->back_buffer)
 		MTY_RendererDrawUI(ctx->renderer, MTY_GFX_METAL, (__bridge MTY_Device *) ctx->cq.device,
-			(__bridge MTY_Context *) ctx->cq, dd, (__bridge MTY_Texture *) ctx->back_buffer);
+			(__bridge MTY_Context *) ctx->cq, dd, (__bridge MTY_Texture *) ctx->back_buffer.texture);
 }
 
 void gfx_metal_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,

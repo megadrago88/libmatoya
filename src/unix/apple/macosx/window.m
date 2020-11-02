@@ -11,38 +11,171 @@
 
 #include "scancode.h"
 
-@interface MTYWindow : NSWindow
+
+// NSWindow
+
+@interface Window : NSWindow
+	@property bool closed;
+	@property MTY_Window window;
+	@property MTY_GFX api;
+	@property struct gfx_ctx *gfx_ctx;
+
 	- (BOOL)windowShouldClose:(NSWindow *)sender;
 @end
 
-@implementation MTYWindow : NSWindow
-	bool closed = false;
-
+@implementation Window : NSWindow
 	- (BOOL)windowShouldClose:(NSWindow *)sender
 	{
-		closed = true;
+		_closed = true;
 		return NO;
-	}
-
-	- (bool)wasClosed
-	{
-		bool closed = _closed;
-		closed = false;
-
-		return closed;
 	}
 @end
 
-struct MTY_Window {
-	MTYWindow *nswindow;
-	MTY_MsgFunc msg_func;
-	const void *opaque;
 
-	bool relative;
+// NSApp
 
-	MTY_GFX api;
-	struct gfx_ctx *gfx_ctx;
-};
+@interface App : NSObject <NSApplicationDelegate, NSUserNotificationCenterDelegate>
+	@property MTY_AppFunc app_func;
+	@property MTY_MsgFunc msg_func;
+	@property void *opaque;
+	@property void (*open_url)(const char *url, void *opaque);
+	@property void *url_opaque;
+	@property bool close_hybrid;
+	@property bool close_soft;
+	@property bool restart;
+	@property bool should_minimize;
+	@property bool should_show;
+	@property bool relative;
+	@property uint32_t cb_seq;
+
+	@property void **windows;
+
+	-(void)applicationWillFinishLaunching:(NSNotification *)notification;
+	-(void)applicationDidFinishLaunching:(NSNotification *)notification;
+	-(void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent;
+	-(BOOL)userNotificationCenter:(NSUserNotificationCenter *)center shouldPresentNotification:(NSUserNotification *)notification;
+	-(NSMenu *)applicationDockMenu:(NSApplication *)sender;
+@end
+
+static void app_add_menu_item(NSMenu *menu, NSString *title, NSString *key, SEL sel)
+{
+	NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:title action:sel keyEquivalent:key];
+	[menu addItem:item];
+}
+
+static void app_add_menu_separator(NSMenu *menu)
+{
+	[menu addItem:[NSMenuItem separatorItem]];
+}
+
+@implementation App : NSObject
+	-(BOOL)userNotificationCenter:(NSUserNotificationCenter *) center
+		shouldPresentNotification:(NSUserNotification *) notification
+	{
+		return YES;
+	}
+
+	-(void)applicationWillFinishLaunching:(NSNotification *)notification
+	{
+		[[NSUserNotificationCenter defaultUserNotificationCenter] setDelegate:self];
+
+		[[NSAppleEventManager sharedAppleEventManager] setEventHandler:self
+			andSelector:@selector(handleGetURLEvent:withReplyEvent:) forEventClass:kInternetEventClass
+			andEventID:kAEGetURL];
+	}
+
+	-(void)appHybridClose:(id)sender
+	{
+		_close_hybrid = true;
+	}
+
+	-(void)appSoftClose:(id)sender
+	{
+		_close_soft = true;
+	}
+
+	-(void)appRestart:(id)sender
+	{
+		_restart = true;
+	}
+
+	-(void)appMinimize:(id)sender
+	{
+		_should_minimize = true;
+	}
+
+	-(void)applicationDidFinishLaunching:(NSNotification *)notification
+	{
+		// Activation policy of a regular app
+		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+
+		// This makes the app show up in the dock and focusses it
+		[NSApp activateIgnoringOtherApps:YES];
+
+		// Main menu
+		NSMenu *menubar = [NSMenu alloc];
+		NSMenuItem *item = [NSMenuItem alloc];
+		[menubar addItem:item];
+		NSMenu *menu = [NSMenu alloc];
+
+		app_add_menu_item(menu, @"Quit", @"q", @selector(appHybridClose:));
+		app_add_menu_item(menu, @"Restart", @"", @selector(appRestart:));
+		app_add_menu_separator(menu);
+		app_add_menu_item(menu, @"Minimize", @"m", @selector(appMinimize:));
+		app_add_menu_item(menu, @"Close", @"w", @selector(appSoftClose:));
+
+		[item setSubmenu:menu];
+		[NSApp setMainMenu:menubar];
+	}
+
+	-(BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag
+	{
+		_should_show = true;
+		return NO;
+	}
+
+	-(void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent
+	{
+		NSString *url = [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
+
+		if (url && _open_url)
+			_open_url([url UTF8String], _url_opaque);
+	}
+
+	-(NSMenu *)applicationDockMenu:(NSApplication *)sender
+	{
+		NSMenu *menubar = [NSMenu alloc];
+		NSMenuItem *item = [NSMenuItem alloc];
+		[menubar addItem:item];
+		NSMenu *menu = [NSMenu alloc];
+
+		app_add_menu_item(menu, @"Restart", @"", @selector(appRestart:));
+
+		[item setSubmenu:menu];
+		return menu;
+	}
+@end
+
+
+// Static helpers
+
+static Window *app_get_window(MTY_App *app, MTY_Window window)
+{
+	App *ctx = (__bridge App *) app;
+
+	return window < 0 ? nil : (__bridge Window *) ctx.windows[window];
+}
+
+static MTY_Window app_find_open_window(MTY_App *app)
+{
+	App *ctx = (__bridge App *) app;
+
+	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
+		if (!ctx.windows[x])
+			return x;
+
+	return -1;
+}
 
 
 // Hotkeys
@@ -84,8 +217,10 @@ char *MTY_AppGetClipboard(MTY_App *app)
 
 void MTY_AppSetClipboard(MTY_App *app, const char *text)
 {
+	App *ctx = (__bridge App *) app;
+
 	NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
-	app->cb_seq = [pasteboard declareTypes:[NSArray arrayWithObject:NSPasteboardTypeString] owner:nil];
+	ctx.cb_seq = [pasteboard declareTypes:[NSArray arrayWithObject:NSPasteboardTypeString] owner:nil];
 	[pasteboard setString:[NSString stringWithUTF8String:text] forType:NSPasteboardTypeString];
 }
 
@@ -107,18 +242,23 @@ void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 
 // Event processing
 
-static void app_events()
+static void app_events(App *ctx)
 {
-	CGSize size = ctx->nswindow.contentView.frame.size;
-	uint32_t scale = lrint(ctx->nswindow.screen.backingScaleFactor);
-
 	while (true) {
 		NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:nil inMode:NSDefaultRunLoopMode dequeue:YES];
 		if (!event)
 			break;
 
+		Window *window = (Window *) event.window;
+		if (!window)
+			continue;
+
+		CGSize size = window.contentView.frame.size;
+		uint32_t scale = lrint(window.screen.backingScaleFactor);
+
 		bool block_app = false;
 		MTY_Msg wmsg = {0};
+		wmsg.window = window.window;
 
 		switch (event.type) {
 			case NSEventTypeKeyUp:
@@ -167,22 +307,22 @@ static void app_events()
 					event.type == NSEventTypeOtherMouseDown;
 
 				switch (event.buttonNumber) {
-					case 0: wmsg.mouseButton.button = MTY_MOUSE_BUTTON_L; break;
-					case 1: wmsg.mouseButton.button = MTY_MOUSE_BUTTON_R; break;
+					case 0: wmsg.mouseButton.button = MTY_MOUSE_BUTTON_LEFT; break;
+					case 1: wmsg.mouseButton.button = MTY_MOUSE_BUTTON_RIGHT; break;
 				}
 				break;
 			case NSEventTypeLeftMouseDragged:
 			case NSEventTypeRightMouseDragged:
 			case NSEventTypeOtherMouseDragged:
 			case NSEventTypeMouseMoved: {
-				if (ctx->relative) {
+				if (ctx.relative) {
 					wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
 					wmsg.mouseMotion.relative = true;
 					wmsg.mouseMotion.x = event.deltaX;
 					wmsg.mouseMotion.y = event.deltaY;
 
 				} else {
-					NSPoint p = [ctx->nswindow mouseLocationOutsideOfEventStream];
+					NSPoint p = [window mouseLocationOutsideOfEventStream];
 					int32_t x = lrint(p.x);
 					int32_t y = lrint(size.height - p.y);
 
@@ -196,11 +336,13 @@ static void app_events()
 			}
 		}
 
-		if ([ctx->nswindow wasClosed])
+		if (window.closed) {
 			wmsg.type = MTY_WINDOW_MSG_CLOSE;
+			window.closed = false;
+		}
 
 		if (wmsg.type != MTY_WINDOW_MSG_NONE)
-			ctx->msg_func(&wmsg, (void *) ctx->opaque);
+			ctx.msg_func(&wmsg, (void *) ctx.opaque);
 
 		if (!block_app)
 			[NSApp sendEvent:event];
@@ -210,25 +352,45 @@ static void app_events()
 
 // App
 
-MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, const void *opaque)
+MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 {
+	App *ctx = [App new];
+	ctx.app_func = appFunc;
+	ctx.msg_func = msgFunc;
+	ctx.opaque = opaque;
+
+	ctx.windows = MTY_Alloc(MTY_WINDOW_MAX, sizeof(void *));
+
 	[NSApplication sharedApplication];
-	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+	[NSApp setDelegate:ctx];
 	[NSApp finishLaunching];
 
-	return MTY_Alloc(1, 1);
+	return (MTY_App *) CFBridgingRetain(ctx);
 }
 
 void MTY_AppDestroy(MTY_App **app)
 {
+	if (!app || !*app)
+		return;
+
+	App *ctx = (App *) CFBridgingRelease(*app);
+	for (int8_t x = 0; x < MTY_WINDOW_MAX; x++)
+		MTY_WindowDestroy(*app, x);
+
+	MTY_Free(ctx.windows);
+	ctx = nil;
+
+	*app = NULL;
 }
 
 void MTY_AppRun(MTY_App *app)
 {
-	do {
-		app_events();
+	App *ctx = (__bridge App *) app;
 
-	} while (app->app_func(opaque));
+	do {
+		app_events(ctx);
+
+	} while (ctx.app_func(ctx.opaque));
 }
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
@@ -237,6 +399,7 @@ void MTY_AppDetach(MTY_App *app, MTY_Detach type)
 
 MTY_Detach MTY_AppGetDetached(MTY_App *app)
 {
+	return MTY_DETACH_NONE;
 }
 
 void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
@@ -254,13 +417,15 @@ void MTY_AppGrabMouse(MTY_App *app, bool grab)
 
 void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 {
-	if (relative && !ctx->relative) {
-		ctx->relative = true;
+	App *ctx = (__bridge App *) app;
+
+	if (relative && !ctx.relative) {
+		ctx.relative = true;
 		CGAssociateMouseAndMouseCursorPosition(NO);
 		CGDisplayHideCursor(kCGDirectMainDisplay);
 
-	} else if (!relative && ctx->relative) {
-		ctx->relative = false;
+	} else if (!relative && ctx.relative) {
+		ctx.relative = false;
 		CGAssociateMouseAndMouseCursorPosition(YES);
 		CGDisplayShowCursor(kCGDirectMainDisplay);
 	}
@@ -268,14 +433,25 @@ void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 
 bool MTY_AppGetRelativeMouse(MTY_App *app)
 {
+	App *ctx = (__bridge App *) app;
+
+	return ctx.relative;
 }
 
 bool MTY_AppIsActive(MTY_App *app)
 {
+	bool r = false;
+
+	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
+		r = r || MTY_WindowIsActive(app, x);
+
+	return r;
 }
 
 void MTY_AppActivate(MTY_App *app, bool active)
 {
+	MTY_WindowActivate(app, 0, true);
+	[NSApp activateIgnoringOtherApps:YES];
 }
 
 void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
@@ -287,53 +463,73 @@ void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t h
 
 MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
 {
+	App *app_ctx = nil;
+	Window *ctx = nil;
+	MTY_Window window = -1;
 	bool r = true;
 
-	MTY_Window ctx = 0;
+	window = app_find_open_window(app);
+	if (window == -1) {
+		r = false;
+		MTY_Log("Maximum windows (MTY_WINDOW_MAX) of %u reached", MTY_WINDOW_MAX);
+		goto except;
+	}
 
-	NSRect rect = NSMakeRect(0, 0, width, height);
+	NSRect rect = NSMakeRect(0, 0, desc->width, desc->height);
 	NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable;
-	ctx->nswindow = [[MTYWindow alloc] initWithContentRect:rect styleMask:style
+	ctx = [[Window alloc] initWithContentRect:rect styleMask:style
 		backing:NSBackingStoreBuffered defer:NO];
+	ctx.window = window;
 
-	ctx->nswindow.title = [NSString stringWithUTF8String:title];
-	[ctx->nswindow center];
+	app_ctx = (__bridge App *) app;
+	app_ctx.windows[window] = (void *) CFBridgingRetain(ctx);
 
-	[ctx->nswindow makeKeyAndOrderFront:ctx->nswindow];
+	ctx.title = [NSString stringWithUTF8String:title];
+	[ctx center];
+
+	MTY_WindowActivate(app, window, true);
 
 	except:
 
 	if (!r) {
-		MTY_WindowDestroy(app, ctx);
-		ctx = -1;
+		MTY_WindowDestroy(app, window);
+		window = -1;
 	}
 
-	return ctx;
+	return window;
 }
 
 void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 {
-	if (!window || !*window)
+	Window *ctx = app_get_window(app, window);
+	if (!ctx)
 		return;
 
-	MTY_Window *ctx = *window;
+	App *app_ctx = (__bridge App *) app;
+	ctx = (Window *) CFBridgingRelease(app_ctx.windows[window]);
+	ctx = nil;
 
-	ctx->nswindow = nil;
-
-	MTY_Free(ctx);
-	*window = NULL;
+	app_ctx.windows[window] = NULL;
 }
 
 void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)
 {
+	Window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return;
+
 	NSString *nss = [NSString stringWithUTF8String:title];
-	ctx->nswindow.title = nss;
+	ctx.title = nss;
 }
 
 bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
 {
-	CGSize size = ctx->nswindow.contentView.frame.size;
-	CGFloat scale = ctx->nswindow.screen.backingScaleFactor;
+	Window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return false;
+
+	CGSize size = ctx.contentView.frame.size;
+	CGFloat scale = ctx.screen.backingScaleFactor;
 
 	*width = lrint(size.width * scale);
 	*height = lrint(size.height * scale);
@@ -343,31 +539,64 @@ bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_
 
 bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
 {
+	Window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return false;
+
+	CGSize size = ctx.screen.frame.size;
+	CGFloat scale = ctx.screen.backingScaleFactor;
+
+	*width = lrint(size.width * scale);
+	*height = lrint(size.height * scale);
+
+	return true;
 }
 
 float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
 {
+	Window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return 1.0f;
+
 	// macOS scales the display as though it switches resolutions,
 	// so all we need to report is the high DPI device multiplier
 
-	return [ctx->nswindow screen].backingScaleFactor;
+	return ctx.screen.backingScaleFactor;
 }
 
 void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
 {
-	bool is_fullscreen = MTY_WindowIsFullscreen(ctx);
+	Window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return;
+
+	bool is_fullscreen = MTY_WindowIsFullscreen(app, window);
 
 	if ((!is_fullscreen && fullscreen) || (is_fullscreen && !fullscreen))
-		[ctx->nswindow toggleFullScreen:ctx->nswindow];
+		[ctx toggleFullScreen:ctx];
 }
 
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 {
-	return [ctx->nswindow styleMask] & NSWindowStyleMaskFullScreen;
+	Window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return false;
+
+	return ctx.styleMask & NSWindowStyleMaskFullScreen;
 }
 
 void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
 {
+	Window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return;
+
+	if (active) {
+		[ctx makeKeyAndOrderFront:ctx];
+
+	} else {
+		[ctx orderOut:ctx];
+	}
 }
 
 void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t y)
@@ -378,15 +607,59 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 
 bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
 {
+	Window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return false;
+
+	return ctx.isVisible;
 }
 
 bool MTY_WindowIsActive(MTY_App *app, MTY_Window window)
 {
-	return ctx->nswindow.isKeyWindow;
+	Window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return false;
+
+	return ctx.isKeyWindow;
 }
 
 bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 {
+	return app_get_window(app, window) ? true : false;
+}
+
+
+// Window Private
+
+void window_set_gfx(MTY_App *app, MTY_Window window, MTY_GFX api, struct gfx_ctx *gfx_ctx)
+{
+	Window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return;
+
+	ctx.api = api;
+	ctx.gfx_ctx = gfx_ctx;
+}
+
+MTY_GFX window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx_ctx)
+{
+	Window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return MTY_GFX_NONE;
+
+	if (gfx_ctx)
+		*gfx_ctx = ctx.gfx_ctx;
+
+	return ctx.api;
+}
+
+void *window_get_native(MTY_App *app, MTY_Window window)
+{
+	Window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return NULL;
+
+	return (__bridge void *) ctx;
 }
 
 

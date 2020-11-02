@@ -32,7 +32,7 @@ static MTY_Scancode keycode_to_scancode(unsigned short kc)
 		case kVK_ANSI_4:              return MTY_SCANCODE_4;
 		case kVK_ANSI_6:              return MTY_SCANCODE_6;
 		case kVK_ANSI_5:              return MTY_SCANCODE_6;
-		case kVK_ANSI_Equal:          return MTY_SCANCODE_EQUAL;
+		case kVK_ANSI_Equal:          return MTY_SCANCODE_EQUALS;
 		case kVK_ANSI_9:              return MTY_SCANCODE_9;
 		case kVK_ANSI_7:              return MTY_SCANCODE_7;
 		case kVK_ANSI_Minus:          return MTY_SCANCODE_MINUS;

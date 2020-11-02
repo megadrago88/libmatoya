@@ -163,8 +163,8 @@ OBJS := $(OBJS) \
 	src/unix/apple/gfx/metal-ctx.o \
 	src/unix/apple/aes-gcm-cc.o \
 	src/unix/apple/audio.o \
-	src/unix/apple/crypto.o
-	#src/unix/apple/$(TARGET)/window.o
+	src/unix/apple/crypto.o \
+	src/unix/apple/$(TARGET)/window.o
 
 SHADERS := $(SHADERS) \
 	src/unix/apple/gfx/shaders/metal/quad.h \

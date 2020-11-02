@@ -88,11 +88,16 @@ MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t max
 	return ctx;
 }
 
-uint32_t MTY_AudioGetQueuedFrames(MTY_Audio *ctx)
+static uint32_t audio_get_queued_frames(MTY_Audio *ctx)
+{
+	return ctx->queued / (AUDIO_CHANNELS * AUDIO_SAMPLE_SIZE);
+}
+
+uint32_t MTY_AudioGetQueuedMs(MTY_Audio *ctx)
 {
 	MTY_MutexLock(ctx->mutex);
 
-	uint32_t r = ctx->queued / (AUDIO_CHANNELS * AUDIO_SAMPLE_SIZE);
+	uint32_t r = lrint((float) audio_get_queued_frames(ctx) / ((float) ctx->sample_rate / 1000.0f));
 
 	MTY_MutexUnlock(ctx->mutex);
 
