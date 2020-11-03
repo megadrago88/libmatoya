@@ -11,7 +11,7 @@
 #define AUDIO_CHANNELS    2
 #define AUDIO_SAMPLE_SIZE sizeof(int16_t)
 
-#define AUDIO_BUFS     24
+#define AUDIO_BUFS     64
 #define AUDIO_BUF_SIZE (44100 * AUDIO_CHANNELS * AUDIO_SAMPLE_SIZE)
 
 struct MTY_Audio {
