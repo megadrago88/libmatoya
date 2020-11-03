@@ -307,7 +307,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 	uint32_t queued = audio_get_queued_frames(ctx);
 
 	// Stop playing and flush if we've exceeded the maximum buffer or underrun
-	if (ctx->playing && queued > ctx->max_buffer || queued == 0)
+	if (ctx->playing && (queued > ctx->max_buffer || queued == 0))
 		MTY_AudioStop(ctx);
 
 	if (ctx->buffer_size - queued >= count) {

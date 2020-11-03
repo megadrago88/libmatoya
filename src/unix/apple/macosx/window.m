@@ -538,12 +538,13 @@ void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t h
 
 MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
 {
+	MTY_Window window = -1;
+	bool r = true;
+
 	App *app_ctx = nil;
 	Window *ctx = nil;
 	View *content = nil;
 	NSTrackingArea *area = nil;
-	MTY_Window window = -1;
-	bool r = true;
 
 	window = app_find_open_window(app);
 	if (window == -1) {
@@ -562,8 +563,8 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	content = [[View alloc] initWithFrame:[ctx contentRectForFrameRect:ctx.frame]];
 	[ctx setContentView:content];
 
-	area = [[NSTrackingArea alloc] initWithRect:ctx.contentView.bounds options: (NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved |
-		NSTrackingActiveAlways) owner:ctx.contentView userInfo:nil];
+	NSTrackingAreaOptions options = NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved | NSTrackingActiveAlways;
+	area = [[NSTrackingArea alloc] initWithRect:ctx.contentView.bounds options:options owner:ctx.contentView userInfo:nil];
 	[ctx.contentView addTrackingArea:area];
 
 	app_ctx = (__bridge App *) app;
@@ -592,6 +593,8 @@ void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 
 	App *app_ctx = (__bridge App *) app;
 	ctx = (Window *) CFBridgingRelease(app_ctx.windows[window]);
+
+	[ctx close];
 	ctx = nil;
 
 	app_ctx.windows[window] = NULL;
