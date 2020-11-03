@@ -47,6 +47,7 @@
 	@property bool should_show;
 	@property bool relative;
 	@property uint32_t cb_seq;
+	@property NSCursor *cursor;
 
 	@property void **windows;
 
@@ -241,14 +242,27 @@ void MTY_AppSetClipboard(MTY_App *app, const char *text)
 
 void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
-	// https://developer.apple.com/documentation/uikit/uiimage/1624106-initwithdata?language=objc
-	// https://developer.apple.com/documentation/appkit/nscursor/1524612-initwithimage?language=objc
-	// [[NSCursor alloc] initWithImage:nsimage hotSpot:NSMakePoint(hot_x, hot_y)];
-	// [NSCursor arrowCursor]
+	App *ctx = (__bridge App *) app;
+
+	NSCursor *cursor = nil;
+
+	if (image) {
+		NSData *data = [NSData dataWithBytes:image length:size];
+		NSImage *nsi = [[NSImage alloc] initWithData:data];
+
+		cursor = [[NSCursor alloc] initWithImage:nsi hotSpot:NSMakePoint(hotX, hotY)];
+		[cursor push];
+	} else {
+		if (ctx.cursor)
+			[ctx.cursor pop];
+	}
+
+	ctx.cursor = cursor;
 }
 
 void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 {
+	// TODO
 }
 
 
