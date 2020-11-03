@@ -30,7 +30,7 @@ static void app_custom_event(int32_t window_num, int16_t type, int32_t d1, int32
 // NSView
 
 @interface View : NSView
-	@property int32_t window_num;
+	@property NSTrackingArea *area;
 @end
 
 @implementation View : NSView
@@ -41,19 +41,36 @@ static void app_custom_event(int32_t window_num, int16_t type, int32_t d1, int32
 
 	- (void)mouseEntered:(NSEvent *)event
 	{
-		app_custom_event(self.window_num, WINDOW_EVENT_MOUSE_ENTERED, 0, 0);
+		app_custom_event(self.window.windowNumber, WINDOW_EVENT_MOUSE_ENTERED, 0, 0);
+
+		[super mouseEntered:event];
 	}
 
 	- (void)mouseExited:(NSEvent *)event
 	{
-		app_custom_event(self.window_num, WINDOW_EVENT_MOUSE_EXITED, 0, 0);
+		app_custom_event(self.window.windowNumber, WINDOW_EVENT_MOUSE_EXITED, 0, 0);
+
+		[super mouseExited:event];
+	}
+
+	- (void)updateTrackingAreas
+	{
+		if (_area)
+			[self removeTrackingArea:_area];
+
+		NSTrackingAreaOptions options = NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved | NSTrackingActiveAlways;
+		_area = [[NSTrackingArea alloc] initWithRect:self.bounds options:options owner:self userInfo:nil];
+
+		[self addTrackingArea:_area];
+
+		[super updateTrackingAreas];
 	}
 @end
 
 
 // NSWindow
 
-@interface Window : NSWindow
+@interface Window : NSWindow <NSWindowDelegate>
 	@property MTY_Window window;
 	@property MTY_GFX api;
 	@property struct gfx_ctx *gfx_ctx;
@@ -74,6 +91,27 @@ static void app_custom_event(int32_t window_num, int16_t type, int32_t d1, int32
 	- (BOOL)canBecomeMainWindow
 	{
 		return YES;
+	}
+
+	// NSWindowDelegate
+	- (void)windowDidResignKey:(NSNotification *)notification
+	{
+	}
+
+	- (void)windowDidBecomeKey:(NSNotification *)notification
+	{
+	}
+
+	- (void)windowDidExpose:(NSNotification *)notification
+	{
+	}
+
+	- (void)windowDidEnterFullScreen:(NSNotification *)notification
+	{
+	}
+
+	- (void)windowDidResize:(NSNotification *)notification
+	{
 	}
 @end
 
@@ -217,16 +255,18 @@ static MTY_Window app_find_open_window(MTY_App *app)
 	return -1;
 }
 
-static MTY_Window app_get_mty_window_by_number(App *ctx, NSInteger number)
+static bool app_get_mty_window_by_number(App *ctx, NSInteger number, Window **out)
 {
 	for (int8_t x = 0; x < MTY_WINDOW_MAX; x++) {
 		Window *window = (__bridge Window *) ctx.windows[x];
 
-		if (window.windowNumber == number)
-			return x;
+		if (window.windowNumber == number) {
+			*out = window;
+			return true;
+		}
 	}
 
-	return 0;
+	return false;
 }
 
 
@@ -326,25 +366,34 @@ void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 
 // Event processing
 
+static Window *app_get_event_window(App *ctx, NSEvent *event)
+{
+	Window *window = nil;
+
+	// First try to find the window based on what's reported by the event
+	if (event.window)
+		if (app_get_mty_window_by_number(ctx, event.window.windowNumber, &window))
+			return window;
+
+	// Try to use the current mouse coordinates to find the window
+	NSInteger num = [NSWindow windowNumberAtPoint:[NSEvent mouseLocation] belowWindowWithWindowNumber:0];
+	if (app_get_mty_window_by_number(ctx, num, &window))
+		return window;
+
+	return nil;
+}
+
 static bool app_next_event(App *ctx)
 {
 	NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:nil inMode:NSDefaultRunLoopMode dequeue:YES];
 	if (!event)
 		return false;
 
+	Window *window = app_get_event_window(ctx, event);
+
 	bool block_app = false;
-	CGSize size = {0};
-	uint32_t scale = 1.0f;
-	NSPoint p = {0};
 	MTY_Msg wmsg = {0};
-
-	if (event.window) {
-		size = event.window.contentView.frame.size;
-		scale = lrint(event.window.screen.backingScaleFactor);
-		p = [event.window mouseLocationOutsideOfEventStream];
-
-		wmsg.window = app_get_mty_window_by_number(ctx, event.window.windowNumber);
-	}
+	wmsg.window = window ? window.window : 0;
 
 	switch (event.type) {
 		case NSEventTypeKeyUp: {
@@ -419,13 +468,18 @@ static bool app_next_event(App *ctx)
 				wmsg.mouseMotion.y = event.deltaY;
 
 			} else {
-				int32_t x = lrint(p.x);
-				int32_t y = lrint(size.height - p.y);
+				if (window) {
+					NSPoint p = [window mouseLocationOutsideOfEventStream];
+					NSSize size = window.contentView.frame.size;
+					int32_t x = lrint(p.x);
+					int32_t y = lrint(size.height - p.y);
 
-				if (x >= 0 && y >= 0 && x <= size.width && y <= size.height) {
-					wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
-					wmsg.mouseMotion.x = x * scale;
-					wmsg.mouseMotion.y = y * scale;
+					if (x >= 0 && y >= 0 && x <= size.width && y <= size.height) {
+						uint32_t scale = lrint(window.screen.backingScaleFactor);
+						wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
+						wmsg.mouseMotion.x = x * scale;
+						wmsg.mouseMotion.y = y * scale;
+					}
 				}
 			}
 			break;
@@ -588,7 +642,6 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	App *app_ctx = nil;
 	Window *ctx = nil;
 	View *content = nil;
-	NSTrackingArea *area = nil;
 
 	window = app_find_open_window(app);
 	if (window == -1) {
@@ -604,13 +657,11 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	ctx = [[Window alloc] initWithContentRect:rect styleMask:style backing:NSBackingStoreBuffered defer:NO];
 	ctx.window = window;
 
-	content = [[View alloc] initWithFrame:[ctx contentRectForFrameRect:ctx.frame]];
-	content.window_num = ctx.windowNumber;
-	[ctx setContentView:content];
+	[ctx setDelegate:ctx];
+	[ctx setAcceptsMouseMovedEvents:YES];
 
-	NSTrackingAreaOptions options = NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved | NSTrackingActiveAlways;
-	area = [[NSTrackingArea alloc] initWithRect:ctx.contentView.bounds options:options owner:ctx.contentView userInfo:nil];
-	[ctx.contentView addTrackingArea:area];
+	content = [[View alloc] initWithFrame:[ctx contentRectForFrameRect:ctx.frame]];
+	[ctx setContentView:content];
 
 	app_ctx = (__bridge App *) app;
 	app_ctx.windows[window] = (void *) CFBridgingRetain(ctx);
