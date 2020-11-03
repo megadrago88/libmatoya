@@ -445,8 +445,8 @@ static bool app_next_event(App *ctx)
 		}
 		case NSEventTypeScrollWheel:
 			wmsg.type = MTY_WINDOW_MSG_MOUSE_WHEEL;
-			wmsg.mouseWheel.x = lrint(event.deltaX);
-			wmsg.mouseWheel.y = lrint(event.deltaY);
+			wmsg.mouseWheel.x = lrint(event.deltaX) * 120;
+			wmsg.mouseWheel.y = lrint(event.deltaY) * 120;
 			break;
 		case NSEventTypeLeftMouseDown:
 		case NSEventTypeLeftMouseUp:
@@ -483,8 +483,9 @@ static bool app_next_event(App *ctx)
 
 					if (x >= 0 && y >= 0 && x <= size.width && y <= size.height) {
 						wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
-						wmsg.mouseMotion.x = x * scale;
-						wmsg.mouseMotion.y = y * scale;
+						wmsg.mouseMotion.relative = false;
+						wmsg.mouseMotion.x = x;
+						wmsg.mouseMotion.y = y;
 					}
 				}
 			}
