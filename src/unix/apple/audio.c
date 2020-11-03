@@ -28,8 +28,8 @@ static void audio_queue_callback(void *opaque, AudioQueueRef q, AudioQueueBuffer
 {
 	MTY_Audio *ctx = opaque;
 
-	buf->mAudioDataByteSize = 0;
 	MTY_Atomic32Set(&ctx->in_use[(uintptr_t) buf->mUserData], 0);
+	buf->mAudioDataByteSize = 0;
 }
 
 MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer)

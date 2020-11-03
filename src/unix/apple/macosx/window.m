@@ -11,17 +11,42 @@
 
 #include "scancode.h"
 
+enum {
+	WINDOW_EVENT_CLOSE         = 1,
+	WINDOW_EVENT_MOUSE_ENTERED = 2,
+	WINDOW_EVENT_MOUSE_EXITED  = 3,
+};
+
+static void app_custom_event(int32_t window_num, int16_t type, int32_t d1, int32_t d2)
+{
+	NSEvent *event = [NSEvent otherEventWithType:NSApplicationDefined location:NSMakePoint(0, 0)
+		modifierFlags:0 timestamp:[[NSDate date] timeIntervalSince1970] windowNumber:window_num
+		context:nil subtype:type data1:d1 data2:d2];
+
+	[NSApp postEvent:event atStart:NO];
+}
+
 
 // NSView
 
 @interface View : NSView
-	- (BOOL)acceptsFirstMouse:(NSEvent *)theEvent;
+	@property int32_t window_num;
 @end
 
 @implementation View : NSView
-	- (BOOL)acceptsFirstMouse:(NSEvent *)theEvent
+	- (BOOL)acceptsFirstMouse:(NSEvent *)event
 	{
 		return YES;
+	}
+
+	- (void)mouseEntered:(NSEvent *)event
+	{
+		app_custom_event(self.window_num, WINDOW_EVENT_MOUSE_ENTERED, 0, 0);
+	}
+
+	- (void)mouseExited:(NSEvent *)event
+	{
+		app_custom_event(self.window_num, WINDOW_EVENT_MOUSE_EXITED, 0, 0);
 	}
 @end
 
@@ -29,20 +54,15 @@
 // NSWindow
 
 @interface Window : NSWindow
-	@property bool closed;
 	@property MTY_Window window;
 	@property MTY_GFX api;
 	@property struct gfx_ctx *gfx_ctx;
-
-	- (BOOL)windowShouldClose:(NSWindow *)sender;
-	- (BOOL)canBecomeKeyWindow;
-	- (BOOL)canBecomeMainWindow;
 @end
 
 @implementation Window : NSWindow
 	- (BOOL)windowShouldClose:(NSWindow *)sender
 	{
-		_closed = true;
+		app_custom_event(self.windowNumber, WINDOW_EVENT_CLOSE, 0, 0);
 		return NO;
 	}
 
@@ -66,22 +86,15 @@
 	@property void *opaque;
 	@property void (*open_url)(const char *url, void *opaque);
 	@property void *url_opaque;
-	@property bool close_hybrid;
-	@property bool close_soft;
 	@property bool restart;
 	@property bool should_minimize;
-	@property bool should_show;
 	@property bool relative;
+	@property bool default_cursor;
+	@property bool cursor_outside;
 	@property uint32_t cb_seq;
+	@property NSCursor *custom_cursor;
 	@property NSCursor *cursor;
-
 	@property void **windows;
-
-	-(void)applicationWillFinishLaunching:(NSNotification *)notification;
-	-(void)applicationDidFinishLaunching:(NSNotification *)notification;
-	-(void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent;
-	-(BOOL)userNotificationCenter:(NSUserNotificationCenter *)center shouldPresentNotification:(NSUserNotification *)notification;
-	-(NSMenu *)applicationDockMenu:(NSApplication *)sender;
 @end
 
 static void app_add_menu_item(NSMenu *menu, NSString *title, NSString *key, SEL sel)
@@ -96,13 +109,13 @@ static void app_add_menu_separator(NSMenu *menu)
 }
 
 @implementation App : NSObject
-	-(BOOL)userNotificationCenter:(NSUserNotificationCenter *) center
-		shouldPresentNotification:(NSUserNotification *) notification
+	- (BOOL)userNotificationCenter:(NSUserNotificationCenter *)center
+		shouldPresentNotification:(NSUserNotification *)notification
 	{
 		return YES;
 	}
 
-	-(void)applicationWillFinishLaunching:(NSNotification *)notification
+	- (void)applicationWillFinishLaunching:(NSNotification *)notification
 	{
 		[[NSUserNotificationCenter defaultUserNotificationCenter] setDelegate:self];
 
@@ -111,27 +124,26 @@ static void app_add_menu_separator(NSMenu *menu)
 			andEventID:kAEGetURL];
 	}
 
-	-(void)appHybridClose:(id)sender
+	- (void)appClose:(id)sender
 	{
-		_close_hybrid = true;
+		for (uint8_t x = 0; x < MTY_WINDOW_MAX; x++) {
+			Window *window = (__bridge Window *) self.windows[x];
+			if (window)
+				app_custom_event(window.windowNumber, WINDOW_EVENT_CLOSE, 0, 0);
+		}
 	}
 
-	-(void)appSoftClose:(id)sender
-	{
-		_close_soft = true;
-	}
-
-	-(void)appRestart:(id)sender
+	- (void)appRestart:(id)sender
 	{
 		_restart = true;
 	}
 
-	-(void)appMinimize:(id)sender
+	- (void)appMinimize:(id)sender
 	{
 		_should_minimize = true;
 	}
 
-	-(void)applicationDidFinishLaunching:(NSNotification *)notification
+	- (void)applicationDidFinishLaunching:(NSNotification *)notification
 	{
 		// Activation policy of a regular app
 		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
@@ -145,23 +157,24 @@ static void app_add_menu_separator(NSMenu *menu)
 		[menubar addItem:item];
 		NSMenu *menu = [NSMenu alloc];
 
-		app_add_menu_item(menu, @"Quit", @"q", @selector(appHybridClose:));
+		app_add_menu_item(menu, @"Quit", @"q", @selector(appClose:));
 		app_add_menu_item(menu, @"Restart", @"", @selector(appRestart:));
 		app_add_menu_separator(menu);
 		app_add_menu_item(menu, @"Minimize", @"m", @selector(appMinimize:));
-		app_add_menu_item(menu, @"Close", @"w", @selector(appSoftClose:));
+		app_add_menu_item(menu, @"Close", @"w", @selector(appClose:));
 
 		[item setSubmenu:menu];
 		[NSApp setMainMenu:menubar];
 	}
 
-	-(BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag
+	- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag
 	{
-		_should_show = true;
+		[NSApp unhide:self];
+
 		return NO;
 	}
 
-	-(void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent
+	- (void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent
 	{
 		NSString *url = [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
 
@@ -169,7 +182,7 @@ static void app_add_menu_separator(NSMenu *menu)
 			_open_url([url UTF8String], _url_opaque);
 	}
 
-	-(NSMenu *)applicationDockMenu:(NSApplication *)sender
+	- (NSMenu *)applicationDockMenu:(NSApplication *)sender
 	{
 		NSMenu *menubar = [NSMenu alloc];
 		NSMenuItem *item = [NSMenuItem alloc];
@@ -266,6 +279,19 @@ void MTY_AppSetClipboard(MTY_App *app, const char *text)
 
 // Cursor
 
+static void app_apply_cursor(App *ctx)
+{
+	NSCursor *arrow = [NSCursor arrowCursor];
+	NSCursor *new = ctx.default_cursor || ctx.cursor_outside ? arrow :
+		ctx.custom_cursor ? ctx.custom_cursor : arrow;
+
+	if (ctx.cursor)
+		[ctx.cursor pop];
+
+	ctx.cursor = new;
+	[ctx.cursor push];
+}
+
 void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
 	App *ctx = (__bridge App *) app;
@@ -277,18 +303,24 @@ void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t 
 		NSImage *nsi = [[NSImage alloc] initWithData:data];
 
 		cursor = [[NSCursor alloc] initWithImage:nsi hotSpot:NSMakePoint(hotX, hotY)];
-		[cursor push];
+
 	} else {
-		if (ctx.cursor)
-			[ctx.cursor pop];
+		if (ctx.custom_cursor)
+			[ctx.custom_cursor pop];
 	}
 
-	ctx.cursor = cursor;
+	ctx.custom_cursor = cursor;
+
+	app_apply_cursor(ctx);
 }
 
 void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 {
-	// TODO
+	App *ctx = (__bridge App *) app;
+
+	ctx.default_cursor = useDefault;
+
+	app_apply_cursor(ctx);
 }
 
 
@@ -398,6 +430,18 @@ static bool app_next_event(App *ctx)
 			}
 			break;
 		}
+		case NSEventTypeApplicationDefined:
+			switch (event.subtype) {
+				case WINDOW_EVENT_CLOSE:
+					wmsg.type = MTY_WINDOW_MSG_CLOSE;
+					break;
+				case WINDOW_EVENT_MOUSE_ENTERED:
+				case WINDOW_EVENT_MOUSE_EXITED:
+					ctx.cursor_outside = event.subtype == WINDOW_EVENT_MOUSE_EXITED;
+					app_apply_cursor(ctx);
+					break;
+			}
+			break;
 	}
 
 	if (wmsg.type != MTY_WINDOW_MSG_NONE)
@@ -561,6 +605,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	ctx.window = window;
 
 	content = [[View alloc] initWithFrame:[ctx contentRectForFrameRect:ctx.frame]];
+	content.window_num = ctx.windowNumber;
 	[ctx setContentView:content];
 
 	NSTrackingAreaOptions options = NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved | NSTrackingActiveAlways;
