@@ -12,6 +12,20 @@
 #include "scancode.h"
 
 
+// NSView
+
+@interface View : NSView
+	- (BOOL)acceptsFirstMouse:(NSEvent *)theEvent;
+@end
+
+@implementation View : NSView
+	- (BOOL)acceptsFirstMouse:(NSEvent *)theEvent
+	{
+		return YES;
+	}
+@end
+
+
 // NSWindow
 
 @interface Window : NSWindow
@@ -21,6 +35,8 @@
 	@property struct gfx_ctx *gfx_ctx;
 
 	- (BOOL)windowShouldClose:(NSWindow *)sender;
+	- (BOOL)canBecomeKeyWindow;
+	- (BOOL)canBecomeMainWindow;
 @end
 
 @implementation Window : NSWindow
@@ -28,6 +44,16 @@
 	{
 		_closed = true;
 		return NO;
+	}
+
+	- (BOOL)canBecomeKeyWindow
+	{
+		return YES;
+	}
+
+	- (BOOL)canBecomeMainWindow
+	{
+		return YES;
 	}
 @end
 
@@ -514,6 +540,8 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 {
 	App *app_ctx = nil;
 	Window *ctx = nil;
+	View *content = nil;
+	NSTrackingArea *area = nil;
 	MTY_Window window = -1;
 	bool r = true;
 
@@ -530,6 +558,13 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	ctx = [[Window alloc] initWithContentRect:rect styleMask:style backing:NSBackingStoreBuffered defer:NO];
 	ctx.window = window;
+
+	content = [[View alloc] initWithFrame:[ctx contentRectForFrameRect:ctx.frame]];
+	[ctx setContentView:content];
+
+	area = [[NSTrackingArea alloc] initWithRect:ctx.contentView.bounds options: (NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved |
+		NSTrackingActiveAlways) owner:ctx.contentView userInfo:nil];
+	[ctx.contentView addTrackingArea:area];
 
 	app_ctx = (__bridge App *) app;
 	app_ctx.windows[window] = (void *) CFBridgingRetain(ctx);
@@ -659,8 +694,9 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 	CGFloat window_bottom = ctx.screen.frame.origin.y + ctx.frame.origin.y + ctx.frame.size.height;
 
 	NSPoint pscreen = {0};
-	pscreen.x = ctx.screen.frame.origin.x + ctx.frame.origin.x + x;
-	pscreen.y = ctx.screen.frame.size.height - window_bottom + title_bar_h + y;
+	CGFloat scale = ctx.screen.backingScaleFactor;
+	pscreen.x = ctx.screen.frame.origin.x + ctx.frame.origin.x + (CGFloat) x / scale;
+	pscreen.y = ctx.screen.frame.size.height - window_bottom + title_bar_h + (CGFloat) y / scale;
 
 	CGWarpMouseCursorPosition(pscreen);
 	CGAssociateMouseAndMouseCursorPosition(YES);
