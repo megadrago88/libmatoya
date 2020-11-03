@@ -93,6 +93,13 @@ static void app_custom_event(int32_t window_num, int16_t type, int32_t d1, int32
 		return YES;
 	}
 
+	// NSResponder
+	- (BOOL)performKeyEquivalent:(NSEvent *)event
+	{
+		// Prevents beeping on keystrokes
+		return YES;
+	}
+
 	// NSWindowDelegate
 	- (void)windowDidResignKey:(NSNotification *)notification
 	{
@@ -391,7 +398,6 @@ static bool app_next_event(App *ctx)
 
 	Window *window = app_get_event_window(ctx, event);
 
-	bool block_app = false;
 	MTY_Msg wmsg = {0};
 	wmsg.window = window ? window.window : 0;
 
@@ -413,7 +419,6 @@ static bool app_next_event(App *ctx)
 			wmsg.keyboard.mod = 0; // TODO
 
 			if (wmsg.keyboard.scancode != MTY_SCANCODE_NONE) {
-				block_app = true;
 				wmsg.type = MTY_WINDOW_MSG_KEYBOARD;
 
 				if (event.type == NSEventTypeFlagsChanged) {
@@ -427,7 +432,6 @@ static bool app_next_event(App *ctx)
 						case kVK_RightControl:  wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERCTLKEYMASK;         break;
 						case kVK_Command:       wmsg.keyboard.pressed = event.modifierFlags & NX_COMMANDMASK;               break;
 						default:
-							block_app = false;
 							wmsg.type = MTY_WINDOW_MSG_NONE;
 							break;
 					}
@@ -471,11 +475,11 @@ static bool app_next_event(App *ctx)
 				if (window) {
 					NSPoint p = [window mouseLocationOutsideOfEventStream];
 					NSSize size = window.contentView.frame.size;
-					int32_t x = lrint(p.x);
-					int32_t y = lrint(size.height - p.y);
+					int32_t scale = lrint(window.screen.backingScaleFactor);
+					int32_t x = lrint(p.x) * scale;
+					int32_t y = lrint(size.height - p.y) * scale;
 
 					if (x >= 0 && y >= 0 && x <= size.width && y <= size.height) {
-						uint32_t scale = lrint(window.screen.backingScaleFactor);
 						wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
 						wmsg.mouseMotion.x = x * scale;
 						wmsg.mouseMotion.y = y * scale;
@@ -501,8 +505,7 @@ static bool app_next_event(App *ctx)
 	if (wmsg.type != MTY_WINDOW_MSG_NONE)
 		ctx.msg_func(&wmsg, ctx.opaque);
 
-	if (!block_app)
-		[NSApp sendEvent:event];
+	[NSApp sendEvent:event];
 
 	return true;
 }
