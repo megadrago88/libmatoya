@@ -402,9 +402,11 @@ static bool app_next_event(App *ctx)
 	wmsg.window = window ? window.window : 0;
 
 	switch (event.type) {
-		case NSEventTypeKeyUp: {
+		case NSEventTypeKeyDown: {
 			const char *text = [event.characters UTF8String];
-			if (text && text[0]) {
+
+			// Make sure visible ASCII
+			if (text && text[0] && text[0] >= 0x20 && text[0] != 0x7F) {
 				wmsg.type = MTY_WINDOW_MSG_TEXT;
 
 				snprintf(wmsg.text, 8, "%s", text);
@@ -413,7 +415,7 @@ static bool app_next_event(App *ctx)
 			}
 		}
 
-		case NSEventTypeKeyDown:
+		case NSEventTypeKeyUp:
 		case NSEventTypeFlagsChanged: {
 			wmsg.keyboard.scancode = keycode_to_scancode(event.keyCode);
 			wmsg.keyboard.mod = 0; // TODO
