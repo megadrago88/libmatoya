@@ -11,12 +11,6 @@
 
 #include "scancode.h"
 
-enum {
-	WINDOW_EVENT_CLOSE         = 1,
-	WINDOW_EVENT_MOUSE_ENTERED = 2,
-	WINDOW_EVENT_MOUSE_EXITED  = 3,
-};
-
 @interface App : NSObject <NSApplicationDelegate, NSUserNotificationCenterDelegate>
 	@property MTY_AppFunc app_func;
 	@property MTY_MsgFunc msg_func;
@@ -44,15 +38,6 @@ enum {
 @interface View : NSView
 	@property NSTrackingArea *area;
 @end
-
-static void app_custom_event(int32_t window_num, int16_t type, int32_t d1, int32_t d2)
-{
-	NSEvent *event = [NSEvent otherEventWithType:NSApplicationDefined location:NSMakePoint(0, 0)
-		modifierFlags:0 timestamp:[[NSDate date] timeIntervalSince1970] windowNumber:window_num
-		context:nil subtype:type data1:d1 data2:d2];
-
-	[NSApp postEvent:event atStart:NO];
-}
 
 
 // NSView
@@ -361,11 +346,6 @@ static void app_add_menu_separator(NSMenu *menu)
 
 	- (void)appClose:(id)sender
 	{
-		for (uint8_t x = 0; x < MTY_WINDOW_MAX; x++) {
-			Window *window = (__bridge Window *) self.windows[x];
-			if (window)
-				app_custom_event(window.windowNumber, WINDOW_EVENT_CLOSE, 0, 0);
-		}
 	}
 
 	- (void)appRestart:(id)sender
