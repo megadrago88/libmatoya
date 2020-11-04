@@ -17,6 +17,34 @@ enum {
 	WINDOW_EVENT_MOUSE_EXITED  = 3,
 };
 
+@interface App : NSObject <NSApplicationDelegate, NSUserNotificationCenterDelegate>
+	@property MTY_AppFunc app_func;
+	@property MTY_MsgFunc msg_func;
+	@property void *opaque;
+	@property void (*open_url)(const char *url, void *opaque);
+	@property void *url_opaque;
+	@property bool restart;
+	@property bool should_minimize;
+	@property bool relative;
+	@property bool default_cursor;
+	@property bool cursor_outside;
+	@property uint32_t cb_seq;
+	@property NSCursor *custom_cursor;
+	@property NSCursor *cursor;
+	@property void **windows;
+@end
+
+@interface Window : NSWindow <NSWindowDelegate>
+	@property(strong) App *app;
+	@property MTY_Window window;
+	@property MTY_GFX api;
+	@property struct gfx_ctx *gfx_ctx;
+@end
+
+@interface View : NSView
+	@property NSTrackingArea *area;
+@end
+
 static void app_custom_event(int32_t window_num, int16_t type, int32_t d1, int32_t d2)
 {
 	NSEvent *event = [NSEvent otherEventWithType:NSApplicationDefined location:NSMakePoint(0, 0)
@@ -29,28 +57,10 @@ static void app_custom_event(int32_t window_num, int16_t type, int32_t d1, int32
 
 // NSView
 
-@interface View : NSView
-	@property NSTrackingArea *area;
-@end
-
 @implementation View : NSView
 	- (BOOL)acceptsFirstMouse:(NSEvent *)event
 	{
 		return YES;
-	}
-
-	- (void)mouseEntered:(NSEvent *)event
-	{
-		app_custom_event(self.window.windowNumber, WINDOW_EVENT_MOUSE_ENTERED, 0, 0);
-
-		[super mouseEntered:event];
-	}
-
-	- (void)mouseExited:(NSEvent *)event
-	{
-		app_custom_event(self.window.windowNumber, WINDOW_EVENT_MOUSE_EXITED, 0, 0);
-
-		[super mouseExited:event];
 	}
 
 	- (void)updateTrackingAreas
@@ -59,7 +69,7 @@ static void app_custom_event(int32_t window_num, int16_t type, int32_t d1, int32
 			[self removeTrackingArea:_area];
 
 		NSTrackingAreaOptions options = NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved | NSTrackingActiveAlways;
-		_area = [[NSTrackingArea alloc] initWithRect:self.bounds options:options owner:self userInfo:nil];
+		_area = [[NSTrackingArea alloc] initWithRect:self.bounds options:options owner:self.window userInfo:nil];
 
 		[self addTrackingArea:_area];
 
@@ -70,16 +80,95 @@ static void app_custom_event(int32_t window_num, int16_t type, int32_t d1, int32
 
 // NSWindow
 
-@interface Window : NSWindow <NSWindowDelegate>
-	@property MTY_Window window;
-	@property MTY_GFX api;
-	@property struct gfx_ctx *gfx_ctx;
-@end
+static void app_apply_cursor(App *ctx)
+{
+	NSCursor *arrow = [NSCursor arrowCursor];
+	NSCursor *new = ctx.default_cursor || ctx.cursor_outside ? arrow :
+		ctx.custom_cursor ? ctx.custom_cursor : arrow;
+
+	if (ctx.cursor)
+		[ctx.cursor pop];
+
+	ctx.cursor = new;
+	[ctx.cursor push];
+}
+
+static bool window_event_in_content_view(Window *window, int32_t *x, int32_t *y)
+{
+	NSPoint p = [window mouseLocationOutsideOfEventStream];
+	NSSize size = window.contentView.frame.size;
+	int32_t scale = lrint(window.screen.backingScaleFactor);
+	*x = lrint(p.x) * scale;
+	*y = lrint(size.height - p.y) * scale;
+
+	return *x >= 0 && *y >= 0 && *x < size.width && *y < size.height;
+}
+
+static void window_mouse_event(Window *window, MTY_MouseButton button, bool pressed)
+{
+	int32_t x = 0;
+	int32_t y = 0;
+
+	if (window_event_in_content_view(window, &x, &y)) {
+		MTY_Msg msg = {0};
+		msg.type = MTY_WINDOW_MSG_MOUSE_BUTTON;
+		msg.window = window.window;
+		msg.mouseButton.pressed = pressed;
+		msg.mouseButton.button = button;
+
+		window.app.msg_func(&msg, window.app.opaque);
+	}
+}
+
+static void window_motion_event(Window *window, NSEvent *event)
+{
+	MTY_Msg msg = {0};
+	msg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
+	msg.window = window.window;
+
+	if (window.app.relative) {
+		msg.mouseMotion.relative = true;
+		msg.mouseMotion.x = event.deltaX;
+		msg.mouseMotion.y = event.deltaY;
+
+		window.app.msg_func(&msg, window.app.opaque);
+
+	} else {
+		int32_t x = 0;
+		int32_t y = 0;
+
+		if (window_event_in_content_view(window, &x, &y)) {
+			msg.mouseMotion.relative = false;
+			msg.mouseMotion.x = x;
+			msg.mouseMotion.y = y;
+
+			window.app.msg_func(&msg, window.app.opaque);
+		}
+	}
+}
+
+static void window_keyboard_event(Window *window, int16_t key_code, bool pressed)
+{
+	MTY_Msg msg = {0};
+	msg.type = MTY_WINDOW_MSG_KEYBOARD;
+	msg.window = window.window;
+	msg.keyboard.scancode = keycode_to_scancode(key_code);
+	msg.keyboard.pressed = pressed;
+	msg.keyboard.mod = 0; // TODO
+
+	if (msg.keyboard.scancode != MTY_SCANCODE_NONE)
+		window.app.msg_func(&msg, window.app.opaque);
+}
 
 @implementation Window : NSWindow
 	- (BOOL)windowShouldClose:(NSWindow *)sender
 	{
-		app_custom_event(self.windowNumber, WINDOW_EVENT_CLOSE, 0, 0);
+		MTY_Msg msg = {0};
+		msg.type = MTY_WINDOW_MSG_CLOSE;
+		msg.window = self.window;
+
+		self.app.msg_func(&msg, self.app.opaque);
+
 		return NO;
 	}
 
@@ -94,11 +183,129 @@ static void app_custom_event(int32_t window_num, int16_t type, int32_t d1, int32
 	}
 
 	// NSResponder
-	- (BOOL)performKeyEquivalent:(NSEvent *)event
+	- (BOOL)acceptsFirstResponder
 	{
-		// Prevents beeping on keystrokes
 		return YES;
 	}
+
+	- (void)keyUp:(NSEvent *)event
+	{
+		window_keyboard_event(self, event.keyCode, false);
+	}
+
+	- (void)keyDown:(NSEvent *)event
+	{
+		const char *text = [event.characters UTF8String];
+
+		// Make sure visible ASCII
+		if (text && text[0] && text[0] >= 0x20 && text[0] != 0x7F) {
+			MTY_Msg msg = {0};
+			msg.window = self.window;
+			msg.type = MTY_WINDOW_MSG_TEXT;
+			snprintf(msg.text, 8, "%s", text);
+
+			self.app.msg_func(&msg, self.app.opaque);
+		}
+
+		window_keyboard_event(self, event.keyCode, true);
+	}
+
+	- (void)flagsChanged:(NSEvent *)event
+	{
+		/*
+		if (event.type == NSEventTypeFlagsChanged) {
+			switch (event.keyCode) {
+				case kVK_Shift:         wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELSHIFTKEYMASK;       break;
+				case kVK_CapsLock:      wmsg.keyboard.pressed = event.modifierFlags & NSEventModifierFlagCapsLock;  break;
+				case kVK_Option:        wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELALTKEYMASK;         break;
+				case kVK_Control:       wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELCTLKEYMASK;         break;
+				case kVK_RightShift:    wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERSHIFTKEYMASK;       break;
+				case kVK_RightOption:   wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERALTKEYMASK;         break;
+				case kVK_RightControl:  wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERCTLKEYMASK;         break;
+				case kVK_Command:       wmsg.keyboard.pressed = event.modifierFlags & NX_COMMANDMASK;               break;
+				default:
+					wmsg.type = MTY_WINDOW_MSG_NONE;
+					break;
+			}
+		} else {
+			wmsg.keyboard.pressed = event.type == NSEventTypeKeyDown;
+		}
+		*/
+	}
+
+	- (void)mouseUp:(NSEvent *)event
+	{
+		window_mouse_event(self, MTY_MOUSE_BUTTON_LEFT, false);
+	}
+
+	- (void)mouseDown:(NSEvent *)event
+	{
+		window_mouse_event(self, MTY_MOUSE_BUTTON_LEFT, true);
+	}
+
+	- (void)rightMouseUp:(NSEvent *)event
+	{
+		window_mouse_event(self, MTY_MOUSE_BUTTON_RIGHT, false);
+	}
+
+	- (void)rightMouseDown:(NSEvent *)event
+	{
+		window_mouse_event(self, MTY_MOUSE_BUTTON_RIGHT, true);
+	}
+
+	- (void)otherMouseUp:(NSEvent *)event
+	{
+		// TODO
+	}
+
+	- (void)otherMouseDown:(NSEvent *)event
+	{
+		// TODO
+	}
+
+	- (void)mouseMoved:(NSEvent *)event
+	{
+		window_motion_event(self, event);
+	}
+
+	- (void)mouseDragged:(NSEvent *)event
+	{
+		window_motion_event(self, event);
+	}
+
+	- (void)rightMouseDragged:(NSEvent *)event
+	{
+		window_motion_event(self, event);
+	}
+
+	- (void)otherMouseDragged:(NSEvent *)event
+	{
+		window_motion_event(self, event);
+	}
+
+	- (void)mouseEntered:(NSEvent *)event
+	{
+		self.app.cursor_outside = false;
+		app_apply_cursor(self.app);
+	}
+
+	- (void)mouseExited:(NSEvent *)event
+	{
+		self.app.cursor_outside = true;
+		app_apply_cursor(self.app);
+	}
+
+	- (void)scrollWheel:(NSEvent *)event
+	{
+		MTY_Msg msg = {0};
+		msg.type = MTY_WINDOW_MSG_MOUSE_WHEEL;
+		msg.window = self.window;
+		msg.mouseWheel.x = lrint(event.deltaX) * 120;
+		msg.mouseWheel.y = lrint(event.deltaY) * 120;
+
+		self.app.msg_func(&msg, self.app.opaque);
+	}
+
 
 	// NSWindowDelegate
 	- (void)windowDidResignKey:(NSNotification *)notification
@@ -124,23 +331,6 @@ static void app_custom_event(int32_t window_num, int16_t type, int32_t d1, int32
 
 
 // NSApp
-
-@interface App : NSObject <NSApplicationDelegate, NSUserNotificationCenterDelegate>
-	@property MTY_AppFunc app_func;
-	@property MTY_MsgFunc msg_func;
-	@property void *opaque;
-	@property void (*open_url)(const char *url, void *opaque);
-	@property void *url_opaque;
-	@property bool restart;
-	@property bool should_minimize;
-	@property bool relative;
-	@property bool default_cursor;
-	@property bool cursor_outside;
-	@property uint32_t cb_seq;
-	@property NSCursor *custom_cursor;
-	@property NSCursor *cursor;
-	@property void **windows;
-@end
 
 static void app_add_menu_item(NSMenu *menu, NSString *title, NSString *key, SEL sel)
 {
@@ -262,20 +452,6 @@ static MTY_Window app_find_open_window(MTY_App *app)
 	return -1;
 }
 
-static bool app_get_mty_window_by_number(App *ctx, NSInteger number, Window **out)
-{
-	for (int8_t x = 0; x < MTY_WINDOW_MAX; x++) {
-		Window *window = (__bridge Window *) ctx.windows[x];
-
-		if (window.windowNumber == number) {
-			*out = window;
-			return true;
-		}
-	}
-
-	return false;
-}
-
 
 // Hotkeys
 
@@ -326,19 +502,6 @@ void MTY_AppSetClipboard(MTY_App *app, const char *text)
 
 // Cursor
 
-static void app_apply_cursor(App *ctx)
-{
-	NSCursor *arrow = [NSCursor arrowCursor];
-	NSCursor *new = ctx.default_cursor || ctx.cursor_outside ? arrow :
-		ctx.custom_cursor ? ctx.custom_cursor : arrow;
-
-	if (ctx.cursor)
-		[ctx.cursor pop];
-
-	ctx.cursor = new;
-	[ctx.cursor push];
-}
-
 void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
 	App *ctx = (__bridge App *) app;
@@ -368,162 +531,6 @@ void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 	ctx.default_cursor = useDefault;
 
 	app_apply_cursor(ctx);
-}
-
-
-// Event processing
-
-static Window *app_get_event_window(App *ctx, NSEvent *event)
-{
-	Window *window = nil;
-
-	// First try to find the window based on what's reported by the event
-	if (event.window)
-		if (app_get_mty_window_by_number(ctx, event.window.windowNumber, &window))
-			return window;
-
-	// Try to use the current mouse coordinates to find the window
-	NSInteger num = [NSWindow windowNumberAtPoint:[NSEvent mouseLocation] belowWindowWithWindowNumber:0];
-	if (app_get_mty_window_by_number(ctx, num, &window))
-		return window;
-
-	return nil;
-}
-
-static bool app_event_in_window(Window *window, int32_t *x, int32_t *y)
-{
-	if (!window)
-		return false;
-
-	NSPoint p = [window mouseLocationOutsideOfEventStream];
-	NSSize size = window.contentView.frame.size;
-	int32_t scale = lrint(window.screen.backingScaleFactor);
-	*x = lrint(p.x) * scale;
-	*y = lrint(size.height - p.y) * scale;
-
-	return *x >= 0 && *y >= 0 && *x < size.width && *y < size.height;
-}
-
-static bool app_next_event(App *ctx)
-{
-	NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:nil inMode:NSDefaultRunLoopMode dequeue:YES];
-	if (!event)
-		return false;
-
-	Window *window = app_get_event_window(ctx, event);
-
-	MTY_Msg wmsg = {0};
-	wmsg.window = window ? window.window : 0;
-
-	switch (event.type) {
-		case NSEventTypeKeyDown: {
-			const char *text = [event.characters UTF8String];
-
-			// Make sure visible ASCII
-			if (text && text[0] && text[0] >= 0x20 && text[0] != 0x7F) {
-				wmsg.type = MTY_WINDOW_MSG_TEXT;
-
-				snprintf(wmsg.text, 8, "%s", text);
-				ctx.msg_func(&wmsg, ctx.opaque);
-				wmsg.type = MTY_WINDOW_MSG_NONE;
-			}
-		}
-
-		case NSEventTypeKeyUp:
-		case NSEventTypeFlagsChanged: {
-			wmsg.keyboard.scancode = keycode_to_scancode(event.keyCode);
-			wmsg.keyboard.mod = 0; // TODO
-
-			if (wmsg.keyboard.scancode != MTY_SCANCODE_NONE) {
-				wmsg.type = MTY_WINDOW_MSG_KEYBOARD;
-
-				if (event.type == NSEventTypeFlagsChanged) {
-					switch (event.keyCode) {
-						case kVK_Shift:         wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELSHIFTKEYMASK;       break;
-						case kVK_CapsLock:      wmsg.keyboard.pressed = event.modifierFlags & NSEventModifierFlagCapsLock;  break;
-						case kVK_Option:        wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELALTKEYMASK;         break;
-						case kVK_Control:       wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELCTLKEYMASK;         break;
-						case kVK_RightShift:    wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERSHIFTKEYMASK;       break;
-						case kVK_RightOption:   wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERALTKEYMASK;         break;
-						case kVK_RightControl:  wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERCTLKEYMASK;         break;
-						case kVK_Command:       wmsg.keyboard.pressed = event.modifierFlags & NX_COMMANDMASK;               break;
-						default:
-							wmsg.type = MTY_WINDOW_MSG_NONE;
-							break;
-					}
-				} else {
-					wmsg.keyboard.pressed = event.type == NSEventTypeKeyDown;
-				}
-			}
-			break;
-		}
-		case NSEventTypeScrollWheel:
-			wmsg.type = MTY_WINDOW_MSG_MOUSE_WHEEL;
-			wmsg.mouseWheel.x = lrint(event.deltaX) * 120;
-			wmsg.mouseWheel.y = lrint(event.deltaY) * 120;
-			break;
-		case NSEventTypeLeftMouseDown:
-		case NSEventTypeLeftMouseUp:
-		case NSEventTypeRightMouseDown:
-		case NSEventTypeRightMouseUp:
-		case NSEventTypeOtherMouseDown:
-		case NSEventTypeOtherMouseUp: {
-			int32_t x = 0;
-			int32_t y = 0;
-			if (app_event_in_window(window, &x, &y)) {
-				wmsg.type = MTY_WINDOW_MSG_MOUSE_BUTTON;
-				wmsg.mouseButton.pressed = event.type == NSEventTypeLeftMouseDown || event.type == NSEventTypeRightMouseDown ||
-					event.type == NSEventTypeOtherMouseDown;
-
-				switch (event.buttonNumber) {
-					case 0: wmsg.mouseButton.button = MTY_MOUSE_BUTTON_LEFT; break;
-					case 1: wmsg.mouseButton.button = MTY_MOUSE_BUTTON_RIGHT; break;
-				}
-			}
-			break;
-		}
-		case NSEventTypeLeftMouseDragged:
-		case NSEventTypeRightMouseDragged:
-		case NSEventTypeOtherMouseDragged:
-		case NSEventTypeMouseMoved: {
-			if (ctx.relative) {
-				wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
-				wmsg.mouseMotion.relative = true;
-				wmsg.mouseMotion.x = event.deltaX;
-				wmsg.mouseMotion.y = event.deltaY;
-
-			} else {
-				int32_t x = 0;
-				int32_t y = 0;
-				if (app_event_in_window(window, &x, &y)) {
-					wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
-					wmsg.mouseMotion.relative = false;
-					wmsg.mouseMotion.x = x;
-					wmsg.mouseMotion.y = y;
-				}
-			}
-			break;
-		}
-		case NSEventTypeApplicationDefined:
-			switch (event.subtype) {
-				case WINDOW_EVENT_CLOSE:
-					wmsg.type = MTY_WINDOW_MSG_CLOSE;
-					break;
-				case WINDOW_EVENT_MOUSE_ENTERED:
-				case WINDOW_EVENT_MOUSE_EXITED:
-					ctx.cursor_outside = event.subtype == WINDOW_EVENT_MOUSE_EXITED;
-					app_apply_cursor(ctx);
-					break;
-			}
-			break;
-	}
-
-	if (wmsg.type != MTY_WINDOW_MSG_NONE)
-		ctx.msg_func(&wmsg, ctx.opaque);
-
-	[NSApp sendEvent:event];
-
-	return true;
 }
 
 
@@ -565,7 +572,14 @@ void MTY_AppRun(MTY_App *app)
 	App *ctx = (__bridge App *) app;
 
 	do {
-		while (app_next_event(ctx));
+		while (true) {
+			NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:nil
+				inMode:NSDefaultRunLoopMode dequeue:YES];
+			if (!event)
+				break;
+
+			[NSApp sendEvent:event];
+		}
 
 	} while (ctx.app_func(ctx.opaque));
 }
@@ -658,7 +672,6 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	MTY_Window window = -1;
 	bool r = true;
 
-	App *app_ctx = nil;
 	Window *ctx = nil;
 	View *content = nil;
 
@@ -675,6 +688,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	ctx = [[Window alloc] initWithContentRect:rect styleMask:style backing:NSBackingStoreBuffered defer:NO];
 	ctx.window = window;
+	ctx.app = (__bridge App *) app;
 
 	[ctx setDelegate:ctx];
 	[ctx setAcceptsMouseMovedEvents:YES];
@@ -682,8 +696,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	content = [[View alloc] initWithFrame:[ctx contentRectForFrameRect:ctx.frame]];
 	[ctx setContentView:content];
 
-	app_ctx = (__bridge App *) app;
-	app_ctx.windows[window] = (void *) CFBridgingRetain(ctx);
+	ctx.app.windows[window] = (void *) CFBridgingRetain(ctx);
 
 	ctx.title = [NSString stringWithUTF8String:title];
 	[ctx center];
