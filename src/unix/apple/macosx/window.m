@@ -390,6 +390,20 @@ static Window *app_get_event_window(App *ctx, NSEvent *event)
 	return nil;
 }
 
+static bool app_event_in_window(Window *window, int32_t *x, int32_t *y)
+{
+	if (!window)
+		return false;
+
+	NSPoint p = [window mouseLocationOutsideOfEventStream];
+	NSSize size = window.contentView.frame.size;
+	int32_t scale = lrint(window.screen.backingScaleFactor);
+	*x = lrint(p.x) * scale;
+	*y = lrint(size.height - p.y) * scale;
+
+	return *x >= 0 && *y >= 0 && *x < size.width && *y < size.height;
+}
+
 static bool app_next_event(App *ctx)
 {
 	NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:nil inMode:NSDefaultRunLoopMode dequeue:YES];
@@ -453,16 +467,21 @@ static bool app_next_event(App *ctx)
 		case NSEventTypeRightMouseDown:
 		case NSEventTypeRightMouseUp:
 		case NSEventTypeOtherMouseDown:
-		case NSEventTypeOtherMouseUp:
-			wmsg.type = MTY_WINDOW_MSG_MOUSE_BUTTON;
-			wmsg.mouseButton.pressed = event.type == NSEventTypeLeftMouseDown || event.type == NSEventTypeRightMouseDown ||
-				event.type == NSEventTypeOtherMouseDown;
+		case NSEventTypeOtherMouseUp: {
+			int32_t x = 0;
+			int32_t y = 0;
+			if (app_event_in_window(window, &x, &y)) {
+				wmsg.type = MTY_WINDOW_MSG_MOUSE_BUTTON;
+				wmsg.mouseButton.pressed = event.type == NSEventTypeLeftMouseDown || event.type == NSEventTypeRightMouseDown ||
+					event.type == NSEventTypeOtherMouseDown;
 
-			switch (event.buttonNumber) {
-				case 0: wmsg.mouseButton.button = MTY_MOUSE_BUTTON_LEFT; break;
-				case 1: wmsg.mouseButton.button = MTY_MOUSE_BUTTON_RIGHT; break;
+				switch (event.buttonNumber) {
+					case 0: wmsg.mouseButton.button = MTY_MOUSE_BUTTON_LEFT; break;
+					case 1: wmsg.mouseButton.button = MTY_MOUSE_BUTTON_RIGHT; break;
+				}
 			}
 			break;
+		}
 		case NSEventTypeLeftMouseDragged:
 		case NSEventTypeRightMouseDragged:
 		case NSEventTypeOtherMouseDragged:
@@ -474,19 +493,13 @@ static bool app_next_event(App *ctx)
 				wmsg.mouseMotion.y = event.deltaY;
 
 			} else {
-				if (window) {
-					NSPoint p = [window mouseLocationOutsideOfEventStream];
-					NSSize size = window.contentView.frame.size;
-					int32_t scale = lrint(window.screen.backingScaleFactor);
-					int32_t x = lrint(p.x) * scale;
-					int32_t y = lrint(size.height - p.y) * scale;
-
-					if (x >= 0 && y >= 0 && x <= size.width && y <= size.height) {
-						wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
-						wmsg.mouseMotion.relative = false;
-						wmsg.mouseMotion.x = x;
-						wmsg.mouseMotion.y = y;
-					}
+				int32_t x = 0;
+				int32_t y = 0;
+				if (app_event_in_window(window, &x, &y)) {
+					wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
+					wmsg.mouseMotion.relative = false;
+					wmsg.mouseMotion.x = x;
+					wmsg.mouseMotion.y = y;
 				}
 			}
 			break;
