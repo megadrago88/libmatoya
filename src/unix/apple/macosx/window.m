@@ -135,12 +135,12 @@ static void window_motion_event(Window *window, NSEvent *event)
 	}
 }
 
-static void window_keyboard_event(Window *window, int16_t key_code, bool pressed)
+static void window_keyboard_event(Window *window, int16_t key_code, NSEventModifierFlags flags, bool pressed)
 {
 	MTY_Msg msg = window_msg(window, MTY_WINDOW_MSG_KEYBOARD);
 	msg.keyboard.scancode = keycode_to_scancode(key_code);
+	msg.keyboard.mod = modifier_flags_to_keymod(flags);
 	msg.keyboard.pressed = pressed;
-	msg.keyboard.mod = 0; // TODO
 
 	if (msg.keyboard.scancode != MTY_SCANCODE_NONE)
 		window.app.msg_func(&msg, window.app.opaque);
@@ -173,7 +173,7 @@ static void window_keyboard_event(Window *window, int16_t key_code, bool pressed
 
 	- (void)keyUp:(NSEvent *)event
 	{
-		window_keyboard_event(self, event.keyCode, false);
+		window_keyboard_event(self, event.keyCode, event.modifierFlags, false);
 	}
 
 	- (void)keyDown:(NSEvent *)event
@@ -188,30 +188,29 @@ static void window_keyboard_event(Window *window, int16_t key_code, bool pressed
 			self.app.msg_func(&msg, self.app.opaque);
 		}
 
-		window_keyboard_event(self, event.keyCode, true);
+		window_keyboard_event(self, event.keyCode, event.modifierFlags, true);
 	}
 
 	- (void)flagsChanged:(NSEvent *)event
 	{
-		/*
-		if (event.type == NSEventTypeFlagsChanged) {
-			switch (event.keyCode) {
-				case kVK_Shift:         wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELSHIFTKEYMASK;       break;
-				case kVK_CapsLock:      wmsg.keyboard.pressed = event.modifierFlags & NSEventModifierFlagCapsLock;  break;
-				case kVK_Option:        wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELALTKEYMASK;         break;
-				case kVK_Control:       wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICELCTLKEYMASK;         break;
-				case kVK_RightShift:    wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERSHIFTKEYMASK;       break;
-				case kVK_RightOption:   wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERALTKEYMASK;         break;
-				case kVK_RightControl:  wmsg.keyboard.pressed = event.modifierFlags & NX_DEVICERCTLKEYMASK;         break;
-				case kVK_Command:       wmsg.keyboard.pressed = event.modifierFlags & NX_COMMANDMASK;               break;
-				default:
-					wmsg.type = MTY_WINDOW_MSG_NONE;
-					break;
-			}
-		} else {
-			wmsg.keyboard.pressed = event.type == NSEventTypeKeyDown;
+		MTY_Msg msg = window_msg(self, MTY_WINDOW_MSG_KEYBOARD);
+		msg.keyboard.scancode = keycode_to_scancode(event.keyCode);
+		msg.keyboard.mod = modifier_flags_to_keymod(event.modifierFlags);
+
+		switch (msg.keyboard.scancode) {
+			case MTY_SCANCODE_LSHIFT: msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_LSHIFT; break;
+			case MTY_SCANCODE_LCTRL:  msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_LCTRL;  break;
+			case MTY_SCANCODE_LALT:   msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_LALT;   break;
+			case MTY_SCANCODE_LWIN:   msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_LWIN;   break;
+			case MTY_SCANCODE_RSHIFT: msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_RSHIFT; break;
+			case MTY_SCANCODE_RCTRL:  msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_RCTRL;  break;
+			case MTY_SCANCODE_RALT:   msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_RALT;   break;
+			case MTY_SCANCODE_RWIN:   msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_RWIN;   break;
+			default:
+				return;
 		}
-		*/
+
+		self.app.msg_func(&msg, self.app.opaque);
 	}
 
 	- (void)mouseUp:(NSEvent *)event
