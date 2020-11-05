@@ -277,10 +277,25 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 		return YES;
 	}
 
-	// NSResponder
 	- (BOOL)acceptsFirstResponder
 	{
 		return YES;
+	}
+
+	- (void)windowDidResignKey:(NSNotification *)notification
+	{
+		MTY_Msg msg = window_msg(self, MTY_MSG_FOCUS);
+		msg.focus = false;
+
+		self.app.msg_func(&msg, self.app.opaque);
+	}
+
+	- (void)windowDidBecomeKey:(NSNotification *)notification
+	{
+		MTY_Msg msg = window_msg(self, MTY_MSG_FOCUS);
+		msg.focus = true;
+
+		self.app.msg_func(&msg, self.app.opaque);
 	}
 
 	- (void)keyUp:(NSEvent *)event
