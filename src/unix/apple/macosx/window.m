@@ -283,28 +283,6 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 
 		self.app.msg_func(&msg, self.app.opaque);
 	}
-
-
-	// NSWindowDelegate
-	- (void)windowDidResignKey:(NSNotification *)notification
-	{
-	}
-
-	- (void)windowDidBecomeKey:(NSNotification *)notification
-	{
-	}
-
-	- (void)windowDidExpose:(NSNotification *)notification
-	{
-	}
-
-	- (void)windowDidEnterFullScreen:(NSNotification *)notification
-	{
-	}
-
-	- (void)windowDidResize:(NSNotification *)notification
-	{
-	}
 @end
 
 
@@ -337,18 +315,24 @@ static void app_add_menu_separator(NSMenu *menu)
 			andEventID:kAEGetURL];
 	}
 
+	- (void)appQuit:(id)sender
+	{
+		// TODO close key window
+	}
+
 	- (void)appClose:(id)sender
 	{
+		[[NSApp keyWindow] performClose:self];
 	}
 
 	- (void)appRestart:(id)sender
 	{
-		_restart = true;
+		// TODO send restart event
 	}
 
 	- (void)appMinimize:(id)sender
 	{
-		_should_minimize = true;
+		// TODO minimize all windows
 	}
 
 	- (void)applicationDidFinishLaunching:(NSNotification *)notification
@@ -365,7 +349,7 @@ static void app_add_menu_separator(NSMenu *menu)
 		[menubar addItem:item];
 		NSMenu *menu = [NSMenu alloc];
 
-		app_add_menu_item(menu, @"Quit", @"q", @selector(appClose:));
+		app_add_menu_item(menu, @"Quit", @"q", @selector(appQuit:));
 		app_add_menu_item(menu, @"Restart", @"", @selector(appRestart:));
 		app_add_menu_separator(menu);
 		app_add_menu_item(menu, @"Minimize", @"m", @selector(appMinimize:));
@@ -387,7 +371,7 @@ static void app_add_menu_separator(NSMenu *menu)
 		NSString *url = [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
 
 		if (url && _open_url)
-			_open_url([url UTF8String], _url_opaque);
+			self.open_url([url UTF8String], self.url_opaque);
 	}
 
 	- (NSMenu *)applicationDockMenu:(NSApplication *)sender
@@ -671,11 +655,12 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	[ctx setDelegate:ctx];
 	[ctx setAcceptsMouseMovedEvents:YES];
+	[ctx setReleasedWhenClosed:NO];
 
 	content = [[View alloc] initWithFrame:[ctx contentRectForFrameRect:ctx.frame]];
 	[ctx setContentView:content];
 
-	ctx.app.windows[window] = (void *) CFBridgingRetain(ctx);
+	ctx.app.windows[window] = (__bridge void *) ctx;
 
 	ctx.title = [NSString stringWithUTF8String:title];
 	[ctx center];
@@ -699,10 +684,7 @@ void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 		return;
 
 	App *app_ctx = (__bridge App *) app;
-	ctx = (Window *) CFBridgingRelease(app_ctx.windows[window]);
-
 	[ctx close];
-	ctx = nil;
 
 	app_ctx.windows[window] = NULL;
 }
