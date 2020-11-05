@@ -12,11 +12,13 @@
 #include "scancode.h"
 
 @interface App : NSObject <NSApplicationDelegate, NSUserNotificationCenterDelegate>
+	@property(strong) NSTimer *timer;
 	@property MTY_AppFunc app_func;
 	@property MTY_MsgFunc msg_func;
 	@property void *opaque;
 	@property void (*open_url)(const char *url, void *opaque);
 	@property void *url_opaque;
+	@property bool cont;
 	@property bool restart;
 	@property bool should_minimize;
 	@property bool relative;
@@ -351,6 +353,11 @@ static void app_add_menu_separator(NSMenu *menu)
 		_should_minimize = true;
 	}
 
+	- (void)appFunc:(id)sender
+	{
+		self.cont = self.app_func(self.opaque);
+	}
+
 	- (void)applicationDidFinishLaunching:(NSNotification *)notification
 	{
 		// Activation policy of a regular app
@@ -373,6 +380,9 @@ static void app_add_menu_separator(NSMenu *menu)
 
 		[item setSubmenu:menu];
 		[NSApp setMainMenu:menubar];
+
+		self.timer = [NSTimer scheduledTimerWithTimeInterval:0.01 target:self
+			selector:@selector(appFunc:) userInfo:nil repeats:YES];
 	}
 
 	- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag
@@ -535,6 +545,9 @@ void MTY_AppDestroy(MTY_App **app)
 		MTY_WindowDestroy(*app, x);
 
 	MTY_Free(ctx.windows);
+
+	[ctx.timer invalidate];
+	ctx.timer = nil;
 	ctx = nil;
 
 	*app = NULL;
@@ -542,19 +555,7 @@ void MTY_AppDestroy(MTY_App **app)
 
 void MTY_AppRun(MTY_App *app)
 {
-	App *ctx = (__bridge App *) app;
-
-	do {
-		while (true) {
-			NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:nil
-				inMode:NSDefaultRunLoopMode dequeue:YES];
-			if (!event)
-				break;
-
-			[NSApp sendEvent:event];
-		}
-
-	} while (ctx.app_func(ctx.opaque));
+	[NSApp run];
 }
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)

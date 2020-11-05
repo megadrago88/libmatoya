@@ -46,7 +46,7 @@ static CVReturn gfx_metal_ctx_display_link(CVDisplayLinkRef displayLink, const C
 struct gfx_ctx *gfx_metal_ctx_create(void *native_window, bool vsync)
 {
 	struct gfx_metal_ctx *ctx = MTY_Alloc(1, sizeof(struct gfx_metal_ctx));
-	ctx->window = CFBridgingRelease(native_window);
+	ctx->window = (__bridge NSWindow *) native_window;
 	ctx->renderer = MTY_RendererCreate();
 
 	bool r = true;
