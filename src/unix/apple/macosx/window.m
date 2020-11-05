@@ -367,12 +367,14 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 
 	- (void)otherMouseUp:(NSEvent *)event
 	{
-		// TODO
+		if (event.buttonNumber == 2)
+			window_mouse_event(self, MTY_MOUSE_BUTTON_MIDDLE, false);
 	}
 
 	- (void)otherMouseDown:(NSEvent *)event
 	{
-		// TODO
+		if (event.buttonNumber == 2)
+			window_mouse_event(self, MTY_MOUSE_BUTTON_MIDDLE, true);
 	}
 
 	- (void)mouseMoved:(NSEvent *)event
@@ -409,9 +411,11 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 
 	- (void)scrollWheel:(NSEvent *)event
 	{
+		int32_t delta = event.hasPreciseScrollingDeltas ? 10 : 100;
+
 		MTY_Msg msg = window_msg(self, MTY_MSG_MOUSE_WHEEL);
-		msg.mouseWheel.x = lrint(event.deltaX) * 120;
-		msg.mouseWheel.y = lrint(event.deltaY) * 120;
+		msg.mouseWheel.x = lrint(event.scrollingDeltaX) * delta;
+		msg.mouseWheel.y = lrint(event.scrollingDeltaY) * delta;
 
 		self.app.msg_func(&msg, self.app.opaque);
 	}
@@ -658,12 +662,7 @@ bool MTY_AppGetRelativeMouse(MTY_App *app)
 
 bool MTY_AppIsActive(MTY_App *app)
 {
-	bool r = false;
-
-	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
-		r = r || MTY_WindowIsActive(app, x);
-
-	return r;
+	return [NSApp isActive];
 }
 
 void MTY_AppActivate(MTY_App *app, bool active)
