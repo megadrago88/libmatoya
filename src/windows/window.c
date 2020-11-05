@@ -209,11 +209,11 @@ static void app_kb_to_hotkey(MTY_App *app, MTY_Msg *wmsg)
 	uint32_t hotkey = MTY_AppGetHotkey(app, mod, wmsg->keyboard.scancode);
 	if (hotkey != 0) {
 		if (wmsg->keyboard.pressed) {
-			wmsg->type = MTY_WINDOW_MSG_HOTKEY;
+			wmsg->type = MTY_MSG_HOTKEY;
 			wmsg->hotkey = hotkey;
 
 		} else {
-			wmsg->type = MTY_WINDOW_MSG_NONE;
+			wmsg->type = MTY_MSG_NONE;
 		}
 	}
 }
@@ -456,7 +456,7 @@ static void app_tray_msg(MTY_App *app, UINT msg, WPARAM wparam, LPARAM lparam, M
 		item.fMask = MIIM_ID | MIIM_DATA;
 
 		if (GetMenuItemInfo(app->tray.menu, (UINT) wparam, FALSE, &item)) {
-			wmsg->type = MTY_WINDOW_MSG_TRAY;
+			wmsg->type = MTY_MSG_TRAY;
 			wmsg->trayID = (uint32_t) item.dwItemData;
 		}
 	}
@@ -555,7 +555,7 @@ static void app_ri_relative_mouse(MTY_App *app, HWND hwnd, const RAWINPUT *ri, M
 			}
 
 			if (app->last_x != -1 && app->last_y != -1) {
-				wmsg->type = MTY_WINDOW_MSG_MOUSE_MOTION;
+				wmsg->type = MTY_MSG_MOUSE_MOTION;
 				wmsg->mouseMotion.relative = true;
 				wmsg->mouseMotion.synth = true;
 				wmsg->mouseMotion.x = (int32_t) (x - app->last_x);
@@ -566,7 +566,7 @@ static void app_ri_relative_mouse(MTY_App *app, HWND hwnd, const RAWINPUT *ri, M
 			app->last_y = y;
 
 		} else {
-			wmsg->type = MTY_WINDOW_MSG_MOUSE_MOTION;
+			wmsg->type = MTY_MSG_MOUSE_MOTION;
 			wmsg->mouseMotion.relative = true;
 			wmsg->mouseMotion.synth = false;
 			wmsg->mouseMotion.x = mouse->lLastX;
@@ -727,7 +727,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 	switch (msg) {
 		case WM_CLOSE:
-			wmsg.type = MTY_WINDOW_MSG_CLOSE;
+			wmsg.type = MTY_MSG_CLOSE;
 			break;
 		case WM_SIZE:
 			app->state++;
@@ -749,13 +749,13 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		}
 		case WM_SETFOCUS:
 		case WM_KILLFOCUS:
-			wmsg.type = MTY_WINDOW_MSG_FOCUS;
+			wmsg.type = MTY_MSG_FOCUS;
 			wmsg.focus = msg == WM_SETFOCUS;
 			app->state++;
 			break;
 		case WM_QUERYENDSESSION:
 		case WM_ENDSESSION:
-			wmsg.type = MTY_WINDOW_MSG_SHUTDOWN;
+			wmsg.type = MTY_MSG_SHUTDOWN;
 			break;
 		case WM_GETMINMAXINFO: {
 			float scale = app_hwnd_get_scale(hwnd);
@@ -770,7 +770,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		case WM_KEYDOWN:
 		case WM_SYSKEYUP:
 		case WM_SYSKEYDOWN:
-			wmsg.type = MTY_WINDOW_MSG_KEYBOARD;
+			wmsg.type = MTY_MSG_KEYBOARD;
 			wmsg.keyboard.mod = app_get_keymod();
 			wmsg.keyboard.pressed = !(lparam >> 31);
 			wmsg.keyboard.scancode = lparam >> 16 & 0xFF;
@@ -783,7 +783,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		case WM_MOUSEMOVE:
 			if (!app->filter_move && !app->pen_active && (!app->relative || app_hwnd_active(hwnd))) {
-				wmsg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
+				wmsg.type = MTY_MSG_MOUSE_MOTION;
 				wmsg.mouseMotion.relative = false;
 				wmsg.mouseMotion.synth = false;
 				wmsg.mouseMotion.x = GET_X_LPARAM(lparam);
@@ -796,7 +796,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		case WM_LBUTTONDOWN:
 		case WM_LBUTTONUP:
 			if (!app->pen_active) {
-				wmsg.type = MTY_WINDOW_MSG_MOUSE_BUTTON;
+				wmsg.type = MTY_MSG_MOUSE_BUTTON;
 				wmsg.mouseButton.button = MTY_MOUSE_BUTTON_LEFT;
 				wmsg.mouseButton.pressed = msg == WM_LBUTTONDOWN;
 			}
@@ -804,33 +804,33 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		case WM_RBUTTONDOWN:
 		case WM_RBUTTONUP:
 			if (!app->pen_active) {
-				wmsg.type = MTY_WINDOW_MSG_MOUSE_BUTTON;
+				wmsg.type = MTY_MSG_MOUSE_BUTTON;
 				wmsg.mouseButton.button = MTY_MOUSE_BUTTON_RIGHT;
 				wmsg.mouseButton.pressed = msg == WM_RBUTTONDOWN;
 			}
 			break;
 		case WM_MBUTTONDOWN:
 		case WM_MBUTTONUP:
-			wmsg.type = MTY_WINDOW_MSG_MOUSE_BUTTON;
+			wmsg.type = MTY_MSG_MOUSE_BUTTON;
 			wmsg.mouseButton.button = MTY_MOUSE_BUTTON_MIDDLE;
 			wmsg.mouseButton.pressed = msg == WM_MBUTTONDOWN;
 			break;
 		case WM_XBUTTONDOWN:
 		case WM_XBUTTONUP: {
 			UINT button = GET_XBUTTON_WPARAM(wparam);
-			wmsg.type = MTY_WINDOW_MSG_MOUSE_BUTTON;
+			wmsg.type = MTY_MSG_MOUSE_BUTTON;
 			wmsg.mouseButton.button = button == XBUTTON1 ? MTY_MOUSE_BUTTON_X1 :
 				MTY_MOUSE_BUTTON_X2;
 			wmsg.mouseButton.pressed = msg == WM_XBUTTONDOWN;
 			break;
 		}
 		case WM_MOUSEWHEEL:
-			wmsg.type = MTY_WINDOW_MSG_MOUSE_WHEEL;
+			wmsg.type = MTY_MSG_MOUSE_WHEEL;
 			wmsg.mouseWheel.x = 0;
 			wmsg.mouseWheel.y = GET_WHEEL_DELTA_WPARAM(wparam);
 			break;
 		case WM_MOUSEHWHEEL:
-			wmsg.type = MTY_WINDOW_MSG_MOUSE_WHEEL;
+			wmsg.type = MTY_MSG_MOUSE_WHEEL;
 			wmsg.mouseWheel.x = GET_WHEEL_DELTA_WPARAM(wparam);
 			wmsg.mouseWheel.y = 0;
 			break;
@@ -866,7 +866,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				break;
 
 			POINTER_INFO *pi = &ppi.pointerInfo;
-			wmsg.type = MTY_WINDOW_MSG_PEN;
+			wmsg.type = MTY_MSG_PEN;
 			wmsg.pen.pressure = (uint16_t) ppi.pressure;
 			wmsg.pen.rotation = (uint16_t) ppi.rotation;
 			wmsg.pen.tiltX = (int8_t) ppi.tiltX;
@@ -904,7 +904,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		case WM_HOTKEY:
 			if (!app->ghk_disabled) {
-				wmsg.type = MTY_WINDOW_MSG_HOTKEY;
+				wmsg.type = MTY_MSG_HOTKEY;
 				wmsg.hotkey = (uint32_t) (uintptr_t) MTY_HashGetInt(app->ghotkey, (uint32_t) wparam);
 			}
 			break;
@@ -912,13 +912,13 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			wchar_t wstr[2] = {0};
 			wstr[0] = (wchar_t) wparam;
 			if (MTY_WideToMulti(wstr, wmsg.text, 8))
-				wmsg.type = MTY_WINDOW_MSG_TEXT;
+				wmsg.type = MTY_MSG_TEXT;
 			break;
 		}
 		case WM_CLIPBOARDUPDATE: {
 			DWORD cb_seq = GetClipboardSequenceNumber();
 			if (cb_seq != app->cb_seq) {
-				wmsg.type = MTY_WINDOW_MSG_CLIPBOARD;
+				wmsg.type = MTY_MSG_CLIPBOARD;
 				app->cb_seq = cb_seq;
 			}
 			break;
@@ -934,7 +934,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				wmsg.drop.data = MTY_ReadFile(drop_name, &wmsg.drop.size);
 
 				if (wmsg.drop.data)
-					wmsg.type = MTY_WINDOW_MSG_DROP;
+					wmsg.type = MTY_MSG_DROP;
 			}
 			break;
 		case WM_INPUT:
@@ -955,7 +955,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 					hid_state(hid, ctx->ri->data.hid.bRawData, ctx->ri->data.hid.dwSizeHid, &wmsg);
 
 					// Prevent gamepad input while in the background
-					if (wmsg.type == MTY_WINDOW_MSG_CONTROLLER && !MTY_AppIsActive(app))
+					if (wmsg.type == MTY_MSG_CONTROLLER && !MTY_AppIsActive(app))
 						memset(&wmsg, 0, sizeof(MTY_Msg));
 				}
 			}
@@ -966,7 +966,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 				struct hid *hid = hid_create((HANDLE) lparam);
 				if (hid) {
-					wmsg.type = MTY_WINDOW_MSG_CONNECT;
+					wmsg.type = MTY_MSG_CONNECT;
 					wmsg.controller.id = hid->id;
 					wmsg.controller.vid = hid_get_vid(hid);
 					wmsg.controller.pid = hid_get_pid(hid);
@@ -978,7 +978,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			} else if (wparam == GIDC_REMOVAL) {
 				struct hid *hid = MTY_HashPopInt(app->hid, lparam);
 				if (hid) {
-					wmsg.type = MTY_WINDOW_MSG_DISCONNECT;
+					wmsg.type = MTY_MSG_DISCONNECT;
 					wmsg.controller.id = hid->id;
 					wmsg.controller.vid = hid_get_vid(hid);
 					wmsg.controller.pid = hid_get_pid(hid);
@@ -994,18 +994,18 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	app_tray_msg(app, msg, wparam, lparam, &wmsg);
 
 	// Transform keyboard into hotkey
-	if (wmsg.type == MTY_WINDOW_MSG_KEYBOARD)
+	if (wmsg.type == MTY_MSG_KEYBOARD)
 		app_kb_to_hotkey(app, &wmsg);
 
 	// For robustness, generate a WM_MOUSEMOVE on a mousedown
-	if (wmsg.type == MTY_WINDOW_MSG_MOUSE_BUTTON && wmsg.mouseButton.pressed && !app->relative)
+	if (wmsg.type == MTY_MSG_MOUSE_BUTTON && wmsg.mouseButton.pressed && !app->relative)
 		app_make_movement(hwnd);
 
 	// Process the message
-	if (wmsg.type != MTY_WINDOW_MSG_NONE) {
+	if (wmsg.type != MTY_MSG_NONE) {
 		app->msg_func(&wmsg, app->opaque);
 
-		if (wmsg.type == MTY_WINDOW_MSG_DROP)
+		if (wmsg.type == MTY_MSG_DROP)
 			MTY_Free((void *) wmsg.drop.data);
 
 		if (!defreturn)

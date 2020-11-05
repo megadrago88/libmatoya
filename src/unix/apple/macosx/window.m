@@ -71,9 +71,22 @@ static void app_add_menu_separator(NSMenu *menu)
 			andEventID:kAEGetURL];
 	}
 
+	- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
+	{
+		MTY_Msg msg = {0};
+		msg.type = MTY_MSG_QUIT;
+
+		self.msg_func(&msg, self.opaque);
+
+		return NSTerminateCancel;
+	}
+
 	- (void)appQuit:(id)sender
 	{
-		// TODO close key window
+		MTY_Msg msg = {0};
+		msg.type = MTY_MSG_QUIT;
+
+		self.msg_func(&msg, self.opaque);
 	}
 
 	- (void)appClose:(id)sender
@@ -196,7 +209,7 @@ static void window_mouse_event(Window *window, MTY_MouseButton button, bool pres
 	NSPoint p = {0};
 
 	if (window_event_in_view(window, &p)) {
-		MTY_Msg msg = window_msg(window, MTY_WINDOW_MSG_MOUSE_BUTTON);
+		MTY_Msg msg = window_msg(window, MTY_MSG_MOUSE_BUTTON);
 		msg.mouseButton.pressed = pressed;
 		msg.mouseButton.button = button;
 
@@ -206,7 +219,7 @@ static void window_mouse_event(Window *window, MTY_MouseButton button, bool pres
 
 static void window_motion_event(Window *window, NSEvent *event)
 {
-	MTY_Msg msg = window_msg(window, MTY_WINDOW_MSG_MOUSE_MOTION);
+	MTY_Msg msg = window_msg(window, MTY_MSG_MOUSE_MOTION);
 
 	if (window.app.relative) {
 		msg.mouseMotion.relative = true;
@@ -231,7 +244,7 @@ static void window_motion_event(Window *window, NSEvent *event)
 
 static void window_keyboard_event(Window *window, int16_t key_code, NSEventModifierFlags flags, bool pressed)
 {
-	MTY_Msg msg = window_msg(window, MTY_WINDOW_MSG_KEYBOARD);
+	MTY_Msg msg = window_msg(window, MTY_MSG_KEYBOARD);
 	msg.keyboard.scancode = keycode_to_scancode(key_code);
 	msg.keyboard.mod = modifier_flags_to_keymod(flags);
 	msg.keyboard.pressed = pressed;
@@ -243,7 +256,7 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 @implementation Window : NSWindow
 	- (BOOL)windowShouldClose:(NSWindow *)sender
 	{
-		MTY_Msg msg = window_msg(self, MTY_WINDOW_MSG_CLOSE);
+		MTY_Msg msg = window_msg(self, MTY_MSG_CLOSE);
 		self.app.msg_func(&msg, self.app.opaque);
 
 		return NO;
@@ -276,7 +289,7 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 
 		// Make sure visible ASCII
 		if (text && text[0] && text[0] >= 0x20 && text[0] != 0x7F) {
-			MTY_Msg msg = window_msg(self, MTY_WINDOW_MSG_TEXT);
+			MTY_Msg msg = window_msg(self, MTY_MSG_TEXT);
 			snprintf(msg.text, 8, "%s", text);
 
 			self.app.msg_func(&msg, self.app.opaque);
@@ -287,7 +300,7 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 
 	- (void)flagsChanged:(NSEvent *)event
 	{
-		MTY_Msg msg = window_msg(self, MTY_WINDOW_MSG_KEYBOARD);
+		MTY_Msg msg = window_msg(self, MTY_MSG_KEYBOARD);
 		msg.keyboard.scancode = keycode_to_scancode(event.keyCode);
 		msg.keyboard.mod = modifier_flags_to_keymod(event.modifierFlags);
 
@@ -371,7 +384,7 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 
 	- (void)scrollWheel:(NSEvent *)event
 	{
-		MTY_Msg msg = window_msg(self, MTY_WINDOW_MSG_MOUSE_WHEEL);
+		MTY_Msg msg = window_msg(self, MTY_MSG_MOUSE_WHEEL);
 		msg.mouseWheel.x = lrint(event.deltaX) * 120;
 		msg.mouseWheel.y = lrint(event.deltaY) * 120;
 
