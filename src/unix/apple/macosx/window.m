@@ -92,12 +92,16 @@ static void app_add_menu_separator(NSMenu *menu)
 
 	- (void)appRestart:(id)sender
 	{
-		// TODO send restart event
+		MTY_Msg msg = {0};
+		msg.type = MTY_MSG_SHUTDOWN;
+		msg.restart = true;
+
+		self.msg_func(&msg, self.opaque);
 	}
 
 	- (void)appMinimize:(id)sender
 	{
-		// TODO minimize all windows
+		[[NSApp keyWindow] miniaturize:self];
 	}
 
 	- (void)applicationDidFinishLaunching:(NSNotification *)notification

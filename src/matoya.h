@@ -1194,6 +1194,7 @@ typedef struct {
 		uint32_t hotkey;
 		uint32_t trayID;
 		char text[8];
+		bool restart;
 		bool focus;
 
 		struct {
