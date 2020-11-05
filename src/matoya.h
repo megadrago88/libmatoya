@@ -942,6 +942,7 @@ typedef enum {
 	MTY_MSG_DROP         = 15,
 	MTY_MSG_CLIPBOARD    = 16,
 	MTY_MSG_TRAY         = 17,
+	MTY_MSG_REOPEN       = 18,
 	MTY_MSG_MAKE_32      = 0x7FFFFFFF,
 } MTY_MsgType;
 
@@ -1189,6 +1190,7 @@ typedef struct {
 
 	union {
 		MTY_Controller controller;
+		const char *arg;
 		uint32_t hotkey;
 		uint32_t trayID;
 		char text[8];

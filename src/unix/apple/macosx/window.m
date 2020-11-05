@@ -18,10 +18,6 @@
 	@property MTY_AppFunc app_func;
 	@property MTY_MsgFunc msg_func;
 	@property void *opaque;
-	@property void (*open_url)(const char *url, void *opaque);
-	@property void *url_opaque;
-	@property bool restart;
-	@property bool should_minimize;
 	@property bool relative;
 	@property bool default_cursor;
 	@property bool cursor_outside;
@@ -139,8 +135,13 @@ static void app_add_menu_separator(NSMenu *menu)
 	{
 		NSString *url = [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
 
-		if (url && _open_url)
-			self.open_url([url UTF8String], self.url_opaque);
+		if (url) {
+			MTY_Msg msg = {0};
+			msg.type = MTY_MSG_REOPEN;
+			msg.arg = [url UTF8String];
+
+			self.msg_func(&msg, self.opaque);
+		}
 	}
 
 	- (NSMenu *)applicationDockMenu:(NSApplication *)sender
