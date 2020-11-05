@@ -67,6 +67,11 @@ static void app_add_menu_separator(NSMenu *menu)
 			andEventID:kAEGetURL];
 	}
 
+	- (void)applicationDidUnhide:(NSNotification *)notification
+	{
+		[NSApp activateIgnoringOtherApps:YES];
+	}
+
 	- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
 	{
 		MTY_Msg msg = {0};
@@ -444,19 +449,41 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 
 void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
 {
+	// TODO
+
+	/*
+	TISInputSourceRef currentKeyboard = TISCopyCurrentKeyboardInputSource();
+	CFDataRef layoutData = TISGetInputSourceProperty(currentKeyboard, kTISPropertyUnicodeKeyLayoutData);
+	const UCKeyboardLayout *keyboardLayout = (const UCKeyboardLayout *)CFDataGetBytePtr(layoutData);
+
+	UInt32 keysDown = 0;
+	UniChar chars[4];
+	UniCharCount realLength = 0;
+
+	UCKeyTranslate(keyboardLayout, keyCode, kUCKeyActionDisplay, 0, LMGetKbdType(),
+		kUCKeyTranslateNoDeadKeysBit, &keysDown, sizeof(chars) / sizeof(chars[0]), &realLength, chars);
+
+	CFRelease(currentKeyboard);
+
+	CFStringCreateWithCharacters(kCFAllocatorDefault, chars, 1);
+	*/
 }
 
 void MTY_AppSetHotkey(MTY_App *app, MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, uint32_t id)
 {
+	// TODO
 }
 
 uint32_t MTY_AppGetHotkey(MTY_App *app, MTY_Keymod mod, MTY_Scancode scancode)
 {
+	// TODO
+
 	return 0;
 }
 
 void MTY_AppRemoveHotkeys(MTY_App *app, MTY_Hotkey mode)
 {
+	// TODO
 }
 
 
@@ -644,8 +671,12 @@ void MTY_AppActivate(MTY_App *app, bool active)
 	App *ctx = (__bridge App *) app;
 
 	if (active) {
-		[NSApp unhide:ctx];
-		[NSApp activateIgnoringOtherApps:YES];
+		if ([NSApp isHidden]) {
+			[NSApp unhide:ctx];
+
+		} else {
+			[NSApp activateIgnoringOtherApps:YES];
+		}
 
 	} else {
 		[NSApp hide:ctx];
@@ -674,6 +705,9 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 		MTY_Log("Maximum windows (MTY_WINDOW_MAX) of %u reached", MTY_WINDOW_MAX);
 		goto except;
 	}
+
+	// TODO proper size calc
+	// TODO respect other window desc args
 
 	NSRect rect = NSMakeRect(0, 0, desc->width, desc->height);
 	NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
@@ -713,10 +747,8 @@ void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 	if (!ctx)
 		return;
 
-	App *app_ctx = (__bridge App *) app;
+	ctx.app.windows[window] = NULL;
 	[ctx close];
-
-	app_ctx.windows[window] = NULL;
 }
 
 void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)
