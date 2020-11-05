@@ -11,6 +11,9 @@
 
 #include "scancode.h"
 
+
+// NSApp
+
 @interface App : NSObject <NSApplicationDelegate, NSUserNotificationCenterDelegate>
 	@property MTY_AppFunc app_func;
 	@property MTY_MsgFunc msg_func;
@@ -28,52 +31,6 @@
 	@property void **windows;
 @end
 
-@interface Window : NSWindow <NSWindowDelegate>
-	@property(strong) App *app;
-	@property MTY_Window window;
-	@property MTY_GFX api;
-	@property struct gfx_ctx *gfx_ctx;
-@end
-
-@interface View : NSView
-	@property NSTrackingArea *area;
-@end
-
-
-// NSView
-
-@implementation View : NSView
-	- (BOOL)acceptsFirstMouse:(NSEvent *)event
-	{
-		return YES;
-	}
-
-	- (void)updateTrackingAreas
-	{
-		if (_area)
-			[self removeTrackingArea:_area];
-
-		NSTrackingAreaOptions options = NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved | NSTrackingActiveAlways;
-		_area = [[NSTrackingArea alloc] initWithRect:self.bounds options:options owner:self.window userInfo:nil];
-
-		[self addTrackingArea:_area];
-
-		[super updateTrackingAreas];
-	}
-@end
-
-
-// NSWindow
-
-static MTY_Msg window_msg(Window *window, MTY_MsgType type)
-{
-	MTY_Msg msg = {0};
-	msg.type = type;
-	msg.window = window.window;
-
-	return msg;
-}
-
 static void app_apply_cursor(App *ctx)
 {
 	NSCursor *arrow = [NSCursor arrowCursor];
@@ -85,6 +42,143 @@ static void app_apply_cursor(App *ctx)
 
 	ctx.cursor = new;
 	[ctx.cursor push];
+}
+
+static void app_add_menu_item(NSMenu *menu, NSString *title, NSString *key, SEL sel)
+{
+	NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:title action:sel keyEquivalent:key];
+	[menu addItem:item];
+}
+
+static void app_add_menu_separator(NSMenu *menu)
+{
+	[menu addItem:[NSMenuItem separatorItem]];
+}
+
+@implementation App : NSObject
+	- (BOOL)userNotificationCenter:(NSUserNotificationCenter *)center
+		shouldPresentNotification:(NSUserNotification *)notification
+	{
+		return YES;
+	}
+
+	- (void)applicationWillFinishLaunching:(NSNotification *)notification
+	{
+		[[NSUserNotificationCenter defaultUserNotificationCenter] setDelegate:self];
+
+		[[NSAppleEventManager sharedAppleEventManager] setEventHandler:self
+			andSelector:@selector(handleGetURLEvent:withReplyEvent:) forEventClass:kInternetEventClass
+			andEventID:kAEGetURL];
+	}
+
+	- (void)appQuit:(id)sender
+	{
+		// TODO close key window
+	}
+
+	- (void)appClose:(id)sender
+	{
+		[[NSApp keyWindow] performClose:self];
+	}
+
+	- (void)appRestart:(id)sender
+	{
+		// TODO send restart event
+	}
+
+	- (void)appMinimize:(id)sender
+	{
+		// TODO minimize all windows
+	}
+
+	- (void)applicationDidFinishLaunching:(NSNotification *)notification
+	{
+		// Activation policy of a regular app
+		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+
+		// This makes the app show up in the dock and focusses it
+		[NSApp activateIgnoringOtherApps:YES];
+
+		// Main menu
+		NSMenu *menubar = [NSMenu alloc];
+		NSMenuItem *item = [NSMenuItem alloc];
+		[menubar addItem:item];
+		NSMenu *menu = [NSMenu alloc];
+
+		app_add_menu_item(menu, @"Quit", @"q", @selector(appQuit:));
+		app_add_menu_item(menu, @"Restart", @"", @selector(appRestart:));
+		app_add_menu_separator(menu);
+		app_add_menu_item(menu, @"Minimize", @"m", @selector(appMinimize:));
+		app_add_menu_item(menu, @"Close", @"w", @selector(appClose:));
+
+		[item setSubmenu:menu];
+		[NSApp setMainMenu:menubar];
+	}
+
+	- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag
+	{
+		[NSApp unhide:self];
+
+		return NO;
+	}
+
+	- (void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent
+	{
+		NSString *url = [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
+
+		if (url && _open_url)
+			self.open_url([url UTF8String], self.url_opaque);
+	}
+
+	- (NSMenu *)applicationDockMenu:(NSApplication *)sender
+	{
+		NSMenu *menubar = [NSMenu alloc];
+		NSMenuItem *item = [NSMenuItem alloc];
+		[menubar addItem:item];
+		NSMenu *menu = [NSMenu alloc];
+
+		app_add_menu_item(menu, @"Restart", @"", @selector(appRestart:));
+
+		[item setSubmenu:menu];
+		return menu;
+	}
+@end
+
+
+// NSWindow
+
+@interface Window : NSWindow <NSWindowDelegate>
+	@property(strong) App *app;
+	@property MTY_Window window;
+	@property MTY_GFX api;
+	@property struct gfx_ctx *gfx_ctx;
+@end
+
+static Window *app_get_window(MTY_App *app, MTY_Window window)
+{
+	App *ctx = (__bridge App *) app;
+
+	return window < 0 ? nil : (__bridge Window *) ctx.windows[window];
+}
+
+static MTY_Window app_find_open_window(MTY_App *app)
+{
+	App *ctx = (__bridge App *) app;
+
+	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
+		if (!ctx.windows[x])
+			return x;
+
+	return -1;
+}
+
+static MTY_Msg window_msg(Window *window, MTY_MsgType type)
+{
+	MTY_Msg msg = {0};
+	msg.type = type;
+	msg.window = window.window;
+
+	return msg;
 }
 
 static bool window_event_in_view(Window *window, NSPoint *p)
@@ -286,128 +380,31 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 @end
 
 
-// NSApp
+// NSView
 
-static void app_add_menu_item(NSMenu *menu, NSString *title, NSString *key, SEL sel)
-{
-	NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:title action:sel keyEquivalent:key];
-	[menu addItem:item];
-}
+@interface View : NSView
+	@property NSTrackingArea *area;
+@end
 
-static void app_add_menu_separator(NSMenu *menu)
-{
-	[menu addItem:[NSMenuItem separatorItem]];
-}
-
-@implementation App : NSObject
-	- (BOOL)userNotificationCenter:(NSUserNotificationCenter *)center
-		shouldPresentNotification:(NSUserNotification *)notification
+@implementation View : NSView
+	- (BOOL)acceptsFirstMouse:(NSEvent *)event
 	{
 		return YES;
 	}
 
-	- (void)applicationWillFinishLaunching:(NSNotification *)notification
+	- (void)updateTrackingAreas
 	{
-		[[NSUserNotificationCenter defaultUserNotificationCenter] setDelegate:self];
+		if (_area)
+			[self removeTrackingArea:_area];
 
-		[[NSAppleEventManager sharedAppleEventManager] setEventHandler:self
-			andSelector:@selector(handleGetURLEvent:withReplyEvent:) forEventClass:kInternetEventClass
-			andEventID:kAEGetURL];
-	}
+		NSTrackingAreaOptions options = NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved | NSTrackingActiveAlways;
+		_area = [[NSTrackingArea alloc] initWithRect:self.bounds options:options owner:self.window userInfo:nil];
 
-	- (void)appQuit:(id)sender
-	{
-		// TODO close key window
-	}
+		[self addTrackingArea:_area];
 
-	- (void)appClose:(id)sender
-	{
-		[[NSApp keyWindow] performClose:self];
-	}
-
-	- (void)appRestart:(id)sender
-	{
-		// TODO send restart event
-	}
-
-	- (void)appMinimize:(id)sender
-	{
-		// TODO minimize all windows
-	}
-
-	- (void)applicationDidFinishLaunching:(NSNotification *)notification
-	{
-		// Activation policy of a regular app
-		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-
-		// This makes the app show up in the dock and focusses it
-		[NSApp activateIgnoringOtherApps:YES];
-
-		// Main menu
-		NSMenu *menubar = [NSMenu alloc];
-		NSMenuItem *item = [NSMenuItem alloc];
-		[menubar addItem:item];
-		NSMenu *menu = [NSMenu alloc];
-
-		app_add_menu_item(menu, @"Quit", @"q", @selector(appQuit:));
-		app_add_menu_item(menu, @"Restart", @"", @selector(appRestart:));
-		app_add_menu_separator(menu);
-		app_add_menu_item(menu, @"Minimize", @"m", @selector(appMinimize:));
-		app_add_menu_item(menu, @"Close", @"w", @selector(appClose:));
-
-		[item setSubmenu:menu];
-		[NSApp setMainMenu:menubar];
-	}
-
-	- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag
-	{
-		[NSApp unhide:self];
-
-		return NO;
-	}
-
-	- (void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent
-	{
-		NSString *url = [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
-
-		if (url && _open_url)
-			self.open_url([url UTF8String], self.url_opaque);
-	}
-
-	- (NSMenu *)applicationDockMenu:(NSApplication *)sender
-	{
-		NSMenu *menubar = [NSMenu alloc];
-		NSMenuItem *item = [NSMenuItem alloc];
-		[menubar addItem:item];
-		NSMenu *menu = [NSMenu alloc];
-
-		app_add_menu_item(menu, @"Restart", @"", @selector(appRestart:));
-
-		[item setSubmenu:menu];
-		return menu;
+		[super updateTrackingAreas];
 	}
 @end
-
-
-// Static helpers
-
-static Window *app_get_window(MTY_App *app, MTY_Window window)
-{
-	App *ctx = (__bridge App *) app;
-
-	return window < 0 ? nil : (__bridge Window *) ctx.windows[window];
-}
-
-static MTY_Window app_find_open_window(MTY_App *app)
-{
-	App *ctx = (__bridge App *) app;
-
-	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
-		if (!ctx.windows[x])
-			return x;
-
-	return -1;
-}
 
 
 // Hotkeys
