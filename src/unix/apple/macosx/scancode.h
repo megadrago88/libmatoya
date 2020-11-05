@@ -17,10 +17,6 @@ enum {
 	NS_MOD_LALT   = 0x000020,
 	NS_MOD_RALT   = 0x000040,
 	NS_MOD_RCTRL  = 0x002000,
-	NS_MOD_SHIFT  = 0x020000,
-	NS_MOD_CTRL   = 0x040000,
-	NS_MOD_ALT    = 0x080000,
-	NS_MOD_CMD    = 0x100000,
 };
 
 static MTY_Keymod modifier_flags_to_keymod(NSEventModifierFlags flags)
@@ -35,8 +31,9 @@ static MTY_Keymod modifier_flags_to_keymod(NSEventModifierFlags flags)
 	mod |= (flags & NS_MOD_RCMD) ? MTY_KEYMOD_RWIN : 0;
 	mod |= (flags & NS_MOD_LALT) ? MTY_KEYMOD_LALT : 0;
 	mod |= (flags & NS_MOD_RALT) ? MTY_KEYMOD_RALT : 0;
+	mod |= (flags & NSEventModifierFlagCapsLock) ? MTY_KEYMOD_CAPS : 0;
 
-	// TODO capslock, numlock
+	// TODO Numlock ?
 
 	return mod;
 }
