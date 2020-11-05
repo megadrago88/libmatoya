@@ -65,6 +65,15 @@
 
 // NSWindow
 
+static MTY_Msg window_msg(Window *window, MTY_MsgType type)
+{
+	MTY_Msg msg = {0};
+	msg.type = type;
+	msg.window = window.window;
+
+	return msg;
+}
+
 static void app_apply_cursor(App *ctx)
 {
 	NSCursor *arrow = [NSCursor arrowCursor];
@@ -78,26 +87,22 @@ static void app_apply_cursor(App *ctx)
 	[ctx.cursor push];
 }
 
-static bool window_event_in_content_view(Window *window, int32_t *x, int32_t *y)
+static bool window_event_in_view(Window *window, NSPoint *p)
 {
-	NSPoint p = [window mouseLocationOutsideOfEventStream];
+	*p = [window mouseLocationOutsideOfEventStream];
 	NSSize size = window.contentView.frame.size;
-	int32_t scale = lrint(window.screen.backingScaleFactor);
-	*x = lrint(p.x) * scale;
-	*y = lrint(size.height - p.y) * scale;
 
-	return *x >= 0 && *y >= 0 && *x < size.width && *y < size.height;
+	p->y = size.height - p->y;
+
+	return p->x >= 0 && p->y >= 0 && p->x < size.width && p->y < size.height;
 }
 
 static void window_mouse_event(Window *window, MTY_MouseButton button, bool pressed)
 {
-	int32_t x = 0;
-	int32_t y = 0;
+	NSPoint p = {0};
 
-	if (window_event_in_content_view(window, &x, &y)) {
-		MTY_Msg msg = {0};
-		msg.type = MTY_WINDOW_MSG_MOUSE_BUTTON;
-		msg.window = window.window;
+	if (window_event_in_view(window, &p)) {
+		MTY_Msg msg = window_msg(window, MTY_WINDOW_MSG_MOUSE_BUTTON);
 		msg.mouseButton.pressed = pressed;
 		msg.mouseButton.button = button;
 
@@ -107,9 +112,7 @@ static void window_mouse_event(Window *window, MTY_MouseButton button, bool pres
 
 static void window_motion_event(Window *window, NSEvent *event)
 {
-	MTY_Msg msg = {0};
-	msg.type = MTY_WINDOW_MSG_MOUSE_MOTION;
-	msg.window = window.window;
+	MTY_Msg msg = window_msg(window, MTY_WINDOW_MSG_MOUSE_MOTION);
 
 	if (window.app.relative) {
 		msg.mouseMotion.relative = true;
@@ -119,13 +122,13 @@ static void window_motion_event(Window *window, NSEvent *event)
 		window.app.msg_func(&msg, window.app.opaque);
 
 	} else {
-		int32_t x = 0;
-		int32_t y = 0;
+		NSPoint p = {0};
 
-		if (window_event_in_content_view(window, &x, &y)) {
+		if (window_event_in_view(window, &p)) {
+			CGFloat scale = window.screen.backingScaleFactor;
 			msg.mouseMotion.relative = false;
-			msg.mouseMotion.x = x;
-			msg.mouseMotion.y = y;
+			msg.mouseMotion.x = lrint(scale * p.x);
+			msg.mouseMotion.y = lrint(scale * p.y);
 
 			window.app.msg_func(&msg, window.app.opaque);
 		}
@@ -134,9 +137,7 @@ static void window_motion_event(Window *window, NSEvent *event)
 
 static void window_keyboard_event(Window *window, int16_t key_code, bool pressed)
 {
-	MTY_Msg msg = {0};
-	msg.type = MTY_WINDOW_MSG_KEYBOARD;
-	msg.window = window.window;
+	MTY_Msg msg = window_msg(window, MTY_WINDOW_MSG_KEYBOARD);
 	msg.keyboard.scancode = keycode_to_scancode(key_code);
 	msg.keyboard.pressed = pressed;
 	msg.keyboard.mod = 0; // TODO
@@ -148,10 +149,7 @@ static void window_keyboard_event(Window *window, int16_t key_code, bool pressed
 @implementation Window : NSWindow
 	- (BOOL)windowShouldClose:(NSWindow *)sender
 	{
-		MTY_Msg msg = {0};
-		msg.type = MTY_WINDOW_MSG_CLOSE;
-		msg.window = self.window;
-
+		MTY_Msg msg = window_msg(self, MTY_WINDOW_MSG_CLOSE);
 		self.app.msg_func(&msg, self.app.opaque);
 
 		return NO;
@@ -184,9 +182,7 @@ static void window_keyboard_event(Window *window, int16_t key_code, bool pressed
 
 		// Make sure visible ASCII
 		if (text && text[0] && text[0] >= 0x20 && text[0] != 0x7F) {
-			MTY_Msg msg = {0};
-			msg.window = self.window;
-			msg.type = MTY_WINDOW_MSG_TEXT;
+			MTY_Msg msg = window_msg(self, MTY_WINDOW_MSG_TEXT);
 			snprintf(msg.text, 8, "%s", text);
 
 			self.app.msg_func(&msg, self.app.opaque);
@@ -282,9 +278,7 @@ static void window_keyboard_event(Window *window, int16_t key_code, bool pressed
 
 	- (void)scrollWheel:(NSEvent *)event
 	{
-		MTY_Msg msg = {0};
-		msg.type = MTY_WINDOW_MSG_MOUSE_WHEEL;
-		msg.window = self.window;
+		MTY_Msg msg = window_msg(self, MTY_WINDOW_MSG_MOUSE_WHEEL);
 		msg.mouseWheel.x = lrint(event.deltaX) * 120;
 		msg.mouseWheel.y = lrint(event.deltaY) * 120;
 
