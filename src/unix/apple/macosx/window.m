@@ -18,8 +18,10 @@
 @interface App : NSObject <NSApplicationDelegate, NSUserNotificationCenterDelegate>
 	@property MTY_AppFunc app_func;
 	@property MTY_MsgFunc msg_func;
+	@property MTY_Hash *hotkey;
 	@property void *opaque;
 	@property bool relative;
+	@property bool grab_mouse;
 	@property bool default_cursor;
 	@property bool cursor_outside;
 	@property uint32_t cb_seq;
@@ -249,6 +251,11 @@ static void window_motion_event(Window *window, NSEvent *event)
 			msg.mouseMotion.y = lrint(scale * p.y);
 
 			window.app.msg_func(&msg, window.app.opaque);
+
+		} else {
+			if (window.app.grab_mouse) {
+				// TODO warp cursor to nearest edge
+			}
 		}
 	}
 }
@@ -455,41 +462,64 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 
 void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
 {
-	// TODO
+	memset(str, 0, len);
 
-	/*
-	TISInputSourceRef currentKeyboard = TISCopyCurrentKeyboardInputSource();
-	CFDataRef layoutData = TISGetInputSourceProperty(currentKeyboard, kTISPropertyUnicodeKeyLayoutData);
-	const UCKeyboardLayout *keyboardLayout = (const UCKeyboardLayout *)CFDataGetBytePtr(layoutData);
+	MTY_Strcat(str, len, (mod & MTY_KEYMOD_WIN) ? "Command+" : "");
+	MTY_Strcat(str, len, (mod & MTY_KEYMOD_CTRL) ? "Ctrl+" : "");
+	MTY_Strcat(str, len, (mod & MTY_KEYMOD_ALT) ? "Alt+" : "");
+	MTY_Strcat(str, len, (mod & MTY_KEYMOD_SHIFT) ? "Shift+" : "");
 
-	UInt32 keysDown = 0;
-	UniChar chars[4];
-	UniCharCount realLength = 0;
+	if (scancode != MTY_SCANCODE_NONE) {
+		// TODO
 
-	UCKeyTranslate(keyboardLayout, keyCode, kUCKeyActionDisplay, 0, LMGetKbdType(),
-		kUCKeyTranslateNoDeadKeysBit, &keysDown, sizeof(chars) / sizeof(chars[0]), &realLength, chars);
+		/*
+		TISInputSourceRef currentKeyboard = TISCopyCurrentKeyboardInputSource();
+		CFDataRef layoutData = TISGetInputSourceProperty(currentKeyboard, kTISPropertyUnicodeKeyLayoutData);
+		const UCKeyboardLayout *keyboardLayout = (const UCKeyboardLayout *)CFDataGetBytePtr(layoutData);
 
-	CFRelease(currentKeyboard);
+		UInt32 keysDown = 0;
+		UniChar chars[4];
+		UniCharCount realLength = 0;
 
-	CFStringCreateWithCharacters(kCFAllocatorDefault, chars, 1);
-	*/
+		UCKeyTranslate(keyboardLayout, keyCode, kUCKeyActionDisplay, 0, LMGetKbdType(),
+			kUCKeyTranslateNoDeadKeysBit, &keysDown, sizeof(chars) / sizeof(chars[0]), &realLength, chars);
+
+		CFRelease(currentKeyboard);
+
+		CFStringCreateWithCharacters(kCFAllocatorDefault, chars, 1);
+		*/
+	}
 }
 
 void MTY_AppSetHotkey(MTY_App *app, MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, uint32_t id)
 {
-	// TODO
+	App *ctx = (__bridge App *) app;
+
+	mod &= 0xFF;
+
+	if (mode == MTY_HOTKEY_LOCAL)
+		MTY_HashSetInt(ctx.hotkey, (mod << 16) | scancode, (void *) (uintptr_t) id);
 }
 
 uint32_t MTY_AppGetHotkey(MTY_App *app, MTY_Keymod mod, MTY_Scancode scancode)
 {
-	// TODO
+	App *ctx = (__bridge App *) app;
 
-	return 0;
+	mod &= 0xFF;
+
+	return (uint32_t) (uintptr_t) MTY_HashGetInt(ctx.hotkey, (mod << 16) | scancode);
 }
 
 void MTY_AppRemoveHotkeys(MTY_App *app, MTY_Hotkey mode)
 {
-	// TODO
+	App *ctx = (__bridge App *) app;
+
+	if (mode == MTY_HOTKEY_LOCAL) {
+		MTY_Hash *h = ctx.hotkey;
+		MTY_HashDestroy(&h, NULL);
+
+		ctx.hotkey = MTY_HashCreate(0);
+	}
 }
 
 
@@ -564,6 +594,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	ctx.opaque = opaque;
 
 	ctx.windows = MTY_Alloc(MTY_WINDOW_MAX, sizeof(void *));
+	ctx.hotkey = MTY_HashCreate(0);
 
 	[NSApplication sharedApplication];
 	[NSApp setDelegate:ctx];
@@ -580,6 +611,10 @@ void MTY_AppDestroy(MTY_App **app)
 	App *ctx = (App *) CFBridgingRelease(*app);
 	for (int8_t x = 0; x < MTY_WINDOW_MAX; x++)
 		MTY_WindowDestroy(*app, x);
+
+	MTY_Hash *h = ctx.hotkey;
+	MTY_HashDestroy(&h, NULL);
+	ctx.hotkey = NULL;
 
 	MTY_Free(ctx.windows);
 
@@ -627,14 +662,11 @@ void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 	// IOPMAssertionCreateWithDescription
 }
 
-void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
-{
-	// TODO
-}
-
 void MTY_AppGrabMouse(MTY_App *app, bool grab)
 {
-	// TODO
+	App *ctx = (__bridge App *) app;
+
+	ctx.grab_mouse = grab;
 }
 
 void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
@@ -957,5 +989,9 @@ void MTY_AppSetOrientation(MTY_App *app, MTY_Orientation orientation)
 }
 
 void MTY_AppEnableGlobalHotkeys(MTY_App *app, bool enable)
+{
+}
+
+void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
 {
 }

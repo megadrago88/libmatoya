@@ -46,6 +46,17 @@ char *MTY_Strdup(const char *str)
 	return MTY_Dup(str, strlen(str) + 1);
 }
 
+void MTY_Strcat(char *dst, size_t size, const char *src)
+{
+	size_t dst_len = strlen(dst);
+	size_t src_len = strlen(src);
+
+	if (dst_len + src_len + 1 >= size)
+		return;
+
+	memcpy(dst + dst_len, src, src_len + 1);
+}
+
 void MTY_Free(void *mem)
 {
 	free(mem);

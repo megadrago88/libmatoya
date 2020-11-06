@@ -236,16 +236,16 @@ void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, siz
 {
 	memset(str, 0, len);
 
-	strcat_s(str, len, (mod & MTY_KEYMOD_WIN) ? "Win+" : "");
-	strcat_s(str, len, (mod & MTY_KEYMOD_CTRL) ? "Ctrl+" : "");
-	strcat_s(str, len, (mod & MTY_KEYMOD_ALT) ? "Alt+" : "");
-	strcat_s(str, len, (mod & MTY_KEYMOD_SHIFT) ? "Shift+" : "");
+	MTY_Strcat(str, len, (mod & MTY_KEYMOD_WIN) ? "Win+" : "");
+	MTY_Strcat(str, len, (mod & MTY_KEYMOD_CTRL) ? "Ctrl+" : "");
+	MTY_Strcat(str, len, (mod & MTY_KEYMOD_ALT) ? "Alt+" : "");
+	MTY_Strcat(str, len, (mod & MTY_KEYMOD_SHIFT) ? "Shift+" : "");
 
 	if (scancode != MTY_SCANCODE_NONE) {
 		char c[8] = {0};
 
 		if (app_scancode_to_str(scancode, c, 8))
-			strcat_s(str, len, c);
+			MTY_Strcat(str, len, c);
 	}
 }
 
