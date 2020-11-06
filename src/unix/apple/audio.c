@@ -80,12 +80,18 @@ uint32_t MTY_AudioGetQueuedMs(MTY_Audio *ctx)
 
 static void audio_play(MTY_Audio *ctx)
 {
+	if (ctx->playing)
+		return;
+
 	if (AudioQueueStart(ctx->q, NULL) == kAudioServicesNoError)
 		ctx->playing = true;
 }
 
 void MTY_AudioStop(MTY_Audio *ctx)
 {
+	if (!ctx->playing)
+		return;
+
 	if (AudioQueueStop(ctx->q, true) == kAudioServicesNoError)
 		ctx->playing = false;
 }
