@@ -518,23 +518,35 @@ void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, siz
 	MTY_Strcat(str, len, (mod & MTY_KEYMOD_SHIFT) ? "Shift+" : "");
 
 	if (scancode != MTY_SCANCODE_NONE) {
-		// TODO
-
 		/*
-		TISInputSourceRef currentKeyboard = TISCopyCurrentKeyboardInputSource();
-		CFDataRef layoutData = TISGetInputSourceProperty(currentKeyboard, kTISPropertyUnicodeKeyLayoutData);
-		const UCKeyboardLayout *keyboardLayout = (const UCKeyboardLayout *)CFDataGetBytePtr(layoutData);
+		NSRunLoop *rl = [NSRunLoop currentRunLoop];
+		printf("%p\n", rl);
 
-		UInt32 keysDown = 0;
-		UniChar chars[4];
-		UniCharCount realLength = 0;
+		TISInputSourceRef kb = TISCopyCurrentKeyboardInputSource();
+		printf("KB: %p\n", kb);
 
-		UCKeyTranslate(keyboardLayout, keyCode, kUCKeyActionDisplay, 0, LMGetKbdType(),
-			kUCKeyTranslateNoDeadKeysBit, &keysDown, sizeof(chars) / sizeof(chars[0]), &realLength, chars);
+		CFDataRef layout_data = TISGetInputSourceProperty(kb, kTISPropertyUnicodeKeyLayoutData);
+		printf("LAYOUT: %p\n", layout_data);
+		if (!layout_data)
+			return;
 
-		CFRelease(currentKeyboard);
+		const UCKeyboardLayout *layout = (const UCKeyboardLayout *) CFDataGetBytePtr(layout_data);
 
-		CFStringCreateWithCharacters(kCFAllocatorDefault, chars, 1);
+		uint16_t key_code = 0x00;
+
+		UInt32 dead_key_state = 0;
+		UniChar chars[8];
+		UniCharCount out_len = 0;
+
+		UCKeyTranslate(layout, key_code, kUCKeyActionDisplay, 0, LMGetKbdType(),
+			kUCKeyTranslateNoDeadKeysBit, &dead_key_state, 8, &out_len, chars);
+
+		CFRelease(kb);
+
+		NSString *ns_str = CFBridgingRelease(CFStringCreateWithCharacters(kCFAllocatorDefault, chars, 1));
+		const char *c_str = [ns_str UTF8String];
+
+		snprintf(str, len, "%s", c_str);
 		*/
 	}
 }
