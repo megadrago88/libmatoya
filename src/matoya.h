@@ -1311,9 +1311,6 @@ MTY_AppRemoveTray(MTY_App *ctx);
 MTY_EXPORT void
 MTY_AppNotification(MTY_App *ctx, const char *title, const char *msg);
 
-MTY_EXPORT uint32_t
-MTY_AppGetHotkey(MTY_App *ctx, MTY_Keymod mod, MTY_Scancode scancode);
-
 MTY_EXPORT void
 MTY_AppSetHotkey(MTY_App *ctx, MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, uint32_t id);
 

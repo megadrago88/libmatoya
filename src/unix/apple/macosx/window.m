@@ -549,15 +549,6 @@ void MTY_AppSetHotkey(MTY_App *app, MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancod
 		MTY_HashSetInt(ctx.hotkey, (mod << 16) | scancode, (void *) (uintptr_t) id);
 }
 
-uint32_t MTY_AppGetHotkey(MTY_App *app, MTY_Keymod mod, MTY_Scancode scancode)
-{
-	App *ctx = (__bridge App *) app;
-
-	mod &= 0xFF;
-
-	return (uint32_t) (uintptr_t) MTY_HashGetInt(ctx.hotkey, (mod << 16) | scancode);
-}
-
 void MTY_AppRemoveHotkeys(MTY_App *app, MTY_Hotkey mode)
 {
 	App *ctx = (__bridge App *) app;

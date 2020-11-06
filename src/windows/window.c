@@ -206,8 +206,8 @@ static void app_unregister_global_hotkeys(MTY_App *app)
 static void app_kb_to_hotkey(MTY_App *app, MTY_Msg *wmsg)
 {
 	MTY_Keymod mod = wmsg->keyboard.mod & 0xFF;
+	uint32_t hotkey = (uint32_t) (uintptr_t) MTY_HashGetInt(app->hotkey, (mod << 16) | wmsg->keyboard.scancode);
 
-	uint32_t hotkey = MTY_AppGetHotkey(app, mod, wmsg->keyboard.scancode);
 	if (hotkey != 0) {
 		if (wmsg->keyboard.pressed) {
 			wmsg->type = MTY_MSG_HOTKEY;
@@ -287,13 +287,6 @@ void MTY_AppSetHotkey(MTY_App *app, MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancod
 			}
 		}
 	}
-}
-
-uint32_t MTY_AppGetHotkey(MTY_App *app, MTY_Keymod mod, MTY_Scancode scancode)
-{
-	mod &= 0xFF;
-
-	return (uint32_t) (uintptr_t) MTY_HashGetInt(app->hotkey, (mod << 16) | scancode);
 }
 
 void MTY_AppRemoveHotkeys(MTY_App *app, MTY_Hotkey mode)
