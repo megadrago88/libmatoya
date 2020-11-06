@@ -217,12 +217,44 @@ static bool window_event_in_view(Window *window, NSPoint *p)
 	return p->x >= 0 && p->y >= 0 && p->x < size.width && p->y < size.height;
 }
 
+static Window *window_find_mouse(Window *me, NSPoint *p)
+{
+	Window *top = nil;
+	bool key_hit = false;
+	NSArray<NSWindow *> *windows = [NSApp windows];
+
+	for (uint32_t x = 0; x < windows.count; x++) {
+		Window *window = (Window *) windows[x];
+
+		NSPoint wp = {0};
+		if (window_event_in_view(window, &wp)) {
+			if (window.isKeyWindow && window.windowNumber == me.windowNumber) {
+				*p = wp;
+				return window;
+			}
+
+			if (!top && !key_hit) {
+				*p = wp;
+				top = window;
+			}
+
+			if (window.isKeyWindow) {
+				key_hit = true;
+				top = nil;
+			}
+		}
+	}
+
+	return top;
+}
+
 static void window_mouse_event(Window *window, MTY_MouseButton button, bool pressed)
 {
 	NSPoint p = {0};
+	Window *cur = window_find_mouse(window, &p);
 
-	if (window_event_in_view(window, &p)) {
-		MTY_Msg msg = window_msg(window, MTY_MSG_MOUSE_BUTTON);
+	if (cur) {
+		MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_BUTTON);
 		msg.mouseButton.pressed = pressed;
 		msg.mouseButton.button = button;
 
@@ -232,9 +264,8 @@ static void window_mouse_event(Window *window, MTY_MouseButton button, bool pres
 
 static void window_motion_event(Window *window, NSEvent *event)
 {
-	MTY_Msg msg = window_msg(window, MTY_MSG_MOUSE_MOTION);
-
 	if (window.app.relative) {
+		MTY_Msg msg = window_msg(window, MTY_MSG_MOUSE_MOTION);
 		msg.mouseMotion.relative = true;
 		msg.mouseMotion.x = event.deltaX;
 		msg.mouseMotion.y = event.deltaY;
@@ -243,9 +274,12 @@ static void window_motion_event(Window *window, NSEvent *event)
 
 	} else {
 		NSPoint p = {0};
+		Window *cur = window_find_mouse(window, &p);
 
-		if (window_event_in_view(window, &p)) {
-			CGFloat scale = window.screen.backingScaleFactor;
+		if (cur) {
+			MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_MOTION);
+
+			CGFloat scale = cur.screen.backingScaleFactor;
 			msg.mouseMotion.relative = false;
 			msg.mouseMotion.x = lrint(scale * p.x);
 			msg.mouseMotion.y = lrint(scale * p.y);
