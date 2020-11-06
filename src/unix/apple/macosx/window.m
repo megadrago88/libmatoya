@@ -301,8 +301,22 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 	msg.keyboard.mod = modifier_flags_to_keymod(flags);
 	msg.keyboard.pressed = pressed;
 
-	if (msg.keyboard.scancode != MTY_SCANCODE_NONE)
-		window.app.msg_func(&msg, window.app.opaque);
+	MTY_Keymod mod = msg.keyboard.mod & 0xFF;
+
+	uint32_t hotkey = (uint32_t) (uintptr_t) MTY_HashGetInt(window.app.hotkey, (mod << 16) | msg.keyboard.scancode);
+
+	if (hotkey != 0) {
+		if (pressed) {
+			msg.type = MTY_MSG_HOTKEY;
+			msg.hotkey = hotkey;
+
+			window.app.msg_func(&msg, window.app.opaque);
+		}
+
+	} else {
+		if (msg.keyboard.scancode != MTY_SCANCODE_NONE)
+			window.app.msg_func(&msg, window.app.opaque);
+	}
 }
 
 @implementation Window : NSWindow
