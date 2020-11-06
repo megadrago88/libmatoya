@@ -9,6 +9,7 @@
 #include <AppKit/AppKit.h>
 #include <Carbon/Carbon.h>
 
+#include "wsize.h"
 #include "scancode.h"
 
 
@@ -698,6 +699,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	Window *ctx = nil;
 	View *content = nil;
+	NSScreen *screen = nil;
 
 	window = app_find_open_window(app);
 	if (window == -1) {
@@ -706,10 +708,22 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 		goto except;
 	}
 
-	// TODO proper size calc
-	// TODO respect other window desc args
+	// TODO start in fullscreen
 
-	NSRect rect = NSMakeRect(0, 0, desc->width, desc->height);
+	screen = [NSScreen mainScreen];
+	CGSize size = screen.frame.size;
+
+	int32_t x = desc->x;
+	int32_t y = -desc->y;
+	int32_t width = size.width;
+	int32_t height = size.height;
+
+	wsize_client(desc, 1.0f, size.height, &x, &y, &width, &height);
+
+	if (desc->position == MTY_POSITION_CENTER)
+		wsize_center(0, 0, size.width, size.height, &x, &y, &width, &height);
+
+	NSRect rect = NSMakeRect(x, y, width, height);
 	NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
 		NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable;
 
@@ -720,6 +734,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	[ctx setDelegate:ctx];
 	[ctx setAcceptsMouseMovedEvents:YES];
 	[ctx setReleasedWhenClosed:NO];
+	[ctx setMinSize:NSMakeSize(desc->minWidth, desc->minHeight)];
 
 	content = [[View alloc] initWithFrame:[ctx contentRectForFrameRect:ctx.frame]];
 	[ctx setContentView:content];
@@ -727,9 +742,9 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	ctx.app.windows[window] = (__bridge void *) ctx;
 
 	ctx.title = [NSString stringWithUTF8String:title];
-	[ctx center];
 
-	MTY_WindowActivate(app, window, true);
+	if (!desc->hidden)
+		MTY_WindowActivate(app, window, true);
 
 	except:
 

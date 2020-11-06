@@ -14,6 +14,7 @@
 #include <shellapi.h>
 #include <shellscalingapi.h>
 
+#include "wsize.h"
 #include "mty-tls.h"
 #include "hid/hid.h"
 
@@ -1462,14 +1463,14 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	RECT rect = {0};
 	DWORD style = WS_OVERLAPPEDWINDOW;
 	HWND desktop = GetDesktopWindow();
-	uint32_t width = desc->width;
-	uint32_t height = desc->height;
 
 	GetWindowRect(desktop, &rect);
 	int32_t desktop_height = rect.bottom - rect.top;
 	int32_t desktop_width = rect.right - rect.left;
 
 	float scale = app_hwnd_get_scale(desktop);
+	int32_t width = desktop_width;
+	int32_t height = desktop_height;
 	int32_t x = lrint((float) desc->x * scale);
 	int32_t y = lrint((float) desc->y * scale);
 
@@ -1477,41 +1478,13 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 		style = WS_POPUP;
 		x = rect.left;
 		y = rect.top;
-		width = desktop_width;
-		height = desktop_height;
 
 	} else {
-		if (desc->creationHeight > 0.0f && (float) height * scale >
-			desc->creationHeight * (float) desktop_height)
-		{
-			float aspect = (float) width / (float) height;
-			height = lrint(desc->creationHeight * (float) desktop_height);
-			width = lrint((float) height * aspect);
-
-		} else {
-			height = lrint((float) height * scale);
-			width = lrint((float) width * scale);
-		}
-
+		wsize_client(desc, scale, desktop_height, &x, &y, &width, &height);
 		window_client_to_full(&width, &height);
 
-		if (desc->position == MTY_POSITION_CENTER) {
-			if (rect.right > (int32_t) width) {
-				x += (rect.right - width) / 2;
-
-			} else {
-				x = rect.left;
-				width = desktop_width;
-			}
-
-			if (rect.bottom > (int32_t) height) {
-				y += (rect.bottom - height) / 2;
-
-			} else {
-				y = rect.top;
-				height = desktop_height;
-			}
-		}
+		if (desc->position == MTY_POSITION_CENTER)
+			wsize_center(rect.left, rect.top, desktop_width, desktop_height, &x, &y, &width, &height);
 	}
 
 	titlew = MTY_MultiToWideD(title);
