@@ -411,7 +411,7 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 
 	- (void)scrollWheel:(NSEvent *)event
 	{
-		int32_t delta = event.hasPreciseScrollingDeltas ? 10 : 100;
+		int32_t delta = event.hasPreciseScrollingDeltas ? 2 : 100;
 
 		MTY_Msg msg = window_msg(self, MTY_MSG_MOUSE_WHEEL);
 		msg.mouseWheel.x = lrint(event.scrollingDeltaX) * delta;
