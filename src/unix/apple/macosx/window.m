@@ -54,6 +54,18 @@ static void app_add_menu_separator(NSMenu *menu)
 	[menu addItem:[NSMenuItem separatorItem]];
 }
 
+static void app_show_main_window(App *ctx)
+{
+	NSArray<NSWindow *> *windows = [NSApp windows];
+
+	for (uint32_t x = 0; x < windows.count; x++) {
+		if ((__bridge void *) windows[x] == ctx.windows[x]) {
+			[windows[x] makeKeyAndOrderFront:ctx];
+			break;
+		}
+	}
+}
+
 @implementation App : NSObject
 	- (BOOL)userNotificationCenter:(NSUserNotificationCenter *)center
 		shouldPresentNotification:(NSUserNotification *)notification
@@ -73,6 +85,7 @@ static void app_add_menu_separator(NSMenu *menu)
 	- (void)applicationDidUnhide:(NSNotification *)notification
 	{
 		[NSApp activateIgnoringOtherApps:YES];
+		app_show_main_window(self);
 	}
 
 	- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
@@ -138,7 +151,13 @@ static void app_add_menu_separator(NSMenu *menu)
 
 	- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag
 	{
-		[NSApp unhide:self];
+		if ([NSApp isHidden]) {
+			[NSApp unhide:self];
+
+		} else {
+			[NSApp activateIgnoringOtherApps:YES];
+			app_show_main_window(self);
+		}
 
 		return NO;
 	}
