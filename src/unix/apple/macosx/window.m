@@ -281,6 +281,45 @@ static void window_mouse_event(Window *window, MTY_MouseButton button, bool pres
 	}
 }
 
+static void window_warp_cursor(NSWindow *ctx, uint32_t x, int32_t y)
+{
+	CGFloat title_bar_h = ctx.frame.size.height - ctx.contentView.frame.size.height;
+	CGFloat window_bottom = ctx.screen.frame.origin.y + ctx.frame.origin.y + ctx.frame.size.height;
+
+	NSPoint pscreen = {0};
+	CGFloat scale = ctx.screen.backingScaleFactor;
+	pscreen.x = ctx.screen.frame.origin.x + ctx.frame.origin.x + (CGFloat) x / scale;
+	pscreen.y = ctx.screen.frame.size.height - window_bottom + title_bar_h + (CGFloat) y / scale;
+
+	CGWarpMouseCursorPosition(pscreen);
+	CGAssociateMouseAndMouseCursorPosition(YES);
+}
+
+static void window_confine_cursor(void)
+{
+	NSWindow *window = [NSApp keyWindow];
+
+	NSPoint wp = [window mouseLocationOutsideOfEventStream];
+	NSSize size = window.contentView.frame.size;
+	CGFloat scale = window.screen.backingScaleFactor;
+
+	wp.y = size.height - wp.y;
+
+	if (wp.x < 0)
+		wp.x = 0;
+
+	if (wp.y < 0)
+		wp.y = 0;
+
+	if (wp.x >= size.width)
+		wp.x = size.width - 1;
+
+	if (wp.y >= size.height)
+		wp.y = size.height - 1;
+
+	window_warp_cursor(window, lrint(wp.x * scale), lrint(wp.y * scale));
+}
+
 static void window_motion_event(Window *window, NSEvent *event)
 {
 	if (window.app.relative) {
@@ -296,19 +335,22 @@ static void window_motion_event(Window *window, NSEvent *event)
 		Window *cur = window_find_mouse(window, &p);
 
 		if (cur) {
-			MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_MOTION);
+			if (window.app.grab_mouse && !cur.isKeyWindow) {
+				window_confine_cursor();
 
-			CGFloat scale = cur.screen.backingScaleFactor;
-			msg.mouseMotion.relative = false;
-			msg.mouseMotion.x = lrint(scale * p.x);
-			msg.mouseMotion.y = lrint(scale * p.y);
+			} else {
+				MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_MOTION);
 
-			window.app.msg_func(&msg, window.app.opaque);
+				CGFloat scale = cur.screen.backingScaleFactor;
+				msg.mouseMotion.relative = false;
+				msg.mouseMotion.x = lrint(scale * p.x);
+				msg.mouseMotion.y = lrint(scale * p.y);
 
-		} else {
-			if (window.app.grab_mouse) {
-				// TODO warp cursor to nearest edge
+				window.app.msg_func(&msg, window.app.opaque);
 			}
+
+		} else if ([NSApp isActive] && window.app.grab_mouse) {
+			window_confine_cursor();
 		}
 	}
 }
@@ -961,16 +1003,7 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 	if (!ctx)
 		return;
 
-	CGFloat title_bar_h = ctx.frame.size.height - ctx.contentView.frame.size.height;
-	CGFloat window_bottom = ctx.screen.frame.origin.y + ctx.frame.origin.y + ctx.frame.size.height;
-
-	NSPoint pscreen = {0};
-	CGFloat scale = ctx.screen.backingScaleFactor;
-	pscreen.x = ctx.screen.frame.origin.x + ctx.frame.origin.x + (CGFloat) x / scale;
-	pscreen.y = ctx.screen.frame.size.height - window_bottom + title_bar_h + (CGFloat) y / scale;
-
-	CGWarpMouseCursorPosition(pscreen);
-	CGAssociateMouseAndMouseCursorPosition(YES);
+	window_warp_cursor(ctx, x, y);
 }
 
 bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
