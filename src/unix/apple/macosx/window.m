@@ -19,6 +19,7 @@
 	@property MTY_AppFunc app_func;
 	@property MTY_MsgFunc msg_func;
 	@property MTY_Hash *hotkey;
+	@property MTY_Detach detach;
 	@property void *opaque;
 	@property bool relative;
 	@property bool grab_mouse;
@@ -33,7 +34,7 @@
 static void app_apply_cursor(App *ctx)
 {
 	NSCursor *arrow = [NSCursor arrowCursor];
-	NSCursor *new = ctx.default_cursor || ctx.cursor_outside ? arrow :
+	NSCursor *new = ctx.default_cursor || ctx.cursor_outside || ctx.detach != MTY_DETACH_NONE ? arrow :
 		ctx.custom_cursor ? ctx.custom_cursor : arrow;
 
 	if (ctx.cursor)
@@ -273,11 +274,23 @@ static void window_mouse_event(Window *window, MTY_MouseButton button, bool pres
 	Window *cur = window_find_mouse(window, &p);
 
 	if (cur) {
+		if (pressed && !cur.app.relative) {
+			MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_MOTION);
+			CGFloat scale = cur.screen.backingScaleFactor;
+			msg.mouseMotion.relative = false;
+			msg.mouseMotion.click = true;
+			msg.mouseMotion.x = lrint(scale * p.x);
+			msg.mouseMotion.y = lrint(scale * p.y);
+
+			window.app.msg_func(&msg, cur.app.opaque);
+		}
+
 		MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_BUTTON);
 		msg.mouseButton.pressed = pressed;
 		msg.mouseButton.button = button;
 
 		window.app.msg_func(&msg, window.app.opaque);
+
 	}
 }
 
@@ -335,7 +348,7 @@ static void window_motion_event(Window *window, NSEvent *event)
 		Window *cur = window_find_mouse(window, &p);
 
 		if (cur) {
-			if (window.app.grab_mouse && !cur.isKeyWindow) {
+			if (window.app.grab_mouse && window.app.detach != MTY_DETACH_NONE && !cur.isKeyWindow) {
 				window_confine_cursor();
 
 			} else {
@@ -349,7 +362,7 @@ static void window_motion_event(Window *window, NSEvent *event)
 				window.app.msg_func(&msg, window.app.opaque);
 			}
 
-		} else if ([NSApp isActive] && window.app.grab_mouse) {
+		} else if ([NSApp isActive] && window.app.grab_mouse && window.app.detach != MTY_DETACH_NONE) {
 			window_confine_cursor();
 		}
 	}
@@ -759,13 +772,20 @@ void MTY_AppRun(MTY_App *app)
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
 {
-	// TODO
+	App *ctx = (__bridge App *) app;
+
+	ctx.detach = type;
+
+	app_apply_cursor(ctx);
+
+	// TODO Detach should apply relative release
 }
 
 MTY_Detach MTY_AppGetDetached(MTY_App *app)
 {
-	// TODO
-	return MTY_DETACH_NONE;
+	App *ctx = (__bridge App *) app;
+
+	return ctx.detach;
 }
 
 void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
