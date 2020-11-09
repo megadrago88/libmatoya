@@ -9,7 +9,6 @@
 #include <AppKit/AppKit.h>
 #include <Carbon/Carbon.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
-#include <GameController/GameController.h>
 
 #include "wsize.h"
 #include "scancode.h"
@@ -161,9 +160,6 @@ static void app_show_main_window(App *ctx)
 
 		[item setSubmenu:menu];
 		[NSApp setMainMenu:menubar];
-
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerConnected) name:GCControllerDidConnectNotification object:nil];
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDisconnected) name:GCControllerDidDisconnectNotification object:nil];
 	}
 
 	- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag
@@ -781,13 +777,6 @@ void MTY_AppRun(MTY_App *app)
 
 				[NSApp sendEvent:event];
 			}
-
-			/*
-			TODO Something wrong with controller discovery
-			NSArray<GCController *> *controllers = [GCController controllers];
-			for (uint32_t x = 0; x < controllers.count; x++)
-				printf("%s\n", [controllers[x].vendorName UTF8String]);
-			*/
 
 			cont = ctx.app_func(ctx.opaque);
 		}
