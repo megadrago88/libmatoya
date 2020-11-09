@@ -8,6 +8,7 @@
 
 #include <AppKit/AppKit.h>
 #include <Carbon/Carbon.h>
+#include <GameController/GameController.h>
 
 #include "wsize.h"
 #include "scancode.h"
@@ -126,6 +127,16 @@ static void app_show_main_window(App *ctx)
 		[[NSApp keyWindow] miniaturize:self];
 	}
 
+	- (void)controllerConnected
+	{
+		printf("CONNECT\n");
+	}
+
+	- (void)controllerDisconnected
+	{
+		printf("DISCONNECT\n");
+	}
+
 	- (void)applicationDidFinishLaunching:(NSNotification *)notification
 	{
 		// Activation policy of a regular app
@@ -148,6 +159,9 @@ static void app_show_main_window(App *ctx)
 
 		[item setSubmenu:menu];
 		[NSApp setMainMenu:menubar];
+
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerConnected) name:GCControllerDidConnectNotification object:nil];
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDisconnected) name:GCControllerDidDisconnectNotification object:nil];
 	}
 
 	- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag
@@ -723,7 +737,6 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 
 	[NSApplication sharedApplication];
 	[NSApp setDelegate:ctx];
-	[NSApp finishLaunching];
 
 	return (MTY_App *) CFBridgingRetain(ctx);
 }
@@ -753,6 +766,8 @@ void MTY_AppRun(MTY_App *app)
 {
 	App *ctx = (__bridge App *) app;
 
+	[NSApp finishLaunching];
+
 	for (bool cont = true; cont;) {
 		@autoreleasepool {
 			while (true) {
@@ -764,6 +779,13 @@ void MTY_AppRun(MTY_App *app)
 
 				[NSApp sendEvent:event];
 			}
+
+			/*
+			TODO Something wrong with controller discovery
+			NSArray<GCController *> *controllers = [GCController controllers];
+			for (uint32_t x = 0; x < controllers.count; x++)
+				printf("%s\n", [controllers[x].vendorName UTF8String]);
+			*/
 
 			cont = ctx.app_func(ctx.opaque);
 		}
