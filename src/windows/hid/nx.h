@@ -165,7 +165,7 @@ static void hid_nx_full_state(struct hid *hid, const uint8_t *d, MTY_Msg *wmsg)
 {
 	struct nx_state *ctx = hid->driver_state;
 
-	wmsg->type = MTY_WINDOW_MSG_CONTROLLER;
+	wmsg->type = MTY_MSG_CONTROLLER;
 
 	MTY_Controller *c = &wmsg->controller;
 	c->vid = (uint16_t) hid->di.hid.dwVendorId;
@@ -250,7 +250,7 @@ static void hid_nx_simple_state(struct hid *hid, const uint8_t *d, MTY_Msg *wmsg
 {
 	struct nx_state *ctx = hid->driver_state;
 
-	wmsg->type = MTY_WINDOW_MSG_CONTROLLER;
+	wmsg->type = MTY_MSG_CONTROLLER;
 
 	MTY_Controller *c = &wmsg->controller;
 	c->vid = (uint16_t) hid->di.hid.dwVendorId;

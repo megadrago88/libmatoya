@@ -26,10 +26,10 @@ struct window {
 	MTY_Window window;
 	MTY_GFX api;
 	HWND hwnd;
-	uint32_t x;
-	uint32_t y;
-	uint32_t width;
-	uint32_t height;
+	int32_t x;
+	int32_t y;
+	int32_t width;
+	int32_t height;
 	uint32_t min_width;
 	uint32_t min_height;
 	struct gfx_ctx *gfx_ctx;
@@ -1420,7 +1420,7 @@ void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t h
 
 // Window
 
-static void window_client_to_full(uint32_t *width, uint32_t *height)
+static void window_client_to_full(int32_t *width, int32_t *height)
 {
 	RECT rect = {0};
 	rect.right = *width;
@@ -1618,7 +1618,11 @@ void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen
 				ctx->y = r.top;
 			}
 
-			MTY_WindowGetSize(app, window, &ctx->width, &ctx->height);
+			if (GetClientRect(ctx->hwnd, &r)) {
+				ctx->width = r.right - r.left;
+				ctx->height = r.bottom - r.top;
+			}
+
 			window_client_to_full(&ctx->width, &ctx->height);
 
 			uint32_t x = info.rcMonitor.left;

@@ -173,7 +173,7 @@ static void hid_default_state(struct hid *hid, void *data, ULONG dsize, MTY_Msg 
 		}
 	}
 
-	wmsg->type = MTY_WINDOW_MSG_CONTROLLER;
+	wmsg->type = MTY_MSG_CONTROLLER;
 	c->vid = (uint16_t) hid->di.hid.dwVendorId;
 	c->pid = (uint16_t) hid->di.hid.dwProductId;
 	c->driver = hid->driver;

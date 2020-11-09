@@ -174,7 +174,7 @@ static void hid_xinput_state(struct xip *xips, MTY_Window window, MTY_MsgFunc fu
 				}
 
 				if (xstate.dwPacketNumber != xip->packet) {
-					wmsg.type = MTY_WINDOW_MSG_CONTROLLER;
+					wmsg.type = MTY_MSG_CONTROLLER;
 					wmsg.controller.vid = xip->bbi.vid;
 					wmsg.controller.pid = xip->bbi.pid;
 
@@ -187,7 +187,7 @@ static void hid_xinput_state(struct xip *xips, MTY_Window window, MTY_MsgFunc fu
 				xip->disabled = true;
 
 				if (xip->was_enabled) {
-					wmsg.type = MTY_WINDOW_MSG_DISCONNECT;
+					wmsg.type = MTY_MSG_DISCONNECT;
 					func(&wmsg, opaque);
 
 					xip->was_enabled = false;

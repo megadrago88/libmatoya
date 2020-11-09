@@ -137,7 +137,7 @@ static void hid_ps4_state(struct hid *hid, const void *data, ULONG dsize, MTY_Ms
 		return;
 	}
 
-	wmsg->type = MTY_WINDOW_MSG_CONTROLLER;
+	wmsg->type = MTY_MSG_CONTROLLER;
 
 	MTY_Controller *c = &wmsg->controller;
 	c->vid = (uint16_t) hid->di.hid.dwVendorId;
