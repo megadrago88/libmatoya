@@ -8,6 +8,7 @@
 
 #include <AppKit/AppKit.h>
 #include <Carbon/Carbon.h>
+#include <IOKit/pwr_mgt/IOPMLib.h>
 #include <GameController/GameController.h>
 
 #include "wsize.h"
@@ -30,6 +31,7 @@
 	@property NSCursor *custom_cursor;
 	@property NSCursor *cursor;
 	@property void **windows;
+	@property IOPMAssertionID assertion;
 @end
 
 static void app_apply_cursor(App *ctx)
@@ -812,8 +814,20 @@ MTY_Detach MTY_AppGetDetached(MTY_App *app)
 
 void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 {
-	// TODO
-	// IOPMAssertionCreateWithDescription
+	App *ctx = (__bridge App *) app;
+
+	if (ctx.assertion) {
+		IOPMAssertionRelease(ctx.assertion);
+		ctx.assertion = 0;
+	}
+
+	if (enable) {
+		IOPMAssertionID assertion = 0;
+		IOPMAssertionCreateWithDescription(kIOPMAssertPreventUserIdleDisplaySleep, NULL,
+			NULL, NULL, NULL, 0, NULL, &assertion);
+
+		ctx.assertion = assertion;
+	}
 }
 
 void MTY_AppGrabMouse(MTY_App *app, bool grab)
