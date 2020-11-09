@@ -908,8 +908,6 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 		goto except;
 	}
 
-	// TODO start in fullscreen
-
 	screen = [NSScreen mainScreen];
 	CGSize size = screen.frame.size;
 
