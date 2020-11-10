@@ -61,12 +61,8 @@ static void app_show_main_window(App *ctx)
 {
 	NSArray<NSWindow *> *windows = [NSApp windows];
 
-	for (uint32_t x = 0; x < windows.count; x++) {
-		if ((__bridge void *) windows[x] == ctx.windows[x]) {
-			[windows[x] makeKeyAndOrderFront:ctx];
-			break;
-		}
-	}
+	if (windows.count > 0)
+		[windows[0] makeKeyAndOrderFront:ctx];
 }
 
 @implementation App : NSObject
@@ -126,16 +122,6 @@ static void app_show_main_window(App *ctx)
 	- (void)appMinimize:(id)sender
 	{
 		[[NSApp keyWindow] miniaturize:self];
-	}
-
-	- (void)controllerConnected
-	{
-		printf("CONNECT\n");
-	}
-
-	- (void)controllerDisconnected
-	{
-		printf("DISCONNECT\n");
 	}
 
 	- (void)applicationDidFinishLaunching:(NSNotification *)notification
@@ -198,6 +184,7 @@ static void app_show_main_window(App *ctx)
 		app_add_menu_item(menu, @"Restart", @"", @selector(appRestart:));
 
 		[item setSubmenu:menu];
+
 		return menu;
 	}
 @end
@@ -217,6 +204,20 @@ static Window *app_get_window(MTY_App *app, MTY_Window window)
 	App *ctx = (__bridge App *) app;
 
 	return window < 0 ? nil : (__bridge Window *) ctx.windows[window];
+}
+
+static Window *app_get_window_by_number(App *ctx, NSInteger number)
+{
+	for (uint8_t x = 0; x < MTY_WINDOW_MAX; x++) {
+		if (ctx.windows[x]) {
+			Window *window = (__bridge Window *) ctx.windows[x];
+
+			if (window.windowNumber == number)
+				return window;
+		}
+	}
+
+	return nil;
 }
 
 static MTY_Window app_find_open_window(MTY_App *app)
@@ -239,7 +240,7 @@ static MTY_Msg window_msg(Window *window, MTY_MsgType type)
 	return msg;
 }
 
-static bool window_event_in_view(Window *window, NSPoint *p)
+static bool window_event_in_view(NSWindow *window, NSPoint *p)
 {
 	*p = [window mouseLocationOutsideOfEventStream];
 	NSSize size = window.contentView.frame.size;
@@ -256,7 +257,9 @@ static Window *window_find_mouse(Window *me, NSPoint *p)
 	NSArray<NSWindow *> *windows = [NSApp windows];
 
 	for (uint32_t x = 0; x < windows.count; x++) {
-		Window *window = (Window *) windows[x];
+		Window *window = app_get_window_by_number(me.app, windows[x].windowNumber);
+		if (!window)
+			continue;
 
 		NSPoint wp = {0};
 		if (window_event_in_view(window, &wp)) {
@@ -323,6 +326,8 @@ static void window_warp_cursor(NSWindow *ctx, uint32_t x, int32_t y)
 static void window_confine_cursor(void)
 {
 	NSWindow *window = [NSApp keyWindow];
+	if (!window)
+		return;
 
 	NSPoint wp = [window mouseLocationOutsideOfEventStream];
 	NSSize size = window.contentView.frame.size;
@@ -737,8 +742,6 @@ void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 	ctx.default_cursor = useDefault;
 
 	app_apply_cursor(ctx);
-
-	MTY_AppSetRelativeMouse(app, false);
 }
 
 
@@ -999,8 +1002,7 @@ void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)
 	if (!ctx)
 		return;
 
-	NSString *nss = [NSString stringWithUTF8String:title];
-	ctx.title = nss;
+	ctx.title = [NSString stringWithUTF8String:title];
 }
 
 bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
