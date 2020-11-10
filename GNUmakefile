@@ -150,6 +150,11 @@ endif
 
 ifeq ($(TARGET), macosx)
 MIN_VER = 10.11
+
+OBJS := $(OBJS) \
+	src/unix/apple/gfx/metal-ctx.o \
+	src/unix/apple/gfx/gl-ctx.o
+
 else
 MIN_VER = 11.0
 FLAGS := $(FLAGS) -fembed-bitcode
@@ -158,10 +163,8 @@ endif
 
 OBJS := $(OBJS) \
 	src/unix/aes-gcm-openssl.o \
-	src/unix/apple/gfx/gl-ctx.o \
 	src/unix/apple/gfx/metal.o \
 	src/unix/apple/gfx/metal-ui.o \
-	src/unix/apple/gfx/metal-ctx.o \
 	src/unix/apple/audio.o \
 	src/unix/apple/crypto.o \
 	src/unix/apple/$(TARGET)/window.o
