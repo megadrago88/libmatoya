@@ -83,6 +83,9 @@ static bool crypto_dl_global_init(void)
 		bool r = true;
 		CRYPTO_DL_SO = MTY_SOLoad("libcrypto.so.1.0.0");
 
+		if (!CRYPTO_DL_SO)
+			CRYPTO_DL_SO = MTY_SOLoad("libcrypto.35.dylib");
+
 		if (!CRYPTO_DL_SO) {
 			r = false;
 			goto except;
