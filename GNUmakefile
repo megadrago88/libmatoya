@@ -157,11 +157,11 @@ DEFS := $(DEFS) -DMTY_GL_ES
 endif
 
 OBJS := $(OBJS) \
+	src/unix/aes-gcm-openssl.o \
 	src/unix/apple/gfx/gl-ctx.o \
 	src/unix/apple/gfx/metal.o \
 	src/unix/apple/gfx/metal-ui.o \
 	src/unix/apple/gfx/metal-ctx.o \
-	src/unix/apple/aes-gcm-cc.o \
 	src/unix/apple/audio.o \
 	src/unix/apple/crypto.o \
 	src/unix/apple/$(TARGET)/window.o
@@ -172,6 +172,11 @@ SHADERS := $(SHADERS) \
 
 DEFS := $(DEFS) \
 	-DMTY_GL_EXTERNAL
+
+ifdef CRYPTO_EXTERNAL
+DEFS := $(DEFS) \
+	-DMTY_CRYPTO_EXTERNAL
+endif
 
 TEST_LIBS = \
 	-lc \
