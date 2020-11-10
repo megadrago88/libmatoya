@@ -605,6 +605,7 @@ void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, siz
 
 	if (scancode != MTY_SCANCODE_NONE) {
 		/*
+		TODO
 		NSRunLoop *rl = [NSRunLoop currentRunLoop];
 		printf("%p\n", rl);
 
@@ -932,6 +933,13 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	if (!desc->hidden)
 		MTY_WindowActivate(app, window, true);
+
+	if (desc->api != MTY_GFX_NONE) {
+		if (!MTY_WindowSetGFX(app, window, desc->api, desc->vsync)) {
+			r = false;
+			goto except;
+		}
+	}
 
 	except:
 

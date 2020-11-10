@@ -1249,6 +1249,7 @@ typedef struct {
 
 typedef struct {
 	MTY_Position position;
+	MTY_GFX api;
 	uint32_t width;
 	uint32_t height;
 	uint32_t minWidth;
@@ -1258,6 +1259,7 @@ typedef struct {
 	float maxHeight;
 	bool fullscreen;
 	bool hidden;
+	bool vsync;
 } MTY_WindowDesc;
 
 typedef bool (*MTY_AppFunc)(void *opaque);

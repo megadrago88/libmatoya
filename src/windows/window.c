@@ -1493,6 +1493,13 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	if (!desc->hidden)
 		app_hwnd_activate(ctx->hwnd, true);
 
+	if (desc->api != MTY_GFX_NONE) {
+		if (!MTY_WindowSetGFX(app, window, desc->api, desc->vsync)) {
+			r = false;
+			goto except;
+		}
+	}
+
 	DragAcceptFiles(ctx->hwnd, TRUE);
 
 	if (window == 0) {
