@@ -38,7 +38,7 @@ static MTY_Keymod modifier_flags_to_keymod(NSEventModifierFlags flags)
 	return mod;
 }
 
-static MTY_Scancode keycode_to_scancode(unsigned short kc)
+static MTY_Scancode keycode_to_scancode(uint16_t kc)
 {
 	switch (kc) {
 		case kVK_ANSI_A:              return MTY_SCANCODE_A; // 0x00
@@ -169,4 +169,59 @@ static MTY_Scancode keycode_to_scancode(unsigned short kc)
 	}
 
 	return MTY_SCANCODE_NONE;
+}
+
+static const char *keycode_to_text(uint16_t kc)
+{
+	switch (kc) {
+		case kVK_Return:              return "Enter"; // 0x24
+		case kVK_Tab:                 return "Tab"; // 0x30
+		case kVK_Space:               return "Space"; // 0x31
+		case kVK_Delete:              return "Backspace"; // 0x33
+		case kVK_Escape:              return "Esc"; // 0x35
+		case kVK_RightCommand:        return "Command"; // 0x36
+		case kVK_Command:             return "Command"; // 0x37
+		case kVK_Shift:               return "Shift"; // 0x38
+		case kVK_CapsLock:            return "Caps"; // 0x39
+		case kVK_Option:              return "Alt"; // 0x3A
+		case kVK_Control:             return "Alt"; // 0x3B
+		case kVK_RightShift:          return "Shift"; // 0x3C
+		case kVK_RightOption:         return "Alt"; // 0x3D
+		case kVK_RightControl:        return "Ctrl"; // 0x3E
+		case kVK_VolumeUp:            return "Volume Up"; // 0x48
+		case kVK_VolumeDown:          return "Volume Down"; // 0x49
+		case kVK_Mute:                return "Mute"; // 0x4A
+		case kVK_F18:                 return "F18"; // 0x4F
+		case kVK_F19:                 return "F19"; // 0x50
+		case kVK_F20:                 return "F20"; // 0x5A
+		case kVK_F5:                  return "F5"; // 0x60
+		case kVK_F6:                  return "F6"; // 0x61
+		case kVK_F7:                  return "F7"; // 0x62
+		case kVK_F3:                  return "F3"; // 0x63
+		case kVK_F8:                  return "F8"; // 0x64
+		case kVK_F9:                  return "F9"; // 0x65
+		case kVK_F11:                 return "F11"; // 0x67
+		case kVK_F13:                 return "Print Screen"; // 0x69
+		case kVK_F16:                 return "F16"; // 0x6A
+		case kVK_F14:                 return "F14"; // 0x6B
+		case kVK_F10:                 return "F10"; // 0x6D
+		case kVK_WinApp:              return "App"; // 0x6E
+		case kVK_F12:                 return "F12"; // 0x6F
+		case kVK_F15:                 return "F15"; // 0x71
+		case kVK_Help:                return "Insert"; // 0x72
+		case kVK_Home:                return "Home"; // 0x73
+		case kVK_PageUp:              return "Page Up"; // 0x74
+		case kVK_ForwardDelete:       return "Delete"; // 0x75
+		case kVK_F4:                  return "F4"; // 0x76
+		case kVK_End:                 return "End"; // 0x77
+		case kVK_F2:                  return "F2"; // 0x78
+		case kVK_PageDown:            return "Page Down"; // 0x79
+		case kVK_F1:                  return "F1"; // 0x7A
+		case kVK_LeftArrow:           return "Left"; // 0x7B
+		case kVK_RightArrow:          return "Right"; // 0x7C
+		case kVK_DownArrow:           return "Down"; // 0x7D
+		case kVK_UpArrow:             return "Up"; // 0x7E
+	}
+
+	return NULL;
 }

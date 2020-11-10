@@ -594,6 +594,32 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 
 // Hotkeys
 
+static MTY_Atomic32 APP_GLOCK;
+static char APP_KEYS[MTY_SCANCODE_MAX][16];
+
+static void app_carbon_key(uint16_t kc, char *text, size_t len)
+{
+	TISInputSourceRef kb = TISCopyCurrentKeyboardInputSource();
+	CFDataRef layout_data = TISGetInputSourceProperty(kb, kTISPropertyUnicodeKeyLayoutData);
+	if (layout_data) {
+		const UCKeyboardLayout *layout = (const UCKeyboardLayout *) CFDataGetBytePtr(layout_data);
+
+		UInt32 dead_key_state = 0;
+		UniCharCount out_len = 0;
+		UniChar chars[8];
+
+		UCKeyTranslate(layout, kc, kUCKeyActionDown, 0, LMGetKbdLast(),
+			kUCKeyTranslateNoDeadKeysBit, &dead_key_state, 8, &out_len, chars);
+
+		CFRelease(kb);
+
+		NSString *ns_str = CFBridgingRelease(CFStringCreateWithCharacters(kCFAllocatorDefault, chars, 1));
+		const char *c_str = [[ns_str uppercaseString] UTF8String];
+
+		snprintf(text, len, "%s", c_str);
+	}
+}
+
 void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
 {
 	memset(str, 0, len);
@@ -604,37 +630,29 @@ void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, siz
 	MTY_Strcat(str, len, (mod & MTY_KEYMOD_SHIFT) ? "Shift+" : "");
 
 	if (scancode != MTY_SCANCODE_NONE) {
-		/*
-		TODO
-		NSRunLoop *rl = [NSRunLoop currentRunLoop];
-		printf("%p\n", rl);
+		if (MTY_Atomic32Get(&APP_GLOCK) == 0) {
+			MTY_GlobalLock(&APP_GLOCK);
 
-		TISInputSourceRef kb = TISCopyCurrentKeyboardInputSource();
-		printf("KB: %p\n", kb);
+			dispatch_sync(dispatch_get_main_queue(), ^{
+				for (uint16_t kc = 0; kc < 0x100; kc++) {
+					MTY_Scancode sc = keycode_to_scancode(kc);
 
-		CFDataRef layout_data = TISGetInputSourceProperty(kb, kTISPropertyUnicodeKeyLayoutData);
-		printf("LAYOUT: %p\n", layout_data);
-		if (!layout_data)
-			return;
+					if (sc != MTY_SCANCODE_NONE) {
+						const char *text = keycode_to_text(kc);
+						if (text) {
+							snprintf(APP_KEYS[sc], 16, "%s", text);
 
-		const UCKeyboardLayout *layout = (const UCKeyboardLayout *) CFDataGetBytePtr(layout_data);
+						} else {
+							app_carbon_key(kc, APP_KEYS[sc], 16);
+						}
+					}
+				}
+			});
 
-		uint16_t key_code = 0x00;
+			MTY_GlobalUnlock(&APP_GLOCK);
+		}
 
-		UInt32 dead_key_state = 0;
-		UniChar chars[8];
-		UniCharCount out_len = 0;
-
-		UCKeyTranslate(layout, key_code, kUCKeyActionDisplay, 0, LMGetKbdType(),
-			kUCKeyTranslateNoDeadKeysBit, &dead_key_state, 8, &out_len, chars);
-
-		CFRelease(kb);
-
-		NSString *ns_str = CFBridgingRelease(CFStringCreateWithCharacters(kCFAllocatorDefault, chars, 1));
-		const char *c_str = [ns_str UTF8String];
-
-		snprintf(str, len, "%s", c_str);
-		*/
+		MTY_Strcat(str, len, APP_KEYS[scancode]);
 	}
 }
 
