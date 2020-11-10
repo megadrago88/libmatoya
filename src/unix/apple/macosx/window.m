@@ -347,7 +347,7 @@ static void window_confine_cursor(void)
 
 static void window_motion_event(Window *window, NSEvent *event)
 {
-	if (window.app.relative) {
+	if (window.app.relative && window.app.detach == MTY_DETACH_NONE) {
 		MTY_Msg msg = window_msg(window, MTY_MSG_MOUSE_MOTION);
 		msg.mouseMotion.relative = true;
 		msg.mouseMotion.x = event.deltaX;
@@ -719,6 +719,8 @@ void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 	ctx.default_cursor = useDefault;
 
 	app_apply_cursor(ctx);
+
+	MTY_AppSetRelativeMouse(app, false);
 }
 
 
@@ -792,7 +794,16 @@ void MTY_AppDetach(MTY_App *app, MTY_Detach type)
 
 	app_apply_cursor(ctx);
 
-	// TODO Detach should apply relative release
+	if (ctx.relative) {
+		if (ctx.detach == MTY_DETACH_FULL) {
+			CGAssociateMouseAndMouseCursorPosition(YES);
+			CGDisplayShowCursor(kCGDirectMainDisplay);
+
+		} else {
+			CGAssociateMouseAndMouseCursorPosition(NO);
+			CGDisplayHideCursor(kCGDirectMainDisplay);
+		}
+	}
 }
 
 MTY_Detach MTY_AppGetDetached(MTY_App *app)
@@ -833,15 +844,17 @@ void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 
 	// NOTE: Argument is unused in CGDisplayXXXCursor functions
 
-	if (relative && !ctx.relative) {
-		ctx.relative = true;
-		CGAssociateMouseAndMouseCursorPosition(NO);
-		CGDisplayHideCursor(kCGDirectMainDisplay);
+	if (ctx.detach != MTY_DETACH_FULL) {
+		if (relative && !ctx.relative) {
+			CGAssociateMouseAndMouseCursorPosition(NO);
+			CGDisplayHideCursor(kCGDirectMainDisplay);
 
-	} else if (!relative && ctx.relative) {
-		ctx.relative = false;
-		CGAssociateMouseAndMouseCursorPosition(YES);
-		CGDisplayShowCursor(kCGDirectMainDisplay);
+		} else if (!relative && ctx.relative) {
+			CGAssociateMouseAndMouseCursorPosition(YES);
+			CGDisplayShowCursor(kCGDirectMainDisplay);
+		}
+
+		ctx.relative = relative;
 	}
 }
 
