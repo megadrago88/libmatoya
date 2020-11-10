@@ -925,6 +925,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	[ctx setMinSize:NSMakeSize(desc->minWidth, desc->minHeight)];
 
 	content = [[View alloc] initWithFrame:[ctx contentRectForFrameRect:ctx.frame]];
+	[content setWantsBestResolutionOpenGLSurface:YES];
 	[ctx setContentView:content];
 
 	ctx.app.windows[window] = (__bridge void *) ctx;
