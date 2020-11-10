@@ -1197,7 +1197,6 @@ typedef struct {
 		uint32_t hotkey;
 		uint32_t trayID;
 		char text[8];
-		bool restart;
 		bool focus;
 
 		struct {
@@ -1256,7 +1255,7 @@ typedef struct {
 	uint32_t minHeight;
 	uint32_t x;
 	uint32_t y;
-	float creationHeight;
+	float maxHeight;
 	bool fullscreen;
 	bool hidden;
 } MTY_WindowDesc;

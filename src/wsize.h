@@ -7,12 +7,12 @@
 static void wsize_client(const MTY_WindowDesc *desc, float scale, int32_t screen_h,
 	int32_t *x, int32_t *y, int32_t *w, int32_t *h)
 {
-	if (desc->creationHeight > 0.0f && (float) desc->height * scale >
-		desc->creationHeight * (float) screen_h)
+	if (desc->maxHeight > 0.0f && (float) desc->height * scale >
+		desc->maxHeight * (float) screen_h)
 	{
 		float aspect = (float) desc->width / (float) desc->height;
-		*w = lrint((float) desc->height * aspect);
-		*h = lrint(desc->creationHeight * (float) screen_h);
+		*h = lrint(desc->maxHeight * (float) screen_h);
+		*w = lrint((float) *h * aspect);
 
 	} else {
 		*w = lrint((float) desc->width * scale);

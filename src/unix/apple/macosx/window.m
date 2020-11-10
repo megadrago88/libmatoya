@@ -117,8 +117,8 @@ static void app_show_main_window(App *ctx)
 	- (void)appRestart:(id)sender
 	{
 		MTY_Msg msg = {0};
-		msg.type = MTY_MSG_SHUTDOWN;
-		msg.restart = true;
+		msg.type = MTY_MSG_TRAY;
+		msg.trayID = 3;
 
 		self.msg_func(&msg, self.opaque);
 	}
