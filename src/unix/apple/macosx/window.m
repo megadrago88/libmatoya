@@ -356,15 +356,17 @@ static void window_mouse_event(Window *window, MTY_MouseButton button, bool pres
 
 static void window_warp_cursor(NSWindow *ctx, uint32_t x, int32_t y)
 {
-	CGFloat title_bar_h = ctx.frame.size.height - ctx.contentView.frame.size.height;
-	CGFloat window_bottom = ctx.screen.frame.origin.y + ctx.frame.origin.y + ctx.frame.size.height;
+	CGDirectDisplayID display = ((NSNumber *) [ctx.screen deviceDescription][@"NSScreenNumber"]).intValue;
+
+	CGFloat scale = ctx.screen.backingScaleFactor;
+	CGFloat client_top = ctx.screen.frame.size.height - ctx.frame.origin.y - ctx.contentView.frame.size.height;
+	CGFloat client_left = ctx.frame.origin.x;
 
 	NSPoint pscreen = {0};
-	CGFloat scale = ctx.screen.backingScaleFactor;
-	pscreen.x = ctx.screen.frame.origin.x + ctx.frame.origin.x + (CGFloat) x / scale;
-	pscreen.y = ctx.screen.frame.size.height - window_bottom + title_bar_h + (CGFloat) y / scale;
+	pscreen.x = client_left + (CGFloat) x / scale;
+	pscreen.y = client_top + (CGFloat) y / scale;
 
-	CGWarpMouseCursorPosition(pscreen);
+	CGDisplayMoveCursorToPoint(display, pscreen);
 	CGAssociateMouseAndMouseCursorPosition(YES); // Supposedly reduces latency
 }
 
