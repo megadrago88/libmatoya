@@ -28,10 +28,31 @@
 	@property bool grab_mouse;
 	@property bool default_cursor;
 	@property bool cursor_outside;
+	@property bool cursor_showing;
 	@property uint32_t cb_seq;
 	@property void **windows;
 	@property IOPMAssertionID assertion;
 @end
+
+static void app_show_cursor(App *ctx, bool show)
+{
+	if (!ctx.cursor_showing && show) {
+		[NSCursor unhide];
+
+	} else if (ctx.cursor_showing && !show) {
+		[NSCursor hide];
+	}
+
+	ctx.cursor_showing = show;
+}
+
+static void app_apply_relative(App *ctx)
+{
+	bool rel = ctx.relative && ctx.detach != MTY_DETACH_FULL;
+
+	CGAssociateMouseAndMouseCursorPosition(!rel);
+	app_show_cursor(ctx, !rel);
+}
 
 static void app_apply_cursor(App *ctx)
 {
@@ -39,11 +60,8 @@ static void app_apply_cursor(App *ctx)
 	NSCursor *new = ctx.default_cursor || ctx.cursor_outside || ctx.detach != MTY_DETACH_NONE ? arrow :
 		ctx.custom_cursor ? ctx.custom_cursor : arrow;
 
-	if (ctx.cursor)
-		[ctx.cursor pop];
-
 	ctx.cursor = new;
-	[ctx.cursor push];
+	[ctx.cursor set];
 }
 
 static void app_add_menu_item(NSMenu *menu, NSString *title, NSString *key, SEL sel)
@@ -320,7 +338,7 @@ static void window_warp_cursor(NSWindow *ctx, uint32_t x, int32_t y)
 	pscreen.y = ctx.screen.frame.size.height - window_bottom + title_bar_h + (CGFloat) y / scale;
 
 	CGWarpMouseCursorPosition(pscreen);
-	CGAssociateMouseAndMouseCursorPosition(YES);
+	CGAssociateMouseAndMouseCursorPosition(YES); // Supposedly reduces latency
 }
 
 static void window_confine_cursor(void)
@@ -365,7 +383,7 @@ static void window_motion_event(Window *window, NSEvent *event)
 		Window *cur = window_find_mouse(window, &p);
 
 		if (cur) {
-			if (window.app.grab_mouse && window.app.detach != MTY_DETACH_NONE && !cur.isKeyWindow) {
+			if (window.app.grab_mouse && window.app.detach == MTY_DETACH_NONE && !cur.isKeyWindow) {
 				window_confine_cursor();
 
 			} else {
@@ -379,7 +397,7 @@ static void window_motion_event(Window *window, NSEvent *event)
 				window.app.msg_func(&msg, window.app.opaque);
 			}
 
-		} else if ([NSApp isActive] && window.app.grab_mouse && window.app.detach != MTY_DETACH_NONE) {
+		} else if (window.app.grab_mouse && window.app.detach == MTY_DETACH_NONE) {
 			window_confine_cursor();
 		}
 	}
@@ -739,10 +757,6 @@ void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t 
 		NSImage *nsi = [[NSImage alloc] initWithData:data];
 
 		cursor = [[NSCursor alloc] initWithImage:nsi hotSpot:NSMakePoint(hotX, hotY)];
-
-	} else {
-		if (ctx.custom_cursor)
-			[ctx.custom_cursor pop];
 	}
 
 	ctx.custom_cursor = cursor;
@@ -768,6 +782,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	ctx.app_func = appFunc;
 	ctx.msg_func = msgFunc;
 	ctx.opaque = opaque;
+	ctx.cursor_showing = true;
 
 	ctx.windows = MTY_Alloc(MTY_WINDOW_MAX, sizeof(void *));
 	ctx.hotkey = MTY_HashCreate(0);
@@ -832,17 +847,7 @@ void MTY_AppDetach(MTY_App *app, MTY_Detach type)
 	ctx.detach = type;
 
 	app_apply_cursor(ctx);
-
-	if (ctx.relative) {
-		if (ctx.detach == MTY_DETACH_FULL) {
-			CGAssociateMouseAndMouseCursorPosition(YES);
-			CGDisplayShowCursor(kCGDirectMainDisplay);
-
-		} else {
-			CGAssociateMouseAndMouseCursorPosition(NO);
-			CGDisplayHideCursor(kCGDirectMainDisplay);
-		}
-	}
+	app_apply_relative(ctx);
 }
 
 MTY_Detach MTY_AppGetDetached(MTY_App *app)
@@ -881,20 +886,8 @@ void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 {
 	App *ctx = (__bridge App *) app;
 
-	// NOTE: Argument is unused in CGDisplayXXXCursor functions
-
-	if (ctx.detach != MTY_DETACH_FULL) {
-		if (relative && !ctx.relative) {
-			CGAssociateMouseAndMouseCursorPosition(NO);
-			CGDisplayHideCursor(kCGDirectMainDisplay);
-
-		} else if (!relative && ctx.relative) {
-			CGAssociateMouseAndMouseCursorPosition(YES);
-			CGDisplayShowCursor(kCGDirectMainDisplay);
-		}
-
-		ctx.relative = relative;
-	}
+	ctx.relative = relative;
+	app_apply_relative(ctx);
 }
 
 bool MTY_AppGetRelativeMouse(MTY_App *app)
@@ -1107,6 +1100,7 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 		return;
 
 	window_warp_cursor(ctx, x, y);
+	MTY_AppSetRelativeMouse(app, false);
 }
 
 bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
