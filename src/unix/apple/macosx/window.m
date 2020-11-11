@@ -17,6 +17,8 @@
 // NSApp
 
 @interface App : NSObject <NSApplicationDelegate, NSUserNotificationCenterDelegate>
+	@property(strong) NSCursor *custom_cursor;
+	@property(strong) NSCursor *cursor;
 	@property MTY_AppFunc app_func;
 	@property MTY_MsgFunc msg_func;
 	@property MTY_Hash *hotkey;
@@ -27,8 +29,6 @@
 	@property bool default_cursor;
 	@property bool cursor_outside;
 	@property uint32_t cb_seq;
-	@property NSCursor *custom_cursor;
-	@property NSCursor *cursor;
 	@property void **windows;
 	@property IOPMAssertionID assertion;
 @end
@@ -208,7 +208,7 @@ static Window *app_get_window(MTY_App *app, MTY_Window window)
 
 static Window *app_get_window_by_number(App *ctx, NSInteger number)
 {
-	for (uint8_t x = 0; x < MTY_WINDOW_MAX; x++) {
+	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++) {
 		if (ctx.windows[x]) {
 			Window *window = (__bridge Window *) ctx.windows[x];
 
@@ -573,7 +573,7 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 // NSView
 
 @interface View : NSView
-	@property NSTrackingArea *area;
+	@property(strong) NSTrackingArea *area;
 @end
 
 @implementation View : NSView
@@ -618,7 +618,7 @@ static void app_carbon_key(uint16_t kc, char *text, size_t len)
 
 		CFRelease(kb);
 
-		NSString *ns_str = CFBridgingRelease(CFStringCreateWithCharacters(kCFAllocatorDefault, chars, 1));
+		NSString *ns_str = (__bridge_transfer NSString *) CFStringCreateWithCharacters(kCFAllocatorDefault, chars, 1);
 		const char *c_str = [[ns_str uppercaseString] UTF8String];
 
 		snprintf(text, len, "%s", c_str);
@@ -686,11 +686,25 @@ void MTY_AppRemoveHotkeys(MTY_App *app, MTY_Hotkey mode)
 
 // Clipboard
 
+static void app_poll_clipboard(App *ctx)
+{
+	uint32_t cb_seq = [[NSPasteboard generalPasteboard] changeCount];
+
+	if (cb_seq > ctx.cb_seq) {
+		MTY_Msg msg = {0};
+		msg.type = MTY_MSG_CLIPBOARD;
+
+		ctx.msg_func(&msg, ctx.opaque);
+		ctx.cb_seq = cb_seq;
+	}
+}
+
 char *MTY_AppGetClipboard(MTY_App *app)
 {
 	char *text = NULL;
 
 	NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+
 	NSString *available = [pasteboard availableTypeFromArray:[NSArray arrayWithObject:NSPasteboardTypeString]];
 	if ([available isEqualToString:NSPasteboardTypeString]) {
 		NSString *string = [pasteboard stringForType:NSPasteboardTypeString];
@@ -706,6 +720,7 @@ void MTY_AppSetClipboard(MTY_App *app, const char *text)
 	App *ctx = (__bridge App *) app;
 
 	NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+
 	ctx.cb_seq = [pasteboard declareTypes:[NSArray arrayWithObject:NSPasteboardTypeString] owner:nil];
 	[pasteboard setString:[NSString stringWithUTF8String:text] forType:NSPasteboardTypeString];
 }
@@ -757,10 +772,12 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	ctx.windows = MTY_Alloc(MTY_WINDOW_MAX, sizeof(void *));
 	ctx.hotkey = MTY_HashCreate(0);
 
+	ctx.cb_seq = [[NSPasteboard generalPasteboard] changeCount];
+
 	[NSApplication sharedApplication];
 	[NSApp setDelegate:ctx];
 
-	return (MTY_App *) CFBridgingRetain(ctx);
+	return (__bridge_retained MTY_App *) ctx;
 }
 
 void MTY_AppDestroy(MTY_App **app)
@@ -768,19 +785,18 @@ void MTY_AppDestroy(MTY_App **app)
 	if (!app || !*app)
 		return;
 
-	App *ctx = (App *) CFBridgingRelease(*app);
-	for (int8_t x = 0; x < MTY_WINDOW_MAX; x++)
+	App *ctx = (__bridge_transfer App *) *app;
+
+	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
 		MTY_WindowDestroy(*app, x);
+
+	MTY_Free(ctx.windows);
 
 	MTY_Hash *h = ctx.hotkey;
 	MTY_HashDestroy(&h, NULL);
 	ctx.hotkey = NULL;
 
-	MTY_Free(ctx.windows);
-
 	[NSApp terminate:ctx];
-	ctx = nil;
-
 	*app = NULL;
 }
 
@@ -801,6 +817,8 @@ void MTY_AppRun(MTY_App *app)
 
 				[NSApp sendEvent:event];
 			}
+
+			app_poll_clipboard(ctx);
 
 			cont = ctx.app_func(ctx.opaque);
 		}
