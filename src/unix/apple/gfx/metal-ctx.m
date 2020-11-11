@@ -91,23 +91,24 @@ void gfx_metal_ctx_destroy(struct gfx_ctx **gfx_ctx)
 
 	MTY_RendererDestroy(&ctx->renderer);
 
-	ctx->layer = nil;
-	ctx->cq = nil;
-	ctx->semaphore = nil;
-	ctx->back_buffer = nil;
-
 	if (ctx->window) {
 		ctx->window.contentView.layer = nil;
 		ctx->window.contentView.wantsLayer = NO;
 		ctx->window = nil;
 	}
 
+	// NOTE: The display link thread uses the semaphore, do not 'nil' it before this is stopped
 	if (ctx->display_link) {
 		if (CVDisplayLinkIsRunning(ctx->display_link))
 			CVDisplayLinkStop(ctx->display_link);
 
 		CVDisplayLinkRelease(ctx->display_link);
 	}
+
+	ctx->layer = nil;
+	ctx->cq = nil;
+	ctx->semaphore = nil;
+	ctx->back_buffer = nil;
 
 	MTY_Free(ctx);
 	*gfx_ctx = NULL;
