@@ -70,11 +70,6 @@ static void app_add_menu_item(NSMenu *menu, NSString *title, NSString *key, SEL 
 	[menu addItem:item];
 }
 
-static void app_add_menu_separator(NSMenu *menu)
-{
-	[menu addItem:[NSMenuItem separatorItem]];
-}
-
 static void app_show_main_window(App *ctx)
 {
 	NSArray<NSWindow *> *windows = [NSApp windows];
@@ -158,7 +153,7 @@ static void app_show_main_window(App *ctx)
 
 		app_add_menu_item(menu, @"Quit", @"q", @selector(appQuit:));
 		app_add_menu_item(menu, @"Restart", @"", @selector(appRestart:));
-		app_add_menu_separator(menu);
+		[menu addItem:[NSMenuItem separatorItem]];
 		app_add_menu_item(menu, @"Minimize", @"m", @selector(appMinimize:));
 		app_add_menu_item(menu, @"Close", @"w", @selector(appClose:));
 
