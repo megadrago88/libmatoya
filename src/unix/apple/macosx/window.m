@@ -256,14 +256,42 @@ static MTY_Msg window_msg(Window *window, MTY_MsgType type)
 	return msg;
 }
 
+static NSPoint window_mouse_pos(NSWindow *window)
+{
+	NSPoint p = [NSEvent mouseLocation];
+
+	p.x -= window.frame.origin.x;
+	p.y = window.frame.size.height - p.y + window.frame.origin.y;
+
+	return p;
+}
+
+static NSPoint window_client_mouse_pos(NSWindow *window)
+{
+	NSPoint p = [window mouseLocationOutsideOfEventStream];
+
+	p.y = window.contentView.frame.size.height - p.y;
+
+	return p;
+}
+
+static bool window_hit_test(NSPoint *p, NSSize s)
+{
+	return p->x >= 0 && p->y >= 0 && p->x < s.width && p->y < s.height;
+}
+
 static bool window_event_in_view(NSWindow *window, NSPoint *p)
 {
-	*p = [window mouseLocationOutsideOfEventStream];
-	NSSize size = window.contentView.frame.size;
+	*p = window_client_mouse_pos(window);
 
-	p->y = size.height - p->y;
+	return window_hit_test(p, window.contentView.frame.size);
+}
 
-	return p->x >= 0 && p->y >= 0 && p->x < size.width && p->y < size.height;
+static bool window_event_in_nc(NSWindow *window)
+{
+	NSPoint p = window_mouse_pos(window);
+
+	return window_hit_test(&p, window.frame.size);
 }
 
 static Window *window_find_mouse(Window *me, NSPoint *p)
@@ -285,8 +313,10 @@ static Window *window_find_mouse(Window *me, NSPoint *p)
 			}
 
 			if (!top && !key_hit) {
-				*p = wp;
-				top = window;
+				if (!window_event_in_nc([NSApp keyWindow])) {
+					*p = wp;
+					top = window;
+				}
 			}
 
 			if (window.isKeyWindow) {
