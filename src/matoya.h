@@ -1274,7 +1274,7 @@ MTY_EXPORT void
 MTY_AppDestroy(MTY_App **app);
 
 MTY_EXPORT void
-MTY_AppRun(MTY_App *ctx);
+MTY_AppRun(MTY_App *ctx, uint32_t fgTimeout, uint32_t bgTimeout);
 
 MTY_EXPORT bool
 MTY_AppIsActive(MTY_App *ctx);

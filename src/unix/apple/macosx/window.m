@@ -64,27 +64,16 @@ static void app_apply_cursor(App *ctx)
 	[ctx.cursor set];
 }
 
-static void app_show_main_window(App *ctx)
+static void app_poll_clipboard(App *ctx)
 {
-	NSArray<NSWindow *> *windows = [NSApp windows];
+	uint32_t cb_seq = [[NSPasteboard generalPasteboard] changeCount];
 
-	if (windows.count > 0)
-		[windows[0] makeKeyAndOrderFront:ctx];
-}
+	if (cb_seq > ctx.cb_seq) {
+		MTY_Msg msg = {0};
+		msg.type = MTY_MSG_CLIPBOARD;
 
-static void app_activate(App *ctx, bool active)
-{
-	if (active) {
-		if ([NSApp isHidden]) {
-			[NSApp unhide:ctx];
-
-		} else {
-			[NSApp activateIgnoringOtherApps:YES];
-			app_show_main_window(ctx);
-		}
-
-	} else {
-		[NSApp hide:ctx];
+		ctx.msg_func(&msg, ctx.opaque);
+		ctx.cb_seq = cb_seq;
 	}
 }
 
@@ -104,10 +93,11 @@ static void app_activate(App *ctx, bool active)
 			andEventID:kAEGetURL];
 	}
 
-	- (void)applicationDidUnhide:(NSNotification *)notification
+	- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag
 	{
-		[NSApp activateIgnoringOtherApps:YES];
-		app_show_main_window(self);
+		MTY_AppActivate((__bridge MTY_App *) self, true);
+
+		return NO;
 	}
 
 	- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
@@ -147,6 +137,23 @@ static void app_activate(App *ctx, bool active)
 		[[NSApp keyWindow] miniaturize:self];
 	}
 
+	- (void)appFunc:(NSTimer *)timer
+	{
+		app_poll_clipboard(self);
+
+		if (!self.app_func(self.opaque)) {
+			[timer invalidate];
+			[NSApp stop:self];
+
+			// Post a dummy event to spin [NSApp run] after stop
+			NSEvent *dummy = [NSEvent otherEventWithType:NSApplicationDefined location:NSMakePoint(0, 0)
+				modifierFlags:0 timestamp:[[NSDate date] timeIntervalSince1970] windowNumber:0
+				context:nil subtype:0 data1:0 data2:0];
+
+			[NSApp postEvent:dummy atStart:YES];
+		}
+	}
+
 	- (void)applicationDidFinishLaunching:(NSNotification *)notification
 	{
 		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
@@ -169,13 +176,6 @@ static void app_activate(App *ctx, bool active)
 		[submenu setSubmenu:menu];
 
 		[NSApp setMainMenu:menubar];
-	}
-
-	- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag
-	{
-		app_activate(self, true);
-
-		return NO;
 	}
 
 	- (void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent
@@ -728,19 +728,6 @@ void MTY_AppRemoveHotkeys(MTY_App *app, MTY_Hotkey mode)
 
 // Clipboard
 
-static void app_poll_clipboard(App *ctx)
-{
-	uint32_t cb_seq = [[NSPasteboard generalPasteboard] changeCount];
-
-	if (cb_seq > ctx.cb_seq) {
-		MTY_Msg msg = {0};
-		msg.type = MTY_MSG_CLIPBOARD;
-
-		ctx.msg_func(&msg, ctx.opaque);
-		ctx.cb_seq = cb_seq;
-	}
-}
-
 char *MTY_AppGetClipboard(MTY_App *app)
 {
 	char *text = NULL;
@@ -839,26 +826,14 @@ void MTY_AppDestroy(MTY_App **app)
 	*app = NULL;
 }
 
-void MTY_AppRun(MTY_App *app)
+void MTY_AppRun(MTY_App *app, uint32_t fgTimeout, uint32_t bgTimeout)
 {
 	App *ctx = (__bridge App *) app;
 
-	[NSApp finishLaunching];
+	[NSTimer scheduledTimerWithTimeInterval:(float) fgTimeout / 1000.0f
+		target:ctx selector:@selector(appFunc:) userInfo:nil repeats:YES];
 
-	do { @autoreleasepool {
-		while (true) {
-			NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:nil
-				inMode:NSDefaultRunLoopMode dequeue:YES];
-
-			if (!event)
-				break;
-
-			[NSApp sendEvent:event];
-		}
-
-		app_poll_clipboard(ctx);
-
-	}} while (ctx.app_func(ctx.opaque));
+	[NSApp run];
 }
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
@@ -925,9 +900,19 @@ bool MTY_AppIsActive(MTY_App *app)
 
 void MTY_AppActivate(MTY_App *app, bool active)
 {
-	App *ctx = (__bridge App *) app;
+	if (active) {
+		for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
+			MTY_WindowActivate(app, x, true);
 
-	app_activate(ctx, active);
+		[NSApp activateIgnoringOtherApps:YES];
+
+	} else {
+		// XXX Important! [NSApp hide:] seems to crash if windows are not ordered out first!
+		for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
+			MTY_WindowActivate(app, x, false);
+
+		[NSApp hide:nil];
+	}
 }
 
 void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
