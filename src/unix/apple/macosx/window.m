@@ -153,17 +153,21 @@ static void app_activate(App *ctx, bool active)
 		[NSApp activateIgnoringOtherApps:YES];
 
 		NSMenu *menubar = [NSMenu new];
-		NSMenuItem *item = [NSMenuItem new];
-		NSMenu *menu = [NSMenu new];
-		[menubar addItem:item];
 
-		[menu addItem:[[NSMenuItem alloc] initWithTitle:@"Quit" action:@selector(appQuit) keyEquivalent:@"q"]];
+		NSMenuItem *submenu = [NSMenuItem new];
+		[menubar addItem:submenu];
+		NSMenu *menu = [NSMenu new];
 		[menu addItem:[[NSMenuItem alloc] initWithTitle:@"Restart" action:@selector(appRestart) keyEquivalent:@""]];
-		[menu addItem:[NSMenuItem separatorItem]];
+		[menu addItem:[[NSMenuItem alloc] initWithTitle:@"Quit" action:@selector(appQuit) keyEquivalent:@"q"]];
+		[submenu setSubmenu:menu];
+
+		submenu = [NSMenuItem new];
+		[menubar addItem:submenu];
+		menu = [[NSMenu alloc] initWithTitle:@"Window"];
 		[menu addItem:[[NSMenuItem alloc] initWithTitle:@"Minimize" action:@selector(appMinimize) keyEquivalent:@"m"]];
 		[menu addItem:[[NSMenuItem alloc] initWithTitle:@"Close" action:@selector(appClose) keyEquivalent:@"w"]];
+		[submenu setSubmenu:menu];
 
-		[item setSubmenu:menu];
 		[NSApp setMainMenu:menubar];
 	}
 
