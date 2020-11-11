@@ -19,6 +19,7 @@
 @interface App : NSObject <NSApplicationDelegate, NSUserNotificationCenterDelegate>
 	@property(strong) NSCursor *custom_cursor;
 	@property(strong) NSCursor *cursor;
+	@property IOPMAssertionID assertion;
 	@property MTY_AppFunc app_func;
 	@property MTY_MsgFunc msg_func;
 	@property MTY_Hash *hotkey;
@@ -31,7 +32,6 @@
 	@property bool cursor_showing;
 	@property uint32_t cb_seq;
 	@property void **windows;
-	@property IOPMAssertionID assertion;
 @end
 
 static void app_show_cursor(App *ctx, bool show)
@@ -76,6 +76,22 @@ static void app_show_main_window(App *ctx)
 
 	if (windows.count > 0)
 		[windows[0] makeKeyAndOrderFront:ctx];
+}
+
+static void app_activate(App *ctx, bool active)
+{
+	if (active) {
+		if ([NSApp isHidden]) {
+			[NSApp unhide:ctx];
+
+		} else {
+			[NSApp activateIgnoringOtherApps:YES];
+			app_show_main_window(ctx);
+		}
+
+	} else {
+		[NSApp hide:ctx];
+	}
 }
 
 @implementation App : NSObject
@@ -127,7 +143,7 @@ static void app_show_main_window(App *ctx)
 	{
 		MTY_Msg msg = {0};
 		msg.type = MTY_MSG_TRAY;
-		msg.trayID = 3;
+		msg.trayID = 3; // FIXME Arbitrary!
 
 		self.msg_func(&msg, self.opaque);
 	}
@@ -139,17 +155,13 @@ static void app_show_main_window(App *ctx)
 
 	- (void)applicationDidFinishLaunching:(NSNotification *)notification
 	{
-		// Activation policy of a regular app
 		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-
-		// This makes the app show up in the dock and focusses it
 		[NSApp activateIgnoringOtherApps:YES];
 
-		// Main menu
-		NSMenu *menubar = [NSMenu alloc];
-		NSMenuItem *item = [NSMenuItem alloc];
+		NSMenu *menubar = [NSMenu new];
+		NSMenuItem *item = [NSMenuItem new];
+		NSMenu *menu = [NSMenu new];
 		[menubar addItem:item];
-		NSMenu *menu = [NSMenu alloc];
 
 		app_add_menu_item(menu, @"Quit", @"q", @selector(appQuit:));
 		app_add_menu_item(menu, @"Restart", @"", @selector(appRestart:));
@@ -163,13 +175,7 @@ static void app_show_main_window(App *ctx)
 
 	- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag
 	{
-		if ([NSApp isHidden]) {
-			[NSApp unhide:self];
-
-		} else {
-			[NSApp activateIgnoringOtherApps:YES];
-			app_show_main_window(self);
-		}
+		app_activate(self, true);
 
 		return NO;
 	}
@@ -189,10 +195,10 @@ static void app_show_main_window(App *ctx)
 
 	- (NSMenu *)applicationDockMenu:(NSApplication *)sender
 	{
-		NSMenu *menubar = [NSMenu alloc];
-		NSMenuItem *item = [NSMenuItem alloc];
+		NSMenu *menubar = [NSMenu new];
+		NSMenuItem *item = [NSMenuItem new];
+		NSMenu *menu = [NSMenu new];
 		[menubar addItem:item];
-		NSMenu *menu = [NSMenu alloc];
 
 		app_add_menu_item(menu, @"Restart", @"", @selector(appRestart:));
 
@@ -310,7 +316,7 @@ static void window_mouse_event(Window *window, MTY_MouseButton button, bool pres
 			msg.mouseMotion.x = lrint(scale * p.x);
 			msg.mouseMotion.y = lrint(scale * p.y);
 
-			window.app.msg_func(&msg, cur.app.opaque);
+			window.app.msg_func(&msg, window.app.opaque);
 		}
 
 		MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_BUTTON);
@@ -318,7 +324,6 @@ static void window_mouse_event(Window *window, MTY_MouseButton button, bool pres
 		msg.mouseButton.button = button;
 
 		window.app.msg_func(&msg, window.app.opaque);
-
 	}
 }
 
@@ -597,13 +602,13 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 
 	- (void)updateTrackingAreas
 	{
-		if (_area)
-			[self removeTrackingArea:_area];
+		if (self.area)
+			[self removeTrackingArea:self.area];
 
 		NSTrackingAreaOptions options = NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved | NSTrackingActiveAlways;
-		_area = [[NSTrackingArea alloc] initWithRect:self.bounds options:options owner:self.window userInfo:nil];
+		self.area = [[NSTrackingArea alloc] initWithRect:self.bounds options:options owner:self.window userInfo:nil];
 
-		[self addTrackingArea:_area];
+		[self addTrackingArea:self.area];
 
 		[super updateTrackingAreas];
 	}
@@ -629,12 +634,10 @@ static void app_carbon_key(uint16_t kc, char *text, size_t len)
 		UCKeyTranslate(layout, kc, kUCKeyActionDown, 0, LMGetKbdLast(),
 			kUCKeyTranslateNoDeadKeysBit, &dead_key_state, 8, &out_len, chars);
 
+		NSString *str = (__bridge_transfer NSString *) CFStringCreateWithCharacters(kCFAllocatorDefault, chars, 1);
+		snprintf(text, len, "%s", [[str uppercaseString] UTF8String]);
+
 		CFRelease(kb);
-
-		NSString *ns_str = (__bridge_transfer NSString *) CFStringCreateWithCharacters(kCFAllocatorDefault, chars, 1);
-		const char *c_str = [[ns_str uppercaseString] UTF8String];
-
-		snprintf(text, len, "%s", c_str);
 	}
 }
 
@@ -679,21 +682,17 @@ void MTY_AppSetHotkey(MTY_App *app, MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancod
 	App *ctx = (__bridge App *) app;
 
 	mod &= 0xFF;
-
-	if (mode == MTY_HOTKEY_LOCAL)
-		MTY_HashSetInt(ctx.hotkey, (mod << 16) | scancode, (void *) (uintptr_t) id);
+	MTY_HashSetInt(ctx.hotkey, (mod << 16) | scancode, (void *) (uintptr_t) id);
 }
 
 void MTY_AppRemoveHotkeys(MTY_App *app, MTY_Hotkey mode)
 {
 	App *ctx = (__bridge App *) app;
 
-	if (mode == MTY_HOTKEY_LOCAL) {
-		MTY_Hash *h = ctx.hotkey;
-		MTY_HashDestroy(&h, NULL);
+	MTY_Hash *h = ctx.hotkey;
+	MTY_HashDestroy(&h, NULL);
 
-		ctx.hotkey = MTY_HashCreate(0);
-	}
+	ctx.hotkey = MTY_HashCreate(0);
 }
 
 
@@ -816,23 +815,20 @@ void MTY_AppRun(MTY_App *app)
 
 	[NSApp finishLaunching];
 
-	for (bool cont = true; cont;) {
-		@autoreleasepool {
-			while (true) {
-				NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:nil
-					inMode:NSDefaultRunLoopMode dequeue:YES];
+	do { @autoreleasepool {
+		while (true) {
+			NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:nil
+				inMode:NSDefaultRunLoopMode dequeue:YES];
 
-				if (!event)
-					break;
+			if (!event)
+				break;
 
-				[NSApp sendEvent:event];
-			}
-
-			app_poll_clipboard(ctx);
-
-			cont = ctx.app_func(ctx.opaque);
+			[NSApp sendEvent:event];
 		}
-	}
+
+		app_poll_clipboard(ctx);
+
+	}} while (ctx.app_func(ctx.opaque));
 }
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
@@ -901,17 +897,7 @@ void MTY_AppActivate(MTY_App *app, bool active)
 {
 	App *ctx = (__bridge App *) app;
 
-	if (active) {
-		if ([NSApp isHidden]) {
-			[NSApp unhide:ctx];
-
-		} else {
-			[NSApp activateIgnoringOtherApps:YES];
-		}
-
-	} else {
-		[NSApp hide:ctx];
-	}
+	app_activate(ctx, active);
 }
 
 void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
@@ -929,7 +915,6 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	Window *ctx = nil;
 	View *content = nil;
-	NSScreen *screen = nil;
 
 	window = app_find_open_window(app);
 	if (window == -1) {
@@ -938,8 +923,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 		goto except;
 	}
 
-	screen = [NSScreen mainScreen];
-	CGSize size = screen.frame.size;
+	CGSize size = [NSScreen mainScreen].frame.size;
 
 	int32_t x = desc->x;
 	int32_t y = -desc->y;
@@ -956,6 +940,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 		NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable;
 
 	ctx = [[Window alloc] initWithContentRect:rect styleMask:style backing:NSBackingStoreBuffered defer:NO];
+	ctx.title = [NSString stringWithUTF8String:title];
 	ctx.window = window;
 	ctx.app = (__bridge App *) app;
 
@@ -969,8 +954,6 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	[ctx setContentView:content];
 
 	ctx.app.windows[window] = (__bridge void *) ctx;
-
-	ctx.title = [NSString stringWithUTF8String:title];
 
 	if (!desc->hidden)
 		MTY_WindowActivate(app, window, true);
