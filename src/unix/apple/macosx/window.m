@@ -32,7 +32,14 @@
 	@property bool cursor_showing;
 	@property uint32_t cb_seq;
 	@property void **windows;
+	@property float timeout;
 @end
+
+static void app_schedule_func(App *ctx)
+{
+	[NSTimer scheduledTimerWithTimeInterval:ctx.timeout
+		target:ctx selector:@selector(appFunc:) userInfo:nil repeats:NO];
+}
 
 static void app_show_cursor(App *ctx, bool show)
 {
@@ -142,7 +149,6 @@ static void app_poll_clipboard(App *ctx)
 		app_poll_clipboard(self);
 
 		if (!self.app_func(self.opaque)) {
-			[timer invalidate];
 			[NSApp stop:self];
 
 			// Post a dummy event to spin [NSApp run] after stop
@@ -151,6 +157,9 @@ static void app_poll_clipboard(App *ctx)
 				context:nil subtype:0 data1:0 data2:0];
 
 			[NSApp postEvent:dummy atStart:YES];
+
+		} else {
+			app_schedule_func(self);
 		}
 	}
 
@@ -826,14 +835,19 @@ void MTY_AppDestroy(MTY_App **app)
 	*app = NULL;
 }
 
-void MTY_AppRun(MTY_App *app, uint32_t fgTimeout, uint32_t bgTimeout)
+void MTY_AppRun(MTY_App *app)
 {
 	App *ctx = (__bridge App *) app;
 
-	[NSTimer scheduledTimerWithTimeInterval:(float) fgTimeout / 1000.0f
-		target:ctx selector:@selector(appFunc:) userInfo:nil repeats:YES];
-
+	app_schedule_func(ctx);
 	[NSApp run];
+}
+
+void MTY_AppSetTimeout(MTY_App *app, uint32_t timeout)
+{
+	App *ctx = (__bridge App *) app;
+
+	ctx.timeout = (float) timeout / 1000.0f;
 }
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
