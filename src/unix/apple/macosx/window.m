@@ -915,6 +915,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	Window *ctx = nil;
 	View *content = nil;
+	NSScreen *screen = [NSScreen mainScreen];
 
 	window = app_find_open_window(app);
 	if (window == -1) {
@@ -923,7 +924,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 		goto except;
 	}
 
-	CGSize size = [NSScreen mainScreen].frame.size;
+	CGSize size = screen.frame.size;
 
 	int32_t x = desc->x;
 	int32_t y = -desc->y;
@@ -939,7 +940,8 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
 		NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable;
 
-	ctx = [[Window alloc] initWithContentRect:rect styleMask:style backing:NSBackingStoreBuffered defer:NO];
+	ctx = [[Window alloc] initWithContentRect:rect styleMask:style
+		backing:NSBackingStoreBuffered defer:NO screen:screen];
 	ctx.title = [NSString stringWithUTF8String:title];
 	ctx.window = window;
 	ctx.app = (__bridge App *) app;
@@ -1087,7 +1089,7 @@ bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
 	if (!ctx)
 		return false;
 
-	return ctx.isVisible;
+	return ctx.occlusionState & NSWindowOcclusionStateVisible;
 }
 
 bool MTY_WindowIsActive(MTY_App *app, MTY_Window window)
