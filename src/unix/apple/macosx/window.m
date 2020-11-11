@@ -64,12 +64,6 @@ static void app_apply_cursor(App *ctx)
 	[ctx.cursor set];
 }
 
-static void app_add_menu_item(NSMenu *menu, NSString *title, NSString *key, SEL sel)
-{
-	NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:title action:sel keyEquivalent:key];
-	[menu addItem:item];
-}
-
 static void app_show_main_window(App *ctx)
 {
 	NSArray<NSWindow *> *windows = [NSApp windows];
@@ -126,7 +120,7 @@ static void app_activate(App *ctx, bool active)
 		return NSTerminateCancel;
 	}
 
-	- (void)appQuit:(id)sender
+	- (void)appQuit
 	{
 		MTY_Msg msg = {0};
 		msg.type = MTY_MSG_QUIT;
@@ -134,12 +128,12 @@ static void app_activate(App *ctx, bool active)
 		self.msg_func(&msg, self.opaque);
 	}
 
-	- (void)appClose:(id)sender
+	- (void)appClose
 	{
 		[[NSApp keyWindow] performClose:self];
 	}
 
-	- (void)appRestart:(id)sender
+	- (void)appRestart
 	{
 		MTY_Msg msg = {0};
 		msg.type = MTY_MSG_TRAY;
@@ -148,7 +142,7 @@ static void app_activate(App *ctx, bool active)
 		self.msg_func(&msg, self.opaque);
 	}
 
-	- (void)appMinimize:(id)sender
+	- (void)appMinimize
 	{
 		[[NSApp keyWindow] miniaturize:self];
 	}
@@ -163,11 +157,11 @@ static void app_activate(App *ctx, bool active)
 		NSMenu *menu = [NSMenu new];
 		[menubar addItem:item];
 
-		app_add_menu_item(menu, @"Quit", @"q", @selector(appQuit:));
-		app_add_menu_item(menu, @"Restart", @"", @selector(appRestart:));
+		[menu addItem:[[NSMenuItem alloc] initWithTitle:@"Quit" action:@selector(appQuit) keyEquivalent:@"q"]];
+		[menu addItem:[[NSMenuItem alloc] initWithTitle:@"Restart" action:@selector(appRestart) keyEquivalent:@""]];
 		[menu addItem:[NSMenuItem separatorItem]];
-		app_add_menu_item(menu, @"Minimize", @"m", @selector(appMinimize:));
-		app_add_menu_item(menu, @"Close", @"w", @selector(appClose:));
+		[menu addItem:[[NSMenuItem alloc] initWithTitle:@"Minimize" action:@selector(appMinimize) keyEquivalent:@"m"]];
+		[menu addItem:[[NSMenuItem alloc] initWithTitle:@"Close" action:@selector(appClose) keyEquivalent:@"w"]];
 
 		[item setSubmenu:menu];
 		[NSApp setMainMenu:menubar];
@@ -200,8 +194,7 @@ static void app_activate(App *ctx, bool active)
 		NSMenu *menu = [NSMenu new];
 		[menubar addItem:item];
 
-		app_add_menu_item(menu, @"Restart", @"", @selector(appRestart:));
-
+		[menu addItem:[[NSMenuItem alloc] initWithTitle:@"Restart" action:@selector(appRestart) keyEquivalent:@""]];
 		[item setSubmenu:menu];
 
 		return menu;
