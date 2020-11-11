@@ -359,8 +359,9 @@ static void window_warp_cursor(NSWindow *ctx, uint32_t x, int32_t y)
 	CGDirectDisplayID display = ((NSNumber *) [ctx.screen deviceDescription][@"NSScreenNumber"]).intValue;
 
 	CGFloat scale = ctx.screen.backingScaleFactor;
-	CGFloat client_top = ctx.screen.frame.size.height - ctx.frame.origin.y - ctx.contentView.frame.size.height;
-	CGFloat client_left = ctx.frame.origin.x;
+	CGFloat client_top = ctx.screen.frame.size.height - ctx.frame.origin.y +
+		ctx.screen.frame.origin.y - ctx.contentView.frame.size.height;
+	CGFloat client_left = ctx.frame.origin.x - ctx.screen.frame.origin.x;
 
 	NSPoint pscreen = {0};
 	pscreen.x = client_left + (CGFloat) x / scale;
