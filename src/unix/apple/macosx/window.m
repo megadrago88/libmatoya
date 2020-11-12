@@ -12,7 +12,8 @@
 
 #include "wsize.h"
 #include "scancode.h"
-#include "hid.h"
+#include "hid/hid.h"
+#include "hid/driver.h"
 
 
 // NSApp
@@ -798,15 +799,56 @@ void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 
 // App
 
+static void app_hid_connect(struct hdevice *device, void *opaque)
+{
+	App *ctx = (__bridge App *) opaque;
+
+	hid_driver_init(device);
+
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_CONNECT;
+	msg.controller.vid = hid_device_get_vid(device);
+	msg.controller.pid = hid_device_get_pid(device);
+	msg.controller.id = hid_device_get_id(device);
+
+	ctx.msg_func(&msg, ctx.opaque);
+}
+
+static void app_hid_disconnect(struct hdevice *device, void *opaque)
+{
+	App *ctx = (__bridge App *) opaque;
+
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_DISCONNECT;
+	msg.controller.vid = hid_device_get_vid(device);
+	msg.controller.pid = hid_device_get_pid(device);
+	msg.controller.id = hid_device_get_id(device);
+
+	ctx.msg_func(&msg, ctx.opaque);
+}
+
+static void app_hid_report(struct hdevice *device, const void *buf, size_t size, void *opaque)
+{
+	App *ctx = (__bridge App *) opaque;
+
+	MTY_Msg msg = {0};
+	hid_driver_state(device, buf, size, &msg);
+
+	if (msg.type != MTY_MSG_NONE)
+		ctx.msg_func(&msg, ctx.opaque);
+}
+
 MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 {
 	App *ctx = [App new];
+	MTY_App *app = (__bridge_retained MTY_App *) ctx;
+
 	ctx.app_func = appFunc;
 	ctx.msg_func = msgFunc;
 	ctx.opaque = opaque;
 	ctx.cursor_showing = true;
 
-	ctx.hid = hid_create();
+	ctx.hid = hid_create(app_hid_connect, app_hid_disconnect, app_hid_report, app);
 
 	ctx.windows = MTY_Alloc(MTY_WINDOW_MAX, sizeof(void *));
 	ctx.hotkey = MTY_HashCreate(0);
@@ -816,7 +858,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	[NSApplication sharedApplication];
 	[NSApp setDelegate:ctx];
 
-	return (__bridge_retained MTY_App *) ctx;
+	return app;
 }
 
 void MTY_AppDestroy(MTY_App **app)
@@ -939,7 +981,9 @@ void MTY_AppActivate(MTY_App *app, bool active)
 
 void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {
-	// TODO
+	App *ctx = (__bridge App *) app;
+
+	hid_driver_rumble(ctx.hid, id, low, high);
 }
 
 

@@ -152,6 +152,7 @@ ifeq ($(TARGET), macosx)
 MIN_VER = 10.11
 
 OBJS := $(OBJS) \
+	src/unix/apple/macosx/hid.o \
 	src/unix/apple/gfx/metal-ctx.o \
 	src/unix/apple/gfx/gl-ctx.o
 
