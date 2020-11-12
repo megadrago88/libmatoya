@@ -12,6 +12,7 @@
 
 #include "wsize.h"
 #include "scancode.h"
+#include "hid.h"
 
 
 // NSApp
@@ -33,6 +34,7 @@
 	@property uint32_t cb_seq;
 	@property void **windows;
 	@property float timeout;
+	@property struct hid *hid;
 @end
 
 static void app_schedule_func(App *ctx)
@@ -804,6 +806,8 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	ctx.opaque = opaque;
 	ctx.cursor_showing = true;
 
+	ctx.hid = hid_create();
+
 	ctx.windows = MTY_Alloc(MTY_WINDOW_MAX, sizeof(void *));
 	ctx.hotkey = MTY_HashCreate(0);
 
@@ -826,6 +830,10 @@ void MTY_AppDestroy(MTY_App **app)
 		MTY_WindowDestroy(*app, x);
 
 	MTY_Free(ctx.windows);
+
+	struct hid *hid = ctx.hid;
+	hid_destroy(&hid);
+	ctx.hid = NULL;
 
 	MTY_Hash *h = ctx.hotkey;
 	MTY_HashDestroy(&h, NULL);
