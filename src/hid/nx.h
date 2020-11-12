@@ -386,7 +386,7 @@ static void hid_nx_state_machine(struct hdevice *device)
 	struct nx_state *ctx = hid_device_get_state(device);
 
 	int64_t now = MTY_Timestamp();
-	bool timeout = MTY_TimeDiff(ctx->write_ts, now) > 500.0f;
+	bool timeout = MTY_TimeDiff(ctx->write_ts, now) > 1000.0f;
 
 	// USB Handshake is used to decide whether we're dealing with bluetooth or not
 	if (!ctx->usb && !ctx->bluetooth && timeout)
@@ -419,6 +419,13 @@ static void hid_nx_state_machine(struct hdevice *device)
 			}
 		}
 
+		// Set to full / simple report mode
+		if (ctx->wready && !ctx->mode) {
+			uint8_t mode = ctx->bluetooth ? 0x3F : 0x30;
+			hid_nx_write_command(device, 0x03, &mode, 1);
+			ctx->mode = true;
+		}
+
 		// Calibration (SPI Flash Read)
 		if (ctx->wready && !ctx->calibration) {
 			struct nx_spi_op op = {0x603D, 18};
@@ -431,13 +438,6 @@ static void hid_nx_state_machine(struct hdevice *device)
 			uint8_t enabled = 1;
 			hid_nx_write_command(device, 0x48, &enabled, 1);
 			ctx->vibration = true;
-		}
-
-		// Set to full / simple report mode
-		if (ctx->wready && !ctx->mode) {
-			uint8_t mode = ctx->bluetooth ? 0x3F : 0x30;
-			hid_nx_write_command(device, 0x03, &mode, 1);
-			ctx->mode = true;
 		}
 
 		// Home LED
@@ -483,10 +483,9 @@ static void hid_nx_state(struct hdevice *device, const void *data, size_t dsize,
 		ctx->usb = true;
 
 	// Subcommand Response
-	} else if (d[0] == 0x21) {
+	} else if (d[0] == 0x21 && ctx->calibration && !ctx->calibrated) {
 		uint8_t subcommand = d[14];
 		const uint8_t *payload = d + 15;
-		ctx->wready = true;
 
 		switch (subcommand) {
 			// SPI Flash Read
@@ -495,6 +494,7 @@ static void hid_nx_state(struct hdevice *device, const void *data, size_t dsize,
 				hid_nx_parse_stick(spi, 6, 3, 0, &ctx->lx, &ctx->ly);
 				hid_nx_parse_stick(spi, 12, 9, 15, &ctx->rx, &ctx->ry);
 				ctx->calibrated = true;
+				ctx->wready = true;
 				break;
 			}
 		}
