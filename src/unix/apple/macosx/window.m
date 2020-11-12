@@ -94,6 +94,21 @@ static void app_poll_clipboard(App *ctx)
 		return YES;
 	}
 
+	- (void)applicationWillHide:(NSNotification *)notification
+	{
+		// XXX Important! [NSApp hide:] seems to crash if windows are not ordered out first!
+		NSArray<NSWindow *> *windows = [NSApp windows];
+		for (uint32_t x = 0; x < windows.count; x++)
+			[windows[x] orderOut:self];
+	}
+
+	- (void)applicationWillUnhide:(NSNotification *)notification
+	{
+		NSArray<NSWindow *> *windows = [NSApp windows];
+		for (uint32_t x = 0; x < windows.count; x++)
+			[windows[x] makeKeyAndOrderFront:self];
+	}
+
 	- (void)applicationWillFinishLaunching:(NSNotification *)notification
 	{
 		[[NSUserNotificationCenter defaultUserNotificationCenter] setDelegate:self];
@@ -101,13 +116,6 @@ static void app_poll_clipboard(App *ctx)
 		[[NSAppleEventManager sharedAppleEventManager] setEventHandler:self
 			andSelector:@selector(handleGetURLEvent:withReplyEvent:) forEventClass:kInternetEventClass
 			andEventID:kAEGetURL];
-	}
-
-	- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag
-	{
-		MTY_AppActivate((__bridge MTY_App *) self, true);
-
-		return NO;
 	}
 
 	- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
@@ -964,18 +972,13 @@ bool MTY_AppIsActive(MTY_App *app)
 
 void MTY_AppActivate(MTY_App *app, bool active)
 {
-	if (active) {
-		for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
-			MTY_WindowActivate(app, x, true);
+	App *ctx = (__bridge App *) app;
 
-		[NSApp activateIgnoringOtherApps:YES];
+	if (active) {
+		[NSApp unhide:ctx];
 
 	} else {
-		// XXX Important! [NSApp hide:] seems to crash if windows are not ordered out first!
-		for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
-			MTY_WindowActivate(app, x, false);
-
-		[NSApp hide:nil];
+		[NSApp hide:ctx];
 	}
 }
 
