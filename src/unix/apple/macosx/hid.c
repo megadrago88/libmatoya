@@ -99,6 +99,22 @@ static void hid_disconnect(void *context, IOReturn result, void *sender, IOHIDDe
 	}
 }
 
+static CFMutableDictionaryRef hid_match_dict(uint16_t usage_page, uint16_t usage)
+{
+	CFMutableDictionaryRef dict = CFDictionaryCreateMutable(kCFAllocatorDefault, kIOHIDOptionsTypeNone,
+		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+	CFNumberRef v = CFNumberCreate(kCFAllocatorDefault, kCFNumberShortType, &usage_page);
+	CFDictionarySetValue(dict, CFSTR(kIOHIDDeviceUsagePageKey), v);
+	CFRelease(v);
+
+	v = CFNumberCreate(kCFAllocatorDefault, kCFNumberShortType, &usage);
+	CFDictionarySetValue(dict, CFSTR(kIOHIDDeviceUsageKey), v);
+	CFRelease(v);
+
+	return dict;
+}
+
 struct hid *hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_REPORT report, void *opaque)
 {
 	bool r = true;
@@ -118,7 +134,14 @@ struct hid *hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_REPOR
 		goto except;
 	}
 
-	IOHIDManagerSetDeviceMatching(ctx->mgr, NULL);
+	CFMutableDictionaryRef d0 = hid_match_dict(kHIDPage_GenericDesktop, kHIDUsage_GD_Joystick);
+	CFMutableDictionaryRef d1 = hid_match_dict(kHIDPage_GenericDesktop, kHIDUsage_GD_GamePad);
+	CFMutableDictionaryRef d2 = hid_match_dict(kHIDPage_GenericDesktop, kHIDUsage_GD_MultiAxisController);
+	CFMutableDictionaryRef dict_list[] = {d0, d1, d2};
+
+	CFArrayRef matches = CFArrayCreate(kCFAllocatorDefault, (const void **) dict_list, 3, NULL);
+	IOHIDManagerSetDeviceMatchingMultiple(ctx->mgr, matches);
+
 	IOHIDManagerScheduleWithRunLoop(ctx->mgr, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
 
 	IOReturn e = IOHIDManagerOpen(ctx->mgr, kIOHIDOptionsTypeNone);
