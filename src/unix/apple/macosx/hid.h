@@ -5,6 +5,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include <IOKit/hid/IOHIDManager.h>
+#include <IOKit/hid/IOHIDKeys.h>
 
 struct hid {
 	IOHIDManagerRef mgr;
@@ -29,10 +30,39 @@ static void hid_destroy(struct hid **hid)
 	*hid = NULL;
 }
 
+static void hid_write(void *device, const void *buf, size_t size)
+{
+	const uint8_t *buf8 = buf;
+
+	if (buf8[0] == 0) {
+		buf += 1;
+		size -= 1;
+	}
+
+	IOHIDDeviceSetReport((IOHIDDeviceRef) device, kIOHIDReportTypeOutput, buf8[0], buf, size);
+}
+
+static int32_t hid_device_get_prop_int(IOHIDDeviceRef device, CFStringRef key)
+{
+	CFNumberRef num = IOHIDDeviceGetProperty(device, key);
+	if (!num)
+		return 0;
+
+	int32_t i = 0;
+	if (!CFNumberGetValue(num, kCFNumberSInt32Type, &i))
+		return 0;
+
+	return i;
+}
+
 static void hid_report(void *context, IOReturn result, void *sender, IOHIDReportType type,
 	uint32_t reportID, uint8_t *report, CFIndex reportLength)
 {
-	printf("HERE\n");
+	struct hid *ctx = context;
+	IOHIDDeviceRef device = sender;
+
+	int32_t vid = hid_device_get_prop_int(device, CFSTR(kIOHIDVendorIDKey));
+	int32_t pid = hid_device_get_prop_int(device, CFSTR(kIOHIDProductIDKey));
 }
 
 static struct hid *hid_create(void)
