@@ -99,18 +99,20 @@ static void hid_disconnect(void *context, IOReturn result, void *sender, IOHIDDe
 	}
 }
 
-static CFMutableDictionaryRef hid_match_dict(uint16_t usage_page, uint16_t usage)
+static void hid_dict_set_int(CFMutableDictionaryRef dict, CFStringRef key, int32_t val)
+{
+	CFNumberRef v = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &val);
+	CFDictionarySetValue(dict, key, v);
+	CFRelease(v);
+}
+
+static CFMutableDictionaryRef hid_match_dict(int32_t usage_page, int32_t usage)
 {
 	CFMutableDictionaryRef dict = CFDictionaryCreateMutable(kCFAllocatorDefault, kIOHIDOptionsTypeNone,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
-	CFNumberRef v = CFNumberCreate(kCFAllocatorDefault, kCFNumberShortType, &usage_page);
-	CFDictionarySetValue(dict, CFSTR(kIOHIDDeviceUsagePageKey), v);
-	CFRelease(v);
-
-	v = CFNumberCreate(kCFAllocatorDefault, kCFNumberShortType, &usage);
-	CFDictionarySetValue(dict, CFSTR(kIOHIDDeviceUsageKey), v);
-	CFRelease(v);
+	hid_dict_set_int(dict, CFSTR(kIOHIDDeviceUsagePageKey), usage_page);
+	hid_dict_set_int(dict, CFSTR(kIOHIDDeviceUsageKey), usage);
 
 	return dict;
 }
