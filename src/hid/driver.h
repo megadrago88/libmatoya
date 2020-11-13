@@ -46,6 +46,148 @@ static void hid_s_to_s16(MTY_Value *v)
 	v->max = INT16_MAX;
 }
 
+static void hid_u_to_u8(MTY_Value *v)
+{
+	if (v->max == 0 && v->min == 0)
+		return;
+
+	float data = v->data;
+	float max = v->max;
+
+	if (v->min < 0) {
+		data += (float) abs(v->min);
+		max += (float) abs(v->min);
+
+	} else if (v->min > 0) {
+		data -= (float) v->min;
+		max -= (float) v->min;
+	}
+
+	int32_t d = lrint((data / max) * (float) UINT8_MAX);
+	v->data = (int16_t) d;
+	v->min = 0;
+	v->max = UINT8_MAX;
+}
+
+
+// Default mapping
+
+static bool hid_default_swap_value(MTY_Value *values, MTY_CValue a, MTY_CValue b)
+{
+	if (a != b && values[a].usage != values[b].usage) {
+		MTY_Value tmp = values[b];
+		values[b] = values[a];
+		values[a] = tmp;
+		return true;
+	}
+
+	return false;
+}
+
+static void hid_default_move_value(MTY_Controller *c, MTY_Value *v, uint16_t usage,
+	int16_t data, int16_t min, int16_t max)
+{
+	if (v->usage != usage && c->numValues < MTY_CVALUE_MAX) {
+		if (v->usage != 0x00) {
+			MTY_Value *end = &c->values[c->numValues++];
+			*end = *v;
+		}
+
+		v->usage = usage;
+		v->data = data;
+		v->min = min;
+		v->max = max;
+
+		// Fill in trigger values if they do not exist
+		if (v->usage == 0x33)
+			v->data = c->buttons[MTY_CBUTTON_LEFT_TRIGGER] ? UINT8_MAX : 0;
+
+		if (v->usage == 0x34)
+			v->data = c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] ? UINT8_MAX : 0;
+	}
+}
+
+static void hid_default_map_values(MTY_Controller *c)
+{
+	// Make sure there is enough room for the standard CVALUEs
+	if (c->numValues < MTY_CVALUE_DPAD + 1)
+		c->numValues = MTY_CVALUE_DPAD + 1;
+
+	// Swap positions
+	for (uint8_t x = 0; x < c->numValues; x++) {
+		retry:
+
+		switch (c->values[x].usage) {
+			case 0x30: // X -> Left Stick X
+				if (hid_default_swap_value(c->values, x, MTY_CVALUE_THUMB_LX))
+					goto retry;
+				break;
+			case 0x31: // Y -> Left Stick Y
+				if (hid_default_swap_value(c->values, x, MTY_CVALUE_THUMB_LY))
+					goto retry;
+				break;
+			case 0x32: // Z -> Right Stick X
+				if (hid_default_swap_value(c->values, x, MTY_CVALUE_THUMB_RX))
+					goto retry;
+				break;
+			case 0x35: // Rz -> Right Stick Y
+				if (hid_default_swap_value(c->values, x, MTY_CVALUE_THUMB_RY))
+					goto retry;
+				break;
+			case 0x33: // Rx -> Left Trigger
+				if (hid_default_swap_value(c->values, x, MTY_CVALUE_TRIGGER_L))
+					goto retry;
+				break;
+			case 0x34: // Ry -> Right Trigger
+				if (hid_default_swap_value(c->values, x, MTY_CVALUE_TRIGGER_R))
+					goto retry;
+				break;
+			case 0x39: // Hat -> DPAD
+				if (hid_default_swap_value(c->values, x, MTY_CVALUE_DPAD))
+					goto retry;
+				break;
+		}
+	}
+
+	// Move values that are not in the right positions to the end
+	for (uint8_t x = 0; x < c->numValues; x++) {
+		MTY_Value *v = &c->values[x];
+
+		switch (x) {
+			case MTY_CVALUE_THUMB_LX:  hid_default_move_value(c, v, 0x30, 0, INT16_MIN, INT16_MAX); break;
+			case MTY_CVALUE_THUMB_LY:  hid_default_move_value(c, v, 0x31, 0, INT16_MIN, INT16_MAX); break;
+			case MTY_CVALUE_THUMB_RX:  hid_default_move_value(c, v, 0x32, 0, INT16_MIN, INT16_MAX); break;
+			case MTY_CVALUE_THUMB_RY:  hid_default_move_value(c, v, 0x35, 0, INT16_MIN, INT16_MAX); break;
+			case MTY_CVALUE_TRIGGER_L: hid_default_move_value(c, v, 0x33, 0, 0, UINT8_MAX); break;
+			case MTY_CVALUE_TRIGGER_R: hid_default_move_value(c, v, 0x34, 0, 0, UINT8_MAX); break;
+			case MTY_CVALUE_DPAD:      hid_default_move_value(c, v, 0x39, 8, 0, 7); break;
+		}
+	}
+
+	// Convert to int16_t
+	for (uint8_t x = 0; x < c->numValues; x++) {
+		MTY_Value *v = &c->values[x];
+
+		switch (v->usage) {
+			case 0x30: // X -> Left Stick X
+			case 0x32: // Z -> Right Stick X
+				hid_u_to_s16(v, false);
+				break;
+			case 0x31: // Y -> Left Stick Y
+			case 0x35: // Rz -> Right Stick Y
+				hid_u_to_s16(v, true);
+				break;
+			case 0x33: // Rx -> Left Trigger
+			case 0x34: // Ry -> Right Trigger
+			case 0x36: // Slider
+			case 0x37: // Dial
+			case 0x38: // Wheel
+				hid_u_to_u8(v);
+				break;
+		}
+	}
+}
+
 
 // Drivers
 
@@ -140,9 +282,10 @@ static void hid_driver_state(struct hdevice *device, const void *buf, size_t siz
 		case MTY_HID_DRIVER_PS4:
 			hid_ps4_state(device, buf, size, wmsg);
 			break;
-		//case MTY_HID_DRIVER_DEFAULT:
-		//	hid_default_state(hid, data, dsize, wmsg);
-		//	break;
+		case MTY_HID_DRIVER_DEFAULT:
+			hid_default_state(device, buf, size, wmsg);
+			hid_default_map_values(&wmsg->controller);
+			break;
 	}
 }
 

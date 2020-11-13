@@ -9,8 +9,6 @@
 #include <IOKit/hid/IOHIDManager.h>
 #include <IOKit/hid/IOHIDKeys.h>
 
-#include "matoya.h"
-
 
 // HID
 
@@ -230,6 +228,56 @@ bool hid_device_feature(struct hdevice *ctx, void *buf, size_t size, size_t *siz
 	}
 
 	return false;
+}
+
+void hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Msg *wmsg)
+{
+	MTY_Controller *c = &wmsg->controller;
+
+	CFArrayRef elements = IOHIDDeviceCopyMatchingElements(ctx->device, NULL, kIOHIDOptionsTypeNone);
+
+	for (CFIndex x = 0; x < CFArrayGetCount(elements); x++) {
+		IOHIDElementRef el = (IOHIDElementRef) CFArrayGetValueAtIndex(elements, x);
+
+		IOHIDElementType type = IOHIDElementGetType(el);
+		uint16_t usage = IOHIDElementGetUsage(el);
+		uint16_t usage_page = IOHIDElementGetUsagePage(el);
+
+		bool is_button = type == kIOHIDElementTypeInput_Button && usage_page == 0x09;
+		bool is_value = (type == kIOHIDElementTypeInput_Misc || type == kIOHIDElementTypeInput_Axis) &&
+			usage >= 0x30 && usage <= 0x39;
+
+		if (is_button || is_value) {
+			IOHIDValueRef v = NULL;
+			IOReturn e = IOHIDDeviceGetValue(ctx->device, el, &v);
+			if (e == kIOReturnSuccess) {
+				int32_t vi = IOHIDValueGetIntegerValue(v);
+
+				if (is_button) {
+					c->buttons[usage - 1] = vi;
+					c->numButtons++;
+
+				} else {
+					MTY_Value *val = &c->values[c->numValues++];
+					val->max = IOHIDElementGetLogicalMax(el);
+					val->min = IOHIDElementGetLogicalMin(el);
+					val->usage = usage;
+					val->data = vi;
+				}
+
+			} else {
+				MTY_Log("'IOHIDDeviceGetValue' failed with error 0x%X", e);
+			}
+		}
+	}
+
+	CFRelease(elements);
+
+	wmsg->type = MTY_MSG_CONTROLLER;
+	c->vid = ctx->vid;
+	c->pid = ctx->pid;
+	c->driver = MTY_HID_DRIVER_DEFAULT;
+	c->id = ctx->id;
 }
 
 void *hid_device_get_state(struct hdevice *ctx)
