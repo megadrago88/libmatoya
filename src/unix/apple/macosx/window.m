@@ -33,6 +33,7 @@
 	@property bool cursor_outside;
 	@property bool cursor_showing;
 	@property uint32_t cb_seq;
+	@property bool *show;
 	@property void **windows;
 	@property float timeout;
 	@property struct hid *hid;
@@ -181,7 +182,6 @@ static void app_poll_clipboard(App *ctx)
 	- (void)applicationDidFinishLaunching:(NSNotification *)notification
 	{
 		[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-		[NSApp activateIgnoringOtherApps:YES];
 
 		NSMenu *menubar = [NSMenu new];
 
@@ -200,6 +200,13 @@ static void app_poll_clipboard(App *ctx)
 		[submenu setSubmenu:menu];
 
 		[NSApp setMainMenu:menubar];
+
+		// Windows must be shown after the application finished launching for proper "spaces" behavior
+		for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
+			if (self.show[x])
+				MTY_WindowActivate((__bridge MTY_App *) self, x, true);
+
+		[NSApp activateIgnoringOtherApps:YES];
 	}
 
 	- (void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent
@@ -863,6 +870,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	ctx.hid = hid_create(app_hid_connect, app_hid_disconnect, app_hid_report, app);
 
 	ctx.windows = MTY_Alloc(MTY_WINDOW_MAX, sizeof(void *));
+	ctx.show = MTY_Alloc(MTY_WINDOW_MAX, sizeof(bool));
 	ctx.hotkey = MTY_HashCreate(0);
 
 	ctx.cb_seq = [[NSPasteboard generalPasteboard] changeCount];
@@ -884,6 +892,7 @@ void MTY_AppDestroy(MTY_App **app)
 		MTY_WindowDestroy(*app, x);
 
 	MTY_Free(ctx.windows);
+	MTY_Free(ctx.show);
 
 	struct hid *hid = ctx.hid;
 	hid_destroy(&hid);
@@ -1046,8 +1055,13 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	ctx.app.windows[window] = (__bridge void *) ctx;
 
-	if (!desc->hidden)
-		MTY_WindowActivate(app, window, true);
+	if ([NSApp isRunning]) {
+		if (!desc->hidden)
+			MTY_WindowActivate(app, window, true);
+
+	} else {
+		ctx.app.show[window] = !desc->hidden;
+	}
 
 	if (desc->api != MTY_GFX_NONE) {
 		if (!MTY_WindowSetGFX(app, window, desc->api, desc->vsync)) {
