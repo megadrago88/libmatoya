@@ -254,15 +254,19 @@ void hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Ms
 				int32_t vi = IOHIDValueGetIntegerValue(v);
 
 				if (is_button) {
-					c->buttons[usage - 1] = vi;
-					c->numButtons++;
+					if (c->numButtons < MTY_CBUTTON_MAX && usage <= MTY_CBUTTON_MAX) {
+						c->buttons[usage - 1] = vi;
+						c->numButtons++;
+					}
 
 				} else {
-					MTY_Value *val = &c->values[c->numValues++];
-					val->max = IOHIDElementGetLogicalMax(el);
-					val->min = IOHIDElementGetLogicalMin(el);
-					val->usage = usage;
-					val->data = vi;
+					if (c->numValues < MTY_CVALUE_MAX) {
+						MTY_Value *val = &c->values[c->numValues++];
+						val->max = IOHIDElementGetLogicalMax(el);
+						val->min = IOHIDElementGetLogicalMin(el);
+						val->usage = usage;
+						val->data = vi;
+					}
 				}
 
 			} else {
