@@ -16,7 +16,7 @@
 
 #include "wsize.h"
 #include "mty-tls.h"
-#include "hid/hid.h"
+#include "hid/driver.h"
 
 #define WINDOW_CLASS_NAME L"MTY_Window"
 #define WINDOW_RI_MAX     (32 * 1024)
@@ -62,11 +62,10 @@ struct MTY_App {
 	uint64_t state;
 	int32_t last_x;
 	int32_t last_y;
+	struct hid *hid;
 	MTY_Detach detach;
 	MTY_Hash *hotkey;
 	MTY_Hash *ghotkey;
-	MTY_Hash *hid;
-	MTY_Hash *hidid;
 
 	struct window *windows[MTY_WINDOW_MAX];
 	struct xip xinput[4];
@@ -1205,8 +1204,6 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	app->opaque = opaque;
 	app->hotkey = MTY_HashCreate(0);
 	app->ghotkey = MTY_HashCreate(0);
-	app->hid = MTY_HashCreate(0);
-	app->hidid = MTY_HashCreate(0);
 	app->instance = GetModuleHandle(NULL);
 	if (!app->instance) {
 		r = false;
@@ -1270,8 +1267,6 @@ void MTY_AppDestroy(MTY_App **app)
 
 	MTY_HashDestroy(&ctx->hotkey, NULL);
 	MTY_HashDestroy(&ctx->ghotkey, NULL);
-	MTY_HashDestroy(&ctx->hid, hid_destroy);
-	MTY_HashDestroy(&ctx->hidid, NULL);
 
 	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
 		MTY_WindowDestroy(ctx, x);
@@ -1411,9 +1406,8 @@ void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t h
 		hid_xinput_rumble(app->xinput, id, low, high);
 
 	} else {
-		struct hid *hid = MTY_HashGetInt(app->hidid, id);
-		if (hid)
-			hid_rumble(hid, low, high);
+		if (app->hid)
+			hid_driver_rumble(app->hid, id, low, high);
 	}
 }
 
@@ -1504,6 +1498,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	if (window == 0) {
 		AddClipboardFormatListener(ctx->hwnd);
+		app->hid = hid_create();
 		app_register_raw_input(0x01, 0x04, RIDEV_DEVNOTIFY | RIDEV_INPUTSINK, ctx->hwnd);
 		app_register_raw_input(0x01, 0x05, RIDEV_DEVNOTIFY | RIDEV_INPUTSINK, ctx->hwnd);
 		app_register_raw_input(0x01, 0x08, RIDEV_DEVNOTIFY | RIDEV_INPUTSINK, ctx->hwnd);

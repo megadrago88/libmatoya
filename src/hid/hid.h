@@ -24,7 +24,6 @@ typedef void (*HID_REPORT)(struct hdevice *device, const void *buf, size_t size,
 struct hid *hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_REPORT report, void *opaque);
 struct hdevice *hid_get_device_by_id(struct hid *ctx, uint32_t id);
 void hid_destroy(struct hid **hid);
-// void hid_feed_report(struct hid *ctx, void *native_device, const void *buf, size_t size);
 
 void hid_device_write(struct hdevice *ctx, const void *buf, size_t size);
 bool hid_device_feature(struct hdevice *ctx, void *buf, size_t size, size_t *size_out);
