@@ -33,3 +33,6 @@ uint16_t hid_device_get_pid(struct hdevice *ctx);
 uint32_t hid_device_get_id(struct hdevice *ctx);
 
 void hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Msg *wmsg);
+
+void hid_win32_listen(void *hwnd);
+void hid_win32_device_change(struct hid *ctx, intptr_t wparam, intptr_t lparam);

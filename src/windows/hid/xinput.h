@@ -51,7 +51,7 @@ static void hid_xinput_init(void)
 		MTY_Log("Failed to load full XInput 1.4 interface");
 }
 
-static void hid_xinput_destroy(void)
+static void xinput_destroy(void)
 {
 	if (XINPUT1_4) {
 		_XInputGetState = XInputGetState;
@@ -62,13 +62,13 @@ static void hid_xinput_destroy(void)
 	}
 }
 
-static void hid_xinput_refresh(struct xip *xips)
+static void xinput_refresh(struct xip *xips)
 {
 	for (uint8_t x = 0; x < 4; x++)
 		xips[x].disabled = false;
 }
 
-static void hid_xinput_rumble(struct xip *xips, uint32_t id, uint16_t low, uint16_t high)
+static void xinput_rumble(struct xip *xips, uint32_t id, uint16_t low, uint16_t high)
 {
 	if (id >= 4)
 		return;
@@ -84,7 +84,7 @@ static void hid_xinput_rumble(struct xip *xips, uint32_t id, uint16_t low, uint1
 	}
 }
 
-static void hid_xinput_to_mty(const XINPUT_STATE *xstate, MTY_Msg *wmsg)
+static void xinput_to_mty(const XINPUT_STATE *xstate, MTY_Msg *wmsg)
 {
 	WORD b = xstate->Gamepad.wButtons;
 	MTY_Controller *c = &wmsg->controller;
@@ -145,7 +145,7 @@ static void hid_xinput_to_mty(const XINPUT_STATE *xstate, MTY_Msg *wmsg)
 	c->values[MTY_CVALUE_DPAD].max = 7;
 }
 
-static void hid_xinput_state(struct xip *xips, MTY_Window window, MTY_MsgFunc func, void *opaque)
+static void xinput_state(struct xip *xips, MTY_Window window, MTY_MsgFunc func, void *opaque)
 {
 	for (uint8_t x = 0; x < 4; x++) {
 		struct xip *xip = &xips[x];
@@ -178,7 +178,7 @@ static void hid_xinput_state(struct xip *xips, MTY_Window window, MTY_MsgFunc fu
 					wmsg.controller.vid = xip->bbi.vid;
 					wmsg.controller.pid = xip->bbi.pid;
 
-					hid_xinput_to_mty(&xstate, &wmsg);
+					xinput_to_mty(&xstate, &wmsg);
 					func(&wmsg, opaque);
 
 					xip->packet = xstate.dwPacketNumber;

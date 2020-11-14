@@ -17,6 +17,7 @@
 #include "wsize.h"
 #include "mty-tls.h"
 #include "hid/driver.h"
+#include "hid/xinput.h"
 
 #define WINDOW_CLASS_NAME L"MTY_Window"
 #define WINDOW_RI_MAX     (32 * 1024)
@@ -946,40 +947,14 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				struct hid *hid = MTY_HashGetInt(app->hid, (intptr_t) ctx->ri->header.hDevice);
 				if (hid) {
 					hid_state(hid, ctx->ri->data.hid.bRawData, ctx->ri->data.hid.dwSizeHid, &wmsg);
-
-					// Prevent gamepad input while in the background
-					if (wmsg.type == MTY_MSG_CONTROLLER && !MTY_AppIsActive(app))
-						memset(&wmsg, 0, sizeof(MTY_Msg));
 				}
 			}
 			break;
 		case WM_INPUT_DEVICE_CHANGE:
-			if (wparam == GIDC_ARRIVAL) {
-				hid_xinput_refresh(app->xinput);
+			if (wparam == GIDC_ARRIVAL)
+				xinput_refresh(app->xinput);
 
-				struct hid *hid = hid_create((HANDLE) lparam);
-				if (hid) {
-					wmsg.type = MTY_MSG_CONNECT;
-					wmsg.controller.id = hid->id;
-					wmsg.controller.vid = hid_get_vid(hid);
-					wmsg.controller.pid = hid_get_pid(hid);
-
-					hid_destroy(MTY_HashSetInt(app->hid, lparam, hid));
-					MTY_HashSetInt(app->hidid, hid->id, hid);
-				}
-
-			} else if (wparam == GIDC_REMOVAL) {
-				struct hid *hid = MTY_HashPopInt(app->hid, lparam);
-				if (hid) {
-					wmsg.type = MTY_MSG_DISCONNECT;
-					wmsg.controller.id = hid->id;
-					wmsg.controller.vid = hid_get_vid(hid);
-					wmsg.controller.pid = hid_get_pid(hid);
-
-					MTY_HashPopInt(app->hidid, hid->id);
-					hid_destroy(hid);
-				}
-			}
+			hid_win32_device_change(app->hid, wparam, lparam);
 			break;
 	}
 
@@ -1194,6 +1169,46 @@ void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 
 // App
 
+static void app_hid_connect(struct hdevice *device, void *opaque)
+{
+	MTY_App *ctx = opaque;
+
+	hid_driver_init(device);
+
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_CONNECT;
+	msg.controller.vid = hid_device_get_vid(device);
+	msg.controller.pid = hid_device_get_pid(device);
+	msg.controller.id = hid_device_get_id(device);
+
+	ctx->msg_func(&msg, ctx.opaque);
+}
+
+static void app_hid_disconnect(struct hdevice *device, void *opaque)
+{
+	MTY_App *ctx = opaque;
+
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_DISCONNECT;
+	msg.controller.vid = hid_device_get_vid(device);
+	msg.controller.pid = hid_device_get_pid(device);
+	msg.controller.id = hid_device_get_id(device);
+
+	ctx->msg_func(&msg, ctx.opaque);
+}
+
+static void app_hid_report(struct hdevice *device, const void *buf, size_t size, void *opaque)
+{
+	MTY_App *ctx = opaque;
+
+	MTY_Msg msg = {0};
+	hid_driver_state(device, buf, size, &msg);
+
+	// Prevent gamepad input while in the background
+	if (wmsg.type == MTY_MSG_CONTROLLER && MTY_AppIsActive(app))
+		ctx->msg_func(&msg, ctx.opaque);
+}
+
 MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 {
 	bool r = true;
@@ -1240,7 +1255,8 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 
 	ImmDisableIME(0);
 
-	hid_xinput_init();
+	app->hid = hid_create(app_hid_connect, app_hid_disconnect, app_hid_report, app);
+	xinput_init();
 
 	except:
 
@@ -1274,7 +1290,8 @@ void MTY_AppDestroy(MTY_App **app)
 	if (ctx->instance && ctx->class != 0)
 		UnregisterClass(WINDOW_CLASS_NAME, ctx->instance);
 
-	hid_xinput_destroy();
+	hid_destroy(&ctx->hid);
+	xinput_destroy();
 
 	WINDOW_KB_HWND = NULL;
 
@@ -1303,7 +1320,7 @@ void MTY_AppRun(MTY_App *app)
 
 		// XInput
 		if (focus)
-			hid_xinput_state(app->xinput, window->window, app->msg_func, app->opaque);
+			xinput_state(app->xinput, window->window, app->msg_func, app->opaque);
 
 		// Tray retry in case of failure
 		app_tray_retry(app, window);
@@ -1403,11 +1420,10 @@ void MTY_AppActivate(MTY_App *app, bool active)
 void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {
 	if (id < 4) {
-		hid_xinput_rumble(app->xinput, id, low, high);
+		xinput_rumble(app->xinput, id, low, high);
 
 	} else {
-		if (app->hid)
-			hid_driver_rumble(app->hid, id, low, high);
+		hid_driver_rumble(app->hid, id, low, high);
 	}
 }
 
@@ -1498,10 +1514,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	if (window == 0) {
 		AddClipboardFormatListener(ctx->hwnd);
-		app->hid = hid_create();
-		app_register_raw_input(0x01, 0x04, RIDEV_DEVNOTIFY | RIDEV_INPUTSINK, ctx->hwnd);
-		app_register_raw_input(0x01, 0x05, RIDEV_DEVNOTIFY | RIDEV_INPUTSINK, ctx->hwnd);
-		app_register_raw_input(0x01, 0x08, RIDEV_DEVNOTIFY | RIDEV_INPUTSINK, ctx->hwnd);
+		hid_win32_listen(ctx->hwnd);
 	}
 
 	except:
