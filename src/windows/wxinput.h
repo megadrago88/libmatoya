@@ -26,7 +26,7 @@ static DWORD (WINAPI *_XInputGetState)(DWORD dwUserIndex, XINPUT_STATE *pState) 
 static DWORD (WINAPI *_XInputSetState)(DWORD dwUserIndex, XINPUT_VIBRATION *pVibration) = XInputSetState;
 static DWORD (WINAPI *_XInputGetBaseBusInformation)(DWORD dwUserIndex, XINPUT_BASE_BUS_INFORMATION *pBusInformation);
 
-static void hid_xinput_init(void)
+static void xinput_init(void)
 {
 	bool fallback = false;
 

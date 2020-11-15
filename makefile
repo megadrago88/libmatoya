@@ -50,6 +50,7 @@ OBJS = $(OBJS) \
 	src\windows\threadw.obj \
 	src\windows\time.obj \
 	src\windows\window.obj \
+	src\windows\hid.obj \
 	src\windows\gfx\gl-ctx.obj \
 	src\windows\gfx\d3d9.obj \
 	src\windows\gfx\d3d9-ui.obj \

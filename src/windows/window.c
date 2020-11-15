@@ -17,7 +17,7 @@
 #include "wsize.h"
 #include "mty-tls.h"
 #include "hid/driver.h"
-#include "hid/xinput.h"
+#include "wxinput.h"
 
 #define WINDOW_CLASS_NAME L"MTY_Window"
 #define WINDOW_RI_MAX     (32 * 1024)
@@ -944,10 +944,8 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				app_ri_relative_mouse(app, hwnd, ctx->ri, &wmsg);
 
 			} else if (header->dwType == RIM_TYPEHID) {
-				struct hid *hid = MTY_HashGetInt(app->hid, (intptr_t) ctx->ri->header.hDevice);
-				if (hid) {
-					hid_state(hid, ctx->ri->data.hid.bRawData, ctx->ri->data.hid.dwSizeHid, &wmsg);
-				}
+				hid_win32_report(app->hid, (intptr_t) ctx->ri->header.hDevice,
+					ctx->ri->data.hid.bRawData, ctx->ri->data.hid.dwSizeHid);
 			}
 			break;
 		case WM_INPUT_DEVICE_CHANGE:
@@ -1181,7 +1179,7 @@ static void app_hid_connect(struct hdevice *device, void *opaque)
 	msg.controller.pid = hid_device_get_pid(device);
 	msg.controller.id = hid_device_get_id(device);
 
-	ctx->msg_func(&msg, ctx.opaque);
+	ctx->msg_func(&msg, ctx->opaque);
 }
 
 static void app_hid_disconnect(struct hdevice *device, void *opaque)
@@ -1194,7 +1192,7 @@ static void app_hid_disconnect(struct hdevice *device, void *opaque)
 	msg.controller.pid = hid_device_get_pid(device);
 	msg.controller.id = hid_device_get_id(device);
 
-	ctx->msg_func(&msg, ctx.opaque);
+	ctx->msg_func(&msg, ctx->opaque);
 }
 
 static void app_hid_report(struct hdevice *device, const void *buf, size_t size, void *opaque)
@@ -1205,8 +1203,8 @@ static void app_hid_report(struct hdevice *device, const void *buf, size_t size,
 	hid_driver_state(device, buf, size, &msg);
 
 	// Prevent gamepad input while in the background
-	if (wmsg.type == MTY_MSG_CONTROLLER && MTY_AppIsActive(app))
-		ctx->msg_func(&msg, ctx.opaque);
+	if (msg.type == MTY_MSG_CONTROLLER && MTY_AppIsActive(ctx))
+		ctx->msg_func(&msg, ctx->opaque);
 }
 
 MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)

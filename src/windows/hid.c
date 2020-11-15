@@ -25,6 +25,7 @@ struct hdevice {
 	HIDP_BUTTON_CAPS *bcaps;
 	HIDP_VALUE_CAPS *vcaps;
 	wchar_t *name;
+	bool is_xinput;
 	void *state;
 	uint32_t id;
 	uint16_t vid;
@@ -42,7 +43,7 @@ static void hid_device_destroy(void *opaque)
 	MTY_Free(ctx->vcaps);
 	MTY_Free(ctx->ppd);
 	MTY_Free(ctx->name);
-	MTY_Free(ctx->driver_state);
+	MTY_Free(ctx->state);
 	MTY_Free(ctx);
 }
 
@@ -116,12 +117,12 @@ static struct hdevice *hid_device_create(HANDLE device)
 	}
 
 	ctx->is_xinput = wcsstr(ctx->name, L"IG_");
-	ctx->state = MTY_Alloc(MTY_HID_DRIVER_STATE_MAX, 1);
+	ctx->state = MTY_Alloc(HID_STATE_MAX, 1);
 
 	except:
 
 	if (!r) {
-		hid_destroy(ctx);
+		hid_device_destroy(ctx);
 		ctx = NULL;
 	}
 
@@ -135,10 +136,12 @@ struct hid *hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_REPOR
 	ctx->id = 32;
 	ctx->devices = MTY_HashCreate(0);
 	ctx->devices_rev = MTY_HashCreate(0);
-	ctx->connect = conntext;
+	ctx->connect = connect;
 	ctx->disconnect = disconnect;
 	ctx->report = report;
 	ctx->opaque = opaque;
+
+	return ctx;
 }
 
 struct hdevice *hid_get_device_by_id(struct hid *ctx, uint32_t id)
@@ -146,25 +149,32 @@ struct hdevice *hid_get_device_by_id(struct hid *ctx, uint32_t id)
 	return MTY_HashGetInt(ctx->devices_rev, id);
 }
 
-void hid_win32_feed_report(struct hid *ctx, void *device, const void *buf, size_t size)
+void hid_win32_report(struct hid *ctx, intptr_t device, const void *buf, size_t size)
 {
+	struct hdevice *dev = MTY_HashGetInt(ctx->devices, device);
+
+	if (dev && !dev->is_xinput)
+		ctx->report(dev, buf, size, ctx->opaque);
 }
 
 void hid_win32_device_change(struct hid *ctx, intptr_t wparam, intptr_t lparam)
 {
 	if (wparam == GIDC_ARRIVAL) {
 		struct hdevice *dev = hid_device_create((HANDLE) lparam);
-		if (dev)
+		if (dev) {
 			dev->id = ctx->id++;
 			hid_destroy(MTY_HashSetInt(ctx->devices, lparam, dev));
 			MTY_HashSetInt(ctx->devices_rev, dev->id, dev);
-			ctx->connect(dev, ctx->opaque);
+
+			if (!dev->is_xinput)
+				ctx->connect(dev, ctx->opaque);
 		}
 
 	} else if (wparam == GIDC_REMOVAL) {
 		struct hdevice *dev = MTY_HashPopInt(ctx->devices, lparam);
 		if (dev) {
-			ctx->disconnect(dev, ctx->opaque);
+			if (!dev->is_xinput)
+				ctx->disconnect(dev, ctx->opaque);
 
 			MTY_HashPopInt(ctx->devices_rev, dev->id);
 			hid_device_destroy(dev);
@@ -212,7 +222,7 @@ void hid_device_write(struct hdevice *ctx, const void *buf, size_t size)
 		goto except;
 	}
 
-	if (!WriteFile(device, buf, size, NULL, &ov)) {
+	if (!WriteFile(device, buf, (DWORD) size, NULL, &ov)) {
 		DWORD e = GetLastError();
 		if (e != ERROR_IO_PENDING) {
 			MTY_Log("'WriteFile' failed with error 0x%X", e);
@@ -254,7 +264,8 @@ bool hid_device_feature(struct hdevice *ctx, void *buf, size_t size, size_t *siz
 		goto except;
 	}
 
-	if (!DeviceIoControl(device, IOCTL_HID_GET_FEATURE, buf, size, buf, size, size_out, &ov)) {
+	DWORD out = 0;
+	if (!DeviceIoControl(device, IOCTL_HID_GET_FEATURE, buf, (DWORD) size, buf, (DWORD) size, &out, &ov)) {
 		DWORD e = GetLastError();
 		if (e != ERROR_IO_PENDING) {
 			r = false;
@@ -263,13 +274,13 @@ bool hid_device_feature(struct hdevice *ctx, void *buf, size_t size, size_t *siz
 		}
 	}
 
-	if (!GetOverlappedResult(device, &ov, size_out, TRUE)) {
+	if (!GetOverlappedResult(device, &ov, &out, TRUE)) {
 		r = false;
 		MTY_Log("'GetOverlappedResult' failed with error 0x%X", GetLastError());
 		goto except;
 	}
 
-	(*size_out)++;
+	*size_out = out + 1;
 
 	except:
 
@@ -299,9 +310,11 @@ uint32_t hid_device_get_id(struct hdevice *ctx)
 	return ctx->id;
 }
 
-void hid_default_state(struct hdevice *ctx, const void *data, size_t dsize, MTY_Msg *wmsg)
+void hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Msg *wmsg)
 {
 	MTY_Controller *c = &wmsg->controller;
+
+	// Note: Some of these functions use PCHAR for a const buffer, thust the cast
 
 	// Buttons
 	for (uint32_t x = 0; x < ctx->caps.NumberInputButtonCaps; x++) {
@@ -313,7 +326,7 @@ void hid_default_state(struct hdevice *ctx, const void *data, size_t dsize, MTY_
 
 			ULONG n = MTY_CBUTTON_MAX;
 			USAGE usages[MTY_CBUTTON_MAX];
-			NTSTATUS e = HidP_GetUsages(HidP_Input, bcap->UsagePage, 0, usages, &n, ctx->ppd, data, dsize);
+			NTSTATUS e = HidP_GetUsages(HidP_Input, bcap->UsagePage, 0, usages, &n, ctx->ppd, (PCHAR) buf, (ULONG) size);
 			if (e != HIDP_STATUS_SUCCESS && e != HIDP_STATUS_INCOMPATIBLE_REPORT_ID) {
 				MTY_Log("'HidP_GetUsages' failed with NTSTATUS 0x%X", e);
 				return;
@@ -334,7 +347,8 @@ void hid_default_state(struct hdevice *ctx, const void *data, size_t dsize, MTY_
 		const HIDP_VALUE_CAPS *vcap = &ctx->vcaps[x];
 
 		ULONG value = 0;
-		NTSTATUS e = HidP_GetUsageValue(HidP_Input, vcap->UsagePage, 0, vcap->Range.UsageMin, &value, ctx->ppd, data, dsize);
+		NTSTATUS e = HidP_GetUsageValue(HidP_Input, vcap->UsagePage, 0, vcap->Range.UsageMin,
+			&value, ctx->ppd, (PCHAR) buf, (ULONG) size);
 		if (e != HIDP_STATUS_SUCCESS && e != HIDP_STATUS_INCOMPATIBLE_REPORT_ID) {
 			MTY_Log("'HidP_GetUsageValue' failed with NTSTATUS 0x%X", e);
 			return;

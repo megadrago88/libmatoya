@@ -8,6 +8,7 @@
 
 // Stand in for the official hidpi.h shipped with the WDK
 
+#include <windows.h>
 #include <winioctl.h>
 
 typedef USHORT USAGE;
