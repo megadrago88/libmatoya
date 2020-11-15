@@ -23,13 +23,13 @@ struct nx_spi_reply {
 
 struct nx_rumble {
 	uint8_t data[4];
-} rumble;
+};
 
 struct nx_output_common {
 	uint8_t packetType;
 	uint8_t packetNumber;
 	struct nx_rumble rumble[2];
-} common;
+};
 
 struct nx_subcommand {
 	struct nx_output_common common;
