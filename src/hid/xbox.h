@@ -14,6 +14,7 @@ enum xbox_proto {
 
 struct xbox_state {
 	enum xbox_proto proto;
+	bool series_x;
 	bool guide;
 };
 
@@ -34,6 +35,9 @@ static void hid_xbox_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 
 static void hid_xbox_init(struct hdevice *device)
 {
+	struct xbox_state *ctx = hid_device_get_state(device);
+	ctx->series_x = hid_device_get_pid(device) == 0x0B13;
+
 	hid_xbox_rumble(device, 0, 0);
 }
 
@@ -65,12 +69,12 @@ static void hid_xbox_state(struct hdevice *device, const void *data, size_t dsiz
 		c->buttons[MTY_CBUTTON_Y] = d8[14] & 0x10;
 		c->buttons[MTY_CBUTTON_LEFT_SHOULDER] = d8[14] & 0x40;
 		c->buttons[MTY_CBUTTON_RIGHT_SHOULDER] = d8[14] & 0x80;
-		c->buttons[MTY_CBUTTON_BACK] = d8[16] & 0x01;
+		c->buttons[MTY_CBUTTON_BACK] = ctx->series_x ? d8[15] & 0x04 : d8[16] & 0x01;
 		c->buttons[MTY_CBUTTON_START] = d8[15] & 0x08;
 		c->buttons[MTY_CBUTTON_LEFT_THUMB] = d8[15] & 0x20;
 		c->buttons[MTY_CBUTTON_RIGHT_THUMB] = d8[15] & 0x40;
 		c->buttons[MTY_CBUTTON_GUIDE] = ctx->guide;
-		c->buttons[MTY_CBUTTON_TOUCHPAD] = d8[15] & 0x04;
+		c->buttons[MTY_CBUTTON_TOUCHPAD] = ctx->series_x ? d8[16] & 0x01 : 0;
 
 		c->values[MTY_CVALUE_THUMB_LX].data = *((int16_t *) (d8 + 1)) - 0x8000;
 		c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
