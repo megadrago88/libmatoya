@@ -17,7 +17,6 @@
 #include "wsize.h"
 #include "mty-tls.h"
 #include "hid/driver.h"
-#include "wxinput.h"
 
 #define WINDOW_CLASS_NAME L"MTY_Window"
 #define WINDOW_RI_MAX     (32 * 1024)
@@ -70,7 +69,6 @@ struct MTY_App {
 	MTY_Hash *ghotkey;
 
 	struct window *windows[MTY_WINDOW_MAX];
-	struct xip xinput[4];
 
 	struct {
 		HMENU menu;
@@ -950,9 +948,6 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			}
 			break;
 		case WM_INPUT_DEVICE_CHANGE:
-			if (wparam == GIDC_ARRIVAL)
-				xinput_refresh(app->xinput);
-
 			hid_win32_device_change(app->hid, wparam, lparam);
 			break;
 	}
@@ -1255,7 +1250,6 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	ImmDisableIME(0);
 
 	app->hid = hid_create(app_hid_connect, app_hid_disconnect, app_hid_report, app);
-	xinput_init();
 
 	except:
 
@@ -1290,7 +1284,6 @@ void MTY_AppDestroy(MTY_App **app)
 		UnregisterClass(WINDOW_CLASS_NAME, ctx->instance);
 
 	hid_destroy(&ctx->hid);
-	xinput_destroy();
 
 	WINDOW_KB_HWND = NULL;
 
@@ -1319,7 +1312,7 @@ void MTY_AppRun(MTY_App *app)
 
 		// XInput
 		if (focus)
-			xinput_state(app->xinput, window->window, app->msg_func, app->opaque);
+			hid_xinput_state(app->hid, app->msg_func, app->opaque);
 
 		// Tray retry in case of failure
 		app_tray_retry(app, window);
@@ -1428,7 +1421,7 @@ void MTY_AppActivate(MTY_App *app, bool active)
 void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {
 	if (id < 4) {
-		xinput_rumble(app->xinput, id, low, high);
+		hid_xinput_rumble(app->hid, id, low, high);
 
 	} else {
 		hid_driver_rumble(app->hid, id, low, high);

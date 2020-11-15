@@ -37,3 +37,6 @@ void hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Ms
 void hid_win32_listen(void *hwnd);
 void hid_win32_device_change(struct hid *ctx, intptr_t wparam, intptr_t lparam);
 void hid_win32_report(struct hid *ctx, intptr_t device, const void *buf, size_t size);
+
+void hid_xinput_rumble(struct hid *ctx, uint32_t id, uint16_t low, uint16_t high);
+void hid_xinput_state(struct hid *hid, MTY_MsgFunc func, void *opaque);
