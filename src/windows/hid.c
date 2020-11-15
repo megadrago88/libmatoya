@@ -31,6 +31,7 @@ struct hid {
 	HID_REPORT report;
 	void *opaque;
 
+	// XInput
 	struct xip xinput[4];
 	HMODULE xinput1_4;
 	DWORD (WINAPI *XInputGetState)(DWORD dwUserIndex, XINPUT_STATE *pState);
@@ -292,6 +293,7 @@ struct hid *hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_REPOR
 	ctx->report = report;
 	ctx->opaque = opaque;
 
+	// XInput
 	bool fallback = false;
 
 	ctx->XInputGetState = XInputGetState;
