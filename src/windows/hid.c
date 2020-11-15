@@ -9,9 +9,6 @@
 #include "hidpi.h"
 #include <xinput.h>
 
-
-// XInput
-
 typedef struct {
 	WORD vid;
 	WORD pid;
