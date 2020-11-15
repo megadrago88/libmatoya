@@ -61,6 +61,7 @@ struct MTY_App {
 	bool filter_move;
 	uint64_t prev_state;
 	uint64_t state;
+	uint32_t timeout;
 	int32_t last_x;
 	int32_t last_y;
 	struct hid *hid;
@@ -1299,7 +1300,7 @@ void MTY_AppDestroy(MTY_App **app)
 
 void MTY_AppRun(MTY_App *app)
 {
-	do {
+	for (bool cont = true; cont;) {
 		struct window *window = app_get_main_window(app);
 		if (!window)
 			break;
@@ -1329,7 +1330,16 @@ void MTY_AppRun(MTY_App *app)
 			DispatchMessage(&msg);
 		}
 
-	} while (app->app_func(app->opaque));
+		cont = app->app_func(app->opaque);
+
+		if (app->timeout > 0)
+			MTY_Sleep(app->timeout);
+	}
+}
+
+void MTY_AppSetTimeout(MTY_App *app, uint32_t timeout)
+{
+	app->timeout = timeout;
 }
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
