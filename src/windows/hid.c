@@ -28,8 +28,6 @@ struct hdevice {
 	bool is_xinput;
 	void *state;
 	uint32_t id;
-	uint16_t vid;
-	uint16_t pid;
 };
 
 static void hid_device_destroy(void *opaque)
@@ -128,7 +126,6 @@ static struct hdevice *hid_device_create(HANDLE device)
 
 	return ctx;
 }
-
 
 struct hid *hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_REPORT report, void *opaque)
 {
@@ -314,7 +311,7 @@ void hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Ms
 {
 	MTY_Controller *c = &wmsg->controller;
 
-	// Note: Some of these functions use PCHAR for a const buffer, thust the cast
+	// Note: Some of these functions use PCHAR for a const buffer, thus the cast
 
 	// Buttons
 	for (uint32_t x = 0; x < ctx->caps.NumberInputButtonCaps; x++) {
@@ -326,7 +323,9 @@ void hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Ms
 
 			ULONG n = MTY_CBUTTON_MAX;
 			USAGE usages[MTY_CBUTTON_MAX];
-			NTSTATUS e = HidP_GetUsages(HidP_Input, bcap->UsagePage, 0, usages, &n, ctx->ppd, (PCHAR) buf, (ULONG) size);
+			NTSTATUS e = HidP_GetUsages(HidP_Input, bcap->UsagePage, 0, usages, &n,
+				ctx->ppd, (PCHAR) buf, (ULONG) size);
+
 			if (e != HIDP_STATUS_SUCCESS && e != HIDP_STATUS_INCOMPATIBLE_REPORT_ID) {
 				MTY_Log("'HidP_GetUsages' failed with NTSTATUS 0x%X", e);
 				return;
@@ -349,6 +348,7 @@ void hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Ms
 		ULONG value = 0;
 		NTSTATUS e = HidP_GetUsageValue(HidP_Input, vcap->UsagePage, 0, vcap->Range.UsageMin,
 			&value, ctx->ppd, (PCHAR) buf, (ULONG) size);
+
 		if (e != HIDP_STATUS_SUCCESS && e != HIDP_STATUS_INCOMPATIBLE_REPORT_ID) {
 			MTY_Log("'HidP_GetUsageValue' failed with NTSTATUS 0x%X", e);
 			return;
