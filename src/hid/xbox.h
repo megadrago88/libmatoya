@@ -70,6 +70,7 @@ static void hid_xbox_state(struct hdevice *device, const void *data, size_t dsiz
 		c->buttons[MTY_CBUTTON_LEFT_THUMB] = d8[15] & 0x20;
 		c->buttons[MTY_CBUTTON_RIGHT_THUMB] = d8[15] & 0x40;
 		c->buttons[MTY_CBUTTON_GUIDE] = ctx->guide;
+		c->buttons[MTY_CBUTTON_TOUCHPAD] = d8[15] & 0x04;
 
 		c->values[MTY_CVALUE_THUMB_LX].data = *((int16_t *) (d8 + 1)) - 0x8000;
 		c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
