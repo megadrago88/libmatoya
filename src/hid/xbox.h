@@ -23,7 +23,16 @@ struct xbox_state {
 
 static void hid_xbox_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 {
-	uint8_t rumble[9] = {0x03, 0x0F, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00};
+	uint8_t rumble[9] = {0x03, 0x0F,
+		0x00, // Left trigger motor
+		0x00, // Right trigger motor
+		0x00, // Left motor
+		0x00, // Right motor
+		0xFF,
+		0x00,
+		0x00,
+	};
+
 	rumble[4] = low >> 8;
 	rumble[5] = high >> 8;
 
