@@ -16,6 +16,10 @@ struct xbox_state {
 	enum xbox_proto proto;
 	bool series_x;
 	bool guide;
+	bool rumble;
+	uint64_t rumble_ts;
+	uint16_t low;
+	uint16_t high;
 };
 
 
@@ -23,20 +27,40 @@ struct xbox_state {
 
 static void hid_xbox_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 {
-	uint8_t rumble[9] = {0x03, 0x0F,
-		0x00, // Left trigger motor
-		0x00, // Right trigger motor
-		0x00, // Left motor
-		0x00, // Right motor
-		0xFF,
-		0x00,
-		0x00,
-	};
+	struct xbox_state *ctx = hid_device_get_state(device);
 
-	rumble[4] = low >> 8;
-	rumble[5] = high >> 8;
+	if (low != ctx->low || high != ctx->high) {
+		ctx->low = low;
+		ctx->high = high;
+		ctx->rumble = true;
+	}
+}
 
-	hid_device_write(device, rumble, 9);
+static void hid_xbox_do_rumble(struct hdevice *device)
+{
+	struct xbox_state *ctx = hid_device_get_state(device);
+	uint64_t ts = MTY_Timestamp();
+	float diff = MTY_TimeDiff(ctx->rumble_ts, ts);
+
+	// Xbox one seems to have an internal timeout of 3s
+	if ((ctx->rumble && diff > 50.0f) || diff > 2000.0f) {
+		uint8_t rumble[9] = {0x03, 0x0F,
+			0x00, // Left trigger motor
+			0x00, // Right trigger motor
+			0x00, // Left motor
+			0x00, // Right motor
+			0xFF,
+			0x00,
+			0x00,
+		};
+
+		rumble[4] = ctx->low >> 8;
+		rumble[5] = ctx->high >> 8;
+
+		hid_device_write(device, rumble, 9);
+		ctx->rumble_ts = MTY_Timestamp();
+		ctx->rumble = false;
+	}
 }
 
 
@@ -46,8 +70,7 @@ static void hid_xbox_init(struct hdevice *device)
 {
 	struct xbox_state *ctx = hid_device_get_state(device);
 	ctx->series_x = hid_device_get_pid(device) == 0x0B13;
-
-	hid_xbox_rumble(device, 0, 0);
+	ctx->rumble = true;
 }
 
 static void hid_xbox_state(struct hdevice *device, const void *data, size_t dsize, MTY_Msg *wmsg)
@@ -129,4 +152,6 @@ static void hid_xbox_state(struct hdevice *device, const void *data, size_t dsiz
 		ctx->proto = XBOX_PROTO_V2;
 		ctx->guide = d8[1] & 0x01;
 	}
+
+	hid_xbox_do_rumble(device);
 }
