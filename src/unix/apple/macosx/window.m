@@ -395,7 +395,7 @@ static void window_button_event(Window *window, NSEvent *event, MTY_MouseButton 
 
 	if (cur) {
 		if (event.subtype == NSTabletPointEventSubtype) {
-			window_pen_event(window, &p, event);
+			window_pen_event(cur, &p, event);
 
 		} else {
 			if (pressed && !cur.app.relative) {
