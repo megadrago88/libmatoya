@@ -360,28 +360,61 @@ static Window *window_find_mouse(Window *me, NSPoint *p)
 	return top;
 }
 
-static void window_mouse_event(Window *window, MTY_MouseButton button, bool pressed)
+static void window_pen_event(Window *window, NSPoint *p, NSEvent *event)
+{
+	MTY_Msg msg = window_msg(window, MTY_MSG_PEN);
+	msg.pen.pressure = (uint16_t) lrint(event.pressure * 1024.0f);
+	msg.pen.rotation = (uint16_t) lrint(event.rotation * 359.0f);
+	msg.pen.tiltX = (int8_t) lrint(event.tilt.x * 90.0f);
+	msg.pen.tiltY = (int8_t) lrint(event.tilt.y * 90.0f);
+	msg.pen.x = lrint(p->x);
+	msg.pen.y = lrint(p->y);
+
+	if (msg.pen.pressure > 0)
+		msg.pen.flags |= MTY_PEN_FLAG_TOUCHING;
+
+	if (event.buttonMask & NSEventButtonMaskPenLowerSide)
+		msg.pen.flags |= MTY_PEN_FLAG_BARREL;
+
+	window.app.msg_func(&msg, window.app.opaque);
+
+	/*
+	TODO no eraser support
+	if (ppi.penFlags & PEN_FLAG_INVERTED)
+		wmsg.pen.flags |= MTY_PEN_FLAG_INVERTED;
+
+	if (ppi.penFlags & PEN_FLAG_ERASER)
+		wmsg.pen.flags |= MTY_PEN_FLAG_ERASER;
+	*/
+}
+
+static void window_button_event(Window *window, NSEvent *event, MTY_MouseButton button, bool pressed)
 {
 	NSPoint p = {0};
 	Window *cur = window_find_mouse(window, &p);
 
 	if (cur) {
-		if (pressed && !cur.app.relative) {
-			MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_MOTION);
-			CGFloat scale = cur.screen.backingScaleFactor;
-			msg.mouseMotion.relative = false;
-			msg.mouseMotion.click = true;
-			msg.mouseMotion.x = lrint(scale * p.x);
-			msg.mouseMotion.y = lrint(scale * p.y);
+		if (event.subtype == NSTabletPointEventSubtype) {
+			window_pen_event(window, &p, event);
+
+		} else {
+			if (pressed && !cur.app.relative) {
+				MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_MOTION);
+				CGFloat scale = cur.screen.backingScaleFactor;
+				msg.mouseMotion.relative = false;
+				msg.mouseMotion.click = true;
+				msg.mouseMotion.x = lrint(scale * p.x);
+				msg.mouseMotion.y = lrint(scale * p.y);
+
+				window.app.msg_func(&msg, window.app.opaque);
+			}
+
+			MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_BUTTON);
+			msg.mouseButton.pressed = pressed;
+			msg.mouseButton.button = button;
 
 			window.app.msg_func(&msg, window.app.opaque);
 		}
-
-		MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_BUTTON);
-		msg.mouseButton.pressed = pressed;
-		msg.mouseButton.button = button;
-
-		window.app.msg_func(&msg, window.app.opaque);
 	}
 }
 
@@ -429,100 +462,51 @@ static void window_confine_cursor(void)
 	window_warp_cursor(window, lrint(wp.x * scale), lrint(wp.y * scale));
 }
 
-static void window_mouse_motion_event(Window *window, NSEvent *event)
+static void window_motion_event(Window *window, NSEvent *event)
 {
 	if (window.app.relative && window.app.detach == MTY_DETACH_NONE) {
-		MTY_Msg msg = window_msg(window, MTY_MSG_MOUSE_MOTION);
-		msg.mouseMotion.relative = true;
-		msg.mouseMotion.x = event.deltaX;
-		msg.mouseMotion.y = event.deltaY;
+		if (event.subtype == NSTabletPointEventSubtype) {
+			NSPoint p = {0};
+			Window *cur = window_find_mouse(window, &p);
+			if (cur)
+				window_pen_event(cur, &p, event);
 
-		window.app.msg_func(&msg, window.app.opaque);
+		} else {
+			MTY_Msg msg = window_msg(window, MTY_MSG_MOUSE_MOTION);
+			msg.mouseMotion.relative = true;
+			msg.mouseMotion.x = event.deltaX;
+			msg.mouseMotion.y = event.deltaY;
+
+			window.app.msg_func(&msg, window.app.opaque);
+		}
 
 	} else {
 		NSPoint p = {0};
 		Window *cur = window_find_mouse(window, &p);
 
 		if (cur) {
-			if (window.app.grab_mouse && window.app.detach == MTY_DETACH_NONE && !cur.isKeyWindow) {
-				window_confine_cursor();
+			if (event.subtype == NSTabletPointEventSubtype) {
+				window_pen_event(cur, &p, event);
 
 			} else {
-				MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_MOTION);
+				if (window.app.grab_mouse && window.app.detach == MTY_DETACH_NONE && !cur.isKeyWindow) {
+					window_confine_cursor();
 
-				CGFloat scale = cur.screen.backingScaleFactor;
-				msg.mouseMotion.relative = false;
-				msg.mouseMotion.x = lrint(scale * p.x);
-				msg.mouseMotion.y = lrint(scale * p.y);
+				} else {
+					MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_MOTION);
 
-				window.app.msg_func(&msg, window.app.opaque);
+					CGFloat scale = cur.screen.backingScaleFactor;
+					msg.mouseMotion.relative = false;
+					msg.mouseMotion.x = lrint(scale * p.x);
+					msg.mouseMotion.y = lrint(scale * p.y);
+
+					window.app.msg_func(&msg, window.app.opaque);
+				}
 			}
 
 		} else if (window.app.grab_mouse && window.app.detach == MTY_DETACH_NONE) {
 			window_confine_cursor();
 		}
-	}
-}
-
-static void window_pen_motion_event(Window *window, NSEvent *event)
-{
-	/*
-	printf("PRESSURE %f\n", event.pressure);
-	printf("ROTATION %f\n", event.rotation);
-	printf("TILTX    %f\n", event.tilt.x);
-	printf("TILTY    %f\n", event.tilt.y);
-	printf("ABSX     %d\n", event.absoluteX);
-	printf("ABSY     %d\n", event.absoluteY);
-	printf("ABSZ     %d\n", event.absoluteZ);
-	printf("TIP      %u\n", event.buttonMask & NSEventButtonMaskPenTip);
-	printf("PROX     %u\n", event.enteringProximity);
-	printf("UPPERS   %u\n", event.buttonMask & NSEventButtonMaskPenUpperSide);
-	printf("LOWERS   %u\n", event.buttonMask & NSEventButtonMaskPenLowerSide);
-	printf("TYPE     %u\n", event.pointingDeviceType);
-	MTY_Msg msg = window_msg(window, MTY_MSG_PEN);
-	msg.type = MTY_MSG_PEN;
-	msg.pen.pressure = (uint16_t) ppi.pressure;
-	msg.pen.rotation = (uint16_t) ppi.rotation;
-	msg.pen.tiltX = (int8_t) ppi.tiltX;
-	msg.pen.tiltY = (int8_t) ppi.tiltY;
-
-	ScreenToClient(hwnd, &pi->ptPixelLocation);
-
-	if (pi->ptPixelLocation.x < 0)
-		pi->ptPixelLocation.x = 0;
-
-	if (pi->ptPixelLocation.y < 0)
-		pi->ptPixelLocation.y = 0;
-
-	wmsg.pen.x = (uint16_t) pi->ptPixelLocation.x;
-	wmsg.pen.y = (uint16_t) pi->ptPixelLocation.y;
-
-	wmsg.pen.flags = 0;
-
-	if (!(pi->pointerFlags & POINTER_FLAG_INRANGE))
-		wmsg.pen.flags |= MTY_PEN_FLAG_LEAVE;
-
-	if (pi->pointerFlags & POINTER_FLAG_INCONTACT)
-		wmsg.pen.flags |= MTY_PEN_FLAG_TOUCHING;
-
-	if (ppi.penFlags & PEN_FLAG_INVERTED)
-		wmsg.pen.flags |= MTY_PEN_FLAG_INVERTED;
-
-	if (ppi.penFlags & PEN_FLAG_ERASER)
-		wmsg.pen.flags |= MTY_PEN_FLAG_ERASER;
-
-	if (ppi.penFlags & PEN_FLAG_BARREL)
-		wmsg.pen.flags |= MTY_PEN_FLAG_BARREL;
-	*/
-}
-
-static void window_motion_event(Window *window, NSEvent *event)
-{
-	if (event.subtype == NSTabletPointEventSubtype) {
-		window_pen_motion_event(window, event);
-
-	} else {
-		window_mouse_motion_event(window, event);
 	}
 }
 
@@ -635,34 +619,34 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 
 	- (void)mouseUp:(NSEvent *)event
 	{
-		window_mouse_event(self, MTY_MOUSE_BUTTON_LEFT, false);
+		window_button_event(self, event, MTY_MOUSE_BUTTON_LEFT, false);
 	}
 
 	- (void)mouseDown:(NSEvent *)event
 	{
-		window_mouse_event(self, MTY_MOUSE_BUTTON_LEFT, true);
+		window_button_event(self, event, MTY_MOUSE_BUTTON_LEFT, true);
 	}
 
 	- (void)rightMouseUp:(NSEvent *)event
 	{
-		window_mouse_event(self, MTY_MOUSE_BUTTON_RIGHT, false);
+		window_button_event(self, event, MTY_MOUSE_BUTTON_RIGHT, false);
 	}
 
 	- (void)rightMouseDown:(NSEvent *)event
 	{
-		window_mouse_event(self, MTY_MOUSE_BUTTON_RIGHT, true);
+		window_button_event(self, event, MTY_MOUSE_BUTTON_RIGHT, true);
 	}
 
 	- (void)otherMouseUp:(NSEvent *)event
 	{
 		if (event.buttonNumber == 2)
-			window_mouse_event(self, MTY_MOUSE_BUTTON_MIDDLE, false);
+			window_button_event(self, event, MTY_MOUSE_BUTTON_MIDDLE, false);
 	}
 
 	- (void)otherMouseDown:(NSEvent *)event
 	{
 		if (event.buttonNumber == 2)
-			window_mouse_event(self, MTY_MOUSE_BUTTON_MIDDLE, true);
+			window_button_event(self, event, MTY_MOUSE_BUTTON_MIDDLE, true);
 	}
 
 	- (void)mouseMoved:(NSEvent *)event
@@ -707,11 +691,6 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 		msg.mouseWheel.y = lrint(event.scrollingDeltaY * delta);
 
 		self.app.msg_func(&msg, self.app.opaque);
-	}
-
-	- (void)tabletProximity:(NSEvent *)event
-	{
-		// Useful for determining when the pen leaves / enters the tablet
 	}
 @end
 
