@@ -32,6 +32,7 @@
 	@property bool default_cursor;
 	@property bool cursor_outside;
 	@property bool cursor_showing;
+	@property bool eraser;
 	@property uint32_t cb_seq;
 	@property bool *show;
 	@property void **windows;
@@ -362,13 +363,14 @@ static Window *window_find_mouse(Window *me, NSPoint *p)
 
 static void window_pen_event(Window *window, NSPoint *p, NSEvent *event)
 {
+	CGFloat scale = window.screen.backingScaleFactor;
 	MTY_Msg msg = window_msg(window, MTY_MSG_PEN);
 	msg.pen.pressure = (uint16_t) lrint(event.pressure * 1024.0f);
 	msg.pen.rotation = (uint16_t) lrint(event.rotation * 359.0f);
 	msg.pen.tiltX = (int8_t) lrint(event.tilt.x * 90.0f);
 	msg.pen.tiltY = (int8_t) lrint(event.tilt.y * 90.0f);
-	msg.pen.x = lrint(p->x);
-	msg.pen.y = lrint(p->y);
+	msg.pen.x = lrint(p->x * scale);
+	msg.pen.y = lrint(p->y * scale);
 
 	if (msg.pen.pressure > 0)
 		msg.pen.flags |= MTY_PEN_FLAG_TOUCHING;
@@ -376,16 +378,12 @@ static void window_pen_event(Window *window, NSPoint *p, NSEvent *event)
 	if (event.buttonMask & NSEventButtonMaskPenLowerSide)
 		msg.pen.flags |= MTY_PEN_FLAG_BARREL;
 
+	if (window.app.eraser) {
+		msg.pen.flags |= MTY_PEN_FLAG_INVERTED;
+		msg.pen.flags |= MTY_PEN_FLAG_ERASER;
+	}
+
 	window.app.msg_func(&msg, window.app.opaque);
-
-	/*
-	TODO no eraser support
-	if (ppi.penFlags & PEN_FLAG_INVERTED)
-		wmsg.pen.flags |= MTY_PEN_FLAG_INVERTED;
-
-	if (ppi.penFlags & PEN_FLAG_ERASER)
-		wmsg.pen.flags |= MTY_PEN_FLAG_ERASER;
-	*/
 }
 
 static void window_button_event(Window *window, NSEvent *event, MTY_MouseButton button, bool pressed)
@@ -691,6 +689,11 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 		msg.mouseWheel.y = lrint(event.scrollingDeltaY * delta);
 
 		self.app.msg_func(&msg, self.app.opaque);
+	}
+
+	- (void)tabletProximity:(NSEvent *)event
+	{
+		self.app.eraser = event.pointingDeviceType == NSPointingDeviceTypeEraser;
 	}
 @end
 
