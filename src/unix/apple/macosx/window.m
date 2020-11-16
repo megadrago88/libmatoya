@@ -701,6 +701,7 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 	- (void)tabletProximity:(NSEvent *)event
 	{
 		self.app.eraser = event.pointingDeviceType == NSPointingDeviceTypeEraser;
+		self.app.pen_in_range = event.enteringProximity;
 		app_apply_cursor(self.app);
 	}
 @end
