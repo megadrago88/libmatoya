@@ -377,17 +377,29 @@ static void window_pen_event(Window *window, NSEvent *event)
 		msg.pen.x = lrint(p.x * scale);
 		msg.pen.y = lrint(p.y * scale);
 
-		if (msg.pen.pressure > 0 || (event.buttonMask & NSEventButtonMaskPenTip))
-			msg.pen.flags |= MTY_PEN_FLAG_TOUCHING;
+		bool touching = event.buttonMask & NSEventButtonMaskPenTip;
 
-		if (event.buttonMask & NSEventButtonMaskPenLowerSide)
-			msg.pen.flags |= MTY_PEN_FLAG_BARREL;
-
+		// INVERTED must be set while hovering, but ERASER should only be set by
+		// while TOUCHING is also true
 		if (window.app.eraser) {
 			msg.pen.flags |= MTY_PEN_FLAG_INVERTED;
-			msg.pen.flags |= MTY_PEN_FLAG_ERASER;
+
+			if (touching) {
+				msg.pen.flags |= MTY_PEN_FLAG_TOUCHING;
+				msg.pen.flags |= MTY_PEN_FLAG_ERASER;
+			}
+
+		} else if (touching) {
+			msg.pen.flags |= MTY_PEN_FLAG_TOUCHING;
 		}
 
+		// While BARREL is held, TOUCHING must also be set
+		if (event.buttonMask & NSEventButtonMaskPenLowerSide) {
+			msg.pen.flags |= MTY_PEN_FLAG_BARREL;
+			msg.pen.flags |= MTY_PEN_FLAG_TOUCHING;
+		}
+
+		// LEAVE is set when the pen moves out of the tracking area (only once)
 		if (window.app.pen_left) {
 			msg.pen.flags |= MTY_PEN_FLAG_LEAVE;
 			window.app.pen_left = false;
@@ -651,13 +663,13 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 	- (void)otherMouseUp:(NSEvent *)event
 	{
 		if (event.buttonNumber == 2)
-			window_button_event(self, event, MTY_MOUSE_BUTTON_MIDDLE, false);
+			window_mouse_button_event(self, MTY_MOUSE_BUTTON_MIDDLE, false);
 	}
 
 	- (void)otherMouseDown:(NSEvent *)event
 	{
 		if (event.buttonNumber == 2)
-			window_button_event(self, event, MTY_MOUSE_BUTTON_MIDDLE, true);
+			window_mouse_button_event(self,  MTY_MOUSE_BUTTON_MIDDLE, true);
 	}
 
 	- (void)mouseMoved:(NSEvent *)event
