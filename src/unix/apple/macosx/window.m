@@ -33,6 +33,7 @@
 	@property bool cursor_outside;
 	@property bool cursor_showing;
 	@property bool eraser;
+	@property bool pen_left;
 	@property uint32_t cb_seq;
 	@property bool *show;
 	@property void **windows;
@@ -387,6 +388,11 @@ static void window_pen_event(Window *window, NSEvent *event)
 			msg.pen.flags |= MTY_PEN_FLAG_ERASER;
 		}
 
+		if (window.app.pen_left) {
+			msg.pen.flags |= MTY_PEN_FLAG_LEAVE;
+			window.app.pen_left = false;
+		}
+
 		window.app.msg_func(&msg, window.app.opaque);
 	}
 }
@@ -701,7 +707,7 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 	- (void)tabletProximity:(NSEvent *)event
 	{
 		self.app.eraser = event.pointingDeviceType == NSPointingDeviceTypeEraser;
-		self.app.pen_in_range = event.enteringProximity;
+		self.app.pen_left = !event.enteringProximity;
 		app_apply_cursor(self.app);
 	}
 @end
