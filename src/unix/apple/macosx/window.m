@@ -52,7 +52,8 @@ static void app_show_cursor(App *ctx, bool show)
 		[NSCursor unhide];
 
 	} else if (ctx.cursor_showing && !show) {
-		[NSCursor hide];
+		if (!ctx.cursor_outside)
+			[NSCursor hide];
 	}
 
 	ctx.cursor_showing = show;
@@ -700,6 +701,7 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 	- (void)tabletProximity:(NSEvent *)event
 	{
 		self.app.eraser = event.pointingDeviceType == NSPointingDeviceTypeEraser;
+		app_apply_cursor(self.app);
 	}
 @end
 
