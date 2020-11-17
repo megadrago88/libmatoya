@@ -324,6 +324,9 @@ static void hid_driver_rumble(struct hid *hid, uint32_t id, uint16_t low, uint16
 		case MTY_HID_DRIVER_PS4:
 			hid_ps4_rumble(device, low, high);
 			break;
+		case MTY_HID_DRIVER_PS5:
+			hid_ps5_rumble(device, low, high);
+			break;
 		case MTY_HID_DRIVER_XBOX:
 			hid_xbox_rumble(device, low, high);
 			break;
