@@ -249,6 +249,9 @@ static void app_poll_clipboard(App *ctx)
 	@property struct gfx_ctx *gfx_ctx;
 @end
 
+
+// Window helpers
+
 static Window *app_get_window(MTY_App *app, MTY_Window window)
 {
 	App *ctx = (__bridge App *) app;
@@ -290,8 +293,12 @@ static MTY_Msg window_msg(Window *window, MTY_MsgType type)
 	return msg;
 }
 
+
+// Mouse movement / position helpers
+
 static NSPoint window_mouse_pos(NSWindow *window)
 {
+	// Mouse position in screen coordinates
 	NSPoint p = [NSEvent mouseLocation];
 
 	p.x -= window.frame.origin.x;
@@ -302,6 +309,7 @@ static NSPoint window_mouse_pos(NSWindow *window)
 
 static NSPoint window_client_mouse_pos(NSWindow *window)
 {
+	// Mouse position in client area window coordinates
 	NSPoint p = [window mouseLocationOutsideOfEventStream];
 
 	p.y = window.contentView.frame.size.height - p.y;
@@ -316,6 +324,7 @@ static bool window_hit_test(NSPoint *p, NSSize s)
 
 static bool window_event_in_view(NSWindow *window, NSPoint *p)
 {
+	// Is the cursor in the client area?
 	*p = window_client_mouse_pos(window);
 
 	return window_hit_test(p, window.contentView.frame.size);
@@ -323,6 +332,7 @@ static bool window_event_in_view(NSWindow *window, NSPoint *p)
 
 static bool window_event_in_nc(NSWindow *window)
 {
+	// Is the cursor in the non-client area?
 	NSPoint p = window_mouse_pos(window);
 
 	return window_hit_test(&p, window.frame.size);
@@ -330,6 +340,8 @@ static bool window_event_in_nc(NSWindow *window)
 
 static Window *window_find_mouse(Window *me, NSPoint *p)
 {
+	// Find the window where the cursor resides, accounting for overlapping windows
+	// and non-client areas
 	Window *top = nil;
 	bool key_hit = false;
 	NSArray<NSWindow *> *windows = [NSApp windows];
@@ -363,75 +375,82 @@ static Window *window_find_mouse(Window *me, NSPoint *p)
 	return top;
 }
 
+
+// Pen
+
 static void window_pen_event(Window *window, NSEvent *event)
 {
 	NSPoint p = {0};
 	Window *cur = window_find_mouse(window, &p);
-	if (cur) {
-		CGFloat scale = cur.screen.backingScaleFactor;
-		MTY_Msg msg = window_msg(cur, MTY_MSG_PEN);
-		msg.pen.pressure = (uint16_t) lrint(event.pressure * 1024.0f);
-		msg.pen.rotation = (uint16_t) lrint(event.rotation * 359.0f);
-		msg.pen.tiltX = (int8_t) lrint(event.tilt.x * 90.0f);
-		msg.pen.tiltY = (int8_t) lrint(event.tilt.y * 90.0f);
-		msg.pen.x = lrint(p.x * scale);
-		msg.pen.y = lrint(p.y * scale);
+	if (!cur)
+		return;
 
-		bool touching = event.buttonMask & NSEventButtonMaskPenTip;
+	CGFloat scale = cur.screen.backingScaleFactor;
+	MTY_Msg msg = window_msg(cur, MTY_MSG_PEN);
+	msg.pen.pressure = (uint16_t) lrint(event.pressure * 1024.0f);
+	msg.pen.rotation = (uint16_t) lrint(event.rotation * 359.0f);
+	msg.pen.tiltX = (int8_t) lrint(event.tilt.x * 90.0f);
+	msg.pen.tiltY = (int8_t) lrint(event.tilt.y * 90.0f);
+	msg.pen.x = lrint(p.x * scale);
+	msg.pen.y = lrint(p.y * scale);
 
-		// INVERTED must be set while hovering, but ERASER should only be set by
-		// while TOUCHING is also true
-		if (window.app.eraser) {
-			msg.pen.flags |= MTY_PEN_FLAG_INVERTED;
+	bool touching = event.buttonMask & NSEventButtonMaskPenTip;
 
-			if (touching) {
-				msg.pen.flags |= MTY_PEN_FLAG_TOUCHING;
-				msg.pen.flags |= MTY_PEN_FLAG_ERASER;
-			}
+	// INVERTED must be set while hovering, but ERASER should only be set by
+	// while TOUCHING is also true
+	if (window.app.eraser) {
+		msg.pen.flags |= MTY_PEN_FLAG_INVERTED;
 
-		} else if (touching) {
+		if (touching) {
 			msg.pen.flags |= MTY_PEN_FLAG_TOUCHING;
+			msg.pen.flags |= MTY_PEN_FLAG_ERASER;
 		}
 
-		// While BARREL is held, TOUCHING must also be set
-		if (event.buttonMask & NSEventButtonMaskPenLowerSide) {
-			msg.pen.flags |= MTY_PEN_FLAG_BARREL;
-			msg.pen.flags |= MTY_PEN_FLAG_TOUCHING;
-		}
-
-		// LEAVE is set when the pen moves out of the tracking area (only once)
-		if (window.app.pen_left) {
-			msg.pen.flags |= MTY_PEN_FLAG_LEAVE;
-			window.app.pen_left = false;
-		}
-
-		window.app.msg_func(&msg, window.app.opaque);
+	} else if (touching) {
+		msg.pen.flags |= MTY_PEN_FLAG_TOUCHING;
 	}
+
+	// While BARREL is held, TOUCHING must also be set
+	if (event.buttonMask & NSEventButtonMaskPenLowerSide) {
+		msg.pen.flags |= MTY_PEN_FLAG_BARREL;
+		msg.pen.flags |= MTY_PEN_FLAG_TOUCHING;
+	}
+
+	// LEAVE is set when the pen moves out of the tracking area (only once)
+	if (window.app.pen_left) {
+		msg.pen.flags |= MTY_PEN_FLAG_LEAVE;
+		window.app.pen_left = false;
+	}
+
+	window.app.msg_func(&msg, window.app.opaque);
 }
+
+
+// Mouse
 
 static void window_mouse_button_event(Window *window, MTY_MouseButton button, bool pressed)
 {
 	NSPoint p = {0};
 	Window *cur = window_find_mouse(window, &p);
+	if (!cur)
+		return;
 
-	if (cur) {
-		if (pressed && !cur.app.relative) {
-			MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_MOTION);
-			CGFloat scale = cur.screen.backingScaleFactor;
-			msg.mouseMotion.relative = false;
-			msg.mouseMotion.click = true;
-			msg.mouseMotion.x = lrint(scale * p.x);
-			msg.mouseMotion.y = lrint(scale * p.y);
-
-			window.app.msg_func(&msg, window.app.opaque);
-		}
-
-		MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_BUTTON);
-		msg.mouseButton.pressed = pressed;
-		msg.mouseButton.button = button;
+	if (pressed && !cur.app.relative) {
+		MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_MOTION);
+		CGFloat scale = cur.screen.backingScaleFactor;
+		msg.mouseMotion.relative = false;
+		msg.mouseMotion.click = true;
+		msg.mouseMotion.x = lrint(scale * p.x);
+		msg.mouseMotion.y = lrint(scale * p.y);
 
 		window.app.msg_func(&msg, window.app.opaque);
 	}
+
+	MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_BUTTON);
+	msg.mouseButton.pressed = pressed;
+	msg.mouseButton.button = button;
+
+	window.app.msg_func(&msg, window.app.opaque);
 }
 
 static void window_button_event(Window *window, NSEvent *event, MTY_MouseButton button, bool pressed)
@@ -533,6 +552,32 @@ static void window_motion_event(Window *window, NSEvent *event)
 	}
 }
 
+static void window_wheel_event(Window *window, NSEvent *event)
+{
+	CGFloat scale = window.screen.backingScaleFactor;
+	int32_t delta = event.hasPreciseScrollingDeltas ? scale : scale * 80.0f;
+
+	MTY_Msg msg = window_msg(window, MTY_MSG_MOUSE_WHEEL);
+	msg.mouseWheel.x = lrint(event.scrollingDeltaX * delta);
+	msg.mouseWheel.y = lrint(event.scrollingDeltaY * delta);
+
+	window.app.msg_func(&msg, window.app.opaque);
+}
+
+
+// Keyboard
+
+static void window_text_event(Window *window, const char *text)
+{
+	// Make sure visible ASCII
+	if (text && text[0] && text[0] >= 0x20 && text[0] != 0x7F) {
+		MTY_Msg msg = window_msg(window, MTY_MSG_TEXT);
+		snprintf(msg.text, 8, "%s", text);
+
+		window.app.msg_func(&msg, window.app.opaque);
+	}
+}
+
 static void window_keyboard_event(Window *window, int16_t key_code, NSEventModifierFlags flags, bool pressed)
 {
 	MTY_Msg msg = window_msg(window, MTY_MSG_KEYBOARD);
@@ -556,6 +601,28 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 		if (msg.keyboard.scancode != MTY_SCANCODE_NONE)
 			window.app.msg_func(&msg, window.app.opaque);
 	}
+}
+
+static void window_mod_event(Window *window, NSEvent *event)
+{
+	MTY_Msg msg = window_msg(window, MTY_MSG_KEYBOARD);
+	msg.keyboard.scancode = keycode_to_scancode(event.keyCode);
+	msg.keyboard.mod = modifier_flags_to_keymod(event.modifierFlags);
+
+	switch (msg.keyboard.scancode) {
+		case MTY_SCANCODE_LSHIFT: msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_LSHIFT; break;
+		case MTY_SCANCODE_LCTRL:  msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_LCTRL;  break;
+		case MTY_SCANCODE_LALT:   msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_LALT;   break;
+		case MTY_SCANCODE_LWIN:   msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_LWIN;   break;
+		case MTY_SCANCODE_RSHIFT: msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_RSHIFT; break;
+		case MTY_SCANCODE_RCTRL:  msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_RCTRL;  break;
+		case MTY_SCANCODE_RALT:   msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_RALT;   break;
+		case MTY_SCANCODE_RWIN:   msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_RWIN;   break;
+		default:
+			return;
+	}
+
+	window.app.msg_func(&msg, window.app.opaque);
 }
 
 @implementation Window : NSWindow
@@ -605,39 +672,13 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 
 	- (void)keyDown:(NSEvent *)event
 	{
-		const char *text = [event.characters UTF8String];
-
-		// Make sure visible ASCII
-		if (text && text[0] && text[0] >= 0x20 && text[0] != 0x7F) {
-			MTY_Msg msg = window_msg(self, MTY_MSG_TEXT);
-			snprintf(msg.text, 8, "%s", text);
-
-			self.app.msg_func(&msg, self.app.opaque);
-		}
-
+		window_text_event(self, [event.characters UTF8String]);
 		window_keyboard_event(self, event.keyCode, event.modifierFlags, true);
 	}
 
 	- (void)flagsChanged:(NSEvent *)event
 	{
-		MTY_Msg msg = window_msg(self, MTY_MSG_KEYBOARD);
-		msg.keyboard.scancode = keycode_to_scancode(event.keyCode);
-		msg.keyboard.mod = modifier_flags_to_keymod(event.modifierFlags);
-
-		switch (msg.keyboard.scancode) {
-			case MTY_SCANCODE_LSHIFT: msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_LSHIFT; break;
-			case MTY_SCANCODE_LCTRL:  msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_LCTRL;  break;
-			case MTY_SCANCODE_LALT:   msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_LALT;   break;
-			case MTY_SCANCODE_LWIN:   msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_LWIN;   break;
-			case MTY_SCANCODE_RSHIFT: msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_RSHIFT; break;
-			case MTY_SCANCODE_RCTRL:  msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_RCTRL;  break;
-			case MTY_SCANCODE_RALT:   msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_RALT;   break;
-			case MTY_SCANCODE_RWIN:   msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_RWIN;   break;
-			default:
-				return;
-		}
-
-		self.app.msg_func(&msg, self.app.opaque);
+		window_mod_event(self, event);
 	}
 
 	- (void)mouseUp:(NSEvent *)event
@@ -662,12 +703,14 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 
 	- (void)otherMouseUp:(NSEvent *)event
 	{
+		// Ignore pen event for the middle mouse button
 		if (event.buttonNumber == 2)
 			window_mouse_button_event(self, MTY_MOUSE_BUTTON_MIDDLE, false);
 	}
 
 	- (void)otherMouseDown:(NSEvent *)event
 	{
+		// Ignore pen event for the middle mouse button
 		if (event.buttonNumber == 2)
 			window_mouse_button_event(self,  MTY_MOUSE_BUTTON_MIDDLE, true);
 	}
@@ -706,14 +749,7 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 
 	- (void)scrollWheel:(NSEvent *)event
 	{
-		CGFloat scale = self.screen.backingScaleFactor;
-		int32_t delta = event.hasPreciseScrollingDeltas ? scale : scale * 80.0f;
-
-		MTY_Msg msg = window_msg(self, MTY_MSG_MOUSE_WHEEL);
-		msg.mouseWheel.x = lrint(event.scrollingDeltaX * delta);
-		msg.mouseWheel.y = lrint(event.scrollingDeltaY * delta);
-
-		self.app.msg_func(&msg, self.app.opaque);
+		window_wheel_event(self, event);
 	}
 
 	- (void)tabletProximity:(NSEvent *)event
