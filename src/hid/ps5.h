@@ -33,7 +33,7 @@ static void hid_ps5_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 static void hid_ps5_init(struct hdevice *device)
 {
 	struct ps5_state *ctx = hid_device_get_state(device);
-	ctx->bluetooth = false;
+	ctx->bluetooth = hid_device_get_input_report_size(device) == 78;
 
 	hid_ps5_rumble(device, 0, 0);
 }

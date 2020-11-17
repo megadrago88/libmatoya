@@ -31,6 +31,7 @@ void *hid_device_get_state(struct hdevice *ctx);
 uint16_t hid_device_get_vid(struct hdevice *ctx);
 uint16_t hid_device_get_pid(struct hdevice *ctx);
 uint32_t hid_device_get_id(struct hdevice *ctx);
+uint32_t hid_device_get_input_report_size(struct hdevice *ctx);
 
 void hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Msg *wmsg);
 
