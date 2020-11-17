@@ -27,6 +27,7 @@ struct hdevice {
 	IOHIDDeviceRef device;
 	void *state;
 	uint32_t id;
+	uint32_t input_size;
 	uint16_t vid;
 	uint16_t pid;
 };
@@ -50,6 +51,7 @@ static struct hdevice *hid_device_create(void *native_device)
 	ctx->device = (IOHIDDeviceRef) native_device;
 	ctx->vid = hid_device_get_prop_int(ctx->device, CFSTR(kIOHIDVendorIDKey));
 	ctx->pid = hid_device_get_prop_int(ctx->device, CFSTR(kIOHIDProductIDKey));
+	ctx->input_size = hid_device_get_prop_int(ctx->device, CFSTR(kIOHIDMaxInputReportSizeKey));
 	ctx->state = MTY_Alloc(HID_STATE_MAX, 1);
 
 	return ctx;
@@ -302,4 +304,9 @@ uint16_t hid_device_get_pid(struct hdevice *ctx)
 uint32_t hid_device_get_id(struct hdevice *ctx)
 {
 	return ctx->id;
+}
+
+uint32_t hid_device_get_input_report_size(struct hdevice *ctx)
+{
+	return ctx->input_size;
 }
