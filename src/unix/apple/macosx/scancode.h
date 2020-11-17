@@ -49,7 +49,7 @@ static MTY_Scancode window_keycode_to_scancode(uint16_t kc)
 		case kVK_ANSI_X:              return MTY_SCANCODE_X; // 0x07
 		case kVK_ANSI_C:              return MTY_SCANCODE_C; // 0x08
 		case kVK_ANSI_V:              return MTY_SCANCODE_V; // 0x09
-		case kVK_ISO_Section:         return MTY_SCANCODE_NONE; // 0x0A
+		case kVK_ISO_Section:         return MTY_SCANCODE_INTL_BACKSLASH; // 0x0A
 		case kVK_ANSI_B:              return MTY_SCANCODE_B; // 0x0B
 		case kVK_ANSI_Q:              return MTY_SCANCODE_Q; // 0x0C
 		case kVK_ANSI_W:              return MTY_SCANCODE_W; // 0x0D
@@ -132,7 +132,7 @@ static MTY_Scancode window_keycode_to_scancode(uint16_t kc)
 		case kVK_ANSI_Keypad8:        return MTY_SCANCODE_NP_8; // 0x5B
 		case kVK_ANSI_Keypad9:        return MTY_SCANCODE_NP_9; // 0x5C
 		case kVK_JIS_Yen:             return MTY_SCANCODE_YEN; // 0x5D
-		case kVK_JIS_Underscore:      return MTY_SCANCODE_NONE; // 0x5E
+		case kVK_JIS_Underscore:      return MTY_SCANCODE_RO; // 0x5E
 		case kVK_JIS_KeypadComma:     return MTY_SCANCODE_INTL_COMMA; // 0x5F
 		case kVK_F5:                  return MTY_SCANCODE_F5; // 0x60
 		case kVK_F6:                  return MTY_SCANCODE_F6; // 0x61
@@ -140,9 +140,9 @@ static MTY_Scancode window_keycode_to_scancode(uint16_t kc)
 		case kVK_F3:                  return MTY_SCANCODE_F3; // 0x63
 		case kVK_F8:                  return MTY_SCANCODE_F8; // 0x64
 		case kVK_F9:                  return MTY_SCANCODE_F9; // 0x65
-		case kVK_JIS_Eisu:            return MTY_SCANCODE_NONE; // 0x66
+		case kVK_JIS_Eisu:            return MTY_SCANCODE_MUHENKAN; // 0x66
 		case kVK_F11:                 return MTY_SCANCODE_F11; // 0x67
-		case kVK_JIS_Kana:            return MTY_SCANCODE_NONE; // 0x68
+		case kVK_JIS_Kana:            return MTY_SCANCODE_HENKAN; // 0x68
 		case kVK_F13:                 return MTY_SCANCODE_PRINT_SCREEN; // 0x69
 		case kVK_F16:                 return MTY_SCANCODE_F16; // 0x6A
 		case kVK_F14:                 return MTY_SCANCODE_SCROLL_LOCK; // 0x6B
