@@ -192,6 +192,7 @@ static void hid_default_map_values(MTY_Controller *c)
 // Drivers
 
 #include "ps4.h"
+#include "ps5.h"
 #include "nx.h"
 #include "xbox.h"
 
@@ -258,6 +259,11 @@ static MTY_HIDDriver hid_driver(struct hdevice *device)
 		case 0x0E6F0207: // Victrix Pro Fightstick w/ Touchpad for PS4
 			return MTY_HID_DRIVER_PS4;
 
+		// PS5
+		case 0x054C0CE6: // Sony DualSense
+			return MTY_HID_DRIVER_PS5;
+
+		// Xbox
 		case 0x045E02E0: // Microsoft X-Box One S pad (Bluetooth)
 		case 0x045E02FD: // Microsoft X-Box One S pad (Bluetooth)
 		case 0x045E0B05: // Microsoft X-Box One Elite Series 2 pad (Bluetooth)
@@ -291,6 +297,9 @@ static void hid_driver_state(struct hdevice *device, const void *buf, size_t siz
 			break;
 		case MTY_HID_DRIVER_PS4:
 			hid_ps4_state(device, buf, size, wmsg);
+			break;
+		case MTY_HID_DRIVER_PS5:
+			hid_ps5_state(device, buf, size, wmsg);
 			break;
 		case MTY_HID_DRIVER_XBOX:
 			hid_xbox_state(device, buf, size, wmsg);
