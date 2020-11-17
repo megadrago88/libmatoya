@@ -33,8 +33,6 @@ static MTY_Keymod modifier_flags_to_keymod(NSEventModifierFlags flags)
 	mod |= (flags & NS_MOD_RALT) ? MTY_KEYMOD_RALT : 0;
 	mod |= (flags & NSEventModifierFlagCapsLock) ? MTY_KEYMOD_CAPS : 0;
 
-	// TODO Numlock ?
-
 	return mod;
 }
 
@@ -105,7 +103,7 @@ static MTY_Scancode keycode_to_scancode(uint16_t kc)
 		case kVK_RightOption:         return MTY_SCANCODE_RALT; // 0x3D
 		case kVK_RightControl:        return MTY_SCANCODE_RCTRL; // 0x3E
 		case kVK_Function:            return MTY_SCANCODE_NONE; // 0x3F
-		case kVK_F17:                 return MTY_SCANCODE_NONE; // 0x40
+		case kVK_F17:                 return MTY_SCANCODE_F17; // 0x40
 		case kVK_ANSI_KeypadDecimal:  return MTY_SCANCODE_NP_PERIOD; // 0x41
 		case 0x42:                    return MTY_SCANCODE_NONE; // 0x42
 		case kVK_ANSI_KeypadMultiply: return MTY_SCANCODE_NP_MULTIPLY; // 0x43
@@ -119,9 +117,9 @@ static MTY_Scancode keycode_to_scancode(uint16_t kc)
 		case kVK_ANSI_KeypadDivide:   return MTY_SCANCODE_NP_DIVIDE; // 0x4B
 		case kVK_ANSI_KeypadEnter:    return MTY_SCANCODE_NP_ENTER; // 0x4C
 		case kVK_ANSI_KeypadMinus:    return MTY_SCANCODE_NP_MINUS; // 0x4E
-		case kVK_F18:                 return MTY_SCANCODE_NONE; // 0x4F
-		case kVK_F19:                 return MTY_SCANCODE_NONE; // 0x50
-		case kVK_ANSI_KeypadEquals:   return MTY_SCANCODE_NONE; // 0x51
+		case kVK_F18:                 return MTY_SCANCODE_F18; // 0x4F
+		case kVK_F19:                 return MTY_SCANCODE_F19; // 0x50
+		case kVK_ANSI_KeypadEquals:   return MTY_SCANCODE_EQUALS; // 0x51
 		case kVK_ANSI_Keypad0:        return MTY_SCANCODE_NP_0; // 0x52
 		case kVK_ANSI_Keypad1:        return MTY_SCANCODE_NP_1; // 0x53
 		case kVK_ANSI_Keypad2:        return MTY_SCANCODE_NP_2; // 0x54
@@ -146,13 +144,13 @@ static MTY_Scancode keycode_to_scancode(uint16_t kc)
 		case kVK_F11:                 return MTY_SCANCODE_F11; // 0x67
 		case kVK_JIS_Kana:            return MTY_SCANCODE_NONE; // 0x68
 		case kVK_F13:                 return MTY_SCANCODE_PRINT_SCREEN; // 0x69
-		case kVK_F16:                 return MTY_SCANCODE_NONE; // 0x6A
-		case kVK_F14:                 return MTY_SCANCODE_NONE; // 0x6B
+		case kVK_F16:                 return MTY_SCANCODE_F16; // 0x6A
+		case kVK_F14:                 return MTY_SCANCODE_F14; // 0x6B
 		case kVK_F10:                 return MTY_SCANCODE_F10; // 0x6D
 		case kVK_WinApp:              return MTY_SCANCODE_APP; // 0x6E
 		case kVK_F12:                 return MTY_SCANCODE_F12; // 0x6F
 		case 0x70:                    return MTY_SCANCODE_NONE; // 0x70
-		case kVK_F15:                 return MTY_SCANCODE_NONE; // 0x71
+		case kVK_F15:                 return MTY_SCANCODE_F15; // 0x71
 		case kVK_Help:                return MTY_SCANCODE_INSERT; // 0x72
 		case kVK_Home:                return MTY_SCANCODE_HOME; // 0x73
 		case kVK_PageUp:              return MTY_SCANCODE_PAGE_UP; // 0x74

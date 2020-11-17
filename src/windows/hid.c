@@ -52,137 +52,6 @@ struct hdevice {
 };
 
 
-// XInput
-
-static void hid_xinput_to_mty(const XINPUT_STATE *xstate, MTY_Msg *wmsg)
-{
-	WORD b = xstate->Gamepad.wButtons;
-	MTY_Controller *c = &wmsg->controller;
-
-	c->buttons[MTY_CBUTTON_X] = b & XINPUT_GAMEPAD_X;
-	c->buttons[MTY_CBUTTON_A] = b & XINPUT_GAMEPAD_A;
-	c->buttons[MTY_CBUTTON_B] = b & XINPUT_GAMEPAD_B;
-	c->buttons[MTY_CBUTTON_Y] = b & XINPUT_GAMEPAD_Y;
-	c->buttons[MTY_CBUTTON_LEFT_SHOULDER] = b & XINPUT_GAMEPAD_LEFT_SHOULDER;
-	c->buttons[MTY_CBUTTON_RIGHT_SHOULDER] = b & XINPUT_GAMEPAD_RIGHT_SHOULDER;
-	c->buttons[MTY_CBUTTON_LEFT_TRIGGER] = xstate->Gamepad.bLeftTrigger > 0;
-	c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] = xstate->Gamepad.bRightTrigger > 0;
-	c->buttons[MTY_CBUTTON_BACK] = b & XINPUT_GAMEPAD_BACK;
-	c->buttons[MTY_CBUTTON_START] = b & XINPUT_GAMEPAD_START;
-	c->buttons[MTY_CBUTTON_LEFT_THUMB] = b & XINPUT_GAMEPAD_LEFT_THUMB;
-	c->buttons[MTY_CBUTTON_RIGHT_THUMB] = b & XINPUT_GAMEPAD_RIGHT_THUMB;
-	c->buttons[MTY_CBUTTON_GUIDE] = b & 0x0400;
-
-	c->values[MTY_CVALUE_THUMB_LX].data = xstate->Gamepad.sThumbLX;
-	c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
-	c->values[MTY_CVALUE_THUMB_LX].min = INT16_MIN;
-	c->values[MTY_CVALUE_THUMB_LX].max = INT16_MAX;
-
-	c->values[MTY_CVALUE_THUMB_LY].data = xstate->Gamepad.sThumbLY;
-	c->values[MTY_CVALUE_THUMB_LY].usage = 0x31;
-	c->values[MTY_CVALUE_THUMB_LY].min = INT16_MIN;
-	c->values[MTY_CVALUE_THUMB_LY].max = INT16_MAX;
-
-	c->values[MTY_CVALUE_THUMB_RX].data = xstate->Gamepad.sThumbRX;
-	c->values[MTY_CVALUE_THUMB_RX].usage = 0x32;
-	c->values[MTY_CVALUE_THUMB_RX].min = INT16_MIN;
-	c->values[MTY_CVALUE_THUMB_RX].max = INT16_MAX;
-
-	c->values[MTY_CVALUE_THUMB_RY].data = xstate->Gamepad.sThumbRY;
-	c->values[MTY_CVALUE_THUMB_RY].usage = 0x35;
-	c->values[MTY_CVALUE_THUMB_RY].min = INT16_MIN;
-	c->values[MTY_CVALUE_THUMB_RY].max = INT16_MAX;
-
-	c->values[MTY_CVALUE_TRIGGER_L].data = xstate->Gamepad.bLeftTrigger;
-	c->values[MTY_CVALUE_TRIGGER_L].usage = 0x33;
-	c->values[MTY_CVALUE_TRIGGER_L].min = 0;
-	c->values[MTY_CVALUE_TRIGGER_L].max = UINT8_MAX;
-
-	c->values[MTY_CVALUE_TRIGGER_R].data = xstate->Gamepad.bRightTrigger;
-	c->values[MTY_CVALUE_TRIGGER_R].usage = 0x34;
-	c->values[MTY_CVALUE_TRIGGER_R].min = 0;
-	c->values[MTY_CVALUE_TRIGGER_R].max = UINT8_MAX;
-
-	bool up = b & XINPUT_GAMEPAD_DPAD_UP;
-	bool down = b & XINPUT_GAMEPAD_DPAD_DOWN;
-	bool left = b & XINPUT_GAMEPAD_DPAD_LEFT;
-	bool right = b & XINPUT_GAMEPAD_DPAD_RIGHT;
-
-	c->values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
-		(down && left) ? 5 : (left && up) ? 7 : up ? 0 : right ? 2 : down ? 4 : left ? 6 : 8;
-	c->values[MTY_CVALUE_DPAD].usage = 0x39;
-	c->values[MTY_CVALUE_DPAD].min = 0;
-	c->values[MTY_CVALUE_DPAD].max = 7;
-}
-
-void hid_xinput_rumble(struct hid *ctx, uint32_t id, uint16_t low, uint16_t high)
-{
-	if (id >= 4)
-		return;
-
-	if (!ctx->xinput[id].disabled) {
-		XINPUT_VIBRATION vb = {0};
-		vb.wLeftMotorSpeed = low;
-		vb.wRightMotorSpeed = high;
-
-		DWORD e = ctx->XInputSetState(id, &vb);
-		if (e != ERROR_SUCCESS)
-			MTY_Log("'XInputSetState' failed with error 0x%X", e);
-	}
-}
-
-void hid_xinput_state(struct hid *ctx, MTY_MsgFunc func, void *opaque)
-{
-	for (uint8_t x = 0; x < 4; x++) {
-		struct xip *xip = &ctx->xinput[x];
-
-		if (!xip->disabled) {
-			MTY_Msg wmsg = {0};
-			wmsg.controller.driver = MTY_HID_DRIVER_XINPUT;
-			wmsg.controller.numButtons = 13;
-			wmsg.controller.numValues = 7;
-			wmsg.controller.id = x;
-
-			XINPUT_STATE xstate;
-			if (ctx->XInputGetState(x, &xstate) == ERROR_SUCCESS) {
-				if (!xip->was_enabled) {
-					xip->bbi.vid = 0x045E;
-					xip->bbi.pid = 0x0000;
-
-					if (ctx->XInputGetBaseBusInformation) {
-						DWORD e = ctx->XInputGetBaseBusInformation(x, &xip->bbi);
-						if (e != ERROR_SUCCESS)
-							MTY_Log("'XInputGetBaseBusInformation' failed with error 0x%X", e);
-					}
-
-					xip->was_enabled = true;
-				}
-
-				if (xstate.dwPacketNumber != xip->packet) {
-					wmsg.type = MTY_MSG_CONTROLLER;
-					wmsg.controller.vid = xip->bbi.vid;
-					wmsg.controller.pid = xip->bbi.pid;
-
-					hid_xinput_to_mty(&xstate, &wmsg);
-					func(&wmsg, opaque);
-
-					xip->packet = xstate.dwPacketNumber;
-				}
-			} else {
-				xip->disabled = true;
-
-				if (xip->was_enabled) {
-					wmsg.type = MTY_MSG_DISCONNECT;
-					func(&wmsg, opaque);
-
-					xip->was_enabled = false;
-				}
-			}
-		}
-	}
-}
-
-
 // HID
 
 static void hid_device_destroy(void *opaque)
@@ -269,7 +138,7 @@ static struct hdevice *hid_device_create(HANDLE device)
 		goto except;
 	}
 
-	ctx->is_xinput = wcsstr(ctx->name, L"IG_");
+	ctx->is_xinput = wcsstr(ctx->name, L"IG_") ? true : false;
 	ctx->state = MTY_Alloc(HID_STATE_MAX, 1);
 
 	except:
@@ -285,13 +154,13 @@ static struct hdevice *hid_device_create(HANDLE device)
 struct hid *hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_REPORT report, void *opaque)
 {
 	struct hid *ctx = MTY_Alloc(1, sizeof(struct hid));
-	ctx->id = 32;
 	ctx->devices = MTY_HashCreate(0);
 	ctx->devices_rev = MTY_HashCreate(0);
 	ctx->connect = connect;
 	ctx->disconnect = disconnect;
 	ctx->report = report;
 	ctx->opaque = opaque;
+	ctx->id = 32;
 
 	// XInput
 	bool fallback = false;
@@ -325,54 +194,6 @@ struct hid *hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_REPOR
 struct hdevice *hid_get_device_by_id(struct hid *ctx, uint32_t id)
 {
 	return MTY_HashGetInt(ctx->devices_rev, id);
-}
-
-void hid_win32_report(struct hid *ctx, intptr_t device, const void *buf, size_t size)
-{
-	struct hdevice *dev = MTY_HashGetInt(ctx->devices, device);
-
-	if (dev && !dev->is_xinput)
-		ctx->report(dev, buf, size, ctx->opaque);
-}
-
-void hid_win32_device_change(struct hid *ctx, intptr_t wparam, intptr_t lparam)
-{
-	if (wparam == GIDC_ARRIVAL) {
-		for (uint8_t x = 0; x < 4; x++)
-			ctx->xinput[x].disabled = false;
-
-		struct hdevice *dev = hid_device_create((HANDLE) lparam);
-		if (dev) {
-			dev->id = ctx->id++;
-			hid_destroy(MTY_HashSetInt(ctx->devices, lparam, dev));
-			MTY_HashSetInt(ctx->devices_rev, dev->id, dev);
-
-			if (!dev->is_xinput)
-				ctx->connect(dev, ctx->opaque);
-		}
-
-	} else if (wparam == GIDC_REMOVAL) {
-		struct hdevice *dev = MTY_HashPopInt(ctx->devices, lparam);
-		if (dev) {
-			if (!dev->is_xinput)
-				ctx->disconnect(dev, ctx->opaque);
-
-			MTY_HashPopInt(ctx->devices_rev, dev->id);
-			hid_device_destroy(dev);
-		}
-	}
-}
-
-void hid_win32_listen(void *hwnd)
-{
-	RAWINPUTDEVICE rid[3] = {
-		{0x01, 0x04, RIDEV_DEVNOTIFY | RIDEV_INPUTSINK, (HWND) hwnd},
-		{0x01, 0x05, RIDEV_DEVNOTIFY | RIDEV_INPUTSINK, (HWND) hwnd},
-		{0x01, 0x08, RIDEV_DEVNOTIFY | RIDEV_INPUTSINK, (HWND) hwnd},
-	};
-
-	if (!RegisterRawInputDevices(rid, 3, sizeof(RAWINPUTDEVICE)))
-		MTY_Log("'RegisterRawInputDevices' failed with error 0x%X", GetLastError());
 }
 
 void hid_destroy(struct hid **hid)
@@ -556,4 +377,186 @@ void hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Ms
 	c->pid = (uint16_t) ctx->di.hid.dwProductId;
 	c->driver = MTY_HID_DRIVER_DEFAULT;
 	c->id = ctx->id;
+}
+
+
+// Win32 RAWINPUT interop
+
+void hid_win32_report(struct hid *ctx, intptr_t device, const void *buf, size_t size)
+{
+	struct hdevice *dev = MTY_HashGetInt(ctx->devices, device);
+
+	if (dev && !dev->is_xinput)
+		ctx->report(dev, buf, size, ctx->opaque);
+}
+
+void hid_win32_device_change(struct hid *ctx, intptr_t wparam, intptr_t lparam)
+{
+	if (wparam == GIDC_ARRIVAL) {
+		for (uint8_t x = 0; x < 4; x++)
+			ctx->xinput[x].disabled = false;
+
+		struct hdevice *dev = hid_device_create((HANDLE) lparam);
+		if (dev) {
+			dev->id = ctx->id++;
+			hid_destroy(MTY_HashSetInt(ctx->devices, lparam, dev));
+			MTY_HashSetInt(ctx->devices_rev, dev->id, dev);
+
+			if (!dev->is_xinput)
+				ctx->connect(dev, ctx->opaque);
+		}
+
+	} else if (wparam == GIDC_REMOVAL) {
+		struct hdevice *dev = MTY_HashPopInt(ctx->devices, lparam);
+		if (dev) {
+			if (!dev->is_xinput)
+				ctx->disconnect(dev, ctx->opaque);
+
+			MTY_HashPopInt(ctx->devices_rev, dev->id);
+			hid_device_destroy(dev);
+		}
+	}
+}
+
+void hid_win32_listen(void *hwnd)
+{
+	RAWINPUTDEVICE rid[3] = {
+		{0x01, 0x04, RIDEV_DEVNOTIFY | RIDEV_INPUTSINK, (HWND) hwnd},
+		{0x01, 0x05, RIDEV_DEVNOTIFY | RIDEV_INPUTSINK, (HWND) hwnd},
+		{0x01, 0x08, RIDEV_DEVNOTIFY | RIDEV_INPUTSINK, (HWND) hwnd},
+	};
+
+	if (!RegisterRawInputDevices(rid, 3, sizeof(RAWINPUTDEVICE)))
+		MTY_Log("'RegisterRawInputDevices' failed with error 0x%X", GetLastError());
+}
+
+
+// XInput interop
+
+static void hid_xinput_to_mty(const XINPUT_STATE *xstate, MTY_Msg *wmsg)
+{
+	WORD b = xstate->Gamepad.wButtons;
+	MTY_Controller *c = &wmsg->controller;
+
+	c->buttons[MTY_CBUTTON_X] = b & XINPUT_GAMEPAD_X;
+	c->buttons[MTY_CBUTTON_A] = b & XINPUT_GAMEPAD_A;
+	c->buttons[MTY_CBUTTON_B] = b & XINPUT_GAMEPAD_B;
+	c->buttons[MTY_CBUTTON_Y] = b & XINPUT_GAMEPAD_Y;
+	c->buttons[MTY_CBUTTON_LEFT_SHOULDER] = b & XINPUT_GAMEPAD_LEFT_SHOULDER;
+	c->buttons[MTY_CBUTTON_RIGHT_SHOULDER] = b & XINPUT_GAMEPAD_RIGHT_SHOULDER;
+	c->buttons[MTY_CBUTTON_LEFT_TRIGGER] = xstate->Gamepad.bLeftTrigger > 0;
+	c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] = xstate->Gamepad.bRightTrigger > 0;
+	c->buttons[MTY_CBUTTON_BACK] = b & XINPUT_GAMEPAD_BACK;
+	c->buttons[MTY_CBUTTON_START] = b & XINPUT_GAMEPAD_START;
+	c->buttons[MTY_CBUTTON_LEFT_THUMB] = b & XINPUT_GAMEPAD_LEFT_THUMB;
+	c->buttons[MTY_CBUTTON_RIGHT_THUMB] = b & XINPUT_GAMEPAD_RIGHT_THUMB;
+	c->buttons[MTY_CBUTTON_GUIDE] = b & 0x0400;
+
+	c->values[MTY_CVALUE_THUMB_LX].data = xstate->Gamepad.sThumbLX;
+	c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
+	c->values[MTY_CVALUE_THUMB_LX].min = INT16_MIN;
+	c->values[MTY_CVALUE_THUMB_LX].max = INT16_MAX;
+
+	c->values[MTY_CVALUE_THUMB_LY].data = xstate->Gamepad.sThumbLY;
+	c->values[MTY_CVALUE_THUMB_LY].usage = 0x31;
+	c->values[MTY_CVALUE_THUMB_LY].min = INT16_MIN;
+	c->values[MTY_CVALUE_THUMB_LY].max = INT16_MAX;
+
+	c->values[MTY_CVALUE_THUMB_RX].data = xstate->Gamepad.sThumbRX;
+	c->values[MTY_CVALUE_THUMB_RX].usage = 0x32;
+	c->values[MTY_CVALUE_THUMB_RX].min = INT16_MIN;
+	c->values[MTY_CVALUE_THUMB_RX].max = INT16_MAX;
+
+	c->values[MTY_CVALUE_THUMB_RY].data = xstate->Gamepad.sThumbRY;
+	c->values[MTY_CVALUE_THUMB_RY].usage = 0x35;
+	c->values[MTY_CVALUE_THUMB_RY].min = INT16_MIN;
+	c->values[MTY_CVALUE_THUMB_RY].max = INT16_MAX;
+
+	c->values[MTY_CVALUE_TRIGGER_L].data = xstate->Gamepad.bLeftTrigger;
+	c->values[MTY_CVALUE_TRIGGER_L].usage = 0x33;
+	c->values[MTY_CVALUE_TRIGGER_L].min = 0;
+	c->values[MTY_CVALUE_TRIGGER_L].max = UINT8_MAX;
+
+	c->values[MTY_CVALUE_TRIGGER_R].data = xstate->Gamepad.bRightTrigger;
+	c->values[MTY_CVALUE_TRIGGER_R].usage = 0x34;
+	c->values[MTY_CVALUE_TRIGGER_R].min = 0;
+	c->values[MTY_CVALUE_TRIGGER_R].max = UINT8_MAX;
+
+	bool up = b & XINPUT_GAMEPAD_DPAD_UP;
+	bool down = b & XINPUT_GAMEPAD_DPAD_DOWN;
+	bool left = b & XINPUT_GAMEPAD_DPAD_LEFT;
+	bool right = b & XINPUT_GAMEPAD_DPAD_RIGHT;
+
+	c->values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
+		(down && left) ? 5 : (left && up) ? 7 : up ? 0 : right ? 2 : down ? 4 : left ? 6 : 8;
+	c->values[MTY_CVALUE_DPAD].usage = 0x39;
+	c->values[MTY_CVALUE_DPAD].min = 0;
+	c->values[MTY_CVALUE_DPAD].max = 7;
+}
+
+void hid_xinput_rumble(struct hid *ctx, uint32_t id, uint16_t low, uint16_t high)
+{
+	if (id >= 4)
+		return;
+
+	if (!ctx->xinput[id].disabled) {
+		XINPUT_VIBRATION vb = {0};
+		vb.wLeftMotorSpeed = low;
+		vb.wRightMotorSpeed = high;
+
+		DWORD e = ctx->XInputSetState(id, &vb);
+		if (e != ERROR_SUCCESS)
+			MTY_Log("'XInputSetState' failed with error 0x%X", e);
+	}
+}
+
+void hid_xinput_state(struct hid *ctx, MTY_MsgFunc func, void *opaque)
+{
+	for (uint8_t x = 0; x < 4; x++) {
+		struct xip *xip = &ctx->xinput[x];
+
+		if (!xip->disabled) {
+			MTY_Msg wmsg = {0};
+			wmsg.controller.driver = MTY_HID_DRIVER_XINPUT;
+			wmsg.controller.numButtons = 13;
+			wmsg.controller.numValues = 7;
+			wmsg.controller.id = x;
+
+			XINPUT_STATE xstate;
+			if (ctx->XInputGetState(x, &xstate) == ERROR_SUCCESS) {
+				if (!xip->was_enabled) {
+					xip->bbi.vid = 0x045E;
+					xip->bbi.pid = 0x0000;
+
+					if (ctx->XInputGetBaseBusInformation) {
+						DWORD e = ctx->XInputGetBaseBusInformation(x, &xip->bbi);
+						if (e != ERROR_SUCCESS)
+							MTY_Log("'XInputGetBaseBusInformation' failed with error 0x%X", e);
+					}
+
+					xip->was_enabled = true;
+				}
+
+				if (xstate.dwPacketNumber != xip->packet) {
+					wmsg.type = MTY_MSG_CONTROLLER;
+					wmsg.controller.vid = xip->bbi.vid;
+					wmsg.controller.pid = xip->bbi.pid;
+
+					hid_xinput_to_mty(&xstate, &wmsg);
+					func(&wmsg, opaque);
+
+					xip->packet = xstate.dwPacketNumber;
+				}
+			} else {
+				xip->disabled = true;
+
+				if (xip->was_enabled) {
+					wmsg.type = MTY_MSG_DISCONNECT;
+					func(&wmsg, opaque);
+
+					xip->was_enabled = false;
+				}
+			}
+		}
+	}
 }

@@ -36,8 +36,8 @@ struct gfx_ui *gfx_metal_ui_create(MTY_Device *device)
 
 	id<MTLLibrary> library = [_device newLibraryWithSource:[NSString stringWithUTF8String:MTL_LIBRARY] options:nil error:&error];
 	if (error) {
-		NSLog(@"Metal error: %@", error);
 		r = false;
+		MTY_Log([[error localizedDescription] UTF8String]);
 		goto except;
 	}
 
@@ -67,8 +67,8 @@ struct gfx_ui *gfx_metal_ui_create(MTY_Device *device)
 
 	ctx->rps = [_device newRenderPipelineStateWithDescriptor:pdesc error:&error];
 	if (error) {
-		NSLog(@"Metal error: %@", error);
 		r = false;
+		MTY_Log([[error localizedDescription] UTF8String]);
 		goto except;
 	}
 

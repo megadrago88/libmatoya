@@ -14,8 +14,8 @@ typedef BOOL (*PFNWGLSWAPINTERVALEXTPROC)(int interval);
 
 struct gfx_gl_ctx {
 	HWND hwnd;
-	HGLRC hgl;
-	HDC hdc;
+	HGLRC gl;
+	HDC dc;
 	MTY_Renderer *renderer;
 	uint32_t interval;
 	uint32_t width;
@@ -49,34 +49,34 @@ struct gfx_ctx *gfx_gl_ctx_create(void *native_window, bool vsync)
 		PFD_DOUBLEBUFFER | PFD_SWAP_LAYER_BUFFERS | PFD_SWAP_EXCHANGE;
 	pfd.iPixelType = PFD_TYPE_RGBA;
 
-	ctx->hdc = GetDC(ctx->hwnd);
-	if (!ctx->hdc) {
+	ctx->dc = GetDC(ctx->hwnd);
+	if (!ctx->dc) {
 		r = false;
 		MTY_Log("'GetDC' failed");
 		goto except;
 	}
 
-	int32_t pf = ChoosePixelFormat(ctx->hdc, &pfd);
+	int32_t pf = ChoosePixelFormat(ctx->dc, &pfd);
 	if (pf == 0) {
 		r = false;
 		MTY_Log("'ChoosePixelFormat' failed with error 0x%X", GetLastError());
 		goto except;
 	}
 
-	if (!SetPixelFormat(ctx->hdc, pf, &pfd)) {
+	if (!SetPixelFormat(ctx->dc, pf, &pfd)) {
 		r = false;
 		MTY_Log("'SetPixelFormat' failed with error 0x%X", GetLastError());
 		goto except;
 	}
 
-	ctx->hgl = wglCreateContext(ctx->hdc);
-	if (!ctx->hgl) {
+	ctx->gl = wglCreateContext(ctx->dc);
+	if (!ctx->gl) {
 		r = false;
 		MTY_Log("'wglCreateContext' failed with error 0x%X", GetLastError());
 		goto except;
 	}
 
-	if (!wglMakeCurrent(ctx->hdc, ctx->hgl)) {
+	if (!wglMakeCurrent(ctx->dc, ctx->gl)) {
 		r = false;
 		MTY_Log("'wglMakeCurrent' failed with error 0x%X", GetLastError());
 		goto except;
@@ -110,11 +110,11 @@ void gfx_gl_ctx_destroy(struct gfx_ctx **gfx_ctx)
 
 	wglMakeCurrent(NULL, NULL);
 
-	if (ctx->hgl)
-		wglDeleteContext(ctx->hgl);
+	if (ctx->gl)
+		wglDeleteContext(ctx->gl);
 
-	if (ctx->hwnd && ctx->hdc)
-		ReleaseDC(ctx->hwnd, ctx->hdc);
+	if (ctx->hwnd && ctx->dc)
+		ReleaseDC(ctx->hwnd, ctx->dc);
 
 	MTY_Free(ctx);
 	*gfx_ctx = NULL;
@@ -127,7 +127,12 @@ MTY_Device *gfx_gl_ctx_get_device(struct gfx_ctx *gfx_ctx)
 
 MTY_Context *gfx_gl_ctx_get_context(struct gfx_ctx *gfx_ctx)
 {
-	return NULL;
+	struct gfx_gl_ctx *ctx = (struct gfx_gl_ctx *) gfx_ctx;
+
+	if (wglGetCurrentContext() != ctx->gl)
+		wglMakeCurrent(ctx->dc, ctx->gl);
+
+	return (MTY_Context *) ctx->gl;
 }
 
 MTY_Texture *gfx_gl_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
@@ -148,7 +153,7 @@ void gfx_gl_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 		ctx->interval = interval;
 	}
 
-	if (!wglSwapLayerBuffers(ctx->hdc, WGL_SWAP_MAIN_PLANE))
+	if (!wglSwapLayerBuffers(ctx->dc, WGL_SWAP_MAIN_PLANE))
 		MTY_Log("'wglSwapLayerBuffers' failed with error 0x%X", GetLastError());
 
 	glFinish();

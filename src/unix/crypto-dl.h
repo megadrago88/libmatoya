@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "mty-libs.h"
+
 
 // Interface
 
@@ -32,8 +34,6 @@ typedef struct evp_cipher_ctx_st EVP_CIPHER_CTX;
 typedef struct evp_md_st EVP_MD;
 
 STATIC const EVP_CIPHER *FP(EVP_aes_128_gcm)(void);
-STATIC const EVP_CIPHER *FP(EVP_aes_192_gcm)(void);
-STATIC const EVP_CIPHER *FP(EVP_aes_256_gcm)(void);
 STATIC EVP_CIPHER_CTX *FP(EVP_CIPHER_CTX_new)(void);
 STATIC void FP(EVP_CIPHER_CTX_free)(EVP_CIPHER_CTX *c);
 STATIC int FP(EVP_CipherInit_ex)(EVP_CIPHER_CTX *ctx, const EVP_CIPHER *cipher, ENGINE *impl,
@@ -81,10 +81,7 @@ static bool crypto_dl_global_init(void)
 
 	if (!CRYPTO_DL_INIT) {
 		bool r = true;
-		CRYPTO_DL_SO = MTY_SOLoad("libcrypto.so.1.0.0");
-
-		if (!CRYPTO_DL_SO)
-			CRYPTO_DL_SO = MTY_SOLoad("libcrypto.35.dylib");
+		CRYPTO_DL_SO = MTY_SOLoad(LIB_CRYPTO);
 
 		if (!CRYPTO_DL_SO) {
 			r = false;
@@ -96,8 +93,6 @@ static bool crypto_dl_global_init(void)
 			if (!name) {r = false; goto except;}
 
 		LOAD_SYM(CRYPTO_DL_SO, EVP_aes_128_gcm);
-		LOAD_SYM(CRYPTO_DL_SO, EVP_aes_192_gcm);
-		LOAD_SYM(CRYPTO_DL_SO, EVP_aes_256_gcm);
 		LOAD_SYM(CRYPTO_DL_SO, EVP_CIPHER_CTX_new);
 		LOAD_SYM(CRYPTO_DL_SO, EVP_CIPHER_CTX_free);
 		LOAD_SYM(CRYPTO_DL_SO, EVP_CipherInit_ex);

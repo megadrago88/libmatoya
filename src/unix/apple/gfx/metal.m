@@ -60,8 +60,8 @@ struct gfx *gfx_metal_create(MTY_Device *device)
 	NSError *nse = nil;
 	ctx->library = [_device newLibraryWithSource:[NSString stringWithUTF8String:MTL_LIBRARY] options:nil error:&nse];
 	if (nse) {
-		MTY_Log([[nse localizedDescription] UTF8String]);
 		r = false;
+		MTY_Log([[nse localizedDescription] UTF8String]);
 		goto except;
 	}
 
@@ -104,8 +104,8 @@ struct gfx *gfx_metal_create(MTY_Device *device)
 
 	ctx->pipeline = [_device newRenderPipelineStateWithDescriptor:pdesc error:&nse];
 	if (nse) {
-		MTY_Log([[nse localizedDescription] UTF8String]);
 		r = false;
+		MTY_Log([[nse localizedDescription] UTF8String]);
 		goto except;
 	}
 

@@ -34,6 +34,8 @@ static void audio_queue_callback(void *opaque, AudioQueueRef q, AudioQueueBuffer
 
 MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer)
 {
+	// TODO Should this use the current run loop rather than internal threading?
+
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
 	ctx->sample_rate = sampleRate;
 
@@ -48,13 +50,27 @@ MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t max
 	format.mFramesPerPacket = 1;
 	format.mChannelsPerFrame = AUDIO_CHANNELS;
 	format.mBitsPerChannel = AUDIO_SAMPLE_SIZE * 8;
-	format.mBytesPerPacket = AUDIO_SAMPLE_SIZE * AUDIO_CHANNELS;;
+	format.mBytesPerPacket = AUDIO_SAMPLE_SIZE * AUDIO_CHANNELS;
 	format.mBytesPerFrame = format.mBytesPerPacket;
 
-	AudioQueueNewOutput(&format, audio_queue_callback, ctx, NULL, NULL, 0, &ctx->q);
+	OSStatus e = AudioQueueNewOutput(&format, audio_queue_callback, ctx, NULL, NULL, 0, &ctx->q);
+	if (e != kAudioServicesNoError) {
+		MTY_Log("'AudioQueueNewOutput' failed with error 0x%X", e);
+		goto except;
+	}
 
-	for (int32_t x = 0; x < AUDIO_BUFS; x++)
-		AudioQueueAllocateBuffer(ctx->q, AUDIO_BUF_SIZE, &ctx->audio_buf[x]);
+	for (int32_t x = 0; x < AUDIO_BUFS; x++) {
+		e = AudioQueueAllocateBuffer(ctx->q, AUDIO_BUF_SIZE, &ctx->audio_buf[x]);
+		if (e != kAudioServicesNoError) {
+			MTY_Log("'AudioQueueAllocateBuffer' failed with error 0x%X", e);
+			goto except;
+		}
+	}
+
+	except:
+
+	if (e != kAudioServicesNoError)
+		MTY_AudioDestroy(&ctx);
 
 	return ctx;
 }
@@ -114,8 +130,13 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 				buf->mAudioDataByteSize = size;
 				buf->mUserData = (void *) (uintptr_t) x;
 
-				AudioQueueEnqueueBuffer(ctx->q, buf, 0, NULL);
-				MTY_Atomic32Set(&ctx->in_use[x], 1);
+				OSStatue e = AudioQueueEnqueueBuffer(ctx->q, buf, 0, NULL);
+				if (e == kAudioServicesNoError) {
+					MTY_Atomic32Set(&ctx->in_use[x], 1);
+
+				} else {
+					MTY_Log("'AudioQueueEnqueueBuffer' failed with error 0x%X", e);
+				}
 				break;
 			}
 		}
@@ -133,8 +154,11 @@ void MTY_AudioDestroy(MTY_Audio **audio)
 
 	MTY_Audio *ctx = *audio;
 
-	if (ctx->q)
-		AudioQueueDispose(ctx->q, true);
+	if (ctx->q) {
+		OSStatus e = AudioQueueDispose(ctx->q, true);
+		if (e != kAudioServicesNoError)
+			MTY_Log("'AudioQueueDispose' failed with error 0x%X", e);
+	}
 
 	MTY_Free(ctx);
 	*audio = NULL;

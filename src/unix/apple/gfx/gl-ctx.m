@@ -64,7 +64,8 @@ void gfx_gl_ctx_destroy(struct gfx_ctx **gfx_ctx)
 
 	MTY_RendererDestroy(&ctx->renderer);
 
-	[ctx->gl clearDrawable];
+	if (ctx->gl)
+		[ctx->gl clearDrawable];
 
 	ctx->gl = nil;
 	ctx->window = nil;
@@ -93,7 +94,7 @@ static void gfx_gl_ctx_refresh(struct gfx_gl_ctx *ctx)
 	CGSize size = gfx_gl_ctx_get_size(ctx);
 
 	if (size.width != ctx->size.width || size.height != ctx->size.height) {
-		dispatch_sync(dispatch_get_main_queue(), ^{
+		dispatch_async(dispatch_get_main_queue(), ^{
 			[ctx->gl update];
 		});
 
