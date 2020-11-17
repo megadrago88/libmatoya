@@ -195,6 +195,7 @@ bool gfx_metal_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 	}
 
 	// End render pass
+	// TODO Experiment with waitUntilScheduled?
 	[re endEncoding];
 	[cb commit];
 	[cb waitUntilCompleted];

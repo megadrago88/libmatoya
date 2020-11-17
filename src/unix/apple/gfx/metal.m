@@ -273,6 +273,7 @@ bool gfx_metal_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	[re drawIndexedPrimitives:MTLPrimitiveTypeTriangleStrip indexCount:6
 		indexType:MTLIndexTypeUInt16 indexBuffer:ctx->ib indexBufferOffset:0];
 
+	// TODO Experiment with waitUntilScheduled?
 	[re endEncoding];
 	[cb commit];
 	[cb waitUntilCompleted];
