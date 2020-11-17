@@ -581,8 +581,8 @@ static void window_text_event(Window *window, const char *text)
 static void window_keyboard_event(Window *window, int16_t key_code, NSEventModifierFlags flags, bool pressed)
 {
 	MTY_Msg msg = window_msg(window, MTY_MSG_KEYBOARD);
-	msg.keyboard.scancode = keycode_to_scancode(key_code);
-	msg.keyboard.mod = modifier_flags_to_keymod(flags);
+	msg.keyboard.scancode = window_keycode_to_scancode(key_code);
+	msg.keyboard.mod = window_modifier_flags_to_keymod(flags);
 	msg.keyboard.pressed = pressed;
 
 	MTY_Keymod mod = msg.keyboard.mod & 0xFF;
@@ -606,8 +606,8 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 static void window_mod_event(Window *window, NSEvent *event)
 {
 	MTY_Msg msg = window_msg(window, MTY_MSG_KEYBOARD);
-	msg.keyboard.scancode = keycode_to_scancode(event.keyCode);
-	msg.keyboard.mod = modifier_flags_to_keymod(event.modifierFlags);
+	msg.keyboard.scancode = window_keycode_to_scancode(event.keyCode);
+	msg.keyboard.mod = window_modifier_flags_to_keymod(event.modifierFlags);
 
 	switch (msg.keyboard.scancode) {
 		case MTY_SCANCODE_LSHIFT: msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_LSHIFT; break;
@@ -829,10 +829,10 @@ void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, siz
 
 			dispatch_sync(dispatch_get_main_queue(), ^{
 				for (uint16_t kc = 0; kc < 0x100; kc++) {
-					MTY_Scancode sc = keycode_to_scancode(kc);
+					MTY_Scancode sc = window_keycode_to_scancode(kc);
 
 					if (sc != MTY_SCANCODE_NONE) {
-						const char *text = keycode_to_text(kc);
+						const char *text = window_keycode_to_text(kc);
 						if (text) {
 							snprintf(APP_KEYS[sc], 16, "%s", text);
 

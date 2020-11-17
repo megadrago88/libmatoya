@@ -130,7 +130,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 				buf->mAudioDataByteSize = size;
 				buf->mUserData = (void *) (uintptr_t) x;
 
-				OSStatue e = AudioQueueEnqueueBuffer(ctx->q, buf, 0, NULL);
+				OSStatus e = AudioQueueEnqueueBuffer(ctx->q, buf, 0, NULL);
 				if (e == kAudioServicesNoError) {
 					MTY_Atomic32Set(&ctx->in_use[x], 1);
 

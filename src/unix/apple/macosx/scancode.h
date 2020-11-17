@@ -19,7 +19,7 @@ enum {
 	NS_MOD_RCTRL  = 0x002000,
 };
 
-static MTY_Keymod modifier_flags_to_keymod(NSEventModifierFlags flags)
+static MTY_Keymod window_modifier_flags_to_keymod(NSEventModifierFlags flags)
 {
 	MTY_Keymod mod = 0;
 
@@ -36,7 +36,7 @@ static MTY_Keymod modifier_flags_to_keymod(NSEventModifierFlags flags)
 	return mod;
 }
 
-static MTY_Scancode keycode_to_scancode(uint16_t kc)
+static MTY_Scancode window_keycode_to_scancode(uint16_t kc)
 {
 	switch (kc) {
 		case kVK_ANSI_A:              return MTY_SCANCODE_A; // 0x00
@@ -145,12 +145,12 @@ static MTY_Scancode keycode_to_scancode(uint16_t kc)
 		case kVK_JIS_Kana:            return MTY_SCANCODE_NONE; // 0x68
 		case kVK_F13:                 return MTY_SCANCODE_PRINT_SCREEN; // 0x69
 		case kVK_F16:                 return MTY_SCANCODE_F16; // 0x6A
-		case kVK_F14:                 return MTY_SCANCODE_F14; // 0x6B
+		case kVK_F14:                 return MTY_SCANCODE_SCROLL_LOCK; // 0x6B
 		case kVK_F10:                 return MTY_SCANCODE_F10; // 0x6D
 		case kVK_WinApp:              return MTY_SCANCODE_APP; // 0x6E
 		case kVK_F12:                 return MTY_SCANCODE_F12; // 0x6F
 		case 0x70:                    return MTY_SCANCODE_NONE; // 0x70
-		case kVK_F15:                 return MTY_SCANCODE_F15; // 0x71
+		case kVK_F15:                 return MTY_SCANCODE_PAUSE; // 0x71
 		case kVK_Help:                return MTY_SCANCODE_INSERT; // 0x72
 		case kVK_Home:                return MTY_SCANCODE_HOME; // 0x73
 		case kVK_PageUp:              return MTY_SCANCODE_PAGE_UP; // 0x74
@@ -169,7 +169,7 @@ static MTY_Scancode keycode_to_scancode(uint16_t kc)
 	return MTY_SCANCODE_NONE;
 }
 
-static const char *keycode_to_text(uint16_t kc)
+static const char *window_keycode_to_text(uint16_t kc)
 {
 	switch (kc) {
 		case kVK_Return:              return "Enter"; // 0x24
