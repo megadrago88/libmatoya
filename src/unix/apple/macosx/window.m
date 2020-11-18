@@ -97,6 +97,13 @@ static void app_poll_clipboard(App *ctx)
 		return YES;
 	}
 
+	- (void)applicationWillHide:(NSNotification *)notification
+	{
+		// XXX Important! [NSApp hide:] seems to crash if windows are not ordered out first!
+		for (uint32_t x = 0; x < [NSApp windows].count; x++)
+			[[NSApp windows][x] orderOut:self];
+	}
+
 	- (void)applicationWillFinishLaunching:(NSNotification *)notification
 	{
 		[[NSUserNotificationCenter defaultUserNotificationCenter] setDelegate:self];
@@ -104,13 +111,6 @@ static void app_poll_clipboard(App *ctx)
 		[[NSAppleEventManager sharedAppleEventManager] setEventHandler:self
 			andSelector:@selector(handleGetURLEvent:withReplyEvent:) forEventClass:kInternetEventClass
 			andEventID:kAEGetURL];
-	}
-
-	- (void)applicationWillHide:(NSNotification *)notification
-	{
-		// XXX Important! [NSApp hide:] seems to crash if windows are not ordered out first!
-		for (uint32_t x = 0; x < [NSApp windows].count; x++)
-			[[NSApp windows][x] orderOut:self];
 	}
 
 	- (void)applicationWillUnhide:(NSNotification *)notification
