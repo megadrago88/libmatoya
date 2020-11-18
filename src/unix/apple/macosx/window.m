@@ -106,6 +106,18 @@ static void app_poll_clipboard(App *ctx)
 			andEventID:kAEGetURL];
 	}
 
+	- (void)applicationWillHide:(NSNotification *)notification
+	{
+		// XXX Important! [NSApp hide:] seems to crash if windows are not ordered out first!
+		for (uint32_t x = 0; x < [NSApp windows].count; x++)
+			[[NSApp windows][x] orderOut:self];
+	}
+
+	- (void)applicationWillUnhide:(NSNotification *)notification
+	{
+		MTY_AppActivate((__bridge MTY_App *) self, true);
+	}
+
 	- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag
 	{
 		MTY_AppActivate((__bridge MTY_App *) self, true);
