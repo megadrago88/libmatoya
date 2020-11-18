@@ -94,7 +94,7 @@ static void app_poll_clipboard(App *ctx)
 static void app_apply_fullscreen_options(void)
 {
 	NSWindow *key = [NSApp keyWindow];
-	if (!key)
+	if (!key || ![NSApp isActive] || [NSApp isHidden])
 		return;
 
 	NSApplicationPresentationOptions opts = [NSApp presentationOptions];
@@ -1032,6 +1032,8 @@ void MTY_AppDestroy(MTY_App **app)
 
 	App *ctx = (__bridge_transfer App *) *app;
 
+	MTY_AppEnableScreenSaver(*app, true);
+
 	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
 		MTY_WindowDestroy(*app, x);
 
@@ -1091,10 +1093,10 @@ void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 		ctx.assertion = 0;
 	}
 
-	if (enable) {
+	if (!enable) {
 		IOPMAssertionID assertion = 0;
-		IOPMAssertionCreateWithDescription(kIOPMAssertPreventUserIdleDisplaySleep, NULL,
-			NULL, NULL, NULL, 0, NULL, &assertion);
+		IOPMAssertionCreateWithDescription(kIOPMAssertPreventUserIdleDisplaySleep,
+			CFSTR("MTY_AppEnableScreenSaver"), NULL, NULL, NULL, 0, NULL, &assertion);
 
 		ctx.assertion = assertion;
 	}
