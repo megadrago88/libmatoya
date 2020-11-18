@@ -35,7 +35,6 @@
 	@property bool eraser;
 	@property bool pen_left;
 	@property uint32_t cb_seq;
-	@property bool *show;
 	@property void **windows;
 	@property float timeout;
 	@property struct hid *hid;
@@ -91,41 +90,11 @@ static void app_poll_clipboard(App *ctx)
 	}
 }
 
-static void app_apply_fullscreen_options(void)
-{
-	NSWindow *key = [NSApp keyWindow];
-	if (!key || ![NSApp isActive] || [NSApp isHidden])
-		return;
-
-	NSApplicationPresentationOptions opts = [NSApp presentationOptions];
-	bool fs = key.styleMask & NSWindowStyleMaskFullScreen;
-	bool dock_hidden = opts & NSApplicationPresentationHideDock;
-
-	if (fs && !dock_hidden) {
-		[NSApp setPresentationOptions:opts | NSApplicationPresentationHideDock];
-
-	} else if (!fs && dock_hidden) {
-		[NSApp setPresentationOptions:opts & ~(NSApplicationPresentationFullScreen | NSApplicationPresentationHideDock)];
-	}
-}
-
 @implementation App : NSObject
 	- (BOOL)userNotificationCenter:(NSUserNotificationCenter *)center
 		shouldPresentNotification:(NSUserNotification *)notification
 	{
 		return YES;
-	}
-
-	- (void)applicationWillHide:(NSNotification *)notification
-	{
-		// XXX Important! [NSApp hide:] seems to crash if windows are not ordered out first!
-		for (uint32_t x = 0; x < [NSApp windows].count; x++)
-			[[NSApp windows][x] orderOut:self];
-	}
-
-	- (void)applicationWillUnhide:(NSNotification *)notification
-	{
-		MTY_AppActivate((__bridge MTY_App *) self, true);
 	}
 
 	- (void)applicationWillFinishLaunching:(NSNotification *)notification
@@ -184,7 +153,6 @@ static void app_apply_fullscreen_options(void)
 	- (void)appFunc:(NSTimer *)timer
 	{
 		app_poll_clipboard(self);
-		app_apply_fullscreen_options();
 
 		if (!self.app_func(self.opaque)) {
 			[NSApp stop:self];
@@ -222,11 +190,6 @@ static void app_apply_fullscreen_options(void)
 		[submenu setSubmenu:menu];
 
 		[NSApp setMainMenu:menubar];
-
-		// Windows must be shown after the application finished launching for proper "spaces" behavior
-		for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
-			if (self.show[x])
-				MTY_WindowActivate((__bridge MTY_App *) self, x, true);
 
 		[NSApp activateIgnoringOtherApps:YES];
 	}
@@ -1001,6 +964,19 @@ static void app_hid_report(struct hdevice *device, const void *buf, size_t size,
 		ctx.msg_func(&msg, ctx.opaque);
 }
 
+static void app_pump_events(void)
+{
+	while (true) { @autoreleasepool {
+		NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:nil
+			inMode:NSDefaultRunLoopMode dequeue:YES];
+
+		if (!event)
+			break;
+
+		[NSApp sendEvent:event];
+	}}
+}
+
 MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 {
 	App *ctx = [App new];
@@ -1014,13 +990,16 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	ctx.hid = hid_create(app_hid_connect, app_hid_disconnect, app_hid_report, app);
 
 	ctx.windows = MTY_Alloc(MTY_WINDOW_MAX, sizeof(void *));
-	ctx.show = MTY_Alloc(MTY_WINDOW_MAX, sizeof(bool));
 	ctx.hotkey = MTY_HashCreate(0);
 
 	ctx.cb_seq = [[NSPasteboard generalPasteboard] changeCount];
 
 	[NSApplication sharedApplication];
 	[NSApp setDelegate:ctx];
+
+	// Ensure applicationDidFinishLaunching fires before this function returns
+	[NSApp finishLaunching];
+	app_pump_events();
 
 	return app;
 }
@@ -1038,7 +1017,6 @@ void MTY_AppDestroy(MTY_App **app)
 		MTY_WindowDestroy(*app, x);
 
 	MTY_Free(ctx.windows);
-	MTY_Free(ctx.show);
 
 	struct hid *hid = ctx.hid;
 	hid_destroy(&hid);
@@ -1201,13 +1179,8 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	ctx.app.windows[window] = (__bridge void *) ctx;
 
-	if ([NSApp isRunning]) {
-		if (!desc->hidden)
-			MTY_WindowActivate(app, window, true);
-
-	} else {
-		ctx.app.show[window] = !desc->hidden;
-	}
+	if (!desc->hidden)
+		MTY_WindowActivate(app, window, true);
 
 	if (desc->api != MTY_GFX_NONE) {
 		if (!MTY_WindowSetGFX(app, window, desc->api, desc->vsync)) {
