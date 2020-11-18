@@ -6,7 +6,7 @@
 
 #pragma once
 
-#define PS5_OUTPUT_SIZE 48
+#define PS5_OUTPUT_SIZE 78
 
 struct ps5_state {
 	bool init;
@@ -15,19 +15,36 @@ struct ps5_state {
 
 static void hid_ps5_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 {
-	uint8_t buf[PS5_OUTPUT_SIZE] = {
-		[0] = 0x02,        // Report Type
-		[1] = 0x01 | 0x02, // Flags0: Both motors
-		[2] = 0x04 | 0x10, // Flags1: LEDs, player indicator
-		[3] = high >> 8,   // Right high freq motor
-		[4] = low >> 8,    // Left low freq motor
-		[44] = 0x00,       // Player indicator
-		[45] = 0xFF,       // LED red
-		[46] = 0x00,       // LED green
-		[47] = 0xFF,       // LED blue
-	};
+	struct ps5_state *ctx = hid_device_get_state(device);
 
-	hid_device_write(device, buf, PS5_OUTPUT_SIZE);
+	uint8_t buf[PS5_OUTPUT_SIZE] = {0};
+	uint32_t size = 48;
+	uint32_t o = 0;
+
+	if (ctx->bluetooth) {
+		buf[0] = 0x31;
+		size = 78;
+		o = 1;
+	}
+
+	buf[o + 0] = 0x02;        // Report Type
+	buf[o + 1] = 0x01 | 0x02; // Flags0: Both motors
+	buf[o + 2] = 0x04 | 0x10; // Flags1: LEDs, player indicator
+	buf[o + 3] = high >> 8;   // Right high freq motor
+	buf[o + 4] = low >> 8;    // Left low freq motor
+	buf[o + 44] = 0x01;       // Player indicator
+	buf[o + 45] = 0xFF;       // LED red
+	buf[o + 46] = 0x00;       // LED green
+	buf[o + 47] = 0xFF;       // LED blue
+
+	if (ctx->bluetooth) {
+		uint8_t hdr = 0xA2;
+		uint32_t crc = hid_ps4_crc32(0, &hdr, 1);
+		crc = hid_ps4_crc32(crc, buf, size - 4);
+		memcpy(buf + size - 4, &crc, 4);
+	}
+
+	hid_device_write(device, buf, size);
 }
 
 static void hid_ps5_init(struct hdevice *device)
@@ -35,6 +52,8 @@ static void hid_ps5_init(struct hdevice *device)
 	struct ps5_state *ctx = hid_device_get_state(device);
 	ctx->bluetooth = hid_device_get_input_report_size(device) == 78;
 
+	// Writing a bluetooth output report with id 0x31 will make the DS start sending
+	// 0x31 id input reports
 	hid_ps5_rumble(device, 0, 0);
 }
 
@@ -52,7 +71,18 @@ static void hid_ps5_state(struct hdevice *device, const void *data, size_t dsize
 		const uint8_t *a = data;
 		const uint8_t *t = data;
 
-		if (!ctx->bluetooth) {
+		// Bluetooth (Simple)
+		if (ctx->bluetooth) {
+
+			// Bluetooth (Full)
+			if (b[0] == 0x31) {
+				b += 4;
+				a += 1;
+				t -= 2;
+			}
+
+		// Wired (Full)
+		} else {
 			b += 3;
 			t -= 3;
 		}
