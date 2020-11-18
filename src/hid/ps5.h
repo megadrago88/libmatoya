@@ -32,7 +32,7 @@ static void hid_ps5_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 	buf[o + 2] = 0x04 | 0x10; // Flags1: LEDs, player indicator
 	buf[o + 3] = high >> 8;   // Right high freq motor
 	buf[o + 4] = low >> 8;    // Left low freq motor
-	buf[o + 44] = 0x01;       // Player indicator
+	buf[o + 44] = 0x00;       // Player indicator
 	buf[o + 45] = 0xFF;       // LED red
 	buf[o + 46] = 0x00;       // LED green
 	buf[o + 47] = 0xFF;       // LED blue
