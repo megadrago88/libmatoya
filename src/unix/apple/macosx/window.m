@@ -91,6 +91,24 @@ static void app_poll_clipboard(App *ctx)
 	}
 }
 
+static void app_apply_fullscreen_options(void)
+{
+	NSWindow *key = [NSApp keyWindow];
+	if (!key)
+		return;
+
+	NSApplicationPresentationOptions opts = [NSApp presentationOptions];
+	bool fs = key.styleMask & NSWindowStyleMaskFullScreen;
+	bool dock_hidden = opts & NSApplicationPresentationHideDock;
+
+	if (fs && !dock_hidden) {
+		[NSApp setPresentationOptions:opts | NSApplicationPresentationHideDock];
+
+	} else if (!fs && dock_hidden) {
+		[NSApp setPresentationOptions:opts & ~(NSApplicationPresentationFullScreen | NSApplicationPresentationHideDock)];
+	}
+}
+
 @implementation App : NSObject
 	- (BOOL)userNotificationCenter:(NSUserNotificationCenter *)center
 		shouldPresentNotification:(NSUserNotification *)notification
@@ -166,6 +184,7 @@ static void app_poll_clipboard(App *ctx)
 	- (void)appFunc:(NSTimer *)timer
 	{
 		app_poll_clipboard(self);
+		app_apply_fullscreen_options();
 
 		if (!self.app_func(self.opaque)) {
 			[NSApp stop:self];
@@ -703,16 +722,22 @@ static void window_mod_event(Window *window, NSEvent *event)
 
 	- (void)otherMouseUp:(NSEvent *)event
 	{
-		// Ignore pen event for the middle mouse button
-		if (event.buttonNumber == 2)
-			window_mouse_button_event(self, MTY_MOUSE_BUTTON_MIDDLE, false);
+		// Ignore pen event for the middle / X buttons
+		switch (event.buttonNumber) {
+			case 2: window_mouse_button_event(self, MTY_MOUSE_BUTTON_MIDDLE, false); break;
+			case 3: window_mouse_button_event(self, MTY_MOUSE_BUTTON_X1, false); break;
+			case 4: window_mouse_button_event(self, MTY_MOUSE_BUTTON_X2, false); break;
+		}
 	}
 
 	- (void)otherMouseDown:(NSEvent *)event
 	{
-		// Ignore pen event for the middle mouse button
-		if (event.buttonNumber == 2)
-			window_mouse_button_event(self,  MTY_MOUSE_BUTTON_MIDDLE, true);
+		// Ignore pen event for the middle / X buttons
+		switch (event.buttonNumber) {
+			case 2: window_mouse_button_event(self, MTY_MOUSE_BUTTON_MIDDLE, true); break;
+			case 3: window_mouse_button_event(self, MTY_MOUSE_BUTTON_X1, true); break;
+			case 4: window_mouse_button_event(self, MTY_MOUSE_BUTTON_X2, true); break;
+		}
 	}
 
 	- (void)mouseMoved:(NSEvent *)event
@@ -757,6 +782,13 @@ static void window_mod_event(Window *window, NSEvent *event)
 		self.app.eraser = event.pointingDeviceType == NSPointingDeviceTypeEraser;
 		self.app.pen_left = !event.enteringProximity;
 		app_apply_cursor(self.app);
+	}
+
+	- (NSApplicationPresentationOptions)window:(NSWindow *)window
+		willUseFullScreenPresentationOptions:(NSApplicationPresentationOptions)proposedOptions
+	{
+		return NSApplicationPresentationFullScreen | NSApplicationPresentationHideMenuBar |
+			NSApplicationPresentationHideDock;
 	}
 @end
 
