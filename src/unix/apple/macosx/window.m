@@ -104,6 +104,11 @@ static void app_poll_clipboard(App *ctx)
 			[[NSApp windows][x] orderOut:self];
 	}
 
+	- (void)applicationWillUnhide:(NSNotification *)notification
+	{
+		MTY_AppActivate((__bridge MTY_App *) self, true);
+	}
+
 	- (void)applicationWillFinishLaunching:(NSNotification *)notification
 	{
 		[[NSUserNotificationCenter defaultUserNotificationCenter] setDelegate:self];
@@ -111,11 +116,6 @@ static void app_poll_clipboard(App *ctx)
 		[[NSAppleEventManager sharedAppleEventManager] setEventHandler:self
 			andSelector:@selector(handleGetURLEvent:withReplyEvent:) forEventClass:kInternetEventClass
 			andEventID:kAEGetURL];
-	}
-
-	- (void)applicationWillUnhide:(NSNotification *)notification
-	{
-		MTY_AppActivate((__bridge MTY_App *) self, true);
 	}
 
 	- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag
