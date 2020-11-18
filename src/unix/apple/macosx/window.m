@@ -758,13 +758,6 @@ static void window_mod_event(Window *window, NSEvent *event)
 		self.app.pen_left = !event.enteringProximity;
 		app_apply_cursor(self.app);
 	}
-
-	- (NSApplicationPresentationOptions)window:(NSWindow *)window
-		willUseFullScreenPresentationOptions:(NSApplicationPresentationOptions)proposedOptions
-	{
-		return NSApplicationPresentationFullScreen | NSApplicationPresentationHideMenuBar |
-			NSApplicationPresentationHideDock;
-	}
 @end
 
 
