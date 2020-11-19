@@ -253,6 +253,20 @@ static Window *app_get_window(MTY_App *app, MTY_Window window)
 	return window < 0 ? nil : (__bridge Window *) ctx.windows[window];
 }
 
+static Window *app_get_window_by_number(App *ctx, NSInteger number)
+{
+	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++) {
+		if (ctx.windows[x]) {
+			Window *window = (__bridge Window *) ctx.windows[x];
+
+			if (window.windowNumber == number)
+				return window;
+		}
+	}
+
+	return nil;
+}
+
 static MTY_Window app_find_open_window(MTY_App *app)
 {
 	App *ctx = (__bridge App *) app;
@@ -276,14 +290,83 @@ static MTY_Msg window_msg(Window *window, MTY_MsgType type)
 
 // Mouse movement / position helpers
 
-static void window_mouse_pos(NSWindow *window, int32_t *x, int32_t *y)
+static NSPoint window_mouse_pos(NSWindow *window)
+{
+	// Mouse position in screen coordinates
+	NSPoint p = [NSEvent mouseLocation];
+
+	p.x -= window.frame.origin.x;
+	p.y = window.frame.size.height - p.y + window.frame.origin.y;
+
+	return p;
+}
+
+static NSPoint window_client_mouse_pos(NSWindow *window)
 {
 	// Mouse position in client area window coordinates
 	NSPoint p = [window mouseLocationOutsideOfEventStream];
-	CGFloat scale = window.screen.backingScaleFactor;
 
-	*x = p.x * scale;
-	*y = (window.contentView.frame.size.height - p.y) * scale;
+	p.y = window.contentView.frame.size.height - p.y;
+
+	return p;
+}
+
+static bool window_hit_test(NSPoint *p, NSSize s)
+{
+	return p->x >= 0 && p->y >= 0 && p->x < s.width && p->y < s.height;
+}
+
+static bool window_event_in_view(NSWindow *window, NSPoint *p)
+{
+	// Is the cursor in the client area?
+	*p = window_client_mouse_pos(window);
+
+	return window_hit_test(p, window.contentView.frame.size);
+}
+
+static bool window_event_in_nc(NSWindow *window)
+{
+	// Is the cursor in the non-client area?
+	NSPoint p = window_mouse_pos(window);
+
+	return window_hit_test(&p, window.frame.size);
+}
+
+static Window *window_find_mouse(Window *me, NSPoint *p)
+{
+	// Find the window where the cursor resides, accounting for overlapping windows
+	// and non-client areas
+	Window *top = nil;
+	bool key_hit = false;
+	NSArray<NSWindow *> *windows = [NSApp windows];
+
+	for (uint32_t x = 0; x < windows.count; x++) {
+		Window *window = app_get_window_by_number(me.app, windows[x].windowNumber);
+		if (!window)
+			continue;
+
+		NSPoint wp = {0};
+		if (window_event_in_view(window, &wp)) {
+			if (window.isKeyWindow && window.windowNumber == me.windowNumber) {
+				*p = wp;
+				return window;
+			}
+
+			if (!top && !key_hit) {
+				if (!window_event_in_nc([NSApp keyWindow])) {
+					*p = wp;
+					top = window;
+				}
+			}
+
+			if (window.isKeyWindow) {
+				key_hit = true;
+				top = nil;
+			}
+		}
+	}
+
+	return top;
 }
 
 
@@ -291,17 +374,19 @@ static void window_mouse_pos(NSWindow *window, int32_t *x, int32_t *y)
 
 static void window_pen_event(Window *window, NSEvent *event)
 {
-	int32_t x = 0;
-	int32_t y = 0;
-	window_mouse_pos(window, &x, &y);
+	NSPoint p = {0};
+	Window *cur = window_find_mouse(window, &p);
+	if (!cur)
+		return;
 
-	MTY_Msg msg = window_msg(window, MTY_MSG_PEN);
+	CGFloat scale = cur.screen.backingScaleFactor;
+	MTY_Msg msg = window_msg(cur, MTY_MSG_PEN);
 	msg.pen.pressure = (uint16_t) lrint(event.pressure * 1024.0f);
 	msg.pen.rotation = (uint16_t) lrint(event.rotation * 359.0f);
 	msg.pen.tiltX = (int8_t) lrint(event.tilt.x * 90.0f);
 	msg.pen.tiltY = (int8_t) lrint(event.tilt.y * 90.0f);
-	msg.pen.x = x;
-	msg.pen.y = y;
+	msg.pen.x = lrint(p.x * scale);
+	msg.pen.y = lrint(p.y * scale);
 
 	bool touching = event.buttonMask & NSEventButtonMaskPenTip;
 
@@ -339,16 +424,23 @@ static void window_pen_event(Window *window, NSEvent *event)
 
 static void window_mouse_button_event(Window *window, MTY_MouseButton button, bool pressed)
 {
-	if (pressed && !window.app.relative) {
-		MTY_Msg msg = window_msg(window, MTY_MSG_MOUSE_MOTION);
+	NSPoint p = {0};
+	Window *cur = window_find_mouse(window, &p);
+	if (!cur)
+		return;
+
+	if (pressed && !cur.app.relative) {
+		MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_MOTION);
+		CGFloat scale = cur.screen.backingScaleFactor;
 		msg.mouseMotion.relative = false;
 		msg.mouseMotion.click = true;
-		window_mouse_pos(window, &msg.mouseMotion.x, &msg.mouseMotion.y);
+		msg.mouseMotion.x = lrint(scale * p.x);
+		msg.mouseMotion.y = lrint(scale * p.y);
 
 		window.app.msg_func(&msg, window.app.opaque);
 	}
 
-	MTY_Msg msg = window_msg(window, MTY_MSG_MOUSE_BUTTON);
+	MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_BUTTON);
 	msg.mouseButton.pressed = pressed;
 	msg.mouseButton.button = button;
 
@@ -420,15 +512,26 @@ static void window_mouse_motion_event(Window *window, NSEvent *event)
 		window.app.msg_func(&msg, window.app.opaque);
 
 	} else {
-		if (window.app.grab_mouse && window.app.detach == MTY_DETACH_NONE && !window.isKeyWindow) {
+		NSPoint p = {0};
+		Window *cur = window_find_mouse(window, &p);
+
+		if (cur) {
+			if (window.app.grab_mouse && window.app.detach == MTY_DETACH_NONE && !cur.isKeyWindow) {
+				window_confine_cursor();
+
+			} else {
+				MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_MOTION);
+
+				CGFloat scale = cur.screen.backingScaleFactor;
+				msg.mouseMotion.relative = false;
+				msg.mouseMotion.x = lrint(scale * p.x);
+				msg.mouseMotion.y = lrint(scale * p.y);
+
+				window.app.msg_func(&msg, window.app.opaque);
+			}
+
+		} else if (window.app.grab_mouse && window.app.detach == MTY_DETACH_NONE) {
 			window_confine_cursor();
-
-		} else {
-			MTY_Msg msg = window_msg(window, MTY_MSG_MOUSE_MOTION);
-			msg.mouseMotion.relative = false;
-			window_mouse_pos(window, &msg.mouseMotion.x, &msg.mouseMotion.y);
-
-			window.app.msg_func(&msg, window.app.opaque);
 		}
 	}
 }
@@ -523,6 +626,21 @@ static void window_mod_event(Window *window, NSEvent *event)
 		self.app.msg_func(&msg, self.app.opaque);
 
 		return NO;
+	}
+
+	- (BOOL)canBecomeKeyWindow
+	{
+		return YES;
+	}
+
+	- (BOOL)canBecomeMainWindow
+	{
+		return YES;
+	}
+
+	- (BOOL)acceptsFirstResponder
+	{
+		return YES;
 	}
 
 	- (void)windowDidResignKey:(NSNotification *)notification
@@ -1056,6 +1174,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	ctx.app = (__bridge App *) app;
 
 	[ctx setDelegate:ctx];
+	[ctx setAcceptsMouseMovedEvents:YES];
 	[ctx setReleasedWhenClosed:NO];
 	[ctx setMinSize:NSMakeSize(desc->minWidth, desc->minHeight)];
 
@@ -1063,7 +1182,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	[content setWantsBestResolutionOpenGLSurface:YES];
 	[ctx setContentView:content];
 
-	ctx.app.windows[window] = (__bridge_retained void *) ctx;
+	ctx.app.windows[window] = (__bridge void *) ctx;
 
 	if (!desc->hidden)
 		MTY_WindowActivate(app, window, true);
@@ -1087,13 +1206,12 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 {
-	App *ctx = (__bridge App *) app;
-	Window *w = (__bridge_transfer Window *) ctx.windows[window];
-	if (!window)
+	Window *ctx = app_get_window(app, window);
+	if (!ctx)
 		return;
 
-	ctx.windows[window] = NULL;
-	[w close];
+	ctx.app.windows[window] = NULL;
+	[ctx close];
 }
 
 void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)
