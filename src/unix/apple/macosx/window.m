@@ -226,7 +226,7 @@ static void app_poll_clipboard(App *ctx)
 
 // NSWindow
 
-@interface Window : NSWindow
+@interface Window : NSWindow <NSWindowDelegate>
 	@property(strong) App *app;
 	@property MTY_Window window;
 	@property MTY_GFX api;
@@ -1150,6 +1150,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	ctx.window = window;
 	ctx.app = (__bridge App *) app;
 
+	[ctx setDelegate:ctx];
 	[ctx setAcceptsMouseMovedEvents:YES];
 	[ctx setReleasedWhenClosed:NO];
 	[ctx setMinSize:NSMakeSize(desc->minWidth, desc->minHeight)];
