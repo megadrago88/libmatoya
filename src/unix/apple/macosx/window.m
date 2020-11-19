@@ -230,6 +230,7 @@ static void app_poll_clipboard(App *ctx)
 	@property(strong) App *app;
 	@property MTY_Window window;
 	@property MTY_GFX api;
+	@property bool top;
 	@property struct gfx_ctx *gfx_ctx;
 @end
 
@@ -634,6 +635,12 @@ static void window_mod_event(Window *window, NSEvent *event)
 		self.app.msg_func(&msg, self.app.opaque);
 	}
 
+	- (void)windowDidChangeScreen:(NSNotification *)notification
+	{
+		[self setLevel:self.top && self.isKeyWindow && (self.styleMask & NSWindowStyleMaskFullScreen) ?
+			NSDockWindowLevel + 1 : NSNormalWindowLevel];
+	}
+
 	- (void)keyUp:(NSEvent *)event
 	{
 		window_keyboard_event(self, event.keyCode, event.modifierFlags, false);
@@ -732,6 +739,25 @@ static void window_mod_event(Window *window, NSEvent *event)
 		self.app.eraser = event.pointingDeviceType == NSPointingDeviceTypeEraser;
 		self.app.pen_left = !event.enteringProximity;
 		app_apply_cursor(self.app);
+	}
+
+	- (NSApplicationPresentationOptions)window:(NSWindow *)window
+		willUseFullScreenPresentationOptions:(NSApplicationPresentationOptions)proposedOptions
+	{
+		return self.top ? NSApplicationPresentationFullScreen | NSApplicationPresentationHideDock |
+			NSApplicationPresentationHideMenuBar : proposedOptions;
+	}
+
+	- (void)windowDidEnterFullScreen:(NSNotification *)notification
+	{
+		if (self.top)
+			[self setLevel:NSDockWindowLevel + 1];
+	}
+
+	- (void)windowWillExitFullScreen:(NSNotification *)notification
+	{
+		self.top = false;
+		[self setLevel:NSNormalWindowLevel];
 	}
 @end
 
@@ -1112,6 +1138,14 @@ void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t h
 
 // Window
 
+static void app_revert_levels(void)
+{
+	NSArray<NSWindow *> *windows = [NSApp windows];
+
+	for (uint32_t x = 0; x < windows.count; x++)
+		[windows[x] setLevel:NSNormalWindowLevel];
+}
+
 MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
 {
 	MTY_Window window = -1;
@@ -1127,6 +1161,8 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 		MTY_Log("Maximum windows (MTY_WINDOW_MAX) of %u reached", MTY_WINDOW_MAX);
 		goto except;
 	}
+
+	app_revert_levels();
 
 	CGSize size = screen.frame.size;
 
@@ -1251,8 +1287,10 @@ void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen
 
 	bool is_fullscreen = MTY_WindowIsFullscreen(app, window);
 
-	if ((!is_fullscreen && fullscreen) || (is_fullscreen && !fullscreen))
+	if ((!is_fullscreen && fullscreen) || (is_fullscreen && !fullscreen)) {
+		ctx.top = fullscreen;
 		[ctx toggleFullScreen:ctx];
+	}
 }
 
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
