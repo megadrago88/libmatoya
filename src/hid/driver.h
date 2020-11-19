@@ -273,6 +273,17 @@ static MTY_HIDDriver hid_driver(struct hdevice *device)
 
 		// Xbox Wired
 		case 0x045E028E: // Microsoft XBox 360
+		case 0x045E028F: // Microsoft XBox 360 v2
+		case 0x045E02A1: // Microsoft XBox 360
+		case 0x045E0291: // Microsoft XBox 360 Wireless Dongle
+		case 0x045E0719: // Microsoft XBox 360 Wireless Dongle
+		case 0x045E02A0: // Microsoft Xbox 360 Big Button IR
+		case 0x045E02DD: // Microsoft XBox One
+		case 0x044FB326: // Microsoft XBox One Firmware 2015
+		case 0x045E02E3: // Microsoft XBox One Elite
+		case 0x045E02FF: // Microsoft XBox One Elite
+		case 0x045E02EA: // Microsoft XBox One S
+		case 0x046DC21D: // Logitech F310
 		case 0x0E6F02A0: // PDP Xbox One
 			return MTY_HID_DRIVER_XBOXW;
 	}
