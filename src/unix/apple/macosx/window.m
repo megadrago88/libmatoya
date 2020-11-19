@@ -966,7 +966,7 @@ static void app_hid_report(struct hdevice *device, const void *buf, size_t size,
 	MTY_Msg msg = {0};
 	hid_driver_state(device, buf, size, &msg);
 
-	if (msg.type != MTY_MSG_NONE)
+	if (msg.type != MTY_MSG_NONE && MTY_AppIsActive((MTY_App *) opaque))
 		ctx.msg_func(&msg, ctx.opaque);
 }
 

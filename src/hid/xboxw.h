@@ -6,16 +6,6 @@
 
 #pragma once
 
-static void hid_xboxw_rumble(struct hdevice *device, uint16_t low, uint16_t high)
-{
-	// FIXME Does not seem to be working
-	uint8_t buf[10] = {'M', 'A', 'G', 'I', 'C', '0', 0x00, 0x04, 0x00, 0x00};
-	buf[8] = low >> 8;
-	buf[9] = high >> 8;
-
-	hid_device_write(device, buf, 10);
-}
-
 static void hid_xboxw_state(struct hdevice *device, const void *data, size_t size, MTY_Msg *wmsg)
 {
 	const uint8_t *d = data;
