@@ -29,6 +29,7 @@
 	@property void *opaque;
 	@property bool relative;
 	@property bool grab_mouse;
+	@property bool cont;
 	@property bool default_cursor;
 	@property bool cursor_outside;
 	@property bool cursor_showing;
@@ -166,15 +167,15 @@ static void app_poll_clipboard(App *ctx)
 	{
 		app_poll_clipboard(self);
 
-		if (!self.app_func(self.opaque)) {
-			[NSApp stop:self];
+		self.cont = self.app_func(self.opaque);
 
-			// Post a dummy event to spin [NSApp run] after stop
+		if (!self.cont) {
+			// Post a dummy event to spin the event loop
 			NSEvent *dummy = [NSEvent otherEventWithType:NSApplicationDefined location:NSMakePoint(0, 0)
 				modifierFlags:0 timestamp:[[NSDate date] timeIntervalSince1970] windowNumber:0
 				context:nil subtype:0 data1:0 data2:0];
 
-			[NSApp postEvent:dummy atStart:YES];
+			[NSApp postEvent:dummy atStart:NO];
 
 		} else {
 			app_schedule_func(self);
@@ -969,17 +970,19 @@ static void app_hid_report(struct hdevice *device, const void *buf, size_t size,
 		ctx.msg_func(&msg, ctx.opaque);
 }
 
-static void app_pump_events(void)
+static void app_pump_events(App *ctx, NSDate *until)
 {
-	while (true) { @autoreleasepool {
-		NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:nil
-			inMode:NSDefaultRunLoopMode dequeue:YES];
+	while (ctx.cont) {
+		@autoreleasepool {
+			NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny untilDate:until
+				inMode:NSDefaultRunLoopMode dequeue:YES];
 
-		if (!event)
-			break;
+			if (!event)
+				break;
 
-		[NSApp sendEvent:event];
-	}}
+			[NSApp sendEvent:event];
+		}
+	}
 }
 
 MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
@@ -991,6 +994,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	ctx.msg_func = msgFunc;
 	ctx.opaque = opaque;
 	ctx.cursor_showing = true;
+	ctx.cont = true;
 
 	ctx.hid = hid_create(app_hid_connect, app_hid_disconnect, app_hid_report, app);
 
@@ -1004,7 +1008,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 
 	// Ensure applicationDidFinishLaunching fires before this function returns
 	[NSApp finishLaunching];
-	app_pump_events();
+	app_pump_events(ctx, nil);
 
 	return app;
 }
@@ -1040,7 +1044,7 @@ void MTY_AppRun(MTY_App *app)
 	App *ctx = (__bridge App *) app;
 
 	app_schedule_func(ctx);
-	[NSApp run];
+	app_pump_events(ctx, [NSDate distantFuture]);
 }
 
 void MTY_AppSetTimeout(MTY_App *app, uint32_t timeout)
