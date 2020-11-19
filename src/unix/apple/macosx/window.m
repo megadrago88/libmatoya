@@ -107,6 +107,14 @@ static void app_poll_clipboard(App *ctx)
 			andEventID:kAEGetURL];
 	}
 
+	- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag
+	{
+		if ([NSApp windows].count > 0)
+			[[NSApp windows][0] makeKeyAndOrderFront:self];
+
+		return YES;
+	}
+
 	- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
 	{
 		MTY_Msg msg = {0};
