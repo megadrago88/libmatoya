@@ -98,18 +98,6 @@ static void app_poll_clipboard(App *ctx)
 		return YES;
 	}
 
-	- (void)applicationWillHide:(NSNotification *)notification
-	{
-		// XXX Important! [NSApp hide:] seems to crash if windows are not ordered out first!
-		for (uint32_t x = 0; x < [NSApp windows].count; x++)
-			[[NSApp windows][x] orderOut:self];
-	}
-
-	- (void)applicationWillUnhide:(NSNotification *)notification
-	{
-		MTY_AppActivate((__bridge MTY_App *) self, true);
-	}
-
 	- (void)applicationWillFinishLaunching:(NSNotification *)notification
 	{
 		[[NSUserNotificationCenter defaultUserNotificationCenter] setDelegate:self];
@@ -117,13 +105,6 @@ static void app_poll_clipboard(App *ctx)
 		[[NSAppleEventManager sharedAppleEventManager] setEventHandler:self
 			andSelector:@selector(handleGetURLEvent:withReplyEvent:) forEventClass:kInternetEventClass
 			andEventID:kAEGetURL];
-	}
-
-	- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag
-	{
-		MTY_AppActivate((__bridge MTY_App *) self, true);
-
-		return NO;
 	}
 
 	- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
@@ -237,7 +218,7 @@ static void app_poll_clipboard(App *ctx)
 
 // NSWindow
 
-@interface Window : NSWindow <NSWindowDelegate>
+@interface Window : NSWindow
 	@property(strong) App *app;
 	@property MTY_Window window;
 	@property MTY_GFX api;
@@ -627,21 +608,6 @@ static void window_mod_event(Window *window, NSEvent *event)
 		self.app.msg_func(&msg, self.app.opaque);
 
 		return NO;
-	}
-
-	- (BOOL)canBecomeKeyWindow
-	{
-		return YES;
-	}
-
-	- (BOOL)canBecomeMainWindow
-	{
-		return YES;
-	}
-
-	- (BOOL)acceptsFirstResponder
-	{
-		return YES;
 	}
 
 	- (void)windowDidResignKey:(NSNotification *)notification
@@ -1118,14 +1084,13 @@ bool MTY_AppIsActive(MTY_App *app)
 
 void MTY_AppActivate(MTY_App *app, bool active)
 {
-	if (active) {
-		for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
-			MTY_WindowActivate(app, x, true);
+	App *ctx = (__bridge App *) app;
 
-		[NSApp activateIgnoringOtherApps:YES];
+	if (active) {
+		[NSApp unhide:ctx];
 
 	} else {
-		[NSApp hide:nil];
+		[NSApp hide:ctx];
 	}
 }
 
@@ -1177,10 +1142,10 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	ctx.window = window;
 	ctx.app = (__bridge App *) app;
 
-	[ctx setDelegate:ctx];
 	[ctx setAcceptsMouseMovedEvents:YES];
 	[ctx setReleasedWhenClosed:NO];
 	[ctx setMinSize:NSMakeSize(desc->minWidth, desc->minHeight)];
+	[ctx setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
 
 	content = [[View alloc] initWithFrame:[ctx contentRectForFrameRect:ctx.frame]];
 	[content setWantsBestResolutionOpenGLSurface:YES];
