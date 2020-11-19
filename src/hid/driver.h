@@ -195,6 +195,7 @@ static void hid_default_map_values(MTY_Controller *c)
 #include "ps5.h"
 #include "nx.h"
 #include "xbox.h"
+#include "xboxw.h"
 
 static MTY_HIDDriver hid_driver(struct hdevice *device)
 {
@@ -269,6 +270,11 @@ static MTY_HIDDriver hid_driver(struct hdevice *device)
 		case 0x045E0B05: // Microsoft X-Box One Elite Series 2 pad (Bluetooth)
 		case 0x045E0B13: // Microsoft X-Box Series X (Bluetooth) (MTY)
 			return MTY_HID_DRIVER_XBOX;
+
+		// Xbox Wired
+		case 0x045E028E: // Microsoft XBox 360
+		case 0x0E6F02A0: // PDP Xbox One
+			return MTY_HID_DRIVER_XBOXW;
 	}
 
 	return MTY_HID_DRIVER_DEFAULT;
@@ -304,6 +310,9 @@ static void hid_driver_state(struct hdevice *device, const void *buf, size_t siz
 		case MTY_HID_DRIVER_XBOX:
 			hid_xbox_state(device, buf, size, wmsg);
 			break;
+		case MTY_HID_DRIVER_XBOXW:
+			hid_xboxw_state(device, buf, size, wmsg);
+			break;
 		case MTY_HID_DRIVER_DEFAULT:
 			hid_default_state(device, buf, size, wmsg);
 			hid_default_map_values(&wmsg->controller);
@@ -329,6 +338,9 @@ static void hid_driver_rumble(struct hid *hid, uint32_t id, uint16_t low, uint16
 			break;
 		case MTY_HID_DRIVER_XBOX:
 			hid_xbox_rumble(device, low, high);
+			break;
+		case MTY_HID_DRIVER_XBOXW:
+			hid_xboxw_rumble(device, low, high);
 			break;
 	}
 }

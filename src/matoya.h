@@ -1133,6 +1133,7 @@ typedef enum {
 	MTY_HID_DRIVER_PS4     = 4,
 	MTY_HID_DRIVER_PS5     = 5,
 	MTY_HID_DRIVER_XBOX    = 6,
+	MTY_HID_DRIVER_XBOXW   = 7,
 } MTY_HIDDriver;
 
 typedef enum {
