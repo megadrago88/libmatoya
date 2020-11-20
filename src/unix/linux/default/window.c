@@ -200,7 +200,7 @@ static void app_event(MTY_App *ctx, XEvent *event)
 void MTY_AppRun(MTY_App *ctx)
 {
 	for (bool cont = true; cont;) {
-		for (XEvent event; XPending(ctx->display) > 0;) {
+		for (XEvent event; XEventsQueued(ctx->display, QueuedAlready) > 0;) {
 			XNextEvent(ctx->display, &event);
 			app_event(ctx, &event);
 		}

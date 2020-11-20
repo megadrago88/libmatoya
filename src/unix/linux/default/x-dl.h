@@ -165,6 +165,10 @@
 #define CWColormap                (1L<<13)
 #define CWCursor                  (1L<<14)
 
+#define QueuedAlready             0
+#define QueuedAfterReading        1
+#define QueuedAfterFlush          2
+
 typedef unsigned long VisualID;
 typedef unsigned long XID;
 typedef unsigned long Time;
@@ -336,7 +340,7 @@ static KeySym (*XLookupKeysym)(XKeyEvent *key_event, int index);
 static Status (*XSetWMProtocols)(Display *display, Window w, Atom *protocols, int count);
 static Atom (*XInternAtom)(Display *display, const char *atom_name, Bool only_if_exists);
 static int (*XNextEvent)(Display *display, XEvent *event_return);
-static int (*XPending)(Display *display);
+static int (*XEventsQueued)(Display *display, int mode);
 static int (*XMoveWindow)(Display *display, Window w, int x, int y);
 static int (*XChangeProperty)(Display *display, Window w, Atom property, Atom type, int format, int mode, const unsigned char *data, int nelements);
 static int (*XGetInputFocus)(Display *display, Window *focus_return, int *revert_to_return);
@@ -441,7 +445,7 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_SO, XSetWMProtocols);
 		X_DL_LOAD_SYM(X_DL_SO, XInternAtom);
 		X_DL_LOAD_SYM(X_DL_SO, XNextEvent);
-		X_DL_LOAD_SYM(X_DL_SO, XPending);
+		X_DL_LOAD_SYM(X_DL_SO, XEventsQueued);
 		X_DL_LOAD_SYM(X_DL_SO, XMoveWindow);
 		X_DL_LOAD_SYM(X_DL_SO, XChangeProperty);
 		X_DL_LOAD_SYM(X_DL_SO, XGetInputFocus);
