@@ -611,6 +611,16 @@ static void window_mod_event(Window *window, NSEvent *event)
 }
 
 @implementation Window : NSWindow
+	- (BOOL)canBecomeKeyWindow
+	{
+		return YES;
+	}
+
+	- (BOOL)canBecomeMainWindow
+	{
+		return YES;
+	}
+
 	- (BOOL)windowShouldClose:(NSWindow *)sender
 	{
 		MTY_Msg msg = window_msg(self, MTY_MSG_CLOSE);
@@ -623,6 +633,8 @@ static void window_mod_event(Window *window, NSEvent *event)
 	{
 		MTY_Msg msg = window_msg(self, MTY_MSG_FOCUS);
 		msg.focus = false;
+
+		[self setLevel:NSNormalWindowLevel];
 
 		self.app.msg_func(&msg, self.app.opaque);
 	}
@@ -637,8 +649,8 @@ static void window_mod_event(Window *window, NSEvent *event)
 
 	- (void)windowDidChangeScreen:(NSNotification *)notification
 	{
-		[self setLevel:self.top && self.isKeyWindow && (self.styleMask & NSWindowStyleMaskFullScreen) ?
-			NSDockWindowLevel + 1 : NSNormalWindowLevel];
+		if (self.top && self.isKeyWindow && (self.styleMask & NSWindowStyleMaskFullScreen))
+			[self setLevel:NSDockWindowLevel + 1];
 	}
 
 	- (void)keyUp:(NSEvent *)event
