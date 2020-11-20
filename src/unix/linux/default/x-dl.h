@@ -341,6 +341,8 @@ static int (*XMoveWindow)(Display *display, Window w, int x, int y);
 static int (*XChangeProperty)(Display *display, Window w, Atom property, Atom type, int format, int mode, const unsigned char *data, int nelements);
 static int (*XGetInputFocus)(Display *display, Window *focus_return, int *revert_to_return);
 static char *(*XGetDefault)(Display *display, const char *program, const char *option);
+static int (*XWidthOfScreen)(Screen *screen);
+static int (*XHeightOfScreen)(Screen *screen);
 
 
 // GLX interface
@@ -376,6 +378,14 @@ static XVisualInfo *(*glXChooseVisual)(Display *dpy, int screen, int *attribList
 static GLXContext (*glXCreateContext)(Display *dpy, XVisualInfo *vis, GLXContext shareList, Bool direct);
 static Bool (*glXMakeCurrent)(Display *dpy, GLXDrawable drawable, GLXContext ctx);
 static void (*glXSwapIntervalEXT)(Display *dpy, GLXDrawable drawable, int interval);
+
+
+// Helper window struct
+
+struct xpair {
+	Display *display;
+	Window window;
+};
 
 
 // Runtime open
@@ -431,6 +441,8 @@ static bool x_dl_global_init(void)
 		LOAD_SYM(X_DL_SO, XChangeProperty);
 		LOAD_SYM(X_DL_SO, XGetInputFocus);
 		LOAD_SYM(X_DL_SO, XGetDefault);
+		LOAD_SYM(X_DL_SO, XWidthOfScreen);
+		LOAD_SYM(X_DL_SO, XHeightOfScreen);
 
 		LOAD_SYM(X_DL_GLX_SO, glXGetProcAddress);
 		LOAD_SYM(X_DL_GLX_SO, glXSwapBuffers);
