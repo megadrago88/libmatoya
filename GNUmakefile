@@ -114,11 +114,14 @@ ifeq ($(UNAME_S), Linux)
 OBJS := $(OBJS) \
 	src/unix/crypto.o \
 	src/unix/aes-gcm-openssl.o \
+	src/unix/linux/default/gfx/gl-ctx.o \
 	src/unix/linux/default/audio.o \
 	src/unix/linux/default/window.o
 
+ifdef CRYPTO_EXTERNAL
 DEFS := $(DEFS) \
 	-DMTY_CRYPTO_EXTERNAL
+endif
 
 TEST_LIBS = \
 	-lc \

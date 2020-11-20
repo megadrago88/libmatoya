@@ -24,7 +24,7 @@ static void __attribute__((destructor)) audio_global_destroy(void)
 	asound_dl_global_destroy();
 }
 
-MTY_Audio *MTY_AudioCreate(uint32_t sampleRate)
+MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer)
 {
 	if (!asound_dl_global_init())
 		return NULL;
@@ -61,6 +61,12 @@ MTY_Audio *MTY_AudioCreate(uint32_t sampleRate)
 	return ctx;
 }
 
+uint32_t MTY_AudioGetQueuedMs(MTY_Audio *ctx)
+{
+	return 0;
+}
+
+/*
 uint32_t MTY_AudioGetQueuedFrames(MTY_Audio *ctx)
 {
 	if (ctx->playing) {
@@ -85,7 +91,9 @@ bool MTY_AudioIsPlaying(MTY_Audio *ctx)
 {
 	return ctx->playing;
 }
+*/
 
+/*
 void MTY_AudioPlay(MTY_Audio *ctx)
 {
 	if (!ctx->playing) {
@@ -93,6 +101,7 @@ void MTY_AudioPlay(MTY_Audio *ctx)
 		ctx->playing = true;
 	}
 }
+*/
 
 void MTY_AudioStop(MTY_Audio *ctx)
 {

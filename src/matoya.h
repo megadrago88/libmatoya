@@ -1280,7 +1280,7 @@ MTY_EXPORT void
 MTY_AppRun(MTY_App *ctx);
 
 MTY_EXPORT void
-MTY_AppSetTimeout(MTY_App *app, uint32_t timeout);
+MTY_AppSetTimeout(MTY_App *ctx, uint32_t timeout);
 
 MTY_EXPORT bool
 MTY_AppIsActive(MTY_App *ctx);
@@ -1298,10 +1298,10 @@ MTY_EXPORT void
 MTY_AppEnableScreenSaver(MTY_App *ctx, bool enable);
 
 MTY_EXPORT char *
-MTY_AppGetClipboard(MTY_App *app);
+MTY_AppGetClipboard(MTY_App *ctx);
 
 MTY_EXPORT void
-MTY_AppSetClipboard(MTY_App *app, const char *text);
+MTY_AppSetClipboard(MTY_App *ctx, const char *text);
 
 MTY_EXPORT void
 MTY_AppGrabKeyboard(MTY_App *ctx, bool grab);

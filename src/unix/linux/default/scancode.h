@@ -34,8 +34,8 @@ static MTY_Scancode window_x_to_mty(KeySym sym)
 		case XK_Right: return MTY_SCANCODE_RIGHT;
 		case XK_Up: return MTY_SCANCODE_UP;
 		case XK_Down: return MTY_SCANCODE_DOWN;
-		case XK_Page_Up: return MTY_SCANCODE_PAGEUP;
-		case XK_Page_Down: return MTY_SCANCODE_PAGEDOWN;
+		case XK_Page_Up: return MTY_SCANCODE_PAGE_UP;
+		case XK_Page_Down: return MTY_SCANCODE_PAGE_DOWN;
 		case XK_Return: return MTY_SCANCODE_ENTER;
 		case XK_Home: return MTY_SCANCODE_HOME;
 		case XK_End: return MTY_SCANCODE_END;

@@ -343,6 +343,8 @@ static int (*XGetInputFocus)(Display *display, Window *focus_return, int *revert
 static char *(*XGetDefault)(Display *display, const char *program, const char *option);
 static int (*XWidthOfScreen)(Screen *screen);
 static int (*XHeightOfScreen)(Screen *screen);
+static int (*XDestroyWindow)(Display *display, Window w);
+static int (*XFree)(void *data);
 
 
 // GLX interface
@@ -378,12 +380,15 @@ static XVisualInfo *(*glXChooseVisual)(Display *dpy, int screen, int *attribList
 static GLXContext (*glXCreateContext)(Display *dpy, XVisualInfo *vis, GLXContext shareList, Bool direct);
 static Bool (*glXMakeCurrent)(Display *dpy, GLXDrawable drawable, GLXContext ctx);
 static void (*glXSwapIntervalEXT)(Display *dpy, GLXDrawable drawable, int interval);
+static void (*glXDestroyContext)(Display *dpy, GLXContext ctx);
+static GLXContext (*glXGetCurrentContext)(void);
 
 
 // Helper window struct
 
 struct xpair {
 	Display *display;
+	XVisualInfo *vis;
 	Window window;
 };
 
@@ -420,36 +425,40 @@ static bool x_dl_global_init(void)
 			goto except;
 		}
 
-		#define LOAD_SYM(so, name) \
+		#define X_DL_LOAD_SYM(so, name) \
 			name = MTY_SOGetSymbol(so, #name); \
 			if (!name) {r = false; goto except;}
 
-		LOAD_SYM(X_DL_SO, XOpenDisplay);
-		LOAD_SYM(X_DL_SO, XCloseDisplay);
-		LOAD_SYM(X_DL_SO, XDefaultRootWindow);
-		LOAD_SYM(X_DL_SO, XCreateColormap);
-		LOAD_SYM(X_DL_SO, XCreateWindow);
-		LOAD_SYM(X_DL_SO, XMapWindow);
-		LOAD_SYM(X_DL_SO, XStoreName);
-		LOAD_SYM(X_DL_SO, XGetWindowAttributes);
-		LOAD_SYM(X_DL_SO, XLookupKeysym);
-		LOAD_SYM(X_DL_SO, XSetWMProtocols);
-		LOAD_SYM(X_DL_SO, XInternAtom);
-		LOAD_SYM(X_DL_SO, XNextEvent);
-		LOAD_SYM(X_DL_SO, XPending);
-		LOAD_SYM(X_DL_SO, XMoveWindow);
-		LOAD_SYM(X_DL_SO, XChangeProperty);
-		LOAD_SYM(X_DL_SO, XGetInputFocus);
-		LOAD_SYM(X_DL_SO, XGetDefault);
-		LOAD_SYM(X_DL_SO, XWidthOfScreen);
-		LOAD_SYM(X_DL_SO, XHeightOfScreen);
+		X_DL_LOAD_SYM(X_DL_SO, XOpenDisplay);
+		X_DL_LOAD_SYM(X_DL_SO, XCloseDisplay);
+		X_DL_LOAD_SYM(X_DL_SO, XDefaultRootWindow);
+		X_DL_LOAD_SYM(X_DL_SO, XCreateColormap);
+		X_DL_LOAD_SYM(X_DL_SO, XCreateWindow);
+		X_DL_LOAD_SYM(X_DL_SO, XMapWindow);
+		X_DL_LOAD_SYM(X_DL_SO, XStoreName);
+		X_DL_LOAD_SYM(X_DL_SO, XGetWindowAttributes);
+		X_DL_LOAD_SYM(X_DL_SO, XLookupKeysym);
+		X_DL_LOAD_SYM(X_DL_SO, XSetWMProtocols);
+		X_DL_LOAD_SYM(X_DL_SO, XInternAtom);
+		X_DL_LOAD_SYM(X_DL_SO, XNextEvent);
+		X_DL_LOAD_SYM(X_DL_SO, XPending);
+		X_DL_LOAD_SYM(X_DL_SO, XMoveWindow);
+		X_DL_LOAD_SYM(X_DL_SO, XChangeProperty);
+		X_DL_LOAD_SYM(X_DL_SO, XGetInputFocus);
+		X_DL_LOAD_SYM(X_DL_SO, XGetDefault);
+		X_DL_LOAD_SYM(X_DL_SO, XWidthOfScreen);
+		X_DL_LOAD_SYM(X_DL_SO, XHeightOfScreen);
+		X_DL_LOAD_SYM(X_DL_SO, XDestroyWindow);
+		X_DL_LOAD_SYM(X_DL_SO, XFree);
 
-		LOAD_SYM(X_DL_GLX_SO, glXGetProcAddress);
-		LOAD_SYM(X_DL_GLX_SO, glXSwapBuffers);
-		LOAD_SYM(X_DL_GLX_SO, glXChooseVisual);
-		LOAD_SYM(X_DL_GLX_SO, glXCreateContext);
-		LOAD_SYM(X_DL_GLX_SO, glXMakeCurrent);
-		LOAD_SYM(X_DL_GLX_SO, glXSwapIntervalEXT);
+		X_DL_LOAD_SYM(X_DL_GLX_SO, glXGetProcAddress);
+		X_DL_LOAD_SYM(X_DL_GLX_SO, glXSwapBuffers);
+		X_DL_LOAD_SYM(X_DL_GLX_SO, glXChooseVisual);
+		X_DL_LOAD_SYM(X_DL_GLX_SO, glXCreateContext);
+		X_DL_LOAD_SYM(X_DL_GLX_SO, glXMakeCurrent);
+		X_DL_LOAD_SYM(X_DL_GLX_SO, glXSwapIntervalEXT);
+		X_DL_LOAD_SYM(X_DL_GLX_SO, glXDestroyContext);
+		X_DL_LOAD_SYM(X_DL_GLX_SO, glXGetCurrentContext);
 
 		except:
 
