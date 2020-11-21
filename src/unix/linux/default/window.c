@@ -222,7 +222,7 @@ static void app_event(MTY_App *ctx, XEvent *event)
 				case 5:
 					msg.type = MTY_MSG_MOUSE_WHEEL;
 					msg.mouseWheel.x = 0;
-					msg.mouseWheel.y = event->xbutton.button == 4 ? -100 : 100;
+					msg.mouseWheel.y = event->xbutton.button == 4 ? 100 : -100;
 					break;
 			}
 			break;

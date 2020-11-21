@@ -8,13 +8,17 @@
 #include "asound-dl.h"
 
 #include <string.h>
+#include <math.h>
 
 #define AUDIO_BUF_SIZE (44800 * 4 * 5) // 5 seconds at 48khz
 
 struct MTY_Audio {
 	snd_pcm_t *pcm;
-	bool playing;
 
+	bool playing;
+	uint32_t sample_rate;
+	uint32_t min_buffer;
+	uint32_t max_buffer;
 	uint8_t *buf;
 	size_t pos;
 };
@@ -30,6 +34,11 @@ MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t max
 		return NULL;
 
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
+	ctx->sample_rate = sampleRate;
+
+	uint32_t frames_per_ms = lrint((float) sampleRate / 1000.0f);
+	ctx->min_buffer = minBuffer * frames_per_ms;
+	ctx->max_buffer = maxBuffer * frames_per_ms;
 
 	bool r = true;
 
@@ -61,14 +70,10 @@ MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t max
 	return ctx;
 }
 
-uint32_t MTY_AudioGetQueuedMs(MTY_Audio *ctx)
+static uint32_t audio_get_queued_frames(MTY_Audio *ctx)
 {
-	return 0;
-}
+	uint32_t queued = ctx->pos / 4;
 
-/*
-uint32_t MTY_AudioGetQueuedFrames(MTY_Audio *ctx)
-{
 	if (ctx->playing) {
 		snd_pcm_status_t *status = NULL;
 		snd_pcm_status_alloca(&status);
@@ -78,44 +83,50 @@ uint32_t MTY_AudioGetQueuedFrames(MTY_Audio *ctx)
 			snd_pcm_uframes_t avail_max = snd_pcm_status_get_avail_max(status);
 
 			if (avail_max > 0)
-				return (int32_t) avail_max - (int32_t) avail;
+				queued += (int32_t) avail_max - (int32_t) avail;
 		}
-	} else {
-		return ctx->pos / 4;
 	}
 
-	return 0;
+	return queued;
 }
 
-bool MTY_AudioIsPlaying(MTY_Audio *ctx)
+uint32_t MTY_AudioGetQueuedMs(MTY_Audio *ctx)
 {
-	return ctx->playing;
+	return lrint((float) audio_get_queued_frames(ctx) / ((float) ctx->sample_rate / 1000.0f));
 }
-*/
 
-/*
-void MTY_AudioPlay(MTY_Audio *ctx)
+static void audio_play(MTY_Audio *ctx)
 {
 	if (!ctx->playing) {
 		snd_pcm_prepare(ctx->pcm);
 		ctx->playing = true;
 	}
 }
-*/
 
 void MTY_AudioStop(MTY_Audio *ctx)
 {
 	ctx->playing = false;
+	ctx->pos = 0;
 }
 
 void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *samples, uint32_t count)
 {
 	size_t size = count * 4;
 
+	uint32_t queued = audio_get_queued_frames(ctx);
+
+	// Stop playing and flush if we've exceeded the maximum buffer or underrun
+	if (ctx->playing && (queued > ctx->max_buffer || queued == 0))
+		MTY_AudioStop(ctx);
+
 	if (ctx->pos + size <= AUDIO_BUF_SIZE) {
 		memcpy(ctx->buf + ctx->pos, samples, count * 4);
 		ctx->pos += size;
 	}
+
+	// Begin playing again when the minimum buffer has been reached
+	if (!ctx->playing && queued + count >= ctx->min_buffer)
+		audio_play(ctx);
 
 	if (ctx->playing) {
 		int32_t e = snd_pcm_writei(ctx->pcm, ctx->buf, ctx->pos / 4);
@@ -124,7 +135,7 @@ void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *samples, uint32_t count)
 			ctx->pos = 0;
 
 		} else if (e == -EPIPE) {
-			ctx->playing = false;
+			MTY_AudioStop(ctx);
 		}
 	}
 }
