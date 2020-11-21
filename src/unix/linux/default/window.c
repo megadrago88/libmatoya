@@ -16,17 +16,21 @@
 
 struct window {
 	Window window;
+	XIC ic;
+
 	MTY_GFX api;
 	struct gfx_ctx *gfx_ctx;
-	struct xpair pair;
+	struct xinfo info;
 };
 
 struct MTY_App {
 	Display *display;
 	XVisualInfo *vis;
+	Atom wm_close;
+	XIM im;
+
 	MTY_MsgFunc msg_func;
 	MTY_AppFunc app_func;
-	Atom wm_close;
 	struct window *windows[MTY_WINDOW_MAX];
 	uint32_t timeout;
 	void *opaque;
@@ -101,6 +105,8 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	if (!x_dl_global_init())
 		return NULL;
 
+	XInitThreads();
+
 	bool r = true;
 	MTY_App *ctx = MTY_Alloc(1, sizeof(MTY_App));
 	ctx->app_func = appFunc;
@@ -109,6 +115,12 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 
 	ctx->display = XOpenDisplay(NULL);
 	if (!ctx->display) {
+		r = false;
+		goto except;
+	}
+
+	ctx->im = XOpenIM(ctx->display, NULL, NULL, NULL);
+	if (!ctx->im) {
 		r = false;
 		goto except;
 	}
@@ -143,11 +155,30 @@ void MTY_AppDestroy(MTY_App **app)
 	if (ctx->vis)
 		XFree(ctx->vis);
 
+	if (ctx->im)
+		XCloseIM(ctx->im);
+
 	if (ctx->display)
 		XCloseDisplay(ctx->display);
 
 	MTY_Free(*app);
 	*app = NULL;
+}
+
+static void window_text_event(MTY_App *ctx, XEvent *event)
+{
+	struct window *win = app_get_window(ctx, 0);
+	if (!win)
+		return;
+
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_TEXT;
+
+	Status status = 0;
+	KeySym ks = 0;
+
+	if (Xutf8LookupString(win->ic, (XKeyPressedEvent *) event, msg.text, 8, &ks, &status) > 0)
+		ctx->msg_func(&msg, ctx->opaque);
 }
 
 static void app_event(MTY_App *ctx, XEvent *event)
@@ -156,6 +187,9 @@ static void app_event(MTY_App *ctx, XEvent *event)
 
 	switch (event->type) {
 		case KeyPress:
+			window_text_event(ctx, event);
+			// Fall through
+
 		case KeyRelease: {
 			msg.type = MTY_MSG_KEYBOARD;
 			msg.keyboard.pressed = event->type == KeyPress;
@@ -308,6 +342,9 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	ctx->window = XCreateWindow(app->display, root, 0, 0, width, height, 0, app->vis->depth,
 		InputOutput, app->vis->visual, CWColormap | CWEventMask, &swa);
 
+	ctx->ic = XCreateIC(app->im, XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
+		XNClientWindow, ctx->window, NULL);
+
 	XMapWindow(app->display, ctx->window);
 	XMoveWindow(app->display, ctx->window, x, y);
 
@@ -315,9 +352,9 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	XSetWMProtocols(app->display, ctx->window, &app->wm_close, 1);
 
-	ctx->pair.display = app->display;
-	ctx->pair.vis = app->vis;
-	ctx->pair.window = ctx->window;
+	ctx->info.display = app->display;
+	ctx->info.vis = app->vis;
+	ctx->info.window = ctx->window;
 
 	if (desc->api != MTY_GFX_NONE) {
 		if (!MTY_WindowSetGFX(app, window, desc->api, desc->vsync)) {
@@ -341,6 +378,9 @@ void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return;
+
+	if (ctx->ic)
+		XDestroyIC(ctx->ic);
 
 	XDestroyWindow(app->display, ctx->window);
 
@@ -475,7 +515,7 @@ void *window_get_native(MTY_App *app, MTY_Window window)
 	if (!ctx)
 		return NULL;
 
-	return (void *) &ctx->pair;
+	return (void *) &ctx->info;
 }
 
 

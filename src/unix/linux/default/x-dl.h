@@ -169,6 +169,12 @@
 #define QueuedAfterReading        1
 #define QueuedAfterFlush          2
 
+#define XNInputStyle              "inputStyle"
+#define XNClientWindow            "clientWindow"
+
+#define XIMPreeditNothing         0x0008L
+#define XIMStatusNothing          0x0400L
+
 typedef unsigned long VisualID;
 typedef unsigned long XID;
 typedef unsigned long Time;
@@ -326,6 +332,13 @@ typedef struct Hints {
 	unsigned long status;
 } Hints;
 
+typedef XKeyEvent XKeyPressedEvent;
+typedef XKeyEvent XKeyReleasedEvent;
+
+struct _XrmHashBucketRec;
+typedef struct _XIM *XIM;
+typedef struct _XIC *XIC;
+
 static Display *(*XOpenDisplay)(const char *display_name);
 static int (*XCloseDisplay)(Display *display);
 static Window (*XDefaultRootWindow)(Display *display);
@@ -349,6 +362,13 @@ static int (*XWidthOfScreen)(Screen *screen);
 static int (*XHeightOfScreen)(Screen *screen);
 static int (*XDestroyWindow)(Display *display, Window w);
 static int (*XFree)(void *data);
+static Status (*XInitThreads)(void);
+static int (*Xutf8LookupString)(XIC ic, XKeyPressedEvent *event, char *buffer_return, int bytes_buffer,
+	KeySym *keysym_return, Status *status_return);
+static XIM (*XOpenIM)(Display *dpy, struct _XrmHashBucketRec *rdb, char *res_name, char *res_class);
+static Status (*XCloseIM)(XIM im);
+static XIC (*XCreateIC)(XIM im, ...);
+static void (*XDestroyIC)(XIC ic);
 
 
 // GLX interface
@@ -390,7 +410,7 @@ static GLXContext (*glXGetCurrentContext)(void);
 
 // Helper window struct
 
-struct xpair {
+struct xinfo {
 	Display *display;
 	XVisualInfo *vis;
 	Window window;
@@ -454,6 +474,12 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_SO, XHeightOfScreen);
 		X_DL_LOAD_SYM(X_DL_SO, XDestroyWindow);
 		X_DL_LOAD_SYM(X_DL_SO, XFree);
+		X_DL_LOAD_SYM(X_DL_SO, XInitThreads);
+		X_DL_LOAD_SYM(X_DL_SO, Xutf8LookupString);
+		X_DL_LOAD_SYM(X_DL_SO, XOpenIM);
+		X_DL_LOAD_SYM(X_DL_SO, XCloseIM);
+		X_DL_LOAD_SYM(X_DL_SO, XCreateIC);
+		X_DL_LOAD_SYM(X_DL_SO, XDestroyIC);
 
 		X_DL_LOAD_SYM(X_DL_GLX_SO, glXGetProcAddress);
 		X_DL_LOAD_SYM(X_DL_GLX_SO, glXSwapBuffers);

@@ -47,10 +47,10 @@ struct gfx_ctx *gfx_gl_ctx_create(void *native_window, bool vsync)
 	bool r = true;
 
 	struct gfx_gl_ctx *ctx = MTY_Alloc(1, sizeof(struct gfx_gl_ctx));
-	struct xpair *pair = (struct xpair *) native_window;
-	ctx->display = pair->display;
-	ctx->vis = pair->vis;
-	ctx->window = pair->window;
+	struct xinfo *info = (struct xinfo *) native_window;
+	ctx->display = info->display;
+	ctx->vis = info->vis;
+	ctx->window = info->window;
 	ctx->renderer = MTY_RendererCreate();
 
 	ctx->gl = glXCreateContext(ctx->display, ctx->vis, NULL, GL_TRUE);
