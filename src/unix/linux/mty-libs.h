@@ -6,4 +6,5 @@
 
 #pragma once
 
-#define LIB_CRYPTO "libcrypto.so.1.0.0"
+#define LIB_CRYPTO_0 "libcrypto.so.1.1"
+#define LIB_CRYPTO_1 "libcrypto.so.1.0.0"
