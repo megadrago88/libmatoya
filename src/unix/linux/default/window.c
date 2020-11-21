@@ -33,6 +33,7 @@ struct MTY_App {
 	MTY_AppFunc app_func;
 	struct window *windows[MTY_WINDOW_MAX];
 	uint32_t timeout;
+	bool relative;
 	void *opaque;
 	float dpi;
 };
@@ -118,6 +119,16 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 		r = false;
 		goto except;
 	}
+
+	unsigned char mask[3] = {0};
+	XISetMask(mask, XI_RawMotion);
+
+	XIEventMask em = {0};
+	em.deviceid = XIAllMasterDevices;
+	em.mask_len = 3;
+	em.mask = mask;
+
+	XISelectEvents(ctx->display, XDefaultRootWindow(ctx->display), &em, 1);
 
 	ctx->im = XOpenIM(ctx->display, NULL, NULL, NULL);
 	if (!ctx->im) {
@@ -216,6 +227,9 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			}
 			break;
 		case MotionNotify:
+			if (ctx->relative)
+				break;
+
 			msg.type = MTY_MSG_MOUSE_MOTION;
 			msg.mouseMotion.relative = false;
 			msg.mouseMotion.x = event->xmotion.x;
@@ -224,6 +238,25 @@ static void app_event(MTY_App *ctx, XEvent *event)
 		case ClientMessage:
 			if ((Atom) event->xclient.data.l[0] == ctx->wm_close)
 				msg.type = MTY_MSG_CLOSE;
+			break;
+		case GenericEvent:
+			if (!ctx->relative)
+				break;
+
+			if (XGetEventData(ctx->display, &event->xcookie)) {
+				switch (event->xcookie.evtype) {
+					case XI_RawMotion: {
+						const XIRawEvent *re = (const XIRawEvent *) event->xcookie.data;
+						const double *coords = (const double *) re->raw_values;
+
+						msg.type = MTY_MSG_MOUSE_MOTION;
+						msg.mouseMotion.relative = true;
+						msg.mouseMotion.x = lrint(coords[0]);
+						msg.mouseMotion.y = lrint(coords[1]);
+						break;
+					}
+				}
+			}
 			break;
 	}
 
@@ -270,11 +303,21 @@ void MTY_AppGrabMouse(MTY_App *app, bool grab)
 
 void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 {
+	if (!app->relative && relative) {
+		XGrabPointer(app->display, app->windows[0]->window, False,
+			ButtonPressMask | ButtonReleaseMask | PointerMotionMask | FocusChangeMask,
+			GrabModeAsync, GrabModeAsync, None, None, CurrentTime);
+
+	} else if (app->relative && !relative) {
+		XUngrabPointer(app->display, CurrentTime);
+	}
+
+	app->relative = relative;
 }
 
 bool MTY_AppGetRelativeMouse(MTY_App *app)
 {
-	return false;
+	return app->relative;
 }
 
 bool MTY_AppIsActive(MTY_App *ctx)
@@ -459,6 +502,7 @@ void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
 
 void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t y)
 {
+	MTY_AppSetRelativeMouse(app, false);
 }
 
 bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)

@@ -175,6 +175,11 @@
 #define XIMPreeditNothing         0x0008L
 #define XIMStatusNothing          0x0400L
 
+#define CurrentTime               0L
+
+#define GrabModeSync              0
+#define GrabModeAsync             1
+
 typedef unsigned long VisualID;
 typedef unsigned long XID;
 typedef unsigned long Time;
@@ -251,6 +256,17 @@ typedef struct {
 	unsigned long serial;
 	Bool send_event;
 	Display *display;
+	int extension;
+	int evtype;
+	unsigned int cookie;
+	void *data;
+} XGenericEventCookie;
+
+typedef struct {
+	int type;
+	unsigned long serial;
+	Bool send_event;
+	Display *display;
 	Window window;
 	Window root;
 	Window subwindow;
@@ -321,6 +337,7 @@ typedef union _XEvent {
 	XButtonEvent xbutton;
 	XMotionEvent xmotion;
 	XClientMessageEvent xclient;
+	XGenericEventCookie xcookie;
 	long pad[24];
 } XEvent;
 
@@ -369,6 +386,52 @@ static XIM (*XOpenIM)(Display *dpy, struct _XrmHashBucketRec *rdb, char *res_nam
 static Status (*XCloseIM)(XIM im);
 static XIC (*XCreateIC)(XIM im, ...);
 static void (*XDestroyIC)(XIC ic);
+static Bool (*XGetEventData)(Display *dpy, XGenericEventCookie *cookie);
+static int (*XGrabPointer)(Display *display, Window grab_window, Bool owner_events, unsigned int event_mask, int pointer_mode,
+	int keyboard_mode, Window confine_to, Cursor cursor, Time time);
+static int (*XUngrabPointer)(Display *display, Time time);
+
+
+// XI2 interface
+
+// Reference: https://code.woboq.org/kde/include/X11/extensions/
+
+#define XIAllMasterDevices 1
+
+#define XI_RawMotion       17
+
+#define XISetMask(ptr, event) \
+	(((unsigned char *) (ptr))[(event) >> 3] |= (1 << ((event) & 7)))
+
+typedef struct {
+	int deviceid;
+	int mask_len;
+	unsigned char *mask;
+} XIEventMask;
+
+typedef struct {
+	int mask_len;
+	unsigned char *mask;
+	double *values;
+} XIValuatorState;
+
+typedef struct {
+	int type;
+	unsigned long serial;
+	Bool send_event;
+	Display *display;
+	int extension;
+	int evtype;
+	Time time;
+	int deviceid;
+	int sourceid;
+	int detail;
+	int flags;
+	XIValuatorState valuators;
+	double *raw_values;
+} XIRawEvent;
+
+static int (*XISelectEvents)(Display *dpy, Window win, XIEventMask *masks, int num_masks);
 
 
 // GLX interface
@@ -421,12 +484,14 @@ struct xinfo {
 
 static MTY_Atomic32 X_DL_LOCK;
 static MTY_SO *X_DL_GLX_SO;
+static MTY_SO *X_DL_XI2_SO;
 static MTY_SO *X_DL_SO;
 static bool X_DL_INIT;
 
 static void x_dl_global_destroy(void)
 {
 	MTY_SOUnload(&X_DL_GLX_SO);
+	MTY_SOUnload(&X_DL_XI2_SO);
 	MTY_SOUnload(&X_DL_SO);
 	X_DL_INIT = false;
 }
@@ -442,9 +507,10 @@ static bool x_dl_global_init(void)
 		if (!X_DL_SO)
 			X_DL_SO = MTY_SOLoad("libX11.so");
 
+		X_DL_XI2_SO = MTY_SOLoad("libXi.so.6");
 		X_DL_GLX_SO = MTY_SOLoad("libGL.so.1");
 
-		if (!X_DL_SO || !X_DL_GLX_SO) {
+		if (!X_DL_SO || !X_DL_GLX_SO || !X_DL_XI2_SO) {
 			r = false;
 			goto except;
 		}
@@ -480,6 +546,11 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_SO, XCloseIM);
 		X_DL_LOAD_SYM(X_DL_SO, XCreateIC);
 		X_DL_LOAD_SYM(X_DL_SO, XDestroyIC);
+		X_DL_LOAD_SYM(X_DL_SO, XGetEventData);
+		X_DL_LOAD_SYM(X_DL_SO, XGrabPointer);
+		X_DL_LOAD_SYM(X_DL_SO, XUngrabPointer);
+
+		X_DL_LOAD_SYM(X_DL_XI2_SO, XISelectEvents);
 
 		X_DL_LOAD_SYM(X_DL_GLX_SO, glXGetProcAddress);
 		X_DL_LOAD_SYM(X_DL_GLX_SO, glXSwapBuffers);
