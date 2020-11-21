@@ -502,6 +502,12 @@ void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
 
 void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t y)
 {
+	struct window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return;
+
+	XWarpPointer(app->display, None, ctx->window, 0, 0, 0, 0, x, y);
+
 	MTY_AppSetRelativeMouse(app, false);
 }
 

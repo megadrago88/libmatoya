@@ -390,6 +390,8 @@ static Bool (*XGetEventData)(Display *dpy, XGenericEventCookie *cookie);
 static int (*XGrabPointer)(Display *display, Window grab_window, Bool owner_events, unsigned int event_mask, int pointer_mode,
 	int keyboard_mode, Window confine_to, Cursor cursor, Time time);
 static int (*XUngrabPointer)(Display *display, Time time);
+static int (*XWarpPointer)(Display *display, Window src_w, Window dest_w, int src_x, int src_y, unsigned int src_width,
+	unsigned int src_height, int dest_x, int dest_y);
 
 
 // XI2 interface
@@ -549,6 +551,7 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_SO, XGetEventData);
 		X_DL_LOAD_SYM(X_DL_SO, XGrabPointer);
 		X_DL_LOAD_SYM(X_DL_SO, XUngrabPointer);
+		X_DL_LOAD_SYM(X_DL_SO, XWarpPointer);
 
 		X_DL_LOAD_SYM(X_DL_XI2_SO, XISelectEvents);
 
