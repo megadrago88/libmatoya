@@ -304,9 +304,11 @@ void MTY_AppGrabMouse(MTY_App *app, bool grab)
 void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 {
 	if (!app->relative && relative) {
-		XGrabPointer(app->display, app->windows[0]->window, False,
+		Window win = app->windows[0]->window;
+
+		XGrabPointer(app->display, win, False,
 			ButtonPressMask | ButtonReleaseMask | PointerMotionMask | FocusChangeMask,
-			GrabModeAsync, GrabModeAsync, None, None, CurrentTime);
+			GrabModeAsync, GrabModeAsync, win, None, CurrentTime);
 
 	} else if (app->relative && !relative) {
 		XUngrabPointer(app->display, CurrentTime);
