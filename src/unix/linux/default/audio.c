@@ -10,7 +10,7 @@
 #include <string.h>
 #include <math.h>
 
-#define AUDIO_BUF_SIZE (44800 * 4 * 5) // 5 seconds at 48khz
+#define AUDIO_BUF_SIZE (48000 * 4 * 5) // 5 seconds at 48khz
 
 struct MTY_Audio {
 	snd_pcm_t *pcm;

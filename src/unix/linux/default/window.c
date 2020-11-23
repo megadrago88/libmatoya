@@ -8,6 +8,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <math.h>
 
 #include "x-dl.h"
@@ -18,6 +19,9 @@ struct window {
 	Window window;
 	XIC ic;
 
+	bool fullscreen;
+	XWindowAttributes wattr;
+
 	MTY_GFX api;
 	struct gfx_ctx *gfx_ctx;
 	struct xinfo info;
@@ -25,6 +29,12 @@ struct window {
 
 struct MTY_App {
 	Display *display;
+	Cursor empty_cursor;
+	Cursor custom_cursor;
+	Cursor cursor;
+	bool default_cursor;
+	bool cursor_hidden;
+	MTY_Detach detach;
 	XVisualInfo *vis;
 	Atom wm_close;
 	XIM im;
@@ -64,6 +74,22 @@ static MTY_Window app_find_open_window(MTY_App *ctx)
 	return -1;
 }
 
+static struct window *app_get_active_window(MTY_App *ctx)
+{
+	Window w = 0;
+	int32_t revert = 0;
+	XGetInputFocus(ctx->display, &w, &revert);
+
+	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++) {
+		struct window *win = app_get_window(ctx, x);
+
+		if (win && win->window == w)
+			return win;
+	}
+
+	return NULL;
+}
+
 
 // App
 
@@ -74,14 +100,17 @@ static void __attribute__((destructor)) app_global_destroy(void)
 
 void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
 {
+	// TODO
 }
 
 void MTY_AppSetHotkey(MTY_App *app, MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, uint32_t id)
 {
+	// TODO
 }
 
 void MTY_AppRemoveHotkeys(MTY_App *app, MTY_Hotkey mode)
 {
+	// TODO
 }
 
 char *MTY_AppGetClipboard(MTY_App *app)
@@ -91,14 +120,104 @@ char *MTY_AppGetClipboard(MTY_App *app)
 
 void MTY_AppSetClipboard(MTY_App *app, const char *text)
 {
+	// TODO
+}
+
+static void app_apply_cursor(MTY_App *app)
+{
+	Cursor cur = app->cursor_hidden ? app->empty_cursor :
+		app->default_cursor || app->detach != MTY_DETACH_NONE ? None : app->custom_cursor ?
+		app->custom_cursor : None;
+
+	if (cur != app->cursor) {
+		for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++) {
+			struct window *win = app_get_window(app, x);
+
+			if (win)
+				XDefineCursor(app->display, win->window, cur);
+		}
+
+		app->cursor = cur;
+	}
+}
+
+static Cursor app_png_cursor(Display *display, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
+{
+	Cursor cursor = None;
+	XcursorImage *ximage = NULL;
+
+	uint32_t width = 0;
+	uint32_t height = 0;
+	uint32_t *rgba = MTY_DecompressImage(image, size, &width, &height);
+	if (!rgba)
+		goto except;
+
+	ximage = XcursorImageCreate(width, height);
+	if (!ximage)
+		goto except;
+
+	ximage->xhot = hotX;
+	ximage->yhot = hotY;
+	ximage->delay = 0;
+
+	for (uint32_t i = 0; i < width * height; i++) {
+		uint32_t p = rgba[i];
+		uint32_t a = (p & 0x00FF0000) >> 16;
+		uint32_t b = (p & 0x000000FF) << 16;;
+
+		ximage->pixels[i] = (p & 0xFF00FF00) | a | b;
+	}
+
+	cursor = XcursorImageLoadCursor(display, ximage);
+
+	except:
+
+	if (ximage)
+		XcursorImageDestroy(ximage);
+
+	MTY_Free(rgba);
+
+	return cursor;
 }
 
 void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
+	if (app->cursor == app->custom_cursor)
+		app->cursor = None;
+
+	Cursor prev = app->custom_cursor;
+	app->custom_cursor = None;
+
+	if (image && size > 0)
+		app->custom_cursor = app_png_cursor(app->display, image, size, hotX, hotY);
+
+	app_apply_cursor(app);
+
+	if (prev)
+		XFreeCursor(app->display, prev);
 }
 
 void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 {
+	app->default_cursor = useDefault;
+	app_apply_cursor(app);
+}
+
+static Cursor app_create_empty_cursor(Display *display)
+{
+	Cursor cursor = 0;
+
+	char data[1] = {0};
+	Pixmap p = XCreateBitmapFromData(display, XDefaultRootWindow(display), data, 1, 1);
+
+	if (p) {
+		XColor c = {0};
+		cursor = XCreatePixmapCursor(display, p, p, &c, &c, 0, 0);
+
+		XFreePixmap(display, p);
+	}
+
+	return cursor;
 }
 
 MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
@@ -119,6 +238,8 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 		r = false;
 		goto except;
 	}
+
+	ctx->empty_cursor = app_create_empty_cursor(ctx->display);
 
 	unsigned char mask[3] = {0};
 	XISetMask(mask, XI_RawMotion);
@@ -162,6 +283,9 @@ void MTY_AppDestroy(MTY_App **app)
 		return;
 
 	MTY_App *ctx = *app;
+
+	if (ctx->empty_cursor)
+		XFreeCursor(ctx->display, ctx->empty_cursor);
 
 	if (ctx->vis)
 		XFree(ctx->vis);
@@ -267,7 +391,7 @@ static void app_event(MTY_App *ctx, XEvent *event)
 void MTY_AppRun(MTY_App *ctx)
 {
 	for (bool cont = true; cont;) {
-		for (XEvent event; XEventsQueued(ctx->display, QueuedAlready) > 0;) {
+		for (XEvent event; XEventsQueued(ctx->display, QueuedAfterFlush) > 0;) {
 			XNextEvent(ctx->display, &event);
 			app_event(ctx, &event);
 		}
@@ -286,32 +410,50 @@ void MTY_AppSetTimeout(MTY_App *ctx, uint32_t timeout)
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
 {
+	app->detach = type;
+	app_apply_cursor(app);
 }
 
 MTY_Detach MTY_AppGetDetached(MTY_App *app)
 {
-	return MTY_DETACH_NONE;
+	return app->detach;
 }
 
 void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 {
+	// TODO
 }
 
 void MTY_AppGrabMouse(MTY_App *app, bool grab)
 {
+	// TODO
 }
 
 void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 {
-	if (!app->relative && relative) {
-		Window win = app->windows[0]->window;
+	// TODO needs polish?
 
-		XGrabPointer(app->display, win, False,
-			ButtonPressMask | ButtonReleaseMask | PointerMotionMask | FocusChangeMask,
-			GrabModeAsync, GrabModeAsync, win, None, CurrentTime);
+	if (!app->relative && relative) {
+		struct window *win = app_get_active_window(app);
+
+		if (win) {
+			XGrabPointer(app->display, win->window, False,
+				ButtonPressMask | ButtonReleaseMask | PointerMotionMask | FocusChangeMask,
+				GrabModeAsync, GrabModeAsync, win->window, None, CurrentTime);
+
+			app->cursor_hidden = true;
+			app_apply_cursor(app);
+
+			XSync(app->display, False);
+		}
 
 	} else if (app->relative && !relative) {
 		XUngrabPointer(app->display, CurrentTime);
+
+		app->cursor_hidden = false;
+		app_apply_cursor(app);
+
+		XSync(app->display, False);
 	}
 
 	app->relative = relative;
@@ -324,26 +466,17 @@ bool MTY_AppGetRelativeMouse(MTY_App *app)
 
 bool MTY_AppIsActive(MTY_App *ctx)
 {
-	Window w = 0;
-	int32_t revert = 0;
-	XGetInputFocus(ctx->display, &w, &revert);
-
-	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++) {
-		struct window *win = app_get_window(ctx, x);
-
-		if (win && win->window == w)
-			return true;
-	}
-
-	return false;
+	return app_get_active_window(ctx) ? true : false;
 }
 
 void MTY_AppActivate(MTY_App *app, bool active)
 {
+	// TODO
 }
 
 void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {
+	// TODO
 }
 
 
@@ -474,32 +607,66 @@ bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, u
 
 float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
 {
+	// TODO This doesn't seem great
 	return app->dpi;
+}
+
+static void window_set_borderless(Display *display, Window window, bool enable)
+{
+	Atom prop = XInternAtom(display, "_MOTIF_WM_HINTS", True);
+
+	Hints hints = {0};
+	hints.flags = 2;
+	hints.decorations = enable ? 1 : 0;
+
+	XChangeProperty(display, window, prop, prop, 32, PropModeReplace, (unsigned char *) &hints, 5);
 }
 
 void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
 {
+	// TODO needs polish
 	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return;
 
-	if (fullscreen) {
-		Hints hints = {0};
-		hints.flags = 2;
-		Atom prop = XInternAtom(app->display, "_MOTIF_WM_HINTS", True);
+	if (fullscreen && !ctx->fullscreen) {
+		window_set_borderless(app->display, ctx->window, false);
 
-		XChangeProperty(app->display, ctx->window, prop, prop, 32, PropModeReplace, (unsigned char *) &hints, 5);
+		XGetWindowAttributes(app->display, ctx->window, &ctx->wattr);
+
+		uint32_t width = ctx->wattr.width;
+		uint32_t height = ctx->wattr.height;
+		MTY_WindowGetScreenSize(app, window, &width, &height);
+
+		XResizeWindow(app->display, ctx->window, width, height);
+		XMoveWindow(app->display, ctx->window, 0, 0);
 		XMapWindow(app->display, ctx->window);
+		XSync(app->display, False);
+
+	} else if (!fullscreen && ctx->fullscreen) {
+		window_set_borderless(app->display, ctx->window, true);
+
+		XResizeWindow(app->display, ctx->window, ctx->wattr.width, ctx->wattr.height);
+		XMoveWindow(app->display, ctx->window, ctx->wattr.x, ctx->wattr.y);
+		XMapWindow(app->display, ctx->window);
+		XSync(app->display, False);
 	}
+
+	ctx->fullscreen = fullscreen;
 }
 
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 {
-	return true;
+	struct window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return false;
+
+	return ctx->fullscreen;
 }
 
 void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
 {
+	// TODO
 }
 
 void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t y)
@@ -509,13 +676,21 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 		return;
 
 	XWarpPointer(app->display, None, ctx->window, 0, 0, 0, 0, x, y);
+	XSync(app->display, False);
 
 	MTY_AppSetRelativeMouse(app, false);
 }
 
 bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
 {
-	return true;
+	struct window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return false;
+
+	XWindowAttributes attr = {0};
+	XGetWindowAttributes(app->display, ctx->window, &attr);
+
+	return attr.map_state == IsViewable;
 }
 
 bool MTY_WindowIsActive(MTY_App *app, MTY_Window window)

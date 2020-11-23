@@ -13,6 +13,8 @@
 
 // Reference: https://code.woboq.org/qt5/include/X11/
 
+#define _Xconst                   const
+
 #define None                      0L
 #define Bool                      int
 #define True                      1
@@ -165,6 +167,10 @@
 #define CWColormap                (1L<<13)
 #define CWCursor                  (1L<<14)
 
+#define IsUnmapped                0
+#define IsUnviewable              1
+#define IsViewable                2
+
 #define QueuedAlready             0
 #define QueuedAfterReading        1
 #define QueuedAfterFlush          2
@@ -186,6 +192,7 @@ typedef unsigned long Time;
 typedef unsigned long Atom;
 typedef char *XPointer;
 typedef XID Window;
+typedef XID Drawable;
 typedef XID Colormap;
 typedef XID Pixmap;
 typedef XID Cursor;
@@ -193,6 +200,13 @@ typedef XID KeySym;
 typedef struct _XDisplay Display;
 typedef struct _XVisual Visual;
 typedef struct _XScreen Screen;
+
+typedef struct {
+	unsigned long pixel;
+	unsigned short red, green, blue;
+	char flags;
+	char pad;
+} XColor;
 
 typedef struct {
 	Visual *visual;
@@ -392,6 +406,14 @@ static int (*XGrabPointer)(Display *display, Window grab_window, Bool owner_even
 static int (*XUngrabPointer)(Display *display, Time time);
 static int (*XWarpPointer)(Display *display, Window src_w, Window dest_w, int src_x, int src_y, unsigned int src_width,
 	unsigned int src_height, int dest_x, int dest_y);
+static int (*XSync)(Display *display, Bool discard);
+static Pixmap (*XCreateBitmapFromData)(Display *display, Drawable d, _Xconst char *data, unsigned int width, unsigned int height);
+static Cursor (*XCreatePixmapCursor)(Display *display, Pixmap source, Pixmap mask, XColor *foreground_color,
+	XColor *background_color, unsigned int x, unsigned int y);
+static int (*XFreePixmap)(Display *display, Pixmap pixmap);
+static int (*XDefineCursor)(Display *display, Window w, Cursor cursor);
+static int (*XFreeCursor)(Display *display, Cursor cursor);
+static int (*XResizeWindow)(Display *display, Window w, unsigned int width, unsigned int height);
 
 
 // XI2 interface
@@ -434,6 +456,29 @@ typedef struct {
 } XIRawEvent;
 
 static int (*XISelectEvents)(Display *dpy, Window win, XIEventMask *masks, int num_masks);
+
+
+// Xcursor interface
+
+typedef int XcursorBool;
+typedef unsigned int XcursorUInt;
+typedef XcursorUInt XcursorDim;
+typedef XcursorUInt XcursorPixel;
+
+typedef struct _XcursorImage {
+	XcursorUInt version;
+	XcursorDim size;
+	XcursorDim width;
+	XcursorDim height;
+	XcursorDim xhot;
+	XcursorDim yhot;
+	XcursorUInt delay;
+	XcursorPixel *pixels;
+} XcursorImage;
+
+static XcursorImage *(*XcursorImageCreate)(int width, int height);
+static Cursor (*XcursorImageLoadCursor)(Display *dpy, const XcursorImage *image);
+static void (*XcursorImageDestroy)(XcursorImage *image);
 
 
 // GLX interface
@@ -487,6 +532,7 @@ struct xinfo {
 static MTY_Atomic32 X_DL_LOCK;
 static MTY_SO *X_DL_GLX_SO;
 static MTY_SO *X_DL_XI2_SO;
+static MTY_SO *X_DL_XCURSOR_SO;
 static MTY_SO *X_DL_SO;
 static bool X_DL_INIT;
 
@@ -494,6 +540,7 @@ static void x_dl_global_destroy(void)
 {
 	MTY_SOUnload(&X_DL_GLX_SO);
 	MTY_SOUnload(&X_DL_XI2_SO);
+	MTY_SOUnload(&X_DL_XCURSOR_SO);
 	MTY_SOUnload(&X_DL_SO);
 	X_DL_INIT = false;
 }
@@ -510,9 +557,10 @@ static bool x_dl_global_init(void)
 			X_DL_SO = MTY_SOLoad("libX11.so");
 
 		X_DL_XI2_SO = MTY_SOLoad("libXi.so.6");
+		X_DL_XCURSOR_SO = MTY_SOLoad("libXcursor.so.1");
 		X_DL_GLX_SO = MTY_SOLoad("libGL.so.1");
 
-		if (!X_DL_SO || !X_DL_GLX_SO || !X_DL_XI2_SO) {
+		if (!X_DL_SO || !X_DL_GLX_SO || !X_DL_XI2_SO || !X_DL_XCURSOR_SO) {
 			r = false;
 			goto except;
 		}
@@ -552,8 +600,19 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_SO, XGrabPointer);
 		X_DL_LOAD_SYM(X_DL_SO, XUngrabPointer);
 		X_DL_LOAD_SYM(X_DL_SO, XWarpPointer);
+		X_DL_LOAD_SYM(X_DL_SO, XSync);
+		X_DL_LOAD_SYM(X_DL_SO, XCreateBitmapFromData);
+		X_DL_LOAD_SYM(X_DL_SO, XCreatePixmapCursor);
+		X_DL_LOAD_SYM(X_DL_SO, XFreePixmap);
+		X_DL_LOAD_SYM(X_DL_SO, XDefineCursor);
+		X_DL_LOAD_SYM(X_DL_SO, XFreeCursor);
+		X_DL_LOAD_SYM(X_DL_SO, XResizeWindow);
 
 		X_DL_LOAD_SYM(X_DL_XI2_SO, XISelectEvents);
+
+		X_DL_LOAD_SYM(X_DL_XCURSOR_SO, XcursorImageCreate);
+		X_DL_LOAD_SYM(X_DL_XCURSOR_SO, XcursorImageLoadCursor);
+		X_DL_LOAD_SYM(X_DL_XCURSOR_SO, XcursorImageDestroy);
 
 		X_DL_LOAD_SYM(X_DL_GLX_SO, glXGetProcAddress);
 		X_DL_LOAD_SYM(X_DL_GLX_SO, glXSwapBuffers);
