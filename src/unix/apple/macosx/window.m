@@ -621,6 +621,17 @@ static void window_mod_event(Window *window, NSEvent *event)
 		return YES;
 	}
 
+	- (BOOL)performKeyEquivalent:(NSEvent *)event
+	{
+		// macOS swallows Ctrl+Tab, special case
+		if (event.keyCode == kVK_Tab && (event.modifierFlags & NSEventModifierFlagControl)) {
+			window_keyboard_event(self, event.keyCode, event.modifierFlags, true);
+			window_keyboard_event(self, event.keyCode, event.modifierFlags, false);
+		}
+
+		return NO;
+	}
+
 	- (BOOL)windowShouldClose:(NSWindow *)sender
 	{
 		MTY_Msg msg = window_msg(self, MTY_MSG_CLOSE);
