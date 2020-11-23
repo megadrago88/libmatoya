@@ -74,6 +74,18 @@ static MTY_Window app_find_open_window(MTY_App *ctx)
 	return -1;
 }
 
+static MTY_Window app_find_window(MTY_App *ctx, Window xwindow)
+{
+	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++) {
+		struct window *win = app_get_window(ctx, x);
+
+		if (win->window == xwindow)
+			return x;
+	}
+
+	return 0;
+}
+
 static struct window *app_get_active_window(MTY_App *ctx)
 {
 	Window w = 0;
@@ -88,6 +100,22 @@ static struct window *app_get_active_window(MTY_App *ctx)
 	}
 
 	return NULL;
+}
+
+static MTY_Window app_get_active_index(MTY_App *ctx)
+{
+	Window w = 0;
+	int32_t revert = 0;
+	XGetInputFocus(ctx->display, &w, &revert);
+
+	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++) {
+		struct window *win = app_get_window(ctx, x);
+
+		if (win && win->window == w)
+			return x;
+	}
+
+	return 0;
 }
 
 
@@ -327,6 +355,7 @@ static void app_event(MTY_App *ctx, XEvent *event)
 
 		case KeyRelease: {
 			msg.type = MTY_MSG_KEYBOARD;
+			msg.window = app_find_window(ctx, event->xkey.window);
 			msg.keyboard.pressed = event->type == KeyPress;
 			msg.keyboard.scancode = window_x_to_mty(XLookupKeysym(&event->xkey, 0));
 			break;
@@ -334,6 +363,7 @@ static void app_event(MTY_App *ctx, XEvent *event)
 		case ButtonPress:
 		case ButtonRelease:
 			msg.type = MTY_MSG_MOUSE_BUTTON;
+			msg.window = app_find_window(ctx, event->xbutton.window);
 			msg.mouseButton.pressed = event->type == ButtonPress;
 
 			switch (event->xbutton.button) {
@@ -355,13 +385,16 @@ static void app_event(MTY_App *ctx, XEvent *event)
 				break;
 
 			msg.type = MTY_MSG_MOUSE_MOTION;
+			msg.window = app_find_window(ctx, event->xmotion.window);
 			msg.mouseMotion.relative = false;
 			msg.mouseMotion.x = event->xmotion.x;
 			msg.mouseMotion.y = event->xmotion.y;
 			break;
 		case ClientMessage:
-			if ((Atom) event->xclient.data.l[0] == ctx->wm_close)
+			if ((Atom) event->xclient.data.l[0] == ctx->wm_close) {
+				msg.window = app_find_window(ctx, event->xclient.window);
 				msg.type = MTY_MSG_CLOSE;
+			}
 			break;
 		case GenericEvent:
 			if (!ctx->relative)
@@ -374,6 +407,7 @@ static void app_event(MTY_App *ctx, XEvent *event)
 						const double *coords = (const double *) re->raw_values;
 
 						msg.type = MTY_MSG_MOUSE_MOTION;
+						msg.window = app_get_active_index(ctx);
 						msg.mouseMotion.relative = true;
 						msg.mouseMotion.x = lrint(coords[0]);
 						msg.mouseMotion.y = lrint(coords[1]);
@@ -675,10 +709,10 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 	if (!ctx)
 		return;
 
+	MTY_AppSetRelativeMouse(app, false);
+
 	XWarpPointer(app->display, None, ctx->window, 0, 0, 0, 0, x, y);
 	XSync(app->display, False);
-
-	MTY_AppSetRelativeMouse(app, false);
 }
 
 bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
