@@ -83,7 +83,7 @@ static bool crypto_dl_global_init(void)
 		bool r = true;
 		CRYPTO_DL_SO = MTY_SOLoad(LIB_CRYPTO_0);
 
-		if (!CRYPTO_DL_SO)
+		if (!CRYPTO_DL_SO && LIB_CRYPTO_1)
 			CRYPTO_DL_SO = MTY_SOLoad(LIB_CRYPTO_1);
 
 		if (!CRYPTO_DL_SO) {

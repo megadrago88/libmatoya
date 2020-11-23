@@ -6,4 +6,5 @@
 
 #pragma once
 
-#define LIB_CRYPTO "libcrypto.35.dylib"
+#define LIB_CRYPTO_0 "libcrypto.35.dylib"
+#define LIB_CRYPTO_1 NULL
