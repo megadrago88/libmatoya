@@ -14,8 +14,6 @@ GFX_CTX_PROTOTYPES(_metal_)
 struct gfx_metal_ctx {
 	NSWindow *window;
 	CAMetalLayer *layer;
-	CVDisplayLinkRef display_link;
-	dispatch_semaphore_t semaphore;
 	id<CAMetalDrawable> back_buffer;
 	id<MTLCommandQueue> cq;
 	MTY_Renderer *renderer;
@@ -33,23 +31,11 @@ static CGSize gfx_metal_ctx_get_size(struct gfx_metal_ctx *ctx)
 	return size;
 }
 
-static CVReturn gfx_metal_ctx_display_link(CVDisplayLinkRef displayLink, const CVTimeStamp *inNow,
-	const CVTimeStamp *inOutputTime, CVOptionFlags flagsIn, CVOptionFlags *flagsOut, void *displayLinkContext)
-{
-	struct gfx_metal_ctx *ctx = (struct gfx_metal_ctx *) displayLinkContext;
-
-	dispatch_semaphore_signal(ctx->semaphore);
-
-	return 0;
-}
-
 struct gfx_ctx *gfx_metal_ctx_create(void *native_window, bool vsync)
 {
 	struct gfx_metal_ctx *ctx = MTY_Alloc(1, sizeof(struct gfx_metal_ctx));
 	ctx->window = (__bridge NSWindow *) native_window;
 	ctx->renderer = MTY_RendererCreate();
-
-	bool r = true;
 
 	ctx->layer = [CAMetalLayer layer];
 	ctx->layer.device = MTLCreateSystemDefaultDevice();
@@ -62,22 +48,6 @@ struct gfx_ctx *gfx_metal_ctx_create(void *native_window, bool vsync)
 
 	ctx->window.contentView.wantsLayer = YES;
 	ctx->window.contentView.layer = ctx->layer;
-
-	CVReturn e = CVDisplayLinkCreateWithCGDisplay(CGMainDisplayID(), &ctx->display_link);
-	if (e != 0) {
-		r = false;
-		goto except;
-	}
-
-	ctx->semaphore = dispatch_semaphore_create(0);
-
-	CVDisplayLinkSetOutputCallback(ctx->display_link, gfx_metal_ctx_display_link, ctx);
-	CVDisplayLinkStart(ctx->display_link);
-
-	except:
-
-	if (!r)
-		gfx_metal_ctx_destroy((struct gfx_ctx **) &ctx);
 
 	return (struct gfx_ctx *) ctx;
 }
@@ -97,17 +67,8 @@ void gfx_metal_ctx_destroy(struct gfx_ctx **gfx_ctx)
 		ctx->window = nil;
 	}
 
-	// NOTE: The display link thread uses the semaphore, do not 'nil' it before this is stopped
-	if (ctx->display_link) {
-		if (CVDisplayLinkIsRunning(ctx->display_link))
-			CVDisplayLinkStop(ctx->display_link);
-
-		CVDisplayLinkRelease(ctx->display_link);
-	}
-
 	ctx->layer = nil;
 	ctx->cq = nil;
-	ctx->semaphore = nil;
 	ctx->back_buffer = nil;
 
 	MTY_Free(ctx);
@@ -157,12 +118,10 @@ void gfx_metal_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 	struct gfx_metal_ctx *ctx = (struct gfx_metal_ctx *) gfx_ctx;
 
 	if (ctx->back_buffer) {
-		for (uint32_t x = 0; x < interval; x++)
-			dispatch_semaphore_wait(ctx->semaphore, DISPATCH_TIME_FOREVER);
-
 		id<MTLCommandBuffer> cb = [ctx->cq commandBuffer];
 		[cb presentDrawable:ctx->back_buffer];
 		[cb commit];
+		[cb waitUntilCompleted];
 
 		ctx->back_buffer = nil;
 	}

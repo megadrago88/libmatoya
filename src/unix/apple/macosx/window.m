@@ -645,7 +645,18 @@ static void window_mod_event(Window *window, NSEvent *event)
 		MTY_Msg msg = window_msg(self, MTY_MSG_FOCUS);
 		msg.focus = false;
 
-		[self setLevel:NSNormalWindowLevel];
+		// When in full screen and the window loses focus (changing spaces etc)
+		// we need to set the window level back to normal and change the content size.
+		// Cmd+Tab behavior and rendering can have weird edge case behvavior when the OS
+		// is optimizing the graphics and the window is above the dock
+		if (self.styleMask & NSWindowStyleMaskFullScreen) {
+			[self setLevel:NSNormalWindowLevel];
+
+			NSSize cur = self.contentView.frame.size;
+			cur.height -= 1.0f;
+
+			[self setContentSize:cur];
+		}
 
 		self.app.msg_func(&msg, self.app.opaque);
 	}
@@ -660,8 +671,11 @@ static void window_mod_event(Window *window, NSEvent *event)
 
 	- (void)windowDidChangeScreen:(NSNotification *)notification
 	{
-		if (self.top && self.isKeyWindow && (self.styleMask & NSWindowStyleMaskFullScreen))
+		// This event fires at the right time to re-apply the window level above the dock
+		if (self.top && self.isKeyWindow && (self.styleMask & NSWindowStyleMaskFullScreen)) {
 			[self setLevel:NSDockWindowLevel + 1];
+			app_apply_cursor(self.app);
+		}
 	}
 
 	- (void)keyUp:(NSEvent *)event

@@ -94,9 +94,14 @@ static void gfx_gl_ctx_refresh(struct gfx_gl_ctx *ctx)
 	CGSize size = gfx_gl_ctx_get_size(ctx);
 
 	if (size.width != ctx->size.width || size.height != ctx->size.height) {
-		dispatch_sync(dispatch_get_main_queue(), ^{
+		if ([NSThread isMainThread]) {
 			[ctx->gl update];
-		});
+
+		} else {
+			dispatch_sync(dispatch_get_main_queue(), ^{
+				[ctx->gl update];
+			});
+		}
 
 		ctx->size = size;
 	}
