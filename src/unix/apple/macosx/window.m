@@ -852,6 +852,23 @@ static void app_carbon_key(uint16_t kc, char *text, size_t len)
 	}
 }
 
+static void app_fill_keys(void)
+{
+	for (uint16_t kc = 0; kc < 0x100; kc++) {
+		MTY_Scancode sc = window_keycode_to_scancode(kc);
+
+		if (sc != MTY_SCANCODE_NONE) {
+			const char *text = window_keycode_to_text(kc);
+			if (text) {
+				snprintf(APP_KEYS[sc], 16, "%s", text);
+
+			} else {
+				app_carbon_key(kc, APP_KEYS[sc], 16);
+			}
+		}
+	}
+}
+
 void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
 {
 	memset(str, 0, len);
@@ -865,21 +882,14 @@ void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, siz
 		if (MTY_Atomic32Get(&APP_GLOCK) == 0) {
 			MTY_GlobalLock(&APP_GLOCK);
 
-			dispatch_sync(dispatch_get_main_queue(), ^{
-				for (uint16_t kc = 0; kc < 0x100; kc++) {
-					MTY_Scancode sc = window_keycode_to_scancode(kc);
+			if ([NSThread isMainThread]) {
+				app_fill_keys();
 
-					if (sc != MTY_SCANCODE_NONE) {
-						const char *text = window_keycode_to_text(kc);
-						if (text) {
-							snprintf(APP_KEYS[sc], 16, "%s", text);
-
-						} else {
-							app_carbon_key(kc, APP_KEYS[sc], 16);
-						}
-					}
-				}
-			});
+			} else {
+				dispatch_sync(dispatch_get_main_queue(), ^{
+					app_fill_keys();
+				});
+			}
 
 			MTY_GlobalUnlock(&APP_GLOCK);
 		}
