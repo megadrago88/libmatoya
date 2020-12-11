@@ -50,7 +50,7 @@ struct MTY_App {
 	HINSTANCE instance;
 	HHOOK kbhook;
 	DWORD cb_seq;
-	bool pen_active;
+	bool pen_in_range;
 	bool pen_enabled;
 	bool touch_active;
 	bool relative;
@@ -663,7 +663,9 @@ static void app_apply_cursor(MTY_App *app, bool focus)
 
 static void app_apply_mouse_ri(MTY_App *app, bool focus)
 {
-	if (app->relative && !app->pen_active) {
+	bool pen_active = app->pen_enabled && app->pen_in_range;
+
+	if (app->relative && !pen_active) {
 		if (focus) {
 			if (app->detach == MTY_DETACH_FULL) {
 				app_register_raw_input(0x01, 0x02, 0, NULL);
@@ -717,6 +719,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	LRESULT r = 0;
 	bool creturn = false;
 	bool defreturn = false;
+	bool pen_active = app->pen_enabled && app->pen_in_range;
 	char drop_name[MTY_PATH_MAX];
 
 	switch (msg) {
@@ -776,7 +779,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				app_custom_hwnd_proc(ctx, hwnd, WM_KEYDOWN, wparam, lparam & 0x7FFFFFFF);
 			break;
 		case WM_MOUSEMOVE:
-			if (!app->filter_move && !app->pen_active && (!app->relative || app_hwnd_active(hwnd))) {
+			if (!app->filter_move && !pen_active && (!app->relative || app_hwnd_active(hwnd))) {
 				wmsg.type = MTY_MSG_MOUSE_MOTION;
 				wmsg.mouseMotion.relative = false;
 				wmsg.mouseMotion.synth = false;
@@ -789,7 +792,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		case WM_LBUTTONDOWN:
 		case WM_LBUTTONUP:
-			if (!app->pen_active) {
+			if (!pen_active) {
 				wmsg.type = MTY_MSG_MOUSE_BUTTON;
 				wmsg.mouseButton.button = MTY_MOUSE_BUTTON_LEFT;
 				wmsg.mouseButton.pressed = msg == WM_LBUTTONDOWN;
@@ -797,7 +800,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			break;
 		case WM_RBUTTONDOWN:
 		case WM_RBUTTONUP:
-			if (!app->pen_active) {
+			if (!pen_active) {
 				wmsg.type = MTY_MSG_MOUSE_BUTTON;
 				wmsg.mouseButton.button = MTY_MOUSE_BUTTON_RIGHT;
 				wmsg.mouseButton.pressed = msg == WM_RBUTTONDOWN;
@@ -836,13 +839,13 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 			POINTER_INPUT_TYPE type = PT_POINTER;
 			if (_GetPointerType(id, &type)) {
-				app->pen_active = app->pen_enabled && type == PT_PEN;
+				app->pen_in_range = type == PT_PEN;
 				app->touch_active = type == PT_TOUCH || type == PT_TOUCHPAD;
 			}
 			break;
 		}
 		case WM_POINTERLEAVE:
-			app->pen_active = false;
+			app->pen_in_range = false;
 			app->touch_active = false;
 			break;
 		case WM_POINTERUPDATE:
