@@ -30,6 +30,7 @@
 	@property bool relative;
 	@property bool grab_mouse;
 	@property bool cont;
+	@property bool pen_enabled;
 	@property bool default_cursor;
 	@property bool cursor_outside;
 	@property bool cursor_showing;
@@ -440,7 +441,7 @@ static void window_mouse_button_event(Window *window, MTY_MouseButton button, bo
 
 static void window_button_event(Window *window, NSEvent *event, MTY_MouseButton button, bool pressed)
 {
-	if (event.subtype == NSTabletPointEventSubtype) {
+	if (window.app.pen_enabled && event.subtype == NSTabletPointEventSubtype) {
 		window_pen_event(window, event);
 
 	} else {
@@ -529,7 +530,7 @@ static void window_mouse_motion_event(Window *window, NSEvent *event)
 
 static void window_motion_event(Window *window, NSEvent *event)
 {
-	if (event.subtype == NSTabletPointEventSubtype) {
+	if (window.app.pen_enabled && event.subtype == NSTabletPointEventSubtype) {
 		window_pen_event(window, event);
 
 	} else {
@@ -1180,6 +1181,13 @@ void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t h
 	App *ctx = (__bridge App *) app;
 
 	hid_driver_rumble(ctx.hid, id, low, high);
+}
+
+void MTY_AppEnablePen(MTY_App *app, bool enable)
+{
+	App *ctx = (__bridge App *) app;
+
+	ctx->pen_enabled = enable;
 }
 
 

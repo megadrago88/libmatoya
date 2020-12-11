@@ -51,6 +51,7 @@ struct MTY_App {
 	HHOOK kbhook;
 	DWORD cb_seq;
 	bool pen_active;
+	bool pen_enabled;
 	bool touch_active;
 	bool relative;
 	bool kbgrab;
@@ -835,7 +836,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 			POINTER_INPUT_TYPE type = PT_POINTER;
 			if (_GetPointerType(id, &type)) {
-				app->pen_active = type == PT_PEN;
+				app->pen_active = app->pen_enabled && type == PT_PEN;
 				app->touch_active = type == PT_TOUCH || type == PT_TOUCHPAD;
 			}
 			break;
@@ -845,7 +846,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			app->touch_active = false;
 			break;
 		case WM_POINTERUPDATE:
-			if (!_GetPointerType || !_GetPointerPenInfo)
+			if (!app->pen_enabled || !_GetPointerType || !_GetPointerPenInfo)
 				break;
 
 			UINT32 id = GET_POINTERID_WPARAM(wparam);
@@ -1426,6 +1427,11 @@ void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t h
 	} else {
 		hid_driver_rumble(app->hid, id, low, high);
 	}
+}
+
+void MTY_AppEnablePen(MTY_App *ctx, bool enable)
+{
+	ctx->pen_enabled = enable;
 }
 
 

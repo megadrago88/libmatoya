@@ -1351,6 +1351,9 @@ MTY_AppSetOrientation(MTY_App *ctx, MTY_Orientation orientation);
 MTY_EXPORT void
 MTY_AppControllerRumble(MTY_App *ctx, uint32_t id, uint16_t low, uint16_t high);
 
+MTY_EXPORT void
+MTY_AppEnablePen(MTY_App *ctx, bool enable);
+
 MTY_EXPORT MTY_Window
 MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc);
 
