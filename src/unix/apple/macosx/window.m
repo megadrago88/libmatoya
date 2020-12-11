@@ -543,7 +543,7 @@ static void window_wheel_event(Window *window, NSEvent *event)
 	int32_t delta = event.hasPreciseScrollingDeltas ? scale : scale * 80.0f;
 
 	MTY_Msg msg = window_msg(window, MTY_MSG_MOUSE_WHEEL);
-	msg.mouseWheel.x = lrint(event.scrollingDeltaX * delta);
+	msg.mouseWheel.x = lrint(-event.scrollingDeltaX * delta);
 	msg.mouseWheel.y = lrint(event.scrollingDeltaY * delta);
 
 	window.app.msg_func(&msg, window.app.opaque);
