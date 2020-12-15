@@ -65,6 +65,7 @@ struct MTY_App {
 	int32_t last_x;
 	int32_t last_y;
 	struct hid *hid;
+	MTY_MouseButton buttons;
 	MTY_Detach detach;
 	MTY_Hash *hotkey;
 	MTY_Hash *ghotkey;
@@ -82,6 +83,19 @@ struct MTY_App {
 		bool want;
 	} tray;
 };
+
+
+// MTY -> VK mouse map
+
+static const int APP_MOUSE_MAP[] = {
+	[MTY_MOUSE_BUTTON_LEFT]   = VK_LBUTTON,
+	[MTY_MOUSE_BUTTON_RIGHT]  = VK_RBUTTON,
+	[MTY_MOUSE_BUTTON_MIDDLE] = VK_MBUTTON,
+	[MTY_MOUSE_BUTTON_X1]     = VK_XBUTTON1,
+	[MTY_MOUSE_BUTTON_X2]     = VK_XBUTTON2,
+};
+
+#define APP_MOUSE_MAX (sizeof(APP_MOUSE_MAP) / sizeof(int))
 
 
 // Low level keyboard hook needs a global HWND
@@ -707,6 +721,32 @@ static void app_apply_keyboard_state(MTY_App *app, bool focus)
 	}
 }
 
+static bool app_button_is_pressed(MTY_MouseButton button)
+{
+	return (GetAsyncKeyState(APP_MOUSE_MAP[button]) & 0x8000) ? true : false;
+}
+
+static void app_fix_mouse_buttons(MTY_App *ctx)
+{
+	if (ctx->buttons == 0)
+		return;
+
+	MTY_MouseButton buttons = ctx->buttons;
+
+	for (MTY_MouseButton x = 0; buttons > 0 && x < APP_MOUSE_MAX; x++) {
+		if ((buttons & 1) && !app_button_is_pressed(x)) {
+			MTY_Msg msg = {0};
+			msg.type = MTY_MSG_MOUSE_BUTTON;
+			msg.mouseButton.button = x;
+
+			ctx->msg_func(&msg, ctx->opaque);
+			ctx->buttons &= ~(1 << x);
+		}
+
+		buttons >>= 1;
+	}
+}
+
 static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
 	MTY_App *app = ctx->app;
@@ -961,9 +1001,19 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 	if (wmsg.type == MTY_MSG_KEYBOARD)
 		app_kb_to_hotkey(app, &wmsg);
 
-	// For robustness, generate a WM_MOUSEMOVE on a mousedown
-	if (wmsg.type == MTY_MSG_MOUSE_BUTTON && wmsg.mouseButton.pressed && !app->relative)
-		app_make_movement(hwnd);
+	// Record pressed buttons
+	if (wmsg.type == MTY_MSG_MOUSE_BUTTON) {
+		if (wmsg.mouseButton.pressed) {
+			app->buttons |= 1 << wmsg.mouseButton.button;
+
+			// For robustness, generate a WM_MOUSEMOVE on a mousedown
+			if (!app->relative)
+				app_make_movement(hwnd);
+
+		} else {
+			app->buttons &= ~(1 << wmsg.mouseButton.button);
+		}
+	}
 
 	// Process the message
 	if (wmsg.type != MTY_MSG_NONE) {
@@ -1324,6 +1374,9 @@ void MTY_AppRun(MTY_App *app)
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
+
+		// Mouse button state reconciliation
+		app_fix_mouse_buttons(app);
 
 		cont = app->app_func(app->opaque);
 

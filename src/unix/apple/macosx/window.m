@@ -105,21 +105,24 @@ static void app_poll_clipboard(App *ctx)
 
 static void app_fix_mouse_buttons(App *ctx)
 {
-	NSUInteger buttons = ctx.buttons;
-	NSUInteger mismatch = [NSEvent pressedMouseButtons] ^ buttons;
+	if (ctx.buttons == 0)
+		return;
 
-	for (NSUInteger x = 0; mismatch > 0; x++) {
-		if ((buttons & 1) && (mismatch & 1) && x < APP_MOUSE_MAX) {
+	NSUInteger buttons = ctx.buttons;
+	NSUInteger pressed = [NSEvent pressedMouseButtons];
+
+	for (NSUInteger x = 0; buttons > 0 && x < APP_MOUSE_MAX; x++) {
+		if ((buttons & 1) && !(pressed & 1)) {
 			MTY_Msg msg = {0};
 			msg.type = MTY_MSG_MOUSE_BUTTON;
 			msg.mouseButton.button = APP_MOUSE_MAP[x];
 
 			ctx.msg_func(&msg, ctx.opaque);
-			ctx.buttons &= ~(1lu << x);
+			ctx.buttons &= ~(1 << x);
 		}
 
 		buttons >>= 1;
-		mismatch >>= 1;
+		pressed >>= 1;
 	}
 }
 
@@ -474,7 +477,13 @@ static void window_mouse_button_event(Window *window, NSUInteger index, bool pre
 	msg.mouseButton.button = button;
 
 	window.app.msg_func(&msg, window.app.opaque);
-	window.app.buttons = [NSEvent pressedMouseButtons];
+
+	if (pressed) {
+		window.app.buttons |= 1 << index;
+
+	} else {
+		window.app.buttons &= ~(1 << index);
+	}
 }
 
 static void window_button_event(Window *window, NSEvent *event, NSUInteger index, bool pressed)
