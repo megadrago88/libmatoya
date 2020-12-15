@@ -663,9 +663,7 @@ static void app_apply_cursor(MTY_App *app, bool focus)
 
 static void app_apply_mouse_ri(MTY_App *app, bool focus)
 {
-	bool pen_active = app->pen_enabled && app->pen_in_range;
-
-	if (app->relative && !pen_active) {
+	if (app->relative && !app->pen_in_range) {
 		if (focus) {
 			if (app->detach == MTY_DETACH_FULL) {
 				app_register_raw_input(0x01, 0x02, 0, NULL);
