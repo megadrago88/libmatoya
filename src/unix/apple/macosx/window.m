@@ -36,11 +36,22 @@
 	@property bool cursor_showing;
 	@property bool eraser;
 	@property bool pen_left;
+	@property NSUInteger buttons;
 	@property uint32_t cb_seq;
 	@property void **windows;
 	@property float timeout;
 	@property struct hid *hid;
 @end
+
+static const MTY_MouseButton APP_MOUSE_MAP[] = {
+	MTY_MOUSE_BUTTON_LEFT,
+	MTY_MOUSE_BUTTON_RIGHT,
+	MTY_MOUSE_BUTTON_MIDDLE,
+	MTY_MOUSE_BUTTON_X1,
+	MTY_MOUSE_BUTTON_X2,
+};
+
+#define APP_MOUSE_MAX (sizeof(APP_MOUSE_MAP) / sizeof(MTY_MouseButton))
 
 static void app_schedule_func(App *ctx)
 {
@@ -89,6 +100,26 @@ static void app_poll_clipboard(App *ctx)
 
 		ctx.msg_func(&msg, ctx.opaque);
 		ctx.cb_seq = cb_seq;
+	}
+}
+
+static void app_fix_mouse_buttons(App *ctx)
+{
+	NSUInteger buttons = ctx.buttons;
+	NSUInteger mismatch = [NSEvent pressedMouseButtons] ^ buttons;
+
+	for (NSUInteger x = 0; mismatch > 0; x++) {
+		if ((buttons & 1) && (mismatch & 1) && x < APP_MOUSE_MAX) {
+			MTY_Msg msg = {0};
+			msg.type = MTY_MSG_MOUSE_BUTTON;
+			msg.mouseButton.button = APP_MOUSE_MAP[x];
+
+			ctx.msg_func(&msg, ctx.opaque);
+			ctx.buttons &= ~(1lu << x);
+		}
+
+		buttons >>= 1;
+		mismatch >>= 1;
 	}
 }
 
@@ -156,6 +187,7 @@ static void app_poll_clipboard(App *ctx)
 	- (void)appFunc:(NSTimer *)timer
 	{
 		app_poll_clipboard(self);
+		app_fix_mouse_buttons(self);
 
 		self.cont = self.app_func(self.opaque);
 
@@ -414,12 +446,17 @@ static void window_pen_event(Window *window, NSEvent *event)
 
 // Mouse
 
-static void window_mouse_button_event(Window *window, MTY_MouseButton button, bool pressed)
+static void window_mouse_button_event(Window *window, NSUInteger index, bool pressed)
 {
 	NSPoint p = {0};
 	Window *cur = window_find_mouse(window, &p);
 	if (!cur)
 		return;
+
+	if (index >= APP_MOUSE_MAX)
+		return;
+
+	MTY_MouseButton button = APP_MOUSE_MAP[index];
 
 	if (pressed && !cur.app.relative) {
 		MTY_Msg msg = window_msg(cur, MTY_MSG_MOUSE_MOTION);
@@ -437,15 +474,16 @@ static void window_mouse_button_event(Window *window, MTY_MouseButton button, bo
 	msg.mouseButton.button = button;
 
 	window.app.msg_func(&msg, window.app.opaque);
+	window.app.buttons = [NSEvent pressedMouseButtons];
 }
 
-static void window_button_event(Window *window, NSEvent *event, MTY_MouseButton button, bool pressed)
+static void window_button_event(Window *window, NSEvent *event, NSUInteger index, bool pressed)
 {
 	if (window.app.pen_enabled && event.subtype == NSTabletPointEventSubtype) {
 		window_pen_event(window, event);
 
 	} else {
-		window_mouse_button_event(window, button, pressed);
+		window_mouse_button_event(window, index, pressed);
 	}
 }
 
@@ -493,9 +531,9 @@ static void window_confine_cursor(void)
 	window_warp_cursor(window, lrint(wp.x * scale), lrint(wp.y * scale));
 }
 
-static void window_mouse_motion_event(Window *window, NSEvent *event)
+static void window_mouse_motion_event(Window *window, NSEvent *event, bool pen_in_range)
 {
-	if (window.app.relative && window.app.detach == MTY_DETACH_NONE) {
+	if (window.app.relative && window.app.detach == MTY_DETACH_NONE && !pen_in_range) {
 		MTY_Msg msg = window_msg(window, MTY_MSG_MOUSE_MOTION);
 		msg.mouseMotion.relative = true;
 		msg.mouseMotion.x = event.deltaX;
@@ -530,11 +568,13 @@ static void window_mouse_motion_event(Window *window, NSEvent *event)
 
 static void window_motion_event(Window *window, NSEvent *event)
 {
-	if (window.app.pen_enabled && event.subtype == NSTabletPointEventSubtype) {
+	bool pen_in_range = event.subtype == NSTabletPointEventSubtype;
+
+	if (window.app.pen_enabled && pen_in_range) {
 		window_pen_event(window, event);
 
 	} else {
-		window_mouse_motion_event(window, event);
+		window_mouse_motion_event(window, event, pen_in_range);
 	}
 }
 
@@ -697,42 +737,34 @@ static void window_mod_event(Window *window, NSEvent *event)
 
 	- (void)mouseUp:(NSEvent *)event
 	{
-		window_button_event(self, event, MTY_MOUSE_BUTTON_LEFT, false);
+		window_button_event(self, event, event.buttonNumber, false);
 	}
 
 	- (void)mouseDown:(NSEvent *)event
 	{
-		window_button_event(self, event, MTY_MOUSE_BUTTON_LEFT, true);
+		window_button_event(self, event, event.buttonNumber, true);
 	}
 
 	- (void)rightMouseUp:(NSEvent *)event
 	{
-		window_button_event(self, event, MTY_MOUSE_BUTTON_RIGHT, false);
+		window_button_event(self, event, event.buttonNumber, false);
 	}
 
 	- (void)rightMouseDown:(NSEvent *)event
 	{
-		window_button_event(self, event, MTY_MOUSE_BUTTON_RIGHT, true);
+		window_button_event(self, event, event.buttonNumber, true);
 	}
 
 	- (void)otherMouseUp:(NSEvent *)event
 	{
 		// Ignore pen event for the middle / X buttons
-		switch (event.buttonNumber) {
-			case 2: window_mouse_button_event(self, MTY_MOUSE_BUTTON_MIDDLE, false); break;
-			case 3: window_mouse_button_event(self, MTY_MOUSE_BUTTON_X1, false); break;
-			case 4: window_mouse_button_event(self, MTY_MOUSE_BUTTON_X2, false); break;
-		}
+		window_mouse_button_event(self, event.buttonNumber, false);
 	}
 
 	- (void)otherMouseDown:(NSEvent *)event
 	{
 		// Ignore pen event for the middle / X buttons
-		switch (event.buttonNumber) {
-			case 2: window_mouse_button_event(self, MTY_MOUSE_BUTTON_MIDDLE, true); break;
-			case 3: window_mouse_button_event(self, MTY_MOUSE_BUTTON_X1, true); break;
-			case 4: window_mouse_button_event(self, MTY_MOUSE_BUTTON_X2, true); break;
-		}
+		window_mouse_button_event(self, event.buttonNumber, true);
 	}
 
 	- (void)mouseMoved:(NSEvent *)event
@@ -1187,7 +1219,7 @@ void MTY_AppEnablePen(MTY_App *app, bool enable)
 {
 	App *ctx = (__bridge App *) app;
 
-	ctx->pen_enabled = enable;
+	ctx.pen_enabled = enable;
 }
 
 
