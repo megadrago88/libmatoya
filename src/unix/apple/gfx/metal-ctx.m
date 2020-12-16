@@ -61,12 +61,7 @@ void gfx_metal_ctx_destroy(struct gfx_ctx **gfx_ctx)
 
 	MTY_RendererDestroy(&ctx->renderer);
 
-	if (ctx->window) {
-		ctx->window.contentView.layer = nil;
-		ctx->window.contentView.wantsLayer = NO;
-		ctx->window = nil;
-	}
-
+	ctx->window = nil;
 	ctx->layer = nil;
 	ctx->cq = nil;
 	ctx->back_buffer = nil;
