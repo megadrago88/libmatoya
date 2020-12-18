@@ -820,3 +820,7 @@ void MTY_AppEnableGlobalHotkeys(MTY_App *app, bool enable)
 void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
 {
 }
+
+void MTY_AppEnablePen(MTY_App *ctx, bool enable)
+{
+}
