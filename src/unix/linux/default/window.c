@@ -41,6 +41,7 @@ struct MTY_App {
 
 	MTY_MsgFunc msg_func;
 	MTY_AppFunc app_func;
+	MTY_Hash *hotkey;
 	struct window *windows[MTY_WINDOW_MAX];
 	uint32_t timeout;
 	bool relative;
@@ -131,14 +132,16 @@ void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, siz
 	// TODO
 }
 
-void MTY_AppSetHotkey(MTY_App *app, MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, uint32_t id)
+void MTY_AppSetHotkey(MTY_App *ctx, MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, uint32_t id)
 {
-	// TODO
+	mod &= 0xFF;
+	MTY_HashSetInt(ctx->hotkey, (mod << 16) | scancode, (void *) (uintptr_t) id);
 }
 
-void MTY_AppRemoveHotkeys(MTY_App *app, MTY_Hotkey mode)
+void MTY_AppRemoveHotkeys(MTY_App *ctx, MTY_Hotkey mode)
 {
-	// TODO
+	MTY_HashDestroy(&ctx->hotkey, NULL);
+	ctx->hotkey = MTY_HashCreate(0);
 }
 
 char *MTY_AppGetClipboard(MTY_App *app)
@@ -257,6 +260,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 
 	bool r = true;
 	MTY_App *ctx = MTY_Alloc(1, sizeof(MTY_App));
+	ctx->hotkey = MTY_HashCreate(0);
 	ctx->app_func = appFunc;
 	ctx->msg_func = msgFunc;
 	ctx->opaque = opaque;
@@ -324,6 +328,8 @@ void MTY_AppDestroy(MTY_App **app)
 	if (ctx->display)
 		XCloseDisplay(ctx->display);
 
+	MTY_HashDestroy(&ctx->hotkey, NULL);
+
 	MTY_Free(*app);
 	*app = NULL;
 }
@@ -358,6 +364,7 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			msg.window = app_find_window(ctx, event->xkey.window);
 			msg.keyboard.pressed = event->type == KeyPress;
 			msg.keyboard.scancode = window_x_to_mty(XLookupKeysym(&event->xkey, 0));
+			// TODO Full scancode support
 			break;
 		}
 		case ButtonPress:
@@ -465,7 +472,8 @@ void MTY_AppGrabMouse(MTY_App *app, bool grab)
 
 void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 {
-	// TODO needs polish?
+	// TODO This should keep track of the position where the cursor went
+	// into relative
 
 	if (!app->relative && relative) {
 		struct window *win = app_get_active_window(app);
@@ -641,7 +649,7 @@ bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, u
 
 float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
 {
-	// TODO This doesn't seem great
+	// FIXME This doesn't seem great
 	return app->dpi;
 }
 
@@ -658,7 +666,6 @@ static void window_set_borderless(Display *display, Window window, bool enable)
 
 void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
 {
-	// TODO needs polish
 	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return;
