@@ -363,7 +363,7 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			msg.type = MTY_MSG_KEYBOARD;
 			msg.window = app_find_window(ctx, event->xkey.window);
 			msg.keyboard.pressed = event->type == KeyPress;
-			msg.keyboard.scancode = window_x_to_mty(XLookupKeysym(&event->xkey, 0));
+			msg.keyboard.scancode = window_keysym_to_scancode(XLookupKeysym(&event->xkey, 0));
 			// TODO Full scancode support
 			break;
 		}
