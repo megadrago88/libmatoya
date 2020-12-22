@@ -57,6 +57,11 @@
 #define PropModeAppend            2
 
 #define XK_space                  0x0020
+#define XK_apostrophe             0x0027
+#define XK_comma                  0x002c
+#define XK_minus                  0x002d
+#define XK_period                 0x002e
+#define XK_slash                  0x002f
 #define XK_0                      0x0030
 #define XK_1                      0x0031
 #define XK_2                      0x0032
@@ -68,6 +73,11 @@
 #define XK_8                      0x0038
 #define XK_9                      0x0039
 #define XK_semicolon              0x003b
+#define XK_equal                  0x003d
+#define XK_bracketleft            0x005b
+#define XK_backslash              0x005c
+#define XK_bracketright           0x005d
+#define XK_grave                  0x0060
 #define XK_a                      0x0061
 #define XK_b                      0x0062
 #define XK_c                      0x0063
@@ -94,9 +104,12 @@
 #define XK_x                      0x0078
 #define XK_y                      0x0079
 #define XK_z                      0x007a
+#define XK_yen                    0x00a5
+
 #define XK_BackSpace              0xff08
 #define XK_Tab                    0xff09
 #define XK_Return                 0xff0d
+#define XK_Escape                 0xff1b
 #define XK_Home                   0xff50
 #define XK_Left                   0xff51
 #define XK_Up                     0xff52
@@ -106,14 +119,57 @@
 #define XK_Page_Down              0xff56
 #define XK_End                    0xff57
 #define XK_Insert                 0xff63
+#define XK_Menu                   0xff67
+#define XK_Num_Lock               0xff7f
+#define XK_KP_Enter               0xff8d
+#define XK_KP_Insert              0xff9e // 0
+#define XK_KP_End                 0xff9c // 1
+#define XK_KP_Down                0xff99 // 2
+#define XK_KP_Page_Down           0xff9b // 3
+#define XK_KP_Left                0xff96 // 4
+#define XK_KP_Begin               0xff9d // 5
+#define XK_KP_Right               0xff98 // 6
+#define XK_KP_Home                0xff95 // 7
+#define XK_KP_Up                  0xff97 // 8
+#define XK_KP_Page_Up             0xff9a // 9
+#define XK_KP_Delete              0xff9f // Decimal
+#define XK_KP_Multiply            0xffaa
+#define XK_KP_Add                 0xffab
+#define XK_KP_Subtract            0xffad
+#define XK_KP_Divide              0xffaf
+#define XK_F1                     0xffbe
+#define XK_F2                     0xffbf
+#define XK_F3                     0xffc0
+#define XK_F4                     0xffc1
+#define XK_F5                     0xffc2
+#define XK_F6                     0xffc3
+#define XK_F7                     0xffc4
+#define XK_F8                     0xffc5
+#define XK_F9                     0xffc6
+#define XK_F10                    0xffc7
+#define XK_F11                    0xffc8
+#define XK_F12                    0xffc9
+#define XK_F13                    0xffca
+#define XK_F14                    0xffcb
+#define XK_F15                    0xffcc
+#define XK_F16                    0xffcd
+#define XK_F17                    0xffce
+#define XK_F18                    0xffcf
+#define XK_F19                    0xffd0
 #define XK_Shift_L                0xffe1
 #define XK_Shift_R                0xffe2
 #define XK_Control_L              0xffe3
 #define XK_Control_R              0xffe4
+#define XK_Caps_Lock              0xffe5
 #define XK_Alt_L                  0xffe9
+#define XK_Super_L                0xffeb // Left Windows
+#define XK_Super_R                0xffec // Right Windows
 #define XK_Alt_R                  0xffea
-#define XK_Escape                 0xff1b
 #define XK_Delete                 0xffff
+
+#define XK_Muhenkan               0xff22
+#define XK_Henkan                 0xff23
+#define XK_Romaji                 0xff24
 
 #define KeyPress                  2
 #define KeyRelease                3
