@@ -19,7 +19,7 @@ static MTY_Scancode window_keysym_to_scancode(KeySym sym)
 		case XK_x:             return MTY_SCANCODE_X;
 		case XK_c:             return MTY_SCANCODE_C;
 		case XK_v:             return MTY_SCANCODE_V;
-		// case XK_ISO_Section:         return MTY_SCANCODE_INTL_BACKSLASH;
+		// case XK_ISO_Section:  return MTY_SCANCODE_INTL_BACKSLASH;
 		case XK_b:             return MTY_SCANCODE_B;
 		case XK_q:             return MTY_SCANCODE_Q;
 		case XK_w:             return MTY_SCANCODE_W;
@@ -95,8 +95,8 @@ static MTY_Scancode window_keysym_to_scancode(KeySym sym)
 		case XK_KP_Up:         return MTY_SCANCODE_NP_8;
 		case XK_KP_Page_Up:    return MTY_SCANCODE_NP_9;
 		case XK_yen:           return MTY_SCANCODE_YEN;
-		case XK_Romanji:       return MTY_SCANCODE_RO;
-		// case XK_JIS_KeypadComma:    return MTY_SCANCODE_INTL_COMMA;
+		case XK_Romaji:        return MTY_SCANCODE_RO;
+		// case XK_KeypadComma:  return MTY_SCANCODE_INTL_COMMA;
 		case XK_F5:            return MTY_SCANCODE_F5;
 		case XK_F6:            return MTY_SCANCODE_F6;
 		case XK_F7:            return MTY_SCANCODE_F7;
@@ -106,13 +106,13 @@ static MTY_Scancode window_keysym_to_scancode(KeySym sym)
 		case XK_Muhenkan:      return MTY_SCANCODE_MUHENKAN;
 		case XK_F11:           return MTY_SCANCODE_F11;
 		case XK_Henkan:        return MTY_SCANCODE_HENKAN;
-		case XK_F13:           return MTY_SCANCODE_PRINT_SCREEN;
+		case XK_F13:           return MTY_SCANCODE_F13;
 		case XK_F16:           return MTY_SCANCODE_F16;
-		case XK_F14:           return MTY_SCANCODE_SCROLL_LOCK;
+		case XK_F14:           return MTY_SCANCODE_F14;
 		case XK_F10:           return MTY_SCANCODE_F10;
 		case XK_Menu:          return MTY_SCANCODE_APP;
 		case XK_F12:           return MTY_SCANCODE_F12;
-		case XK_F15:           return MTY_SCANCODE_PAUSE;
+		case XK_F15:           return MTY_SCANCODE_F15;
 		case XK_Insert:        return MTY_SCANCODE_INSERT;
 		case XK_Home:          return MTY_SCANCODE_HOME;
 		case XK_Page_Up:       return MTY_SCANCODE_PAGE_UP;
@@ -126,6 +126,9 @@ static MTY_Scancode window_keysym_to_scancode(KeySym sym)
 		case XK_Right:         return MTY_SCANCODE_RIGHT;
 		case XK_Down:          return MTY_SCANCODE_DOWN;
 		case XK_Up:            return MTY_SCANCODE_UP;
+		case XK_Print:         return MTY_SCANCODE_PRINT_SCREEN;
+		case XK_Scroll_Lock:   return MTY_SCANCODE_SCROLL_LOCK;
+		case XK_Pause:         return MTY_SCANCODE_PAUSE;
 	}
 
 	return MTY_SCANCODE_NONE;

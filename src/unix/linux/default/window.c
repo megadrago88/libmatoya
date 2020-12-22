@@ -364,7 +364,8 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			msg.window = app_find_window(ctx, event->xkey.window);
 			msg.keyboard.pressed = event->type == KeyPress;
 			msg.keyboard.scancode = window_keysym_to_scancode(XLookupKeysym(&event->xkey, 0));
-			// TODO Full scancode support
+			// TODO non-US/QWERTY lookup
+			// TODO japanese, ISO testing
 			break;
 		}
 		case ButtonPress:

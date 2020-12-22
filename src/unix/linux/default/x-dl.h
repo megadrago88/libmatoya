@@ -167,6 +167,10 @@
 #define XK_Alt_R                  0xffea
 #define XK_Delete                 0xffff
 
+#define XK_Pause                  0xff13
+#define XK_Scroll_Lock            0xff14
+#define XK_Print                  0xff61
+
 #define XK_Muhenkan               0xff22
 #define XK_Henkan                 0xff23
 #define XK_Romaji                 0xff24
