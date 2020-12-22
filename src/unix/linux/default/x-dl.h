@@ -493,6 +493,8 @@ static int (*XSetSelectionOwner)(Display *display, Atom selection, Window owner,
 static char *(*XKeysymToString)(KeySym keysym);
 static KeyCode (*XKeysymToKeycode)(Display *display, KeySym keysym);
 static void (*XConvertCase)(KeySym keysym, KeySym *lower_return, KeySym *upper_return);
+static Bool (*XQueryPointer)(Display *display, Window w, Window *root_return, Window *child_return,
+	int *root_x_return, int *root_y_return, int *win_x_return, int *win_y_return, unsigned int *mask_return);
 
 
 // XI2 interface
@@ -693,6 +695,7 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_SO, XKeysymToString);
 		X_DL_LOAD_SYM(X_DL_SO, XKeysymToKeycode);
 		X_DL_LOAD_SYM(X_DL_SO, XConvertCase);
+		X_DL_LOAD_SYM(X_DL_SO, XQueryPointer);
 
 		X_DL_LOAD_SYM(X_DL_XI2_SO, XISelectEvents);
 

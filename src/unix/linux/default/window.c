@@ -381,6 +381,11 @@ void MTY_AppDestroy(MTY_App **app)
 	*app = NULL;
 }
 
+
+// Event handling
+
+static void app_event(MTY_App *ctx, XEvent *event);
+
 static void window_text_event(MTY_App *ctx, XEvent *event)
 {
 	struct window *win = app_get_window(ctx, 0);
@@ -397,21 +402,44 @@ static void window_text_event(MTY_App *ctx, XEvent *event)
 		ctx->msg_func(&msg, ctx->opaque);
 }
 
-static void app_kb_to_hotkey(MTY_App *app, MTY_Msg *wmsg)
+static void app_kb_to_hotkey(MTY_App *app, MTY_Msg *msg)
 {
-	MTY_Keymod mod = wmsg->keyboard.mod & 0xFF;
-	uint32_t hotkey = (uint32_t) (uintptr_t) MTY_HashGetInt(app->hotkey, (mod << 16) | wmsg->keyboard.scancode);
+	MTY_Keymod mod = msg->keyboard.mod & 0xFF;
+	uint32_t hotkey = (uint32_t) (uintptr_t) MTY_HashGetInt(app->hotkey, (mod << 16) | msg->keyboard.scancode);
 
 	if (hotkey != 0) {
-		if (wmsg->keyboard.pressed) {
-			wmsg->type = MTY_MSG_HOTKEY;
-			wmsg->hotkey = hotkey;
+		if (msg->keyboard.pressed) {
+			msg->type = MTY_MSG_HOTKEY;
+			msg->hotkey = hotkey;
 
 		} else {
-			wmsg->type = MTY_MSG_NONE;
+			msg->type = MTY_MSG_NONE;
 		}
 	}
 }
+
+static void app_make_movement(MTY_App *app, MTY_Window window)
+{
+	struct window *win = app_get_window(app, window);
+	if (!win)
+		return;
+
+	Window root, child;
+	unsigned int mask;
+	int root_x, root_y, win_x = 0, win_y = 0;
+	XQueryPointer(app->display, win->window, &root, &child, &root_x, &root_y, &win_x, &win_y, &mask);
+
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_MOUSE_MOTION;
+	msg.window = window;
+	msg.mouseMotion.relative = false;
+	msg.mouseMotion.x = win_x;
+	msg.mouseMotion.y = win_y;
+	msg.mouseMotion.click = true;
+
+	app->msg_func(&msg, app->opaque);
+}
+
 static void app_event(MTY_App *ctx, XEvent *event)
 {
 	MTY_Msg msg = {0};
@@ -494,6 +522,11 @@ static void app_event(MTY_App *ctx, XEvent *event)
 	if (msg.type == MTY_MSG_KEYBOARD)
 		app_kb_to_hotkey(ctx, &msg);
 
+	// For robustness, generate a MOUSE_MOTION event to where the click happens
+	if (msg.type == MTY_MSG_MOUSE_BUTTON && msg.mouseButton.pressed && !ctx->relative)
+		app_make_movement(ctx, msg.window);
+
+	// Handle the message
 	if (msg.type != MTY_MSG_NONE)
 		ctx->msg_func(&msg, ctx->opaque);
 }
