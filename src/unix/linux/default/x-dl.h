@@ -177,6 +177,15 @@
 #define XK_Henkan                 0xff23
 #define XK_Romaji                 0xff24
 
+#define ShiftMask                 (1<<0)
+#define LockMask                  (1<<1)
+#define ControlMask               (1<<2)
+#define Mod1Mask                  (1<<3)
+#define Mod2Mask                  (1<<4)
+#define Mod3Mask                  (1<<5)
+#define Mod4Mask                  (1<<6)
+#define Mod5Mask                  (1<<7)
+
 #define KeyPress                  2
 #define KeyRelease                3
 #define ButtonPress               4
@@ -262,6 +271,7 @@ typedef XID KeySym;
 typedef struct _XDisplay Display;
 typedef struct _XVisual Visual;
 typedef struct _XScreen Screen;
+typedef unsigned char KeyCode;
 
 typedef struct {
 	unsigned long pixel;
@@ -479,6 +489,10 @@ static int (*XFreePixmap)(Display *display, Pixmap pixmap);
 static int (*XDefineCursor)(Display *display, Window w, Cursor cursor);
 static int (*XFreeCursor)(Display *display, Cursor cursor);
 static int (*XResizeWindow)(Display *display, Window w, unsigned int width, unsigned int height);
+static int (*XSetSelectionOwner)(Display *display, Atom selection, Window owner, Time time);
+static char *(*XKeysymToString)(KeySym keysym);
+static KeyCode (*XKeysymToKeycode)(Display *display, KeySym keysym);
+static void (*XConvertCase)(KeySym keysym, KeySym *lower_return, KeySym *upper_return);
 
 
 // XI2 interface
@@ -675,6 +689,10 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_SO, XDefineCursor);
 		X_DL_LOAD_SYM(X_DL_SO, XFreeCursor);
 		X_DL_LOAD_SYM(X_DL_SO, XResizeWindow);
+		X_DL_LOAD_SYM(X_DL_SO, XSetSelectionOwner);
+		X_DL_LOAD_SYM(X_DL_SO, XKeysymToString);
+		X_DL_LOAD_SYM(X_DL_SO, XKeysymToKeycode);
+		X_DL_LOAD_SYM(X_DL_SO, XConvertCase);
 
 		X_DL_LOAD_SYM(X_DL_XI2_SO, XISelectEvents);
 

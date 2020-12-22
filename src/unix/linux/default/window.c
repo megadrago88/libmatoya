@@ -129,7 +129,42 @@ static void __attribute__((destructor)) app_global_destroy(void)
 
 void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
 {
-	// TODO
+	memset(str, 0, len);
+
+	MTY_Strcat(str, len, (mod & MTY_KEYMOD_WIN) ? "Super+" : "");
+	MTY_Strcat(str, len, (mod & MTY_KEYMOD_CTRL) ? "Ctrl+" : "");
+	MTY_Strcat(str, len, (mod & MTY_KEYMOD_ALT) ? "Alt+" : "");
+	MTY_Strcat(str, len, (mod & MTY_KEYMOD_SHIFT) ? "Shift+" : "");
+
+	KeySym sym = APP_KEY_MAP[scancode];
+
+	if (sym > 0x00) {
+		KeySym lsym = sym, usym = sym;
+		XConvertCase(sym, &lsym, &usym);
+
+		// FIXME this stuff should be cached
+		Display *display = XOpenDisplay(NULL);
+		XIM xim = XOpenIM(display, 0, 0, 0);
+		XIC xic = XCreateIC(xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing, NULL);
+
+		XKeyPressedEvent evt = {0};
+		evt.type = KeyPress;
+		evt.display = display;
+		evt.state = sym != usym ? ShiftMask : 0;
+		evt.keycode = XKeysymToKeycode(display, usym);
+
+		char utf8_str[8] = {0};
+		KeySym ignore;
+		Status status;
+		if (!Xutf8LookupString(xic, &evt, utf8_str, 8, &ignore, &status)) {
+			const char *sym_str = XKeysymToString(usym);
+			if (sym_str)
+				snprintf(utf8_str, 8, "%s", sym_str);
+		}
+
+		MTY_Strcat(str, len, utf8_str);
+		XCloseDisplay(display);
+	}
 }
 
 void MTY_AppSetHotkey(MTY_App *ctx, MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, uint32_t id)
@@ -151,7 +186,19 @@ char *MTY_AppGetClipboard(MTY_App *app)
 
 void MTY_AppSetClipboard(MTY_App *app, const char *text)
 {
-	// TODO
+	/* TODO
+	struct window *ctx = app_get_window(app, 0);
+	if (!ctx)
+		return;
+
+	Atom mty_clip = XInternAtom(app->display, "MTY_CLIPBOARD", False);
+	Atom format = XInternAtom(app->display, "UTF8_STRING", False);
+
+	XChangeProperty(app->display, XDefaultRootWindow(app->display), mty_clip,
+		format, 8, PropModeReplace, text, strlen(text));
+
+	XSetSelectionOwner(app->display, XInternAtom(app->display, "CLIPBOARD", False), ctx->window, CurrentTime);
+	*/
 }
 
 static void app_apply_cursor(MTY_App *app)
@@ -350,6 +397,21 @@ static void window_text_event(MTY_App *ctx, XEvent *event)
 		ctx->msg_func(&msg, ctx->opaque);
 }
 
+static void app_kb_to_hotkey(MTY_App *app, MTY_Msg *wmsg)
+{
+	MTY_Keymod mod = wmsg->keyboard.mod & 0xFF;
+	uint32_t hotkey = (uint32_t) (uintptr_t) MTY_HashGetInt(app->hotkey, (mod << 16) | wmsg->keyboard.scancode);
+
+	if (hotkey != 0) {
+		if (wmsg->keyboard.pressed) {
+			wmsg->type = MTY_MSG_HOTKEY;
+			wmsg->hotkey = hotkey;
+
+		} else {
+			wmsg->type = MTY_MSG_NONE;
+		}
+	}
+}
 static void app_event(MTY_App *ctx, XEvent *event)
 {
 	MTY_Msg msg = {0};
@@ -360,10 +422,12 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			// Fall through
 
 		case KeyRelease: {
+			KeySym sym = XLookupKeysym(&event->xkey, 0);
 			msg.type = MTY_MSG_KEYBOARD;
 			msg.window = app_find_window(ctx, event->xkey.window);
 			msg.keyboard.pressed = event->type == KeyPress;
-			msg.keyboard.scancode = window_keysym_to_scancode(XLookupKeysym(&event->xkey, 0));
+			msg.keyboard.scancode = window_keysym_to_scancode(sym);
+			msg.keyboard.mod = window_keystate_to_keymod(sym, msg.keyboard.pressed, event->xkey.state);
 			// TODO non-US/QWERTY lookup
 			// TODO japanese, ISO testing
 			break;
@@ -425,6 +489,10 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			}
 			break;
 	}
+
+	// Transform keyboard into hotkey
+	if (msg.type == MTY_MSG_KEYBOARD)
+		app_kb_to_hotkey(ctx, &msg);
 
 	if (msg.type != MTY_MSG_NONE)
 		ctx->msg_func(&msg, ctx->opaque);

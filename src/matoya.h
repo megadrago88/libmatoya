@@ -988,7 +988,6 @@ typedef enum {
 	MTY_SCANCODE_S              = 0x01F,
 	MTY_SCANCODE_D              = 0x020,
 	MTY_SCANCODE_MUTE           = 0x120,
-	MTY_SCANCODE_AUDIO_MUTE     = 0x120,
 	MTY_SCANCODE_F              = 0x021,
 	MTY_SCANCODE_G              = 0x022,
 	MTY_SCANCODE_AUDIO_PLAY     = 0x122,

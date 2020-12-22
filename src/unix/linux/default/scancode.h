@@ -4,7 +4,164 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include "x-dl.h"
+static const KeySym APP_KEY_MAP[MTY_SCANCODE_MAX] = {
+	[MTY_SCANCODE_NONE]           = 0,
+	[MTY_SCANCODE_ESCAPE]         = XK_Escape,
+	[MTY_SCANCODE_1]              = XK_1,
+	[MTY_SCANCODE_2]              = XK_2,
+	[MTY_SCANCODE_3]              = XK_3,
+	[MTY_SCANCODE_4]              = XK_4,
+	[MTY_SCANCODE_5]              = XK_5,
+	[MTY_SCANCODE_6]              = XK_6,
+	[MTY_SCANCODE_7]              = XK_7,
+	[MTY_SCANCODE_8]              = XK_8,
+	[MTY_SCANCODE_9]              = XK_9,
+	[MTY_SCANCODE_0]              = XK_0,
+	[MTY_SCANCODE_MINUS]          = XK_minus,
+	[MTY_SCANCODE_EQUALS]         = XK_equal,
+	[MTY_SCANCODE_BACKSPACE]      = XK_BackSpace,
+	[MTY_SCANCODE_TAB]            = XK_Tab,
+	[MTY_SCANCODE_Q]              = XK_q,
+	[MTY_SCANCODE_AUDIO_PREV]     = 0,
+	[MTY_SCANCODE_W]              = XK_w,
+	[MTY_SCANCODE_E]              = XK_e,
+	[MTY_SCANCODE_R]              = XK_r,
+	[MTY_SCANCODE_T]              = XK_t,
+	[MTY_SCANCODE_Y]              = XK_y,
+	[MTY_SCANCODE_U]              = XK_u,
+	[MTY_SCANCODE_I]              = XK_i,
+	[MTY_SCANCODE_O]              = XK_o,
+	[MTY_SCANCODE_P]              = XK_p,
+	[MTY_SCANCODE_AUDIO_NEXT]     = 0,
+	[MTY_SCANCODE_LBRACKET]       = XK_bracketleft,
+	[MTY_SCANCODE_RBRACKET]       = XK_bracketright,
+	[MTY_SCANCODE_ENTER]          = XK_Return,
+	[MTY_SCANCODE_NP_ENTER]       = XK_KP_Enter,
+	[MTY_SCANCODE_LCTRL]          = XK_Control_L,
+	[MTY_SCANCODE_RCTRL]          = XK_Control_R,
+	[MTY_SCANCODE_A]              = XK_a,
+	[MTY_SCANCODE_S]              = XK_s,
+	[MTY_SCANCODE_D]              = XK_d,
+	[MTY_SCANCODE_MUTE]           = 0,
+	[MTY_SCANCODE_F]              = XK_f,
+	[MTY_SCANCODE_G]              = XK_g,
+	[MTY_SCANCODE_AUDIO_PLAY]     = 0,
+	[MTY_SCANCODE_H]              = XK_h,
+	[MTY_SCANCODE_J]              = XK_j,
+	[MTY_SCANCODE_AUDIO_STOP]     = 0,
+	[MTY_SCANCODE_K]              = XK_k,
+	[MTY_SCANCODE_L]              = XK_l,
+	[MTY_SCANCODE_SEMICOLON]      = XK_semicolon,
+	[MTY_SCANCODE_QUOTE]          = XK_apostrophe,
+	[MTY_SCANCODE_GRAVE]          = XK_grave,
+	[MTY_SCANCODE_LSHIFT]         = XK_Shift_L,
+	[MTY_SCANCODE_BACKSLASH]      = XK_backslash,
+	[MTY_SCANCODE_Z]              = XK_z,
+	[MTY_SCANCODE_X]              = XK_x,
+	[MTY_SCANCODE_C]              = XK_c,
+	[MTY_SCANCODE_VOLUME_DOWN]    = 0,
+	[MTY_SCANCODE_V]              = XK_v,
+	[MTY_SCANCODE_B]              = XK_b,
+	[MTY_SCANCODE_VOLUME_UP]      = 0,
+	[MTY_SCANCODE_N]              = XK_n,
+	[MTY_SCANCODE_M]              = XK_m,
+	[MTY_SCANCODE_COMMA]          = XK_comma,
+	[MTY_SCANCODE_PERIOD]         = XK_period,
+	[MTY_SCANCODE_SLASH]          = XK_slash,
+	[MTY_SCANCODE_NP_DIVIDE]      = XK_KP_Divide,
+	[MTY_SCANCODE_RSHIFT]         = XK_Shift_R,
+	[MTY_SCANCODE_NP_MULTIPLY]    = XK_KP_Multiply,
+	[MTY_SCANCODE_PRINT_SCREEN]   = XK_Print,
+	[MTY_SCANCODE_LALT]           = XK_Alt_L,
+	[MTY_SCANCODE_RALT]           = XK_Alt_R,
+	[MTY_SCANCODE_SPACE]          = XK_space,
+	[MTY_SCANCODE_CAPS]           = XK_Caps_Lock,
+	[MTY_SCANCODE_F1]             = XK_F1,
+	[MTY_SCANCODE_F2]             = XK_F2,
+	[MTY_SCANCODE_F3]             = XK_F3,
+	[MTY_SCANCODE_F4]             = XK_F4,
+	[MTY_SCANCODE_F5]             = XK_F5,
+	[MTY_SCANCODE_F6]             = XK_F6,
+	[MTY_SCANCODE_F7]             = XK_F7,
+	[MTY_SCANCODE_F8]             = XK_F8,
+	[MTY_SCANCODE_F9]             = XK_F9,
+	[MTY_SCANCODE_F10]            = XK_F10,
+	[MTY_SCANCODE_NUM_LOCK]       = XK_Num_Lock,
+	[MTY_SCANCODE_SCROLL_LOCK]    = XK_Scroll_Lock,
+	[MTY_SCANCODE_PAUSE]          = XK_Pause,
+	[MTY_SCANCODE_NP_7]           = XK_KP_Home,
+	[MTY_SCANCODE_HOME]           = XK_Home,
+	[MTY_SCANCODE_NP_8]           = XK_KP_Up,
+	[MTY_SCANCODE_UP]             = XK_Up,
+	[MTY_SCANCODE_NP_9]           = XK_KP_Page_Up,
+	[MTY_SCANCODE_PAGE_UP]        = XK_Page_Up,
+	[MTY_SCANCODE_NP_MINUS]       = XK_KP_Subtract,
+	[MTY_SCANCODE_NP_4]           = XK_KP_Left,
+	[MTY_SCANCODE_LEFT]           = XK_Left,
+	[MTY_SCANCODE_NP_5]           = XK_KP_Begin,
+	[MTY_SCANCODE_NP_6]           = XK_KP_Right,
+	[MTY_SCANCODE_RIGHT]          = XK_Right,
+	[MTY_SCANCODE_NP_PLUS]        = XK_KP_Add,
+	[MTY_SCANCODE_NP_1]           = XK_KP_End,
+	[MTY_SCANCODE_END]            = XK_End,
+	[MTY_SCANCODE_NP_2]           = XK_KP_Down,
+	[MTY_SCANCODE_DOWN]           = XK_Down,
+	[MTY_SCANCODE_NP_3]           = XK_KP_Page_Down,
+	[MTY_SCANCODE_PAGE_DOWN]      = XK_Page_Down,
+	[MTY_SCANCODE_NP_0]           = XK_KP_Insert,
+	[MTY_SCANCODE_INSERT]         = XK_Insert,
+	[MTY_SCANCODE_NP_PERIOD]      = XK_KP_Delete,
+	[MTY_SCANCODE_DELETE]         = XK_Delete,
+	[MTY_SCANCODE_INTL_BACKSLASH] = 0,
+	[MTY_SCANCODE_F11]            = XK_F11,
+	[MTY_SCANCODE_F12]            = XK_F12,
+	[MTY_SCANCODE_LWIN]           = XK_Super_L,
+	[MTY_SCANCODE_RWIN]           = XK_Super_R,
+	[MTY_SCANCODE_APP]            = XK_Menu,
+	[MTY_SCANCODE_F13]            = XK_F13,
+	[MTY_SCANCODE_F14]            = XK_F14,
+	[MTY_SCANCODE_F15]            = XK_F15,
+	[MTY_SCANCODE_F16]            = XK_F16,
+	[MTY_SCANCODE_F17]            = XK_F17,
+	[MTY_SCANCODE_F18]            = XK_F18,
+	[MTY_SCANCODE_F19]            = XK_F19,
+	[MTY_SCANCODE_MEDIA_SELECT]   = 0,
+	[MTY_SCANCODE_JP]             = 0,
+	[MTY_SCANCODE_RO]             = XK_Romaji,
+	[MTY_SCANCODE_HENKAN]         = XK_Henkan,
+	[MTY_SCANCODE_MUHENKAN]       = XK_Muhenkan,
+	[MTY_SCANCODE_INTL_COMMA]     = 0,
+	[MTY_SCANCODE_YEN]            = XK_yen,
+};
+
+static MTY_Keymod window_keystate_to_keymod(KeySym key, bool pressed, unsigned int state)
+{
+	MTY_Keymod mod = MTY_KEYMOD_NONE;
+
+	if (state & ShiftMask)    mod |= MTY_KEYMOD_LSHIFT;
+	if (state & LockMask)     mod |= MTY_KEYMOD_CAPS;
+	if (state & ControlMask)  mod |= MTY_KEYMOD_LCTRL;
+	if (state & Mod1Mask)     mod |= MTY_KEYMOD_LALT;
+	if (state & Mod2Mask)     mod |= MTY_KEYMOD_NUM;
+	if (state & Mod4Mask)     mod |= MTY_KEYMOD_LWIN;
+
+	// X11 gives you the mods just before the current key so we need to incorporate
+	// the current event's keysym
+
+	if (key == XK_Shift_L || key == XK_Shift_R)
+		mod = pressed ? (mod | MTY_KEYMOD_LSHIFT) : (mod & ~MTY_KEYMOD_LSHIFT);
+
+	if (key == XK_Control_L || key == XK_Control_R)
+		mod = pressed ? (mod | MTY_KEYMOD_LCTRL) : (mod & ~MTY_KEYMOD_LCTRL);
+
+	if (key == XK_Alt_L || key == XK_Alt_R)
+		mod = pressed ? (mod | MTY_KEYMOD_LALT) : (mod & ~MTY_KEYMOD_LALT);
+
+	if (key == XK_Super_L || key == XK_Super_R)
+		mod = pressed ? (mod | MTY_KEYMOD_LWIN) : (mod & ~MTY_KEYMOD_LWIN);
+
+	return mod;
+}
 
 static MTY_Scancode window_keysym_to_scancode(KeySym sym)
 {
