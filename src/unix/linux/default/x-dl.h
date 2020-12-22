@@ -257,6 +257,10 @@
 #define GrabModeSync              0
 #define GrabModeAsync             1
 
+#define XA_PRIMARY                ((Atom) 1)
+#define XA_CUT_BUFFER0            ((Atom) 9)
+#define XA_STRING                 ((Atom) 31)
+
 typedef unsigned long VisualID;
 typedef unsigned long XID;
 typedef unsigned long Time;
@@ -386,6 +390,19 @@ typedef struct {
 	unsigned long serial;
 	Bool send_event;
 	Display *display;
+	Window owner;
+	Window requestor;
+	Atom selection;
+	Atom target;
+	Atom property;
+	Time time;
+} XSelectionRequestEvent;
+
+typedef struct {
+	int type;
+	unsigned long serial;
+	Bool send_event;
+	Display *display;
 	Window window;
 	Window root;
 	Window subwindow;
@@ -422,6 +439,7 @@ typedef union _XEvent {
 	XKeyEvent xkey;
 	XButtonEvent xbutton;
 	XMotionEvent xmotion;
+	XSelectionRequestEvent xselectionrequest;
 	XClientMessageEvent xclient;
 	XGenericEventCookie xcookie;
 	long pad[24];
@@ -489,6 +507,7 @@ static int (*XFreePixmap)(Display *display, Pixmap pixmap);
 static int (*XDefineCursor)(Display *display, Window w, Cursor cursor);
 static int (*XFreeCursor)(Display *display, Cursor cursor);
 static int (*XResizeWindow)(Display *display, Window w, unsigned int width, unsigned int height);
+static Window (*XGetSelectionOwner)(Display *display, Atom selection);
 static int (*XSetSelectionOwner)(Display *display, Atom selection, Window owner, Time time);
 static char *(*XKeysymToString)(KeySym keysym);
 static KeyCode (*XKeysymToKeycode)(Display *display, KeySym keysym);
@@ -691,6 +710,7 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_SO, XDefineCursor);
 		X_DL_LOAD_SYM(X_DL_SO, XFreeCursor);
 		X_DL_LOAD_SYM(X_DL_SO, XResizeWindow);
+		X_DL_LOAD_SYM(X_DL_SO, XGetSelectionOwner);
 		X_DL_LOAD_SYM(X_DL_SO, XSetSelectionOwner);
 		X_DL_LOAD_SYM(X_DL_SO, XKeysymToString);
 		X_DL_LOAD_SYM(X_DL_SO, XKeysymToKeycode);

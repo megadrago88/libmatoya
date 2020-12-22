@@ -186,19 +186,22 @@ char *MTY_AppGetClipboard(MTY_App *app)
 
 void MTY_AppSetClipboard(MTY_App *app, const char *text)
 {
-	/* TODO
 	struct window *ctx = app_get_window(app, 0);
 	if (!ctx)
 		return;
 
+	Atom clip = XInternAtom(app->display, "CLIPBOARD", False);
 	Atom mty_clip = XInternAtom(app->display, "MTY_CLIPBOARD", False);
 	Atom format = XInternAtom(app->display, "UTF8_STRING", False);
 
-	XChangeProperty(app->display, XDefaultRootWindow(app->display), mty_clip,
-		format, 8, PropModeReplace, text, strlen(text));
+	XChangeProperty(app->display, ctx->window, mty_clip,
+		format, 8, PropModeReplace, (const unsigned char *) text, strlen(text));
 
-	XSetSelectionOwner(app->display, XInternAtom(app->display, "CLIPBOARD", False), ctx->window, CurrentTime);
-	*/
+	if (XGetSelectionOwner(app->display, clip) != ctx->window)
+		XSetSelectionOwner(app->display, clip, ctx->window, CurrentTime);
+
+	if (XGetSelectionOwner(app->display, XA_PRIMARY) != ctx->window)
+		XSetSelectionOwner(app->display, XA_PRIMARY, ctx->window, CurrentTime);
 }
 
 static void app_apply_cursor(MTY_App *app)
@@ -515,6 +518,60 @@ static void app_event(MTY_App *ctx, XEvent *event)
 					}
 				}
 			}
+			break;
+		case SelectionRequest: {
+			/* TODO
+			struct window *win0 = app_get_window(ctx, 0);
+			if (!win0)
+				break;
+
+			XEvent snd = {0};
+			XSelectionEvent *res = &snd.xselection;
+
+			snd.type = SelectionNotify;
+			res->selection = req->selection;
+			res->requestor = req->requestor;
+			res->time = req->time;
+
+			const XSelectionRequestEvent *req = &event->xselectionrequest;
+			unsigned long bytes, overflow;
+			unsigned char *snd_data = NULL;
+			int snd_format = 0;
+
+			Atom mty_clip = XInternAtom(app->display, "MTY_CLIPBOARD", False);
+
+			if (XGetWindowProperty(ctx->display, win0->window, mty_clip, 0, INT_MAX / 4, False, req->target,
+				&res->target, &snd_format, &bytes, &overflow, &snd_data) == Success)
+			{
+				Atom XA_TARGETS = X11_XInternAtom(display, "TARGETS", 0);
+				if (res->target == req->target) {
+					X11_XChangeProperty(display, req->requestor, req->property, res->target,
+						snd_format, PropModeReplace, snd_data, nbytes);
+
+					res->property = req->property;
+
+				} else if (XA_TARGETS == req->target) {
+					Atom formats[] = {XA_TARGETS, res->target};
+					X11_XChangeProperty(display, req->requestor, req->property, XA_ATOM, 32, PropModeReplace,
+						(unsigned char *) formats, 2);
+
+					res->property = req->property;
+					res->target = XA_TARGETS;
+				}
+
+				XFree(snd_data);
+			}
+
+			XSendEvent(ctx->display, req->requestor, False, 0, &snd);
+			XSync(ctx->display, False);
+			*/
+			break;
+		}
+		case SelectionNotify:
+			printf("NOTIFY\n"); // TODO
+			break;
+		case SelectionClear:
+			printf("CLEAR\n"); // TODO
 			break;
 	}
 
