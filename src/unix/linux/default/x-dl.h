@@ -22,6 +22,8 @@
 #define Status                    int
 #define AllocNone                 0
 
+#define RevertToNone              ((int) None)
+
 #define InputOutput               1
 #define InputOnly                 2
 
@@ -438,6 +440,9 @@ static Window (*XCreateWindow)(Display *display, Window parent, int x, int y, un
 	unsigned int height, unsigned int border_width, int depth, unsigned int class, Visual *visual,
 	unsigned long valuemask, XSetWindowAttributes *attributes);
 static int (*XMapWindow)(Display *display, Window w);
+static int (*XWithdrawWindow)(Display *display, Window w);
+static int (*XMapRaised)(Display *display, Window w);
+static int (*XSetInputFocus)(Display *display, Window focus, int revert_to, Time time);
 static int (*XStoreName)(Display *display, Window w, const char *window_name);
 static Status (*XGetWindowAttributes)(Display *display, Window w, XWindowAttributes *window_attributes_return);
 static KeySym (*XLookupKeysym)(XKeyEvent *key_event, int index);
@@ -635,6 +640,9 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_SO, XCreateColormap);
 		X_DL_LOAD_SYM(X_DL_SO, XCreateWindow);
 		X_DL_LOAD_SYM(X_DL_SO, XMapWindow);
+		X_DL_LOAD_SYM(X_DL_SO, XWithdrawWindow);
+		X_DL_LOAD_SYM(X_DL_SO, XMapRaised);
+		X_DL_LOAD_SYM(X_DL_SO, XSetInputFocus);
 		X_DL_LOAD_SYM(X_DL_SO, XStoreName);
 		X_DL_LOAD_SYM(X_DL_SO, XGetWindowAttributes);
 		X_DL_LOAD_SYM(X_DL_SO, XLookupKeysym);

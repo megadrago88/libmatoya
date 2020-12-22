@@ -514,7 +514,7 @@ bool MTY_AppIsActive(MTY_App *ctx)
 
 void MTY_AppActivate(MTY_App *app, bool active)
 {
-	// TODO
+	MTY_WindowActivate(app, 0, active);
 }
 
 void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
@@ -708,7 +708,20 @@ bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 
 void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
 {
-	// TODO
+	struct window *ctx = app_get_window(app, window);
+	if (!ctx)
+		return;
+
+	if (active) {
+		// FIXME this won't restore an minimized window
+		XMapRaised(app->display, ctx->window);
+		XSetInputFocus(app->display, ctx->window, RevertToNone, CurrentTime);
+
+	} else {
+		XWithdrawWindow(app->display, ctx->window);
+	}
+
+	XSync(app->display, False);
 }
 
 void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t y)
