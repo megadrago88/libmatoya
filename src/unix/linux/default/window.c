@@ -438,6 +438,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	ctx->app_func = appFunc;
 	ctx->msg_func = msgFunc;
 	ctx->opaque = opaque;
+	ctx->class_name = MTY_Strdup(MTY_GetFileName(MTY_ProcessName(), false));
 
 	ctx->display = XOpenDisplay(NULL);
 	if (!ctx->display) {
@@ -773,12 +774,8 @@ void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t h
 
 // Window
 
-static void window_set_up_wm(MTY_App *app, Window w, const char *title, const MTY_WindowDesc *desc)
+static void window_set_up_wm(MTY_App *app, Window w, const MTY_WindowDesc *desc)
 {
-	// The application name derives from the first window's title at creation time
-	if (!app->class_name)
-		app->class_name = MTY_Strdup(title);
-
 	XSizeHints *shints = XAllocSizeHints();
 	shints->flags = PMinSize;
 	shints->min_width = desc->minWidth;
@@ -858,7 +855,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	MTY_WindowSetTitle(app, window, title);
 
-	window_set_up_wm(app, ctx->window, title, desc);
+	window_set_up_wm(app, ctx->window, desc);
 
 	ctx->info.display = app->display;
 	ctx->info.vis = app->vis;
