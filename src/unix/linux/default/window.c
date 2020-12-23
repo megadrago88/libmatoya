@@ -313,6 +313,9 @@ void MTY_AppSetClipboard(MTY_App *app, const char *text)
 		XSetSelectionOwner(app->display, XA_PRIMARY, ctx->window, CurrentTime);
 }
 
+
+// Cursor
+
 static void app_apply_cursor(MTY_App *app)
 {
 	Cursor cur = app->cursor_hidden ? app->empty_cursor :
@@ -330,9 +333,6 @@ static void app_apply_cursor(MTY_App *app)
 		app->cursor = cur;
 	}
 }
-
-
-// Cursor
 
 static Cursor app_png_cursor(Display *display, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
@@ -557,9 +557,9 @@ static void app_make_movement(MTY_App *app, MTY_Window window)
 	msg.type = MTY_MSG_MOUSE_MOTION;
 	msg.window = window;
 	msg.mouseMotion.relative = false;
+	msg.mouseMotion.click = true;
 	msg.mouseMotion.x = win_x;
 	msg.mouseMotion.y = win_y;
-	msg.mouseMotion.click = true;
 
 	app->msg_func(&msg, app->opaque);
 }
