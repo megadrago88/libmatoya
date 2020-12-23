@@ -49,15 +49,6 @@ struct MTY_App {
 	float dpi;
 };
 
-#define WINDOW_MASK (   \
-	ExposureMask      | \
-	KeyPressMask      | \
-	KeyReleaseMask    | \
-	ButtonPressMask   | \
-	ButtonReleaseMask | \
-	PointerMotionMask   \
-)
-
 
 // Window helpers
 
@@ -181,11 +172,15 @@ void MTY_AppRemoveHotkeys(MTY_App *ctx, MTY_Hotkey mode)
 
 char *MTY_AppGetClipboard(MTY_App *app)
 {
+	// TODO
+
 	return NULL;
 }
 
 void MTY_AppSetClipboard(MTY_App *app, const char *text)
 {
+	// TODO
+
 	struct window *ctx = app_get_window(app, 0);
 	if (!ctx)
 		return;
@@ -701,7 +696,8 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	XSetWindowAttributes swa = {0};
 	swa.colormap = XCreateColormap(app->display, root, app->vis->visual, AllocNone);
-	swa.event_mask = WINDOW_MASK;
+	swa.event_mask = ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask |
+		ButtonReleaseMask | PointerMotionMask;
 
 	XWindowAttributes attr = {0};
 	XGetWindowAttributes(app->display, root, &attr);
