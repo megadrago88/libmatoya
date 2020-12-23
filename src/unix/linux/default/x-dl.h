@@ -15,6 +15,8 @@
 
 #define _Xconst                   const
 
+#define Success                   0
+
 #define None                      0L
 #define Bool                      int
 #define True                      1
@@ -258,6 +260,7 @@
 #define GrabModeAsync             1
 
 #define XA_PRIMARY                ((Atom) 1)
+#define XA_ATOM                   ((Atom) 4)
 #define XA_CUT_BUFFER0            ((Atom) 9)
 #define XA_STRING                 ((Atom) 31)
 
@@ -403,6 +406,18 @@ typedef struct {
 	unsigned long serial;
 	Bool send_event;
 	Display *display;
+	Window requestor;
+	Atom selection;
+	Atom target;
+	Atom property;
+	Time time;
+} XSelectionEvent;
+
+typedef struct {
+	int type;
+	unsigned long serial;
+	Bool send_event;
+	Display *display;
 	Window window;
 	Window root;
 	Window subwindow;
@@ -440,6 +455,7 @@ typedef union _XEvent {
 	XButtonEvent xbutton;
 	XMotionEvent xmotion;
 	XSelectionRequestEvent xselectionrequest;
+	XSelectionEvent xselection;
 	XClientMessageEvent xclient;
 	XGenericEventCookie xcookie;
 	long pad[24];
@@ -514,6 +530,10 @@ static KeyCode (*XKeysymToKeycode)(Display *display, KeySym keysym);
 static void (*XConvertCase)(KeySym keysym, KeySym *lower_return, KeySym *upper_return);
 static Bool (*XQueryPointer)(Display *display, Window w, Window *root_return, Window *child_return,
 	int *root_x_return, int *root_y_return, int *win_x_return, int *win_y_return, unsigned int *mask_return);
+static int (*XGetWindowProperty)(Display *display, Window w, Atom property, long long_offset, long long_length,
+	Bool delete, Atom req_type, Atom *actual_type_return , int *actual_format_return, unsigned long *nitems_return,
+	unsigned long *bytes_after_return, unsigned char **prop_return);
+static Status (*XSendEvent)(Display *display, Window w, Bool propagate, long event_mask, XEvent *event_send);
 
 
 // XI2 interface
@@ -716,6 +736,8 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_SO, XKeysymToKeycode);
 		X_DL_LOAD_SYM(X_DL_SO, XConvertCase);
 		X_DL_LOAD_SYM(X_DL_SO, XQueryPointer);
+		X_DL_LOAD_SYM(X_DL_SO, XGetWindowProperty);
+		X_DL_LOAD_SYM(X_DL_SO, XSendEvent);
 
 		X_DL_LOAD_SYM(X_DL_XI2_SO, XISelectEvents);
 

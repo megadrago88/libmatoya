@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <limits.h>
 
 #include "x-dl.h"
 #include "wsize.h"
@@ -436,6 +437,61 @@ static void app_make_movement(MTY_App *app, MTY_Window window)
 	app->msg_func(&msg, app->opaque);
 }
 
+static void app_handle_selection_request(MTY_App *ctx, const XEvent *event)
+{
+	// Unlike other OSs, X11 receives a request from other applications
+	// to set a window property (Atom)
+
+	struct window *win0 = app_get_window(ctx, 0);
+	if (!win0)
+		return;
+
+	const XSelectionRequestEvent *req = &event->xselectionrequest;
+
+	XEvent snd = {0};
+	snd.type = SelectionNotify;
+
+	XSelectionEvent *res = &snd.xselection;
+	res->selection = req->selection;
+	res->requestor = req->requestor;
+	res->time = req->time;
+
+	unsigned long bytes, overflow;
+	unsigned char *data = NULL;
+	int format = 0;
+
+	Atom targets = XInternAtom(ctx->display, "TARGETS", False);
+	Atom mty_clip = XInternAtom(ctx->display, "MTY_CLIPBOARD", False);
+
+	// Get the utf8 clipboard buffer associated with window 0
+	if (XGetWindowProperty(ctx->display, win0->window, mty_clip, 0, INT_MAX / 4, False, req->target,
+		&res->target, &format, &bytes, &overflow, &data) == Success)
+	{
+		// Requestor wants the data, if the target (format) matches our buffer, set it
+		if (req->target == res->target) {
+			XChangeProperty(ctx->display, req->requestor, req->property, res->target,
+				format, PropModeReplace, data, bytes);
+
+			res->property = req->property;
+
+		// Requestor is querying which targets (formats) are available (the TARGETS atom)
+		} else if (req->targets == targets) {
+			Atom formats[] = {targets, res->target};
+			XChangeProperty(ctx->display, req->requestor, req->property, XA_ATOM, 32, PropModeReplace,
+				(unsigned char *) formats, 2);
+
+			res->property = req->property;
+			res->target = targets;
+		}
+
+		XFree(data);
+	}
+
+	// Send the response event
+	XSendEvent(ctx->display, req->requestor, False, 0, &snd);
+	XSync(ctx->display, False);
+}
+
 static void app_event(MTY_App *ctx, XEvent *event)
 {
 	MTY_Msg msg = {0};
@@ -512,54 +568,9 @@ static void app_event(MTY_App *ctx, XEvent *event)
 				}
 			}
 			break;
-		case SelectionRequest: {
-			/* TODO
-			struct window *win0 = app_get_window(ctx, 0);
-			if (!win0)
-				break;
-
-			XEvent snd = {0};
-			XSelectionEvent *res = &snd.xselection;
-
-			snd.type = SelectionNotify;
-			res->selection = req->selection;
-			res->requestor = req->requestor;
-			res->time = req->time;
-
-			const XSelectionRequestEvent *req = &event->xselectionrequest;
-			unsigned long bytes, overflow;
-			unsigned char *snd_data = NULL;
-			int snd_format = 0;
-
-			Atom mty_clip = XInternAtom(app->display, "MTY_CLIPBOARD", False);
-
-			if (XGetWindowProperty(ctx->display, win0->window, mty_clip, 0, INT_MAX / 4, False, req->target,
-				&res->target, &snd_format, &bytes, &overflow, &snd_data) == Success)
-			{
-				Atom XA_TARGETS = X11_XInternAtom(display, "TARGETS", 0);
-				if (res->target == req->target) {
-					X11_XChangeProperty(display, req->requestor, req->property, res->target,
-						snd_format, PropModeReplace, snd_data, nbytes);
-
-					res->property = req->property;
-
-				} else if (XA_TARGETS == req->target) {
-					Atom formats[] = {XA_TARGETS, res->target};
-					X11_XChangeProperty(display, req->requestor, req->property, XA_ATOM, 32, PropModeReplace,
-						(unsigned char *) formats, 2);
-
-					res->property = req->property;
-					res->target = XA_TARGETS;
-				}
-
-				XFree(snd_data);
-			}
-
-			XSendEvent(ctx->display, req->requestor, False, 0, &snd);
-			XSync(ctx->display, False);
-			*/
+		case SelectionRequest:
+			app_handle_selection_request(ctx, event);
 			break;
-		}
 		case SelectionNotify:
 			printf("NOTIFY\n"); // TODO
 			break;
