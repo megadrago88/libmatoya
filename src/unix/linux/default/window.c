@@ -475,7 +475,7 @@ static void app_handle_selection_request(MTY_App *ctx, const XEvent *event)
 			res->property = req->property;
 
 		// Requestor is querying which targets (formats) are available (the TARGETS atom)
-		} else if (req->targets == targets) {
+		} else if (req->target == targets) {
 			Atom formats[] = {targets, res->target};
 			XChangeProperty(ctx->display, req->requestor, req->property, XA_ATOM, 32, PropModeReplace,
 				(unsigned char *) formats, 2);
