@@ -261,8 +261,27 @@
 
 #define XA_PRIMARY                ((Atom) 1)
 #define XA_ATOM                   ((Atom) 4)
+#define XA_CARDINAL               ((Atom) 6)
 #define XA_CUT_BUFFER0            ((Atom) 9)
 #define XA_STRING                 ((Atom) 31)
+
+#define USPosition                (1L << 0)
+#define USSize                    (1L << 1)
+#define PPosition                 (1L << 2)
+#define PSize                     (1L << 3)
+#define PMinSize                  (1L << 4)
+#define PMaxSize                  (1L << 5)
+#define PResizeInc                (1L << 6)
+#define PAspect                   (1L << 7)
+#define PBaseSize                 (1L << 8)
+#define PWinGravity               (1L << 9)
+
+#define InputHint                 (1L << 0)
+#define WindowGroupHint           (1L << 6)
+
+#define _NET_WM_STATE_REMOVE      0
+#define _NET_WM_STATE_ADD         1
+#define _NET_WM_STATE_TOGGLE      2
 
 typedef unsigned long VisualID;
 typedef unsigned long XID;
@@ -469,6 +488,44 @@ typedef struct Hints {
 	unsigned long status;
 } Hints;
 
+typedef struct {
+	unsigned char *value;
+	Atom encoding;
+	int format;
+	unsigned long nitems;
+} XTextProperty;
+
+typedef struct {
+	long flags;
+	int x, y;
+	int width, height;
+	int min_width, min_height;
+	int max_width, max_height;
+	int width_inc, height_inc;
+	struct {
+		int x;
+		int y;
+	} min_aspect, max_aspect;
+	int base_width, base_height;
+	int win_gravity;
+} XSizeHints;
+
+typedef struct {
+	long flags;
+	Bool input;
+	int initial_state;
+	Pixmap icon_pixmap;
+	Window icon_window;
+	int icon_x, icon_y;
+	Pixmap icon_mask;
+	XID window_group;
+} XWMHints;
+
+typedef struct {
+	char *res_name;
+	char *res_class;
+} XClassHint;
+
 typedef XKeyEvent XKeyPressedEvent;
 typedef XKeyEvent XKeyReleasedEvent;
 
@@ -479,6 +536,7 @@ typedef struct _XIC *XIC;
 static Display *(*XOpenDisplay)(const char *display_name);
 static int (*XCloseDisplay)(Display *display);
 static Window (*XDefaultRootWindow)(Display *display);
+static Window (*XRootWindowOfScreen)(Screen *screen);
 static Colormap (*XCreateColormap)(Display *display, Window w, Visual *visual, int alloc);
 static Window (*XCreateWindow)(Display *display, Window parent, int x, int y, unsigned int width,
 	unsigned int height, unsigned int border_width, int depth, unsigned int class, Visual *visual,
@@ -531,10 +589,15 @@ static void (*XConvertCase)(KeySym keysym, KeySym *lower_return, KeySym *upper_r
 static Bool (*XQueryPointer)(Display *display, Window w, Window *root_return, Window *child_return,
 	int *root_x_return, int *root_y_return, int *win_x_return, int *win_y_return, unsigned int *mask_return);
 static int (*XGetWindowProperty)(Display *display, Window w, Atom property, long long_offset, long long_length,
-	Bool delete, Atom req_type, Atom *actual_type_return , int *actual_format_return, unsigned long *nitems_return,
+	Bool delete, Atom req_type, Atom *actual_type_return, int *actual_format_return, unsigned long *nitems_return,
 	unsigned long *bytes_after_return, unsigned char **prop_return);
 static Status (*XSendEvent)(Display *display, Window w, Bool propagate, long event_mask, XEvent *event_send);
 static int (*XConvertSelection)(Display *display, Atom selection, Atom target, Atom property, Window requestor, Time time);
+static void (*XSetWMProperties)(Display *display, Window w, XTextProperty *window_name, XTextProperty *icon_name, char **argv,
+	int argc, XSizeHints *normal_hints, XWMHints *wm_hints, XClassHint *class_hints);
+static XSizeHints *(*XAllocSizeHints)(void);
+static XWMHints *(*XAllocWMHints)(void);
+static XClassHint *(*XAllocClassHint)(void);
 
 
 // XI2 interface
@@ -693,6 +756,7 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_SO, XOpenDisplay);
 		X_DL_LOAD_SYM(X_DL_SO, XCloseDisplay);
 		X_DL_LOAD_SYM(X_DL_SO, XDefaultRootWindow);
+		X_DL_LOAD_SYM(X_DL_SO, XRootWindowOfScreen);
 		X_DL_LOAD_SYM(X_DL_SO, XCreateColormap);
 		X_DL_LOAD_SYM(X_DL_SO, XCreateWindow);
 		X_DL_LOAD_SYM(X_DL_SO, XMapWindow);
@@ -740,6 +804,10 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_SO, XGetWindowProperty);
 		X_DL_LOAD_SYM(X_DL_SO, XSendEvent);
 		X_DL_LOAD_SYM(X_DL_SO, XConvertSelection);
+		X_DL_LOAD_SYM(X_DL_SO, XSetWMProperties);
+		X_DL_LOAD_SYM(X_DL_SO, XAllocSizeHints);
+		X_DL_LOAD_SYM(X_DL_SO, XAllocWMHints);
+		X_DL_LOAD_SYM(X_DL_SO, XAllocClassHint);
 
 		X_DL_LOAD_SYM(X_DL_XI2_SO, XISelectEvents);
 

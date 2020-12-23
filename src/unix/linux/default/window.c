@@ -12,6 +12,8 @@
 #include <math.h>
 #include <limits.h>
 
+#include <unistd.h>
+
 #include "x-dl.h"
 #include "wsize.h"
 #include "scancode.h"
@@ -20,7 +22,6 @@ struct window {
 	Window window;
 	XIC ic;
 
-	bool fullscreen;
 	XWindowAttributes wattr;
 
 	MTY_GFX api;
@@ -35,9 +36,11 @@ struct MTY_App {
 	Cursor cursor;
 	bool default_cursor;
 	bool cursor_hidden;
+	char *class_name;
 	MTY_Detach detach;
 	XVisualInfo *vis;
 	Atom wm_close;
+	Atom wm_ping;
 	Window sel_owner;
 	XIM im;
 
@@ -468,6 +471,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	}
 
 	ctx->wm_close = XInternAtom(ctx->display, "WM_DELETE_WINDOW", False);
+	ctx->wm_ping = XInternAtom(ctx->display, "_NET_WM_PING", False);
 
 	const char *dpi = XGetDefault(ctx->display, "Xft", "dpi");
 	ctx->dpi = dpi ? (float) atoi(dpi) / 96.0f : 1.0f;
@@ -502,6 +506,7 @@ void MTY_AppDestroy(MTY_App **app)
 	MTY_HashDestroy(&ctx->hotkey, NULL);
 	MTY_MutexDestroy(&ctx->mutex);
 	MTY_Free(ctx->clip);
+	MTY_Free(ctx->class_name);
 
 	MTY_Free(*app);
 	*app = NULL;
@@ -614,12 +619,22 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			msg.mouseMotion.x = event->xmotion.x;
 			msg.mouseMotion.y = event->xmotion.y;
 			break;
-		case ClientMessage:
-			if ((Atom) event->xclient.data.l[0] == ctx->wm_close) {
+		case ClientMessage: {
+			Atom type = (Atom) event->xclient.data.l[0];
+
+			if (type == ctx->wm_close) {
 				msg.window = app_find_window(ctx, event->xclient.window);
 				msg.type = MTY_MSG_CLOSE;
+
+			// Ping -> Pong
+			} else if (type == ctx->wm_ping) {
+				Window root = XDefaultRootWindow(ctx->display);
+
+				event->xclient.window = root;
+				XSendEvent(ctx->display, root, False, SubstructureRedirectMask | SubstructureNotifyMask, event);
 			}
 			break;
+		}
 		case GenericEvent:
 			if (!ctx->relative)
 				break;
@@ -758,6 +773,44 @@ void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t h
 
 // Window
 
+static void window_set_up_wm(MTY_App *app, Window w, const char *title, const MTY_WindowDesc *desc)
+{
+	// The application name derives from the first window's title at creation time
+	if (!app->class_name)
+		app->class_name = MTY_Strdup(title);
+
+	XSizeHints *shints = XAllocSizeHints();
+	shints->flags = PMinSize;
+	shints->min_width = desc->minWidth;
+	shints->min_height = desc->minHeight;
+
+	XWMHints *wmhints = XAllocWMHints();
+	wmhints->input = True;
+	wmhints->window_group = (uintptr_t) app;
+	wmhints->flags = InputHint | WindowGroupHint;
+
+	XClassHint *chints = XAllocClassHint();
+	chints->res_name = app->class_name;
+	chints->res_class = app->class_name;
+
+	XSetWMProperties(app->display, w, NULL, NULL, NULL, 0, shints, wmhints, chints);
+
+	XFree(shints);
+	XFree(wmhints);
+	XFree(chints);
+
+	Atom wintype = XInternAtom(app->display, "_NET_WM_WINDOW_TYPE_NORMAL", False);
+	XChangeProperty(app->display, w, XInternAtom(app->display, "_NET_WM_WINDOW_TYPE", False), XA_ATOM, 32,
+		PropModeReplace, (unsigned char *) &wintype, 1);
+
+	pid_t pid = getpid();
+	XChangeProperty(app->display, w, XInternAtom(app->display, "_NET_WM_PID", False),
+		XA_CARDINAL, 32, PropModeReplace, (unsigned char *) &pid, 1);
+
+	Atom protos[2] = {app->wm_close, app->wm_ping};
+	XSetWMProtocols(app->display, w, protos, 2);
+}
+
 MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
 {
 	bool r = true;
@@ -805,7 +858,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	MTY_WindowSetTitle(app, window, title);
 
-	XSetWMProtocols(app->display, ctx->window, &app->wm_close, 1);
+	window_set_up_wm(app, ctx->window, title, desc);
 
 	ctx->info.display = app->display;
 	ctx->info.vis = app->vis;
@@ -888,47 +941,29 @@ float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
 	return app->dpi;
 }
 
-static void window_set_borderless(Display *display, Window window, bool enable)
-{
-	Atom prop = XInternAtom(display, "_MOTIF_WM_HINTS", True);
-
-	Hints hints = {0};
-	hints.flags = 2;
-	hints.decorations = enable ? 1 : 0;
-
-	XChangeProperty(display, window, prop, prop, 32, PropModeReplace, (unsigned char *) &hints, 5);
-}
-
 void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
 {
 	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
 		return;
 
-	if (fullscreen && !ctx->fullscreen) {
-		window_set_borderless(app->display, ctx->window, false);
+	if (fullscreen != MTY_WindowIsFullscreen(app, window)) {
+		XWindowAttributes attr = {0};
+		XGetWindowAttributes(app->display, ctx->window, &attr);
 
-		XGetWindowAttributes(app->display, ctx->window, &ctx->wattr);
+		XEvent evt = {0};
+		evt.type = ClientMessage;
+		evt.xclient.message_type = XInternAtom(app->display, "_NET_WM_STATE", False);
+		evt.xclient.format = 32;
+		evt.xclient.window = ctx->window;
+		evt.xclient.data.l[0] = _NET_WM_STATE_TOGGLE;
+		evt.xclient.data.l[1] = XInternAtom(app->display, "_NET_WM_STATE_FULLSCREEN", False);
 
-		uint32_t width = ctx->wattr.width;
-		uint32_t height = ctx->wattr.height;
-		MTY_WindowGetScreenSize(app, window, &width, &height);
+		XSendEvent(app->display, XRootWindowOfScreen(attr.screen), 0,
+			SubstructureNotifyMask | SubstructureRedirectMask, &evt);
 
-		XResizeWindow(app->display, ctx->window, width, height);
-		XMoveWindow(app->display, ctx->window, 0, 0);
-		XMapWindow(app->display, ctx->window);
-		XSync(app->display, False);
-
-	} else if (!fullscreen && ctx->fullscreen) {
-		window_set_borderless(app->display, ctx->window, true);
-
-		XResizeWindow(app->display, ctx->window, ctx->wattr.width, ctx->wattr.height);
-		XMoveWindow(app->display, ctx->window, ctx->wattr.x, ctx->wattr.y);
-		XMapWindow(app->display, ctx->window);
 		XSync(app->display, False);
 	}
-
-	ctx->fullscreen = fullscreen;
 }
 
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
@@ -937,7 +972,22 @@ bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 	if (!ctx)
 		return false;
 
-	return ctx->fullscreen;
+	Atom type;
+	int format;
+	unsigned char *value = NULL;
+	unsigned long bytes, n;
+
+	if (XGetWindowProperty(app->display, ctx->window, XInternAtom(app->display, "_NET_WM_STATE", False),
+		0, 1024, False, XA_ATOM, &type, &format, &n, &bytes, &value) == Success)
+	{
+		Atom *atoms = (Atom *) value;
+
+		for (unsigned long x = 0; x < n; x++)
+			if (atoms[x] == XInternAtom(app->display, "_NET_WM_STATE_FULLSCREEN", False))
+				return true;
+	}
+
+	return false;
 }
 
 void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
