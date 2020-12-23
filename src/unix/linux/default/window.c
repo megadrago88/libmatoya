@@ -38,15 +38,18 @@ struct MTY_App {
 	MTY_Detach detach;
 	XVisualInfo *vis;
 	Atom wm_close;
+	Window sel_owner;
 	XIM im;
 
 	MTY_MsgFunc msg_func;
 	MTY_AppFunc app_func;
 	MTY_Hash *hotkey;
+	MTY_Mutex *mutex;
 	struct window *windows[MTY_WINDOW_MAX];
 	uint32_t timeout;
 	bool relative;
 	void *opaque;
+	char *clip;
 	float dpi;
 };
 
@@ -112,12 +115,7 @@ static MTY_Window app_get_active_index(MTY_App *ctx)
 }
 
 
-// App
-
-static void __attribute__((destructor)) app_global_destroy(void)
-{
-	x_dl_global_destroy();
-}
+// Hotkeys
 
 void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
 {
@@ -171,17 +169,132 @@ void MTY_AppRemoveHotkeys(MTY_App *ctx, MTY_Hotkey mode)
 	ctx->hotkey = MTY_HashCreate(0);
 }
 
+
+// Clipboard (selections)
+
+static void app_handle_selection_request(MTY_App *ctx, const XEvent *event)
+{
+	// Unlike other OSs, X11 receives a request from other applications
+	// to set a window property (Atom)
+
+	struct window *win0 = app_get_window(ctx, 0);
+	if (!win0)
+		return;
+
+	const XSelectionRequestEvent *req = &event->xselectionrequest;
+
+	XEvent snd = {0};
+	snd.type = SelectionNotify;
+
+	XSelectionEvent *res = &snd.xselection;
+	res->selection = req->selection;
+	res->requestor = req->requestor;
+	res->time = req->time;
+
+	unsigned long bytes, overflow;
+	unsigned char *data = NULL;
+	int format = 0;
+
+	Atom targets = XInternAtom(ctx->display, "TARGETS", False);
+	Atom mty_clip = XInternAtom(ctx->display, "MTY_CLIPBOARD", False);
+
+	// Get the utf8 clipboard buffer associated with window 0
+	if (XGetWindowProperty(ctx->display, win0->window, mty_clip, 0, INT_MAX / 4, False, req->target,
+		&res->target, &format, &bytes, &overflow, &data) == Success)
+	{
+		// Requestor wants the data, if the target (format) matches our buffer, set it
+		if (req->target == res->target) {
+			XChangeProperty(ctx->display, req->requestor, req->property, res->target,
+				format, PropModeReplace, data, bytes);
+
+			res->property = req->property;
+
+		// Requestor is querying which targets (formats) are available (the TARGETS atom)
+		} else if (req->target == targets) {
+			Atom formats[] = {targets, res->target};
+			XChangeProperty(ctx->display, req->requestor, req->property, XA_ATOM, 32, PropModeReplace,
+				(unsigned char *) formats, 2);
+
+			res->property = req->property;
+			res->target = targets;
+		}
+
+		XFree(data);
+	}
+
+	// Send the response event
+	XSendEvent(ctx->display, req->requestor, False, 0, &snd);
+	XSync(ctx->display, False);
+}
+
+static void app_handle_selection_notify(MTY_App *ctx)
+{
+	struct window *win0 = app_get_window(ctx, 0);
+	if (!win0)
+		return;
+
+	Atom format = XInternAtom(ctx->display, "UTF8_STRING", False);
+	Atom mty_clip = XInternAtom(ctx->display, "MTY_CLIPBOARD", False);
+
+	unsigned long overflow, bytes;
+	unsigned char *src = NULL;
+	Atom res_type;
+	int res_format;
+
+	if (XGetWindowProperty(ctx->display, win0->window, mty_clip, 0, INT_MAX / 4, False,
+		format, &res_type, &res_format, &bytes, &overflow, &src) == Success && res_type == format)
+	{
+		MTY_MutexLock(ctx->mutex);
+
+		MTY_Free(ctx->clip);
+		ctx->clip = MTY_Alloc(bytes + 1, 1);
+		memcpy(ctx->clip, src, bytes);
+
+		MTY_MutexUnlock(ctx->mutex);
+
+		// FIXME this is a questionable technique: will it interfere with other applications?
+		// We take back the selection so that we can be notified the next time a different app takes it
+		XSetSelectionOwner(ctx->display, XInternAtom(ctx->display, "CLIPBOARD", False), win0->window, CurrentTime);
+
+		MTY_Msg msg = {0};
+		msg.type = MTY_MSG_CLIPBOARD;
+		ctx->msg_func(&msg, ctx->opaque);
+	}
+}
+
+static void app_poll_clipboard(MTY_App *ctx)
+{
+	Atom clip = XInternAtom(ctx->display, "CLIPBOARD", False);
+
+	Window sel_owner = XGetSelectionOwner(ctx->display, clip);
+	if (sel_owner != ctx->sel_owner) {
+		struct window *win0 = app_get_window(ctx, 0);
+
+		if (win0 && sel_owner != win0->window) {
+			Atom format = XInternAtom(ctx->display, "UTF8_STRING", False);
+			Atom mty_clip = XInternAtom(ctx->display, "MTY_CLIPBOARD", False);
+
+			// This will send the request out to the owner
+			XConvertSelection(ctx->display, clip, format, mty_clip, win0->window, CurrentTime);
+		}
+
+		ctx->sel_owner = sel_owner;
+	}
+}
+
 char *MTY_AppGetClipboard(MTY_App *app)
 {
-	// TODO
+	MTY_MutexLock(app->mutex);
 
-	return NULL;
+	char *str = MTY_Strdup(app->clip);
+
+	MTY_MutexUnlock(app->mutex);
+
+	return str;
 }
 
 void MTY_AppSetClipboard(MTY_App *app, const char *text)
 {
-	// TODO
-
 	struct window *ctx = app_get_window(app, 0);
 	if (!ctx)
 		return;
@@ -217,6 +330,9 @@ static void app_apply_cursor(MTY_App *app)
 		app->cursor = cur;
 	}
 }
+
+
+// Cursor
 
 static Cursor app_png_cursor(Display *display, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
@@ -297,6 +413,14 @@ static Cursor app_create_empty_cursor(Display *display)
 	return cursor;
 }
 
+
+// App
+
+static void __attribute__((destructor)) app_global_destroy(void)
+{
+	x_dl_global_destroy();
+}
+
 MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 {
 	if (!x_dl_global_init())
@@ -307,6 +431,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	bool r = true;
 	MTY_App *ctx = MTY_Alloc(1, sizeof(MTY_App));
 	ctx->hotkey = MTY_HashCreate(0);
+	ctx->mutex = MTY_MutexCreate();
 	ctx->app_func = appFunc;
 	ctx->msg_func = msgFunc;
 	ctx->opaque = opaque;
@@ -375,6 +500,8 @@ void MTY_AppDestroy(MTY_App **app)
 		XCloseDisplay(ctx->display);
 
 	MTY_HashDestroy(&ctx->hotkey, NULL);
+	MTY_MutexDestroy(&ctx->mutex);
+	MTY_Free(ctx->clip);
 
 	MTY_Free(*app);
 	*app = NULL;
@@ -435,61 +562,6 @@ static void app_make_movement(MTY_App *app, MTY_Window window)
 	msg.mouseMotion.click = true;
 
 	app->msg_func(&msg, app->opaque);
-}
-
-static void app_handle_selection_request(MTY_App *ctx, const XEvent *event)
-{
-	// Unlike other OSs, X11 receives a request from other applications
-	// to set a window property (Atom)
-
-	struct window *win0 = app_get_window(ctx, 0);
-	if (!win0)
-		return;
-
-	const XSelectionRequestEvent *req = &event->xselectionrequest;
-
-	XEvent snd = {0};
-	snd.type = SelectionNotify;
-
-	XSelectionEvent *res = &snd.xselection;
-	res->selection = req->selection;
-	res->requestor = req->requestor;
-	res->time = req->time;
-
-	unsigned long bytes, overflow;
-	unsigned char *data = NULL;
-	int format = 0;
-
-	Atom targets = XInternAtom(ctx->display, "TARGETS", False);
-	Atom mty_clip = XInternAtom(ctx->display, "MTY_CLIPBOARD", False);
-
-	// Get the utf8 clipboard buffer associated with window 0
-	if (XGetWindowProperty(ctx->display, win0->window, mty_clip, 0, INT_MAX / 4, False, req->target,
-		&res->target, &format, &bytes, &overflow, &data) == Success)
-	{
-		// Requestor wants the data, if the target (format) matches our buffer, set it
-		if (req->target == res->target) {
-			XChangeProperty(ctx->display, req->requestor, req->property, res->target,
-				format, PropModeReplace, data, bytes);
-
-			res->property = req->property;
-
-		// Requestor is querying which targets (formats) are available (the TARGETS atom)
-		} else if (req->target == targets) {
-			Atom formats[] = {targets, res->target};
-			XChangeProperty(ctx->display, req->requestor, req->property, XA_ATOM, 32, PropModeReplace,
-				(unsigned char *) formats, 2);
-
-			res->property = req->property;
-			res->target = targets;
-		}
-
-		XFree(data);
-	}
-
-	// Send the response event
-	XSendEvent(ctx->display, req->requestor, False, 0, &snd);
-	XSync(ctx->display, False);
 }
 
 static void app_event(MTY_App *ctx, XEvent *event)
@@ -572,10 +644,7 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			app_handle_selection_request(ctx, event);
 			break;
 		case SelectionNotify:
-			printf("NOTIFY\n"); // TODO
-			break;
-		case SelectionClear:
-			printf("CLEAR\n"); // TODO
+			app_handle_selection_notify(ctx);
 			break;
 	}
 
@@ -595,6 +664,8 @@ static void app_event(MTY_App *ctx, XEvent *event)
 void MTY_AppRun(MTY_App *ctx)
 {
 	for (bool cont = true; cont;) {
+		app_poll_clipboard(ctx);
+
 		for (XEvent event; XEventsQueued(ctx->display, QueuedAfterFlush) > 0;) {
 			XNextEvent(ctx->display, &event);
 			app_event(ctx, &event);

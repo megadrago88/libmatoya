@@ -534,6 +534,7 @@ static int (*XGetWindowProperty)(Display *display, Window w, Atom property, long
 	Bool delete, Atom req_type, Atom *actual_type_return , int *actual_format_return, unsigned long *nitems_return,
 	unsigned long *bytes_after_return, unsigned char **prop_return);
 static Status (*XSendEvent)(Display *display, Window w, Bool propagate, long event_mask, XEvent *event_send);
+static int (*XConvertSelection)(Display *display, Atom selection, Atom target, Atom property, Window requestor, Time time);
 
 
 // XI2 interface
@@ -738,6 +739,7 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_SO, XQueryPointer);
 		X_DL_LOAD_SYM(X_DL_SO, XGetWindowProperty);
 		X_DL_LOAD_SYM(X_DL_SO, XSendEvent);
+		X_DL_LOAD_SYM(X_DL_SO, XConvertSelection);
 
 		X_DL_LOAD_SYM(X_DL_XI2_SO, XISelectEvents);
 
