@@ -382,8 +382,6 @@ void MTY_AppDestroy(MTY_App **app)
 
 // Event handling
 
-static void app_event(MTY_App *ctx, XEvent *event);
-
 static void window_text_event(MTY_App *ctx, XEvent *event)
 {
 	struct window *win = app_get_window(ctx, 0);
