@@ -21,9 +21,6 @@
 struct window {
 	Window window;
 	XIC ic;
-
-	XWindowAttributes wattr;
-
 	MTY_GFX api;
 	struct gfx_ctx *gfx_ctx;
 	struct xinfo info;
