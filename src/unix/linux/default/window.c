@@ -847,7 +847,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	ctx->ic = XCreateIC(app->im, XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
 		XNClientWindow, ctx->window, NULL);
 
-	XMapWindow(app->display, ctx->window);
+	XMapRaised(app->display, ctx->window);
 	XMoveWindow(app->display, ctx->window, x, y);
 
 	MTY_WindowSetTitle(app, window, title);
@@ -991,9 +991,25 @@ void MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active)
 		return;
 
 	if (active) {
-		// FIXME this won't restore an minimized window
 		XMapRaised(app->display, ctx->window);
+
+		XWindowAttributes attr = {0};
+		XGetWindowAttributes(app->display, ctx->window, &attr);
+
+		XEvent evt = {0};
+		evt.type = ClientMessage;
+		evt.xclient.message_type = XInternAtom(app->display, "_NET_ACTIVE_WINDOW", False);
+		evt.xclient.format = 32;
+		evt.xclient.window = ctx->window;
+		evt.xclient.data.l[0] = 1;
+		evt.xclient.data.l[1] = CurrentTime;
+
+		XSendEvent(app->display, XRootWindowOfScreen(attr.screen), 0,
+			SubstructureNotifyMask | SubstructureRedirectMask, &evt);
+
 		XSetInputFocus(app->display, ctx->window, RevertToNone, CurrentTime);
+
+		XSync(app->display, False);
 
 	} else {
 		XWithdrawWindow(app->display, ctx->window);
