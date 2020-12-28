@@ -262,7 +262,7 @@ static void app_handle_selection_request(MTY_App *ctx, const XEvent *event)
 	XSync(ctx->display, False);
 }
 
-static void app_handle_selection_notify(MTY_App *ctx)
+static void app_handle_selection_notify(MTY_App *ctx, const XSelectionEvent *res)
 {
 	struct window *win0 = app_get_window(ctx, 0);
 	if (!win0)
@@ -271,13 +271,17 @@ static void app_handle_selection_notify(MTY_App *ctx)
 	Atom format = XInternAtom(ctx->display, "UTF8_STRING", False);
 	Atom mty_clip = XInternAtom(ctx->display, "MTY_CLIPBOARD", False);
 
+	// Unhandled format or bad conversion
+	if (!res->property || res->target != format)
+		return;
+
 	unsigned long overflow, bytes;
 	unsigned char *src = NULL;
 	Atom res_type;
 	int res_format;
 
 	if (XGetWindowProperty(ctx->display, win0->window, mty_clip, 0, INT_MAX / 4, False,
-		format, &res_type, &res_format, &bytes, &overflow, &src) == Success && res_type == format)
+		format, &res_type, &res_format, &bytes, &overflow, &src) == Success)
 	{
 		MTY_MutexLock(ctx->mutex);
 
@@ -353,9 +357,9 @@ void MTY_AppSetClipboard(MTY_App *app, const char *text)
 
 static void app_apply_mouse_grab(MTY_App *app, struct window *win)
 {
-	if (win &&                                                // One of our windows is the focus window
+	if (win && // One of our windows is the focus window
 		((app->relative && app->detach != MTY_DETACH_FULL) || // In relative mode and not fully detached
-		(app->mgrab && app->detach == MTY_DETACH_NONE)))      // Mouse grab active and not detached
+		(app->mgrab && app->detach == MTY_DETACH_NONE))) // Mouse grab active and not detached
 	{
 		XGrabPointer(app->display, win->window, False,
 			ButtonPressMask | ButtonReleaseMask | PointerMotionMask | FocusChangeMask,
@@ -730,7 +734,7 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			app_handle_selection_request(ctx, event);
 			break;
 		case SelectionNotify:
-			app_handle_selection_notify(ctx);
+			app_handle_selection_notify(ctx, &event->xselection);
 			break;
 		case Expose:
 			app_refresh_scale(ctx);
