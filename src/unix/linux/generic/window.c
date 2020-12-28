@@ -47,7 +47,9 @@ struct MTY_App {
 	MTY_Mutex *mutex;
 	struct window *windows[MTY_WINDOW_MAX];
 	uint32_t timeout;
+	int64_t suspend_ts;
 	bool relative;
+	bool suspend_ss;
 	void *opaque;
 	char *clip;
 	float scale;
@@ -716,6 +718,17 @@ static void app_event(MTY_App *ctx, XEvent *event)
 		ctx->msg_func(&msg, ctx->opaque);
 }
 
+static void app_suspend_ss(MTY_App *ctx)
+{
+	int64_t now = MTY_Timestamp();
+
+	// Keep screen saver disabled in 30s intervals
+	if (MTY_TimeDiff(ctx->suspend_ts, now) > 30000.0f) {
+		XResetScreenSaver(ctx->display);
+		ctx->suspend_ts = now;
+	}
+}
+
 void MTY_AppRun(MTY_App *ctx)
 {
 	for (bool cont = true; cont;) {
@@ -727,6 +740,9 @@ void MTY_AppRun(MTY_App *ctx)
 		}
 
 		cont = ctx->app_func(ctx->opaque);
+
+		if (ctx->suspend_ss)
+			app_suspend_ss(ctx);
 
 		if (ctx->timeout > 0)
 			MTY_Sleep(ctx->timeout);
@@ -751,7 +767,7 @@ MTY_Detach MTY_AppGetDetached(MTY_App *app)
 
 void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 {
-	// TODO
+	app->suspend_ss = !enable;
 }
 
 void MTY_AppGrabMouse(MTY_App *app, bool grab)

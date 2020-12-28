@@ -596,6 +596,7 @@ static void (*XSetWMProperties)(Display *display, Window w, XTextProperty *windo
 static XSizeHints *(*XAllocSizeHints)(void);
 static XWMHints *(*XAllocWMHints)(void);
 static XClassHint *(*XAllocClassHint)(void);
+static int (*XResetScreenSaver)(Display *display);
 
 
 // XI2 interface
@@ -804,6 +805,7 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_SO, XAllocSizeHints);
 		X_DL_LOAD_SYM(X_DL_SO, XAllocWMHints);
 		X_DL_LOAD_SYM(X_DL_SO, XAllocClassHint);
+		X_DL_LOAD_SYM(X_DL_SO, XResetScreenSaver);
 
 		X_DL_LOAD_SYM(X_DL_XI2_SO, XISelectEvents);
 
