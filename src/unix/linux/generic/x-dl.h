@@ -541,7 +541,6 @@ static Colormap (*XCreateColormap)(Display *display, Window w, Visual *visual, i
 static Window (*XCreateWindow)(Display *display, Window parent, int x, int y, unsigned int width,
 	unsigned int height, unsigned int border_width, int depth, unsigned int class, Visual *visual,
 	unsigned long valuemask, XSetWindowAttributes *attributes);
-static int (*XMapWindow)(Display *display, Window w);
 static int (*XWithdrawWindow)(Display *display, Window w);
 static int (*XMapRaised)(Display *display, Window w);
 static int (*XSetInputFocus)(Display *display, Window focus, int revert_to, Time time);
@@ -580,7 +579,6 @@ static Cursor (*XCreatePixmapCursor)(Display *display, Pixmap source, Pixmap mas
 static int (*XFreePixmap)(Display *display, Pixmap pixmap);
 static int (*XDefineCursor)(Display *display, Window w, Cursor cursor);
 static int (*XFreeCursor)(Display *display, Cursor cursor);
-static int (*XResizeWindow)(Display *display, Window w, unsigned int width, unsigned int height);
 static Window (*XGetSelectionOwner)(Display *display, Atom selection);
 static int (*XSetSelectionOwner)(Display *display, Atom selection, Window owner, Time time);
 static char *(*XKeysymToString)(KeySym keysym);
@@ -759,7 +757,6 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_SO, XRootWindowOfScreen);
 		X_DL_LOAD_SYM(X_DL_SO, XCreateColormap);
 		X_DL_LOAD_SYM(X_DL_SO, XCreateWindow);
-		X_DL_LOAD_SYM(X_DL_SO, XMapWindow);
 		X_DL_LOAD_SYM(X_DL_SO, XWithdrawWindow);
 		X_DL_LOAD_SYM(X_DL_SO, XMapRaised);
 		X_DL_LOAD_SYM(X_DL_SO, XSetInputFocus);
@@ -794,7 +791,6 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_SO, XFreePixmap);
 		X_DL_LOAD_SYM(X_DL_SO, XDefineCursor);
 		X_DL_LOAD_SYM(X_DL_SO, XFreeCursor);
-		X_DL_LOAD_SYM(X_DL_SO, XResizeWindow);
 		X_DL_LOAD_SYM(X_DL_SO, XGetSelectionOwner);
 		X_DL_LOAD_SYM(X_DL_SO, XSetSelectionOwner);
 		X_DL_LOAD_SYM(X_DL_SO, XKeysymToString);

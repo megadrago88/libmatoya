@@ -50,7 +50,7 @@ struct MTY_App {
 	bool relative;
 	void *opaque;
 	char *clip;
-	float dpi;
+	float scale;
 };
 
 
@@ -136,7 +136,7 @@ static void app_hotkey_init(void)
 				KeySym lsym = sym, usym = sym;
 				XConvertCase(sym, &lsym, &usym);
 
-				char utf8_str[8] = {0};
+				char utf8_str[16] = {0};
 				bool lookup_ok = false;
 
 				// FIXME symbols >= 0x80 seem to crash Xutf8LookupString
@@ -149,19 +149,21 @@ static void app_hotkey_init(void)
 
 					KeySym ignore;
 					Status status;
-					lookup_ok = Xutf8LookupString(xic, &evt, utf8_str, 8, &ignore, &status) > 0;
+					lookup_ok = Xutf8LookupString(xic, &evt, utf8_str, 16, &ignore, &status) > 0;
 				}
 
 				if (!lookup_ok) {
 					const char *sym_str = XKeysymToString(usym);
 					if (sym_str)
-						snprintf(utf8_str, 8, "%s", sym_str);
+						snprintf(utf8_str, 16, "%s", sym_str);
 				}
 
 				snprintf(APP_KEYS[sc], 16, "%s", utf8_str);
 			}
 		}
 
+		XDestroyIC(xic);
+		XCloseIM(xim);
 		XCloseDisplay(display);
 
 		MTY_GlobalUnlock(&APP_GLOCK);
@@ -170,9 +172,12 @@ static void app_hotkey_init(void)
 
 void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
 {
-	app_hotkey_init();
-
 	memset(str, 0, len);
+
+	if (!x_dl_global_init())
+		return;
+
+	app_hotkey_init();
 
 	MTY_Strcat(str, len, (mod & MTY_KEYMOD_WIN) ? "Super+" : "");
 	MTY_Strcat(str, len, (mod & MTY_KEYMOD_CTRL) ? "Ctrl+" : "");
@@ -446,6 +451,16 @@ static void __attribute__((destructor)) app_global_destroy(void)
 	x_dl_global_destroy();
 }
 
+static void app_refresh_scale(MTY_App *ctx)
+{
+	Display *display = XOpenDisplay(NULL);
+
+	const char *dpi = XGetDefault(display, "Xft", "dpi");
+	ctx->scale = dpi ? (float) atoi(dpi) / 96.0f : 1.0f;
+
+	XCloseDisplay(display);
+}
+
 MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 {
 	if (!x_dl_global_init())
@@ -496,8 +511,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	ctx->wm_close = XInternAtom(ctx->display, "WM_DELETE_WINDOW", False);
 	ctx->wm_ping = XInternAtom(ctx->display, "_NET_WM_PING", False);
 
-	const char *dpi = XGetDefault(ctx->display, "Xft", "dpi");
-	ctx->dpi = dpi ? (float) atoi(dpi) / 96.0f : 1.0f;
+	app_refresh_scale(ctx);
 
 	except:
 
@@ -684,6 +698,9 @@ static void app_event(MTY_App *ctx, XEvent *event)
 		case SelectionNotify:
 			app_handle_selection_notify(ctx);
 			break;
+		case Expose:
+			app_refresh_scale(ctx);
+			break;
 	}
 
 	// Transform keyboard into hotkey
@@ -858,10 +875,10 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	int32_t desktop_height = XHeightOfScreen(attr.screen);
 	int32_t width = desktop_width;
 	int32_t height = desktop_height;
-	int32_t x = lrint((float) desc->x * app->dpi);
-	int32_t y = lrint((float) desc->y * app->dpi);
+	int32_t x = lrint((float) desc->x * app->scale);
+	int32_t y = lrint((float) desc->y * app->scale);
 
-	wsize_client(desc, app->dpi, desktop_height, &x, &y, &width, &height);
+	wsize_client(desc, app->scale, desktop_height, &x, &y, &width, &height);
 
 	if (desc->position == MTY_POSITION_CENTER)
 		wsize_center(0, 0, desktop_width, desktop_height, &x, &y, &width, &height);
@@ -956,8 +973,7 @@ bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, u
 
 float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
 {
-	// FIXME This doesn't seem great
-	return app->dpi;
+	return app->scale;
 }
 
 void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
