@@ -117,8 +117,61 @@ static MTY_Window app_get_active_index(MTY_App *ctx)
 
 // Hotkeys
 
+static MTY_Atomic32 APP_GLOCK;
+static char APP_KEYS[MTY_SCANCODE_MAX][16];
+
+static void app_hotkey_init(void)
+{
+	if (MTY_Atomic32Get(&APP_GLOCK) == 0) {
+		MTY_GlobalLock(&APP_GLOCK);
+
+		Display *display = XOpenDisplay(NULL);
+		XIM xim = XOpenIM(display, 0, 0, 0);
+		XIC xic = XCreateIC(xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing, NULL);
+
+		for (MTY_Scancode sc = 0; sc < MTY_SCANCODE_MAX; sc++) {
+			KeySym sym = APP_KEY_MAP[sc];
+
+			if (sym > 0x00) {
+				KeySym lsym = sym, usym = sym;
+				XConvertCase(sym, &lsym, &usym);
+
+				char utf8_str[8] = {0};
+				bool lookup_ok = false;
+
+				// FIXME symbols >= 0x80 seem to crash Xutf8LookupString
+				if (sym < 0x80) {
+					XKeyPressedEvent evt = {0};
+					evt.type = KeyPress;
+					evt.display = display;
+					evt.state = sym != usym ? ShiftMask : 0;
+					evt.keycode = XKeysymToKeycode(display, usym);
+
+					KeySym ignore;
+					Status status;
+					lookup_ok = Xutf8LookupString(xic, &evt, utf8_str, 8, &ignore, &status) > 0;
+				}
+
+				if (!lookup_ok) {
+					const char *sym_str = XKeysymToString(usym);
+					if (sym_str)
+						snprintf(utf8_str, 8, "%s", sym_str);
+				}
+
+				snprintf(APP_KEYS[sc], 16, "%s", utf8_str);
+			}
+		}
+
+		XCloseDisplay(display);
+
+		MTY_GlobalUnlock(&APP_GLOCK);
+	}
+}
+
 void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
 {
+	app_hotkey_init();
+
 	memset(str, 0, len);
 
 	MTY_Strcat(str, len, (mod & MTY_KEYMOD_WIN) ? "Super+" : "");
@@ -126,35 +179,7 @@ void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, siz
 	MTY_Strcat(str, len, (mod & MTY_KEYMOD_ALT) ? "Alt+" : "");
 	MTY_Strcat(str, len, (mod & MTY_KEYMOD_SHIFT) ? "Shift+" : "");
 
-	KeySym sym = APP_KEY_MAP[scancode];
-
-	if (sym > 0x00) {
-		KeySym lsym = sym, usym = sym;
-		XConvertCase(sym, &lsym, &usym);
-
-		// FIXME this stuff should be cached
-		Display *display = XOpenDisplay(NULL);
-		XIM xim = XOpenIM(display, 0, 0, 0);
-		XIC xic = XCreateIC(xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing, NULL);
-
-		XKeyPressedEvent evt = {0};
-		evt.type = KeyPress;
-		evt.display = display;
-		evt.state = sym != usym ? ShiftMask : 0;
-		evt.keycode = XKeysymToKeycode(display, usym);
-
-		char utf8_str[8] = {0};
-		KeySym ignore;
-		Status status;
-		if (!Xutf8LookupString(xic, &evt, utf8_str, 8, &ignore, &status)) {
-			const char *sym_str = XKeysymToString(usym);
-			if (sym_str)
-				snprintf(utf8_str, 8, "%s", sym_str);
-		}
-
-		MTY_Strcat(str, len, utf8_str);
-		XCloseDisplay(display);
-	}
+	MTY_Strcat(str, len, APP_KEYS[scancode]);
 }
 
 void MTY_AppSetHotkey(MTY_App *ctx, MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, uint32_t id)
