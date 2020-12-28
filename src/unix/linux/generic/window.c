@@ -32,7 +32,6 @@ struct MTY_App {
 	Cursor custom_cursor;
 	Cursor cursor;
 	bool default_cursor;
-	bool cursor_hidden;
 	char *class_name;
 	MTY_Detach detach;
 	XVisualInfo *vis;
@@ -50,9 +49,13 @@ struct MTY_App {
 	int64_t suspend_ts;
 	bool relative;
 	bool suspend_ss;
+	bool mgrab;
 	void *opaque;
 	char *clip;
 	float scale;
+
+	uint64_t state;
+	uint64_t prev_state;
 };
 
 
@@ -141,7 +144,7 @@ static void app_hotkey_init(void)
 				char utf8_str[16] = {0};
 				bool lookup_ok = false;
 
-				// FIXME symbols >= 0x80 seem to crash Xutf8LookupString
+				// FIXME symbols >= 0x80 seem to crash Xutf8LookupString -- why?
 				if (sym < 0x80) {
 					XKeyPressedEvent evt = {0};
 					evt.type = KeyPress;
@@ -346,13 +349,37 @@ void MTY_AppSetClipboard(MTY_App *app, const char *text)
 }
 
 
-// Cursor
+// Cursor/grab state
 
-static void app_apply_cursor(MTY_App *app)
+static void app_apply_mouse_grab(MTY_App *app, struct window *win)
 {
-	Cursor cur = app->cursor_hidden ? app->empty_cursor :
-		app->default_cursor || app->detach != MTY_DETACH_NONE ? None : app->custom_cursor ?
-		app->custom_cursor : None;
+	if (win &&                                                // One of our windows is the focus window
+		((app->relative && app->detach != MTY_DETACH_FULL) || // In relative mode and not fully detached
+		(app->mgrab && app->detach == MTY_DETACH_NONE)))      // Mouse grab active and not detached
+	{
+		XGrabPointer(app->display, win->window, False,
+			ButtonPressMask | ButtonReleaseMask | PointerMotionMask | FocusChangeMask,
+			GrabModeAsync, GrabModeAsync, win->window, None, CurrentTime);
+
+	} else {
+		// FIXME This should also warp to the stored coordinates when SetRelative was called
+		XUngrabPointer(app->display, CurrentTime);
+	}
+
+	XSync(app->display, False);
+}
+
+static void app_apply_cursor(MTY_App *app, bool focus)
+{
+	Cursor cur = None;
+
+	if (focus && app->relative && app->detach == MTY_DETACH_NONE) {
+		cur = app->empty_cursor;
+
+	} else {
+		if (app->custom_cursor && !app->default_cursor)
+			cur = app->custom_cursor;
+	}
 
 	if (cur != app->cursor) {
 		for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++) {
@@ -365,6 +392,9 @@ static void app_apply_cursor(MTY_App *app)
 		app->cursor = cur;
 	}
 }
+
+
+// Cursor
 
 static Cursor app_png_cursor(Display *display, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
@@ -416,16 +446,18 @@ void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t 
 	if (image && size > 0)
 		app->custom_cursor = app_png_cursor(app->display, image, size, hotX, hotY);
 
-	app_apply_cursor(app);
-
 	if (prev)
 		XFreeCursor(app->display, prev);
+
+	app->state++;
 }
 
 void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 {
-	app->default_cursor = useDefault;
-	app_apply_cursor(app);
+	if (app->default_cursor != useDefault) {
+		app->default_cursor = useDefault;
+		app->state++;
+	}
 }
 
 static Cursor app_create_empty_cursor(Display *display)
@@ -702,6 +734,13 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			break;
 		case Expose:
 			app_refresh_scale(ctx);
+			ctx->state++;
+			break;
+		case FocusIn:
+		case FocusOut:
+			msg.type = MTY_MSG_FOCUS;
+			msg.focus = event->type == FocusIn;
+			ctx->state++;
 			break;
 	}
 
@@ -732,6 +771,15 @@ static void app_suspend_ss(MTY_App *ctx)
 void MTY_AppRun(MTY_App *ctx)
 {
 	for (bool cont = true; cont;) {
+		if (ctx->state != ctx->prev_state) {
+			struct window *win = app_get_active_window(ctx);
+
+			app_apply_mouse_grab(ctx, win);
+			app_apply_cursor(ctx, win ? true : false);
+
+			ctx->prev_state = ctx->state;
+		}
+
 		app_poll_clipboard(ctx);
 
 		for (XEvent event; XEventsQueued(ctx->display, QueuedAfterFlush) > 0;) {
@@ -756,8 +804,10 @@ void MTY_AppSetTimeout(MTY_App *ctx, uint32_t timeout)
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
 {
-	app->detach = type;
-	app_apply_cursor(app);
+	if (app->detach != type) {
+		app->detach = type;
+		app->state++;
+	}
 }
 
 MTY_Detach MTY_AppGetDetached(MTY_App *app)
@@ -772,38 +822,26 @@ void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 
 void MTY_AppGrabMouse(MTY_App *app, bool grab)
 {
-	// TODO
+	if (app->mgrab != grab) {
+		app->mgrab = grab;
+		app->state++;
+	}
 }
 
 void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 {
-	// TODO This should keep track of the position where the cursor went
-	// into relative
+	if (app->relative != relative) {
+		// FIXME This should keep track of the position where the cursor went into relative,
+		// but for now since we usually call WarpCursor whenever we exit relative it
+		// doesn't matter
 
-	if (!app->relative && relative) {
+		app->relative = relative;
+
 		struct window *win = app_get_active_window(app);
 
-		if (win) {
-			XGrabPointer(app->display, win->window, False,
-				ButtonPressMask | ButtonReleaseMask | PointerMotionMask | FocusChangeMask,
-				GrabModeAsync, GrabModeAsync, win->window, None, CurrentTime);
-
-			app->cursor_hidden = true;
-			app_apply_cursor(app);
-
-			XSync(app->display, False);
-		}
-
-	} else if (app->relative && !relative) {
-		XUngrabPointer(app->display, CurrentTime);
-
-		app->cursor_hidden = false;
-		app_apply_cursor(app);
-
-		XSync(app->display, False);
+		app_apply_mouse_grab(app, win);
+		app_apply_cursor(app, win ? true : false);
 	}
-
-	app->relative = relative;
 }
 
 bool MTY_AppGetRelativeMouse(MTY_App *app)
@@ -882,7 +920,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	XSetWindowAttributes swa = {0};
 	swa.colormap = XCreateColormap(app->display, root, app->vis->visual, AllocNone);
 	swa.event_mask = ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask |
-		ButtonReleaseMask | PointerMotionMask;
+		ButtonReleaseMask | PointerMotionMask | FocusChangeMask;
 
 	XWindowAttributes attr = {0};
 	XGetWindowAttributes(app->display, root, &attr);
