@@ -259,6 +259,11 @@
 #define GrabModeSync              0
 #define GrabModeAsync             1
 
+#define NotifyNormal              0
+#define NotifyGrab                1
+#define NotifyUngrab              2
+#define NotifyWhileGrabbed        3
+
 #define XA_PRIMARY                ((Atom) 1)
 #define XA_ATOM                   ((Atom) 4)
 #define XA_CARDINAL               ((Atom) 6)
@@ -468,11 +473,22 @@ typedef struct {
 	Bool same_screen;
 } XMotionEvent;
 
+typedef struct {
+	int type;
+	unsigned long serial;
+	Bool send_event;
+	Display *display;
+	Window window;
+	int mode;
+	int detail;
+} XFocusChangeEvent;
+
 typedef union _XEvent {
 	int type;
 	XKeyEvent xkey;
 	XButtonEvent xbutton;
 	XMotionEvent xmotion;
+	XFocusChangeEvent xfocus;
 	XSelectionRequestEvent xselectionrequest;
 	XSelectionEvent xselection;
 	XClientMessageEvent xclient;
@@ -570,6 +586,8 @@ static Bool (*XGetEventData)(Display *dpy, XGenericEventCookie *cookie);
 static int (*XGrabPointer)(Display *display, Window grab_window, Bool owner_events, unsigned int event_mask, int pointer_mode,
 	int keyboard_mode, Window confine_to, Cursor cursor, Time time);
 static int (*XUngrabPointer)(Display *display, Time time);
+static int (*XGrabKeyboard)(Display *display, Window grab_window, Bool owner_events, int pointer_mode, int keyboard_mode, Time time);
+static int (*XUngrabKeyboard)(Display *display, Time time);
 static int (*XWarpPointer)(Display *display, Window src_w, Window dest_w, int src_x, int src_y, unsigned int src_width,
 	unsigned int src_height, int dest_x, int dest_y);
 static int (*XSync)(Display *display, Bool discard);
@@ -785,6 +803,8 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_SO, XGetEventData);
 		X_DL_LOAD_SYM(X_DL_SO, XGrabPointer);
 		X_DL_LOAD_SYM(X_DL_SO, XUngrabPointer);
+		X_DL_LOAD_SYM(X_DL_SO, XGrabKeyboard);
+		X_DL_LOAD_SYM(X_DL_SO, XUngrabKeyboard);
 		X_DL_LOAD_SYM(X_DL_SO, XWarpPointer);
 		X_DL_LOAD_SYM(X_DL_SO, XSync);
 		X_DL_LOAD_SYM(X_DL_SO, XCreateBitmapFromData);

@@ -50,6 +50,7 @@ struct MTY_App {
 	bool relative;
 	bool suspend_ss;
 	bool mgrab;
+	bool kbgrab;
 	void *opaque;
 	char *clip;
 	float scale;
@@ -354,6 +355,16 @@ void MTY_AppSetClipboard(MTY_App *app, const char *text)
 
 
 // Cursor/grab state
+
+static void app_apply_keyboard_grab(MTY_App *app, struct window *win)
+{
+	if (win && app->kbgrab && app->detach == MTY_DETACH_NONE) {
+		XGrabKeyboard(app->display, win->window, False, GrabModeAsync, GrabModeAsync, CurrentTime);
+
+	} else {
+		XUngrabKeyboard(app->display, CurrentTime);
+	}
+}
 
 static void app_apply_mouse_grab(MTY_App *app, struct window *win)
 {
@@ -742,8 +753,10 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			break;
 		case FocusIn:
 		case FocusOut:
-			msg.type = MTY_MSG_FOCUS;
-			msg.focus = event->type == FocusIn;
+			if (event->xfocus.mode == NotifyNormal || event->xfocus.mode == NotifyWhileGrabbed) {
+				msg.type = MTY_MSG_FOCUS;
+				msg.focus = event->type == FocusIn;
+			}
 			ctx->state++;
 			break;
 	}
@@ -778,6 +791,7 @@ void MTY_AppRun(MTY_App *ctx)
 		if (ctx->state != ctx->prev_state) {
 			struct window *win = app_get_active_window(ctx);
 
+			app_apply_keyboard_grab(ctx, win);
 			app_apply_mouse_grab(ctx, win);
 			app_apply_cursor(ctx, win ? true : false);
 
@@ -822,6 +836,14 @@ MTY_Detach MTY_AppGetDetached(MTY_App *app)
 void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 {
 	app->suspend_ss = !enable;
+}
+
+void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
+{
+	if (app->kbgrab != grab) {
+		app->kbgrab = grab;
+		app->state++;
+	}
 }
 
 void MTY_AppGrabMouse(MTY_App *app, bool grab)
@@ -1228,10 +1250,6 @@ void MTY_AppSetOrientation(MTY_App *app, MTY_Orientation orientation)
 }
 
 void MTY_AppEnableGlobalHotkeys(MTY_App *app, bool enable)
-{
-}
-
-void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
 {
 }
 
