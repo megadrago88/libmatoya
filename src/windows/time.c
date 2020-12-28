@@ -9,7 +9,7 @@
 #include <windows.h>
 #include <timeapi.h>
 
-#include "mty-tls.h"
+#include "tls.h"
 
 static MTY_TLS bool TIME_FREQ_INIT;
 static MTY_TLS float TIME_FREQUENCY;

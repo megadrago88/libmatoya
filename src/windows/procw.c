@@ -10,7 +10,7 @@
 
 #include <windows.h>
 
-#include "mty-tls.h"
+#include "tls.h"
 
 static MTY_TLS char PROC_NAME[MTY_PATH_MAX];
 static MTY_TLS char PROC_HOSTNAME[MTY_PATH_MAX];

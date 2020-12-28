@@ -6,8 +6,8 @@
 
 #pragma once
 
-#include "mty-pthread.h"
-#include "mty-rwlockattr.h"
+#include "thread.h"
+#include "rwlockattr.h"
 
 typedef pthread_rwlock_t mty_rwlock;
 

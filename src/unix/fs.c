@@ -21,9 +21,9 @@
 #include <sys/file.h>
 #include <dirent.h>
 
-#include "mty-fs.h"
-#include "mty-tls.h"
-#include "mty-procname.h"
+#include "fs.h"
+#include "tls.h"
+#include "procname.h"
 
 static MTY_TLS char FS_CWD[MTY_PATH_MAX];
 static MTY_TLS char FS_HOME[MTY_PATH_MAX];

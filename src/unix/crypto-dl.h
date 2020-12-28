@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "mty-libs.h"
+#include "libs.h"
 
 
 // Interface

@@ -8,8 +8,8 @@
 
 #include <string.h>
 
-#include "mty-rwlock.h"
-#include "mty-tls.h"
+#include "rwlock.h"
+#include "tls.h"
 
 struct MTY_Sync {
 	bool signal;

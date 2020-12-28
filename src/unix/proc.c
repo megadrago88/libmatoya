@@ -12,9 +12,9 @@
 
 #include <unistd.h>
 
-#include "mty-dlopen.h"
-#include "mty-tls.h"
-#include "mty-procname.h"
+#include "dlopen.h"
+#include "tls.h"
+#include "procname.h"
 
 static MTY_TLS char PROC_NAME[MTY_PATH_MAX];
 static MTY_TLS char PROC_HOSTNAME[MTY_PATH_MAX];

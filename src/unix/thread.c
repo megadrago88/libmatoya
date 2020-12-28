@@ -11,8 +11,8 @@
 #include <errno.h>
 #include <time.h>
 
-#include "mty-pthread.h"
-#include "mty-gettime.h"
+#include "thread.h"
+#include "gettime.h"
 
 
 // Thread

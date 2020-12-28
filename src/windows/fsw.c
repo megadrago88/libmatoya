@@ -12,7 +12,7 @@
 #include <shlwapi.h>
 #include <shlobj_core.h>
 
-#include "mty-tls.h"
+#include "tls.h"
 
 static MTY_TLS char FS_CWD[MTY_PATH_MAX];
 static MTY_TLS char FS_HOME[MTY_PATH_MAX];

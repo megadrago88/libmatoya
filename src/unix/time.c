@@ -6,9 +6,9 @@
 
 #include "matoya.h"
 
-#include "mty-tls.h"
-#include "mty-timestamp.h"
-#include "mty-sleepms.h"
+#include "tls.h"
+#include "timestamp.h"
+#include "sleepms.h"
 
 static MTY_TLS bool TIME_FREQ_INIT;
 static MTY_TLS float TIME_FREQUENCY;

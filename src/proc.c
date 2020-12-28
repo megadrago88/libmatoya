@@ -6,7 +6,7 @@
 
 #include "matoya.h"
 
-#include "mty-execv.h"
+#include "execv.h"
 
 bool MTY_RestartProcess(int32_t argc, char * const *argv)
 {

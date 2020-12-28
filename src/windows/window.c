@@ -15,7 +15,7 @@
 #include <shellscalingapi.h>
 
 #include "wsize.h"
-#include "mty-tls.h"
+#include "tls.h"
 #include "hid/driver.h"
 
 #define WINDOW_CLASS_NAME L"MTY_Window"

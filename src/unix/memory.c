@@ -4,8 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#define _DEFAULT_SOURCE // htobe64, be64toh (mty-swap.h)
-#define _DARWIN_C_SOURCE // htonll, ntohll (mty-swap.h)
+#define _DEFAULT_SOURCE // htobe64, be64toh
+#define _DARWIN_C_SOURCE // htonll, ntohll
 
 #include <stdlib.h>
 #include <string.h>
