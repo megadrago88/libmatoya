@@ -8,11 +8,11 @@
 
 #include "gfx/mod-ctx.h"
 
-void MTY_AppHotkeyToString(MTY_Mod mod, MTY_Key scancode, char *str, size_t len)
+void MTY_AppHotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
 {
 }
 
-void MTY_AppSetHotkey(MTY_App *app, MTY_Hotkey mode, MTY_Mod mod, MTY_Key scancode, uint32_t id)
+void MTY_AppSetHotkey(MTY_App *app, MTY_Hotkey mode, MTY_Mod mod, MTY_Key key, uint32_t id)
 {
 }
 

@@ -163,7 +163,7 @@ static MTY_Mod window_keystate_to_keymod(KeySym key, bool pressed, unsigned int 
 	return mod;
 }
 
-static MTY_Key window_keysym_to_scancode(KeySym sym)
+static MTY_Key window_keysym_to_key(KeySym sym)
 {
 	switch (sym) {
 		case XK_a:             return MTY_KEY_A;

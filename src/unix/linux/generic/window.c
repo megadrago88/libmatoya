@@ -16,7 +16,7 @@
 
 #include "x-dl.h"
 #include "wsize.h"
-#include "scancode.h"
+#include "keymap.h"
 
 struct window {
 	Window window;
@@ -664,7 +664,7 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			msg.type = MTY_MSG_KEYBOARD;
 			msg.window = app_find_window(ctx, event->xkey.window);
 			msg.keyboard.pressed = event->type == KeyPress;
-			msg.keyboard.key = window_keysym_to_scancode(sym);
+			msg.keyboard.key = window_keysym_to_key(sym);
 			msg.keyboard.mod = window_keystate_to_keymod(sym, msg.keyboard.pressed, event->xkey.state);
 			// TODO japanese, ISO testing
 			break;

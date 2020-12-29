@@ -233,7 +233,7 @@ static void app_kb_to_hotkey(MTY_App *app, MTY_Msg *wmsg)
 	}
 }
 
-static bool app_scancode_to_str(MTY_Key key, char *str, size_t len)
+static bool app_key_to_str(MTY_Key key, char *str, size_t len)
 {
 	LONG lparam = (key & 0xFF) << 16;
 	if (key & 0x100)
@@ -258,7 +258,7 @@ void MTY_AppHotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
 	if (key != MTY_KEY_NONE) {
 		char c[8] = {0};
 
-		if (app_scancode_to_str(key, c, 8))
+		if (app_key_to_str(key, c, 8))
 			MTY_Strcat(str, len, c);
 	}
 }

@@ -98,9 +98,9 @@ static void window_mouse_wheel(MTY_Window *ctx, int32_t x, int32_t y)
 static void window_keyboard(MTY_Window *ctx, bool pressed, const char *code)
 {
 	MTY_Msg msg = {0};
-	msg.keyboard.scancode = (MTY_Key) MTY_HashGet(ctx->h, code);
+	msg.keyboard.key = (MTY_Key) MTY_HashGet(ctx->h, code);
 
-	if (msg.keyboard.scancode != 0) {
+	if (msg.keyboard.key != 0) {
 		msg.type = MTY_WINDOW_MSG_KEYBOARD;
 		msg.keyboard.pressed = pressed;
 

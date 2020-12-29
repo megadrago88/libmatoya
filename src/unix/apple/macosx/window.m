@@ -11,7 +11,7 @@
 #include <IOKit/pwr_mgt/IOPMLib.h>
 
 #include "wsize.h"
-#include "scancode.h"
+#include "keymap.h"
 #include "hid/hid.h"
 #include "hid/driver.h"
 
@@ -616,7 +616,7 @@ static void window_text_event(Window *window, const char *text)
 static void window_keyboard_event(Window *window, int16_t key_code, NSEventModifierFlags flags, bool pressed)
 {
 	MTY_Msg msg = window_msg(window, MTY_MSG_KEYBOARD);
-	msg.keyboard.key = window_keycode_to_scancode(key_code);
+	msg.keyboard.key = window_keycode_to_key(key_code);
 	msg.keyboard.mod = window_modifier_flags_to_keymod(flags);
 	msg.keyboard.pressed = pressed;
 
@@ -641,7 +641,7 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 static void window_mod_event(Window *window, NSEvent *event)
 {
 	MTY_Msg msg = window_msg(window, MTY_MSG_KEYBOARD);
-	msg.keyboard.key = window_keycode_to_scancode(event.keyCode);
+	msg.keyboard.key = window_keycode_to_key(event.keyCode);
 	msg.keyboard.mod = window_modifier_flags_to_keymod(event.modifierFlags);
 
 	switch (msg.keyboard.key) {
@@ -897,7 +897,7 @@ static void app_carbon_key(uint16_t kc, char *text, size_t len)
 static void app_fill_keys(void)
 {
 	for (uint16_t kc = 0; kc < 0x100; kc++) {
-		MTY_Key sc = window_keycode_to_scancode(kc);
+		MTY_Key sc = window_keycode_to_key(kc);
 
 		if (sc != MTY_KEY_NONE) {
 			const char *text = window_keycode_to_text(kc);

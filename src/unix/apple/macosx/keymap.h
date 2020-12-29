@@ -36,7 +36,7 @@ static MTY_Mod window_modifier_flags_to_keymod(NSEventModifierFlags flags)
 	return mod;
 }
 
-static MTY_Key window_keycode_to_scancode(uint16_t kc)
+static MTY_Key window_keycode_to_key(uint16_t kc)
 {
 	switch (kc) {
 		case kVK_ANSI_A:              return MTY_KEY_A; // 0x00
