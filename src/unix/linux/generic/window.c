@@ -450,9 +450,6 @@ static Cursor app_png_cursor(Display *display, const void *image, size_t size, u
 
 void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
-	if (app->cursor == app->custom_cursor)
-		app->cursor = None;
-
 	Cursor prev = app->custom_cursor;
 	app->custom_cursor = None;
 
