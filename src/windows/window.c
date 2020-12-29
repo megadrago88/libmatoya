@@ -287,17 +287,17 @@ void MTY_AppSetHotkey(MTY_App *app, MTY_Hotkey mode, MTY_Mod mod, MTY_Key key, u
 			UINT vk = MapVirtualKey(key & 0xFF, MAPVK_VSC_TO_VK);
 
 			if (vk > 0) {
-				uint32_t key = (wmod << 8) | vk;
+				uint32_t lookup = (wmod << 8) | vk;
 
-				if (MTY_HashGetInt(app->ghotkey, key) || id == 0)
-					if (!UnregisterHotKey(hwnd, key))
+				if (MTY_HashGetInt(app->ghotkey, lookup) || id == 0)
+					if (!UnregisterHotKey(hwnd, lookup))
 						MTY_Log("'UnregisterHotKey' failed with error 0x%X", GetLastError());
 
 				if (id > 0)
-					if (!RegisterHotKey(hwnd, key, wmod, vk))
+					if (!RegisterHotKey(hwnd, lookup, wmod, vk))
 						MTY_Log("'RegisterHotKey' failed with error 0x%X", GetLastError());
 
-				MTY_HashSetInt(app->ghotkey, key, (void *) (uintptr_t) id);
+				MTY_HashSetInt(app->ghotkey, lookup, (void *) (uintptr_t) id);
 			}
 		}
 	}
