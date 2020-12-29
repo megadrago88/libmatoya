@@ -616,13 +616,13 @@ static void window_text_event(Window *window, const char *text)
 static void window_keyboard_event(Window *window, int16_t key_code, NSEventModifierFlags flags, bool pressed)
 {
 	MTY_Msg msg = window_msg(window, MTY_MSG_KEYBOARD);
-	msg.keyboard.scancode = window_keycode_to_scancode(key_code);
+	msg.keyboard.key = window_keycode_to_scancode(key_code);
 	msg.keyboard.mod = window_modifier_flags_to_keymod(flags);
 	msg.keyboard.pressed = pressed;
 
-	MTY_Keymod mod = msg.keyboard.mod & 0xFF;
+	MTY_Mod mod = msg.keyboard.mod & 0xFF;
 
-	uint32_t hotkey = (uint32_t) (uintptr_t) MTY_HashGetInt(window.app.hotkey, (mod << 16) | msg.keyboard.scancode);
+	uint32_t hotkey = (uint32_t) (uintptr_t) MTY_HashGetInt(window.app.hotkey, (mod << 16) | msg.keyboard.key);
 
 	if (hotkey != 0) {
 		if (pressed) {
@@ -633,7 +633,7 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 		}
 
 	} else {
-		if (msg.keyboard.scancode != MTY_SCANCODE_NONE)
+		if (msg.keyboard.key != MTY_KEY_NONE)
 			window.app.msg_func(&msg, window.app.opaque);
 	}
 }
@@ -641,18 +641,18 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 static void window_mod_event(Window *window, NSEvent *event)
 {
 	MTY_Msg msg = window_msg(window, MTY_MSG_KEYBOARD);
-	msg.keyboard.scancode = window_keycode_to_scancode(event.keyCode);
+	msg.keyboard.key = window_keycode_to_scancode(event.keyCode);
 	msg.keyboard.mod = window_modifier_flags_to_keymod(event.modifierFlags);
 
-	switch (msg.keyboard.scancode) {
-		case MTY_SCANCODE_LSHIFT: msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_LSHIFT; break;
-		case MTY_SCANCODE_LCTRL:  msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_LCTRL;  break;
-		case MTY_SCANCODE_LALT:   msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_LALT;   break;
-		case MTY_SCANCODE_LWIN:   msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_LWIN;   break;
-		case MTY_SCANCODE_RSHIFT: msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_RSHIFT; break;
-		case MTY_SCANCODE_RCTRL:  msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_RCTRL;  break;
-		case MTY_SCANCODE_RALT:   msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_RALT;   break;
-		case MTY_SCANCODE_RWIN:   msg.keyboard.pressed = msg.keyboard.mod & MTY_KEYMOD_RWIN;   break;
+	switch (msg.keyboard.key) {
+		case MTY_KEY_LSHIFT: msg.keyboard.pressed = msg.keyboard.mod & MTY_MOD_LSHIFT; break;
+		case MTY_KEY_LCTRL:  msg.keyboard.pressed = msg.keyboard.mod & MTY_MOD_LCTRL;  break;
+		case MTY_KEY_LALT:   msg.keyboard.pressed = msg.keyboard.mod & MTY_MOD_LALT;   break;
+		case MTY_KEY_LWIN:   msg.keyboard.pressed = msg.keyboard.mod & MTY_MOD_LWIN;   break;
+		case MTY_KEY_RSHIFT: msg.keyboard.pressed = msg.keyboard.mod & MTY_MOD_RSHIFT; break;
+		case MTY_KEY_RCTRL:  msg.keyboard.pressed = msg.keyboard.mod & MTY_MOD_RCTRL;  break;
+		case MTY_KEY_RALT:   msg.keyboard.pressed = msg.keyboard.mod & MTY_MOD_RALT;   break;
+		case MTY_KEY_RWIN:   msg.keyboard.pressed = msg.keyboard.mod & MTY_MOD_RWIN;   break;
 		default:
 			return;
 	}
@@ -871,7 +871,7 @@ static void window_mod_event(Window *window, NSEvent *event)
 // Hotkeys
 
 static MTY_Atomic32 APP_GLOCK;
-static char APP_KEYS[MTY_SCANCODE_MAX][16];
+static char APP_KEYS[MTY_KEY_MAX][16];
 
 static void app_carbon_key(uint16_t kc, char *text, size_t len)
 {
@@ -897,9 +897,9 @@ static void app_carbon_key(uint16_t kc, char *text, size_t len)
 static void app_fill_keys(void)
 {
 	for (uint16_t kc = 0; kc < 0x100; kc++) {
-		MTY_Scancode sc = window_keycode_to_scancode(kc);
+		MTY_Key sc = window_keycode_to_scancode(kc);
 
-		if (sc != MTY_SCANCODE_NONE) {
+		if (sc != MTY_KEY_NONE) {
 			const char *text = window_keycode_to_text(kc);
 			if (text) {
 				snprintf(APP_KEYS[sc], 16, "%s", text);
@@ -911,16 +911,16 @@ static void app_fill_keys(void)
 	}
 }
 
-void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
+void MTY_AppHotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
 {
 	memset(str, 0, len);
 
-	MTY_Strcat(str, len, (mod & MTY_KEYMOD_WIN) ? "Command+" : "");
-	MTY_Strcat(str, len, (mod & MTY_KEYMOD_CTRL) ? "Ctrl+" : "");
-	MTY_Strcat(str, len, (mod & MTY_KEYMOD_ALT) ? "Alt+" : "");
-	MTY_Strcat(str, len, (mod & MTY_KEYMOD_SHIFT) ? "Shift+" : "");
+	MTY_Strcat(str, len, (mod & MTY_MOD_WIN) ? "Command+" : "");
+	MTY_Strcat(str, len, (mod & MTY_MOD_CTRL) ? "Ctrl+" : "");
+	MTY_Strcat(str, len, (mod & MTY_MOD_ALT) ? "Alt+" : "");
+	MTY_Strcat(str, len, (mod & MTY_MOD_SHIFT) ? "Shift+" : "");
 
-	if (scancode != MTY_SCANCODE_NONE) {
+	if (key != MTY_KEY_NONE) {
 		if (MTY_Atomic32Get(&APP_GLOCK) == 0) {
 			MTY_GlobalLock(&APP_GLOCK);
 
@@ -936,16 +936,16 @@ void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, siz
 			MTY_GlobalUnlock(&APP_GLOCK);
 		}
 
-		MTY_Strcat(str, len, APP_KEYS[scancode]);
+		MTY_Strcat(str, len, APP_KEYS[key]);
 	}
 }
 
-void MTY_AppSetHotkey(MTY_App *app, MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, uint32_t id)
+void MTY_AppSetHotkey(MTY_App *app, MTY_Hotkey mode, MTY_Mod mod, MTY_Key key, uint32_t id)
 {
 	App *ctx = (__bridge App *) app;
 
 	mod &= 0xFF;
-	MTY_HashSetInt(ctx.hotkey, (mod << 16) | scancode, (void *) (uintptr_t) id);
+	MTY_HashSetInt(ctx.hotkey, (mod << 16) | key, (void *) (uintptr_t) id);
 }
 
 void MTY_AppRemoveHotkeys(MTY_App *app, MTY_Hotkey mode)

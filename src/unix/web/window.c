@@ -33,35 +33,35 @@ struct MTY_Window {
 
 static void window_hash_codes(MTY_Hash *h)
 {
-	MTY_HashSet(h, "Key1", (void *) MTY_SCANCODE_1);
-	MTY_HashSet(h, "KeyA", (void *) MTY_SCANCODE_A);
-	MTY_HashSet(h, "KeyC", (void *) MTY_SCANCODE_C);
-	MTY_HashSet(h, "KeyD", (void *) MTY_SCANCODE_D);
-	MTY_HashSet(h, "KeyL", (void *) MTY_SCANCODE_L);
-	MTY_HashSet(h, "KeyM", (void *) MTY_SCANCODE_M);
-	MTY_HashSet(h, "KeyO", (void *) MTY_SCANCODE_O);
-	MTY_HashSet(h, "KeyP", (void *) MTY_SCANCODE_P);
-	MTY_HashSet(h, "KeyR", (void *) MTY_SCANCODE_R);
-	MTY_HashSet(h, "KeyS", (void *) MTY_SCANCODE_S);
-	MTY_HashSet(h, "KeyT", (void *) MTY_SCANCODE_T);
-	MTY_HashSet(h, "KeyV", (void *) MTY_SCANCODE_V);
-	MTY_HashSet(h, "KeyW", (void *) MTY_SCANCODE_W);
-	MTY_HashSet(h, "KeyX", (void *) MTY_SCANCODE_X);
-	MTY_HashSet(h, "KeyY", (void *) MTY_SCANCODE_Y);
-	MTY_HashSet(h, "KeyZ", (void *) MTY_SCANCODE_Z);
-	MTY_HashSet(h, "Space", (void *) MTY_SCANCODE_SPACE);
-	MTY_HashSet(h, "ArrowDown", (void *) MTY_SCANCODE_DOWN);
-	MTY_HashSet(h, "ArrowLeft", (void *) MTY_SCANCODE_LEFT);
-	MTY_HashSet(h, "ArrowUp", (void *) MTY_SCANCODE_UP);
-	MTY_HashSet(h, "ArrowRight", (void *) MTY_SCANCODE_RIGHT);
-	MTY_HashSet(h, "Escape", (void *) MTY_SCANCODE_ESCAPE);
-	MTY_HashSet(h, "Semicolon", (void *) MTY_SCANCODE_SEMICOLON);
-	MTY_HashSet(h, "ShiftLeft", (void *) MTY_SCANCODE_LSHIFT);
-	MTY_HashSet(h, "ShiftRight", (void *) MTY_SCANCODE_RSHIFT);
-	MTY_HashSet(h, "ControlLeft", (void *) MTY_SCANCODE_LCTRL);
-	MTY_HashSet(h, "ControlRight", (void *) MTY_SCANCODE_RCTRL);
-	MTY_HashSet(h, "AltLeft", (void *) MTY_SCANCODE_LALT);
-	MTY_HashSet(h, "AltRight", (void *) MTY_SCANCODE_RALT);
+	MTY_HashSet(h, "Key1", (void *) MTY_KEY_1);
+	MTY_HashSet(h, "KeyA", (void *) MTY_KEY_A);
+	MTY_HashSet(h, "KeyC", (void *) MTY_KEY_C);
+	MTY_HashSet(h, "KeyD", (void *) MTY_KEY_D);
+	MTY_HashSet(h, "KeyL", (void *) MTY_KEY_L);
+	MTY_HashSet(h, "KeyM", (void *) MTY_KEY_M);
+	MTY_HashSet(h, "KeyO", (void *) MTY_KEY_O);
+	MTY_HashSet(h, "KeyP", (void *) MTY_KEY_P);
+	MTY_HashSet(h, "KeyR", (void *) MTY_KEY_R);
+	MTY_HashSet(h, "KeyS", (void *) MTY_KEY_S);
+	MTY_HashSet(h, "KeyT", (void *) MTY_KEY_T);
+	MTY_HashSet(h, "KeyV", (void *) MTY_KEY_V);
+	MTY_HashSet(h, "KeyW", (void *) MTY_KEY_W);
+	MTY_HashSet(h, "KeyX", (void *) MTY_KEY_X);
+	MTY_HashSet(h, "KeyY", (void *) MTY_KEY_Y);
+	MTY_HashSet(h, "KeyZ", (void *) MTY_KEY_Z);
+	MTY_HashSet(h, "Space", (void *) MTY_KEY_SPACE);
+	MTY_HashSet(h, "ArrowDown", (void *) MTY_KEY_DOWN);
+	MTY_HashSet(h, "ArrowLeft", (void *) MTY_KEY_LEFT);
+	MTY_HashSet(h, "ArrowUp", (void *) MTY_KEY_UP);
+	MTY_HashSet(h, "ArrowRight", (void *) MTY_KEY_RIGHT);
+	MTY_HashSet(h, "Escape", (void *) MTY_KEY_ESCAPE);
+	MTY_HashSet(h, "Semicolon", (void *) MTY_KEY_SEMICOLON);
+	MTY_HashSet(h, "ShiftLeft", (void *) MTY_KEY_LSHIFT);
+	MTY_HashSet(h, "ShiftRight", (void *) MTY_KEY_RSHIFT);
+	MTY_HashSet(h, "ControlLeft", (void *) MTY_KEY_LCTRL);
+	MTY_HashSet(h, "ControlRight", (void *) MTY_KEY_RCTRL);
+	MTY_HashSet(h, "AltLeft", (void *) MTY_KEY_LALT);
+	MTY_HashSet(h, "AltRight", (void *) MTY_KEY_RALT);
 }
 
 static void window_mouse_motion(MTY_Window *ctx, int32_t x, int32_t y)
@@ -98,7 +98,7 @@ static void window_mouse_wheel(MTY_Window *ctx, int32_t x, int32_t y)
 static void window_keyboard(MTY_Window *ctx, bool pressed, const char *code)
 {
 	MTY_Msg msg = {0};
-	msg.keyboard.scancode = (MTY_Scancode) MTY_HashGet(ctx->h, code);
+	msg.keyboard.scancode = (MTY_Key) MTY_HashGet(ctx->h, code);
 
 	if (msg.keyboard.scancode != 0) {
 		msg.type = MTY_WINDOW_MSG_KEYBOARD;

@@ -124,7 +124,7 @@ static MTY_Window app_get_active_index(MTY_App *ctx)
 // Hotkeys
 
 static MTY_Atomic32 APP_GLOCK;
-static char APP_KEYS[MTY_SCANCODE_MAX][16];
+static char APP_KEYS[MTY_KEY_MAX][16];
 
 static void app_hotkey_init(void)
 {
@@ -135,7 +135,7 @@ static void app_hotkey_init(void)
 		XIM xim = XOpenIM(display, 0, 0, 0);
 		XIC xic = XCreateIC(xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing, NULL);
 
-		for (MTY_Scancode sc = 0; sc < MTY_SCANCODE_MAX; sc++) {
+		for (MTY_Key sc = 0; sc < MTY_KEY_MAX; sc++) {
 			KeySym sym = APP_KEY_MAP[sc];
 
 			if (sym > 0x00) {
@@ -176,7 +176,7 @@ static void app_hotkey_init(void)
 	}
 }
 
-void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
+void MTY_AppHotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
 {
 	memset(str, 0, len);
 
@@ -185,18 +185,18 @@ void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, siz
 
 	app_hotkey_init();
 
-	MTY_Strcat(str, len, (mod & MTY_KEYMOD_WIN) ? "Super+" : "");
-	MTY_Strcat(str, len, (mod & MTY_KEYMOD_CTRL) ? "Ctrl+" : "");
-	MTY_Strcat(str, len, (mod & MTY_KEYMOD_ALT) ? "Alt+" : "");
-	MTY_Strcat(str, len, (mod & MTY_KEYMOD_SHIFT) ? "Shift+" : "");
+	MTY_Strcat(str, len, (mod & MTY_MOD_WIN) ? "Super+" : "");
+	MTY_Strcat(str, len, (mod & MTY_MOD_CTRL) ? "Ctrl+" : "");
+	MTY_Strcat(str, len, (mod & MTY_MOD_ALT) ? "Alt+" : "");
+	MTY_Strcat(str, len, (mod & MTY_MOD_SHIFT) ? "Shift+" : "");
 
-	MTY_Strcat(str, len, APP_KEYS[scancode]);
+	MTY_Strcat(str, len, APP_KEYS[key]);
 }
 
-void MTY_AppSetHotkey(MTY_App *ctx, MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, uint32_t id)
+void MTY_AppSetHotkey(MTY_App *ctx, MTY_Hotkey mode, MTY_Mod mod, MTY_Key key, uint32_t id)
 {
 	mod &= 0xFF;
-	MTY_HashSetInt(ctx->hotkey, (mod << 16) | scancode, (void *) (uintptr_t) id);
+	MTY_HashSetInt(ctx->hotkey, (mod << 16) | key, (void *) (uintptr_t) id);
 }
 
 void MTY_AppRemoveHotkeys(MTY_App *ctx, MTY_Hotkey mode)
@@ -614,8 +614,8 @@ static void window_text_event(MTY_App *ctx, XEvent *event)
 
 static void app_kb_to_hotkey(MTY_App *app, MTY_Msg *msg)
 {
-	MTY_Keymod mod = msg->keyboard.mod & 0xFF;
-	uint32_t hotkey = (uint32_t) (uintptr_t) MTY_HashGetInt(app->hotkey, (mod << 16) | msg->keyboard.scancode);
+	MTY_Mod mod = msg->keyboard.mod & 0xFF;
+	uint32_t hotkey = (uint32_t) (uintptr_t) MTY_HashGetInt(app->hotkey, (mod << 16) | msg->keyboard.key);
 
 	if (hotkey != 0) {
 		if (msg->keyboard.pressed) {
@@ -664,7 +664,7 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			msg.type = MTY_MSG_KEYBOARD;
 			msg.window = app_find_window(ctx, event->xkey.window);
 			msg.keyboard.pressed = event->type == KeyPress;
-			msg.keyboard.scancode = window_keysym_to_scancode(sym);
+			msg.keyboard.key = window_keysym_to_scancode(sym);
 			msg.keyboard.mod = window_keystate_to_keymod(sym, msg.keyboard.pressed, event->xkey.state);
 			// TODO japanese, ISO testing
 			break;

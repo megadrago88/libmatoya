@@ -219,8 +219,8 @@ static void app_unregister_global_hotkeys(MTY_App *app)
 
 static void app_kb_to_hotkey(MTY_App *app, MTY_Msg *wmsg)
 {
-	MTY_Keymod mod = wmsg->keyboard.mod & 0xFF;
-	uint32_t hotkey = (uint32_t) (uintptr_t) MTY_HashGetInt(app->hotkey, (mod << 16) | wmsg->keyboard.scancode);
+	MTY_Mod mod = wmsg->keyboard.mod & 0xFF;
+	uint32_t hotkey = (uint32_t) (uintptr_t) MTY_HashGetInt(app->hotkey, (mod << 16) | wmsg->keyboard.key);
 
 	if (hotkey != 0) {
 		if (wmsg->keyboard.pressed) {
@@ -233,10 +233,10 @@ static void app_kb_to_hotkey(MTY_App *app, MTY_Msg *wmsg)
 	}
 }
 
-static bool app_scancode_to_str(MTY_Scancode scancode, char *str, size_t len)
+static bool app_scancode_to_str(MTY_Key key, char *str, size_t len)
 {
-	LONG lparam = (scancode & 0xFF) << 16;
-	if (scancode & 0x100)
+	LONG lparam = (key & 0xFF) << 16;
+	if (key & 0x100)
 		lparam |= 1 << 24;
 
 	wchar_t wstr[8] = {0};
@@ -246,19 +246,19 @@ static bool app_scancode_to_str(MTY_Scancode scancode, char *str, size_t len)
 	return false;
 }
 
-void MTY_AppHotkeyToString(MTY_Keymod mod, MTY_Scancode scancode, char *str, size_t len)
+void MTY_AppHotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
 {
 	memset(str, 0, len);
 
-	MTY_Strcat(str, len, (mod & MTY_KEYMOD_WIN) ? "Win+" : "");
-	MTY_Strcat(str, len, (mod & MTY_KEYMOD_CTRL) ? "Ctrl+" : "");
-	MTY_Strcat(str, len, (mod & MTY_KEYMOD_ALT) ? "Alt+" : "");
-	MTY_Strcat(str, len, (mod & MTY_KEYMOD_SHIFT) ? "Shift+" : "");
+	MTY_Strcat(str, len, (mod & MTY_MOD_WIN) ? "Win+" : "");
+	MTY_Strcat(str, len, (mod & MTY_MOD_CTRL) ? "Ctrl+" : "");
+	MTY_Strcat(str, len, (mod & MTY_MOD_ALT) ? "Alt+" : "");
+	MTY_Strcat(str, len, (mod & MTY_MOD_SHIFT) ? "Shift+" : "");
 
-	if (scancode != MTY_SCANCODE_NONE) {
+	if (key != MTY_KEY_NONE) {
 		char c[8] = {0};
 
-		if (app_scancode_to_str(scancode, c, 8))
+		if (app_scancode_to_str(key, c, 8))
 			MTY_Strcat(str, len, c);
 	}
 }
@@ -268,23 +268,23 @@ void MTY_AppEnableGlobalHotkeys(MTY_App *app, bool enable)
 	app->ghk_disabled = !enable;
 }
 
-void MTY_AppSetHotkey(MTY_App *app, MTY_Hotkey mode, MTY_Keymod mod, MTY_Scancode scancode, uint32_t id)
+void MTY_AppSetHotkey(MTY_App *app, MTY_Hotkey mode, MTY_Mod mod, MTY_Key key, uint32_t id)
 {
 	mod &= 0xFF;
 
 	if (mode == MTY_HOTKEY_LOCAL) {
-		MTY_HashSetInt(app->hotkey, (mod << 16) | scancode, (void *) (uintptr_t) id);
+		MTY_HashSetInt(app->hotkey, (mod << 16) | key, (void *) (uintptr_t) id);
 
 	} else {
 		HWND hwnd = app_get_main_hwnd(app);
 		if (hwnd) {
 			UINT wmod = MOD_NOREPEAT |
-				((mod & MTY_KEYMOD_ALT) ? MOD_ALT : 0) |
-				((mod & MTY_KEYMOD_CTRL) ? MOD_CONTROL : 0) |
-				((mod & MTY_KEYMOD_SHIFT) ? MOD_SHIFT : 0) |
-				((mod & MTY_KEYMOD_WIN) ? MOD_SHIFT : 0);
+				((mod & MTY_MOD_ALT) ? MOD_ALT : 0) |
+				((mod & MTY_MOD_CTRL) ? MOD_CONTROL : 0) |
+				((mod & MTY_MOD_SHIFT) ? MOD_SHIFT : 0) |
+				((mod & MTY_MOD_WIN) ? MOD_SHIFT : 0);
 
-			UINT vk = MapVirtualKey(scancode & 0xFF, MAPVK_VSC_TO_VK);
+			UINT vk = MapVirtualKey(key & 0xFF, MAPVK_VSC_TO_VK);
 
 			if (vk > 0) {
 				uint32_t key = (wmod << 8) | vk;
@@ -598,7 +598,7 @@ static void app_ri_relative_mouse(MTY_App *app, HWND hwnd, const RAWINPUT *ri, M
 	if (b & RI_MOUSE_HWHEEL)             app_hwnd_proc(hwnd, WM_MOUSEHWHEEL, mouse->usButtonData << 16, 0);
 }
 
-static MTY_Keymod app_get_keymod(void)
+static MTY_Mod app_get_keymod(void)
 {
 	return
 		((GetKeyState(VK_LSHIFT)   & 0x8000) >> 15) |
@@ -808,12 +808,12 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			wmsg.type = MTY_MSG_KEYBOARD;
 			wmsg.keyboard.mod = app_get_keymod();
 			wmsg.keyboard.pressed = !(lparam >> 31);
-			wmsg.keyboard.scancode = lparam >> 16 & 0xFF;
+			wmsg.keyboard.key = lparam >> 16 & 0xFF;
 			if (lparam >> 24 & 0x01)
-				wmsg.keyboard.scancode |= 0x0100;
+				wmsg.keyboard.key |= 0x0100;
 
 			// Print Screen needs a synthesized WM_KEYDOWN
-			if (!wmsg.keyboard.pressed && wmsg.keyboard.scancode == MTY_SCANCODE_PRINT_SCREEN)
+			if (!wmsg.keyboard.pressed && wmsg.keyboard.key == MTY_KEY_PRINT_SCREEN)
 				app_custom_hwnd_proc(ctx, hwnd, WM_KEYDOWN, wparam, lparam & 0x7FFFFFFF);
 			break;
 		case WM_MOUSEMOVE:
