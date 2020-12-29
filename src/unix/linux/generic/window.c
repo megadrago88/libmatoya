@@ -380,8 +380,6 @@ static void app_apply_mouse_grab(MTY_App *app, struct window *win)
 		// FIXME This should also warp to the stored coordinates when SetRelative was called
 		XUngrabPointer(app->display, CurrentTime);
 	}
-
-	XSync(app->display, False);
 }
 
 static void app_apply_cursor(MTY_App *app, bool focus)
@@ -671,7 +669,6 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			msg.keyboard.pressed = event->type == KeyPress;
 			msg.keyboard.scancode = window_keysym_to_scancode(sym);
 			msg.keyboard.mod = window_keystate_to_keymod(sym, msg.keyboard.pressed, event->xkey.state);
-			// TODO non-US/QWERTY lookup
 			// TODO japanese, ISO testing
 			break;
 		}
@@ -794,6 +791,7 @@ void MTY_AppRun(MTY_App *ctx)
 			app_apply_keyboard_grab(ctx, win);
 			app_apply_mouse_grab(ctx, win);
 			app_apply_cursor(ctx, win ? true : false);
+			XSync(ctx->display, False);
 
 			ctx->prev_state = ctx->state;
 		}
@@ -867,6 +865,7 @@ void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 
 		app_apply_mouse_grab(app, win);
 		app_apply_cursor(app, win ? true : false);
+		XSync(app->display, False);
 	}
 }
 
