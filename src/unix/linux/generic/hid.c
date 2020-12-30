@@ -18,6 +18,9 @@
 
 #include "udev-dl.h"
 
+// https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
+// https://github.com/torvalds/linux/blob/master/include/uapi/linux/joystick.h
+
 #define HID_FD_MAX     33
 #define HID_AXMAP_MAX  ABS_CNT
 #define HID_BTNMAP_MAX (KEY_MAX - BTN_MISC + 1)
@@ -395,37 +398,37 @@ static void hid_gamepad_state(struct hdevice *ctx, MTY_Msg *msg)
 				c->values[MTY_CVALUE_THUMB_LX].data = s->values[x].data;
 				c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
 				c->values[MTY_CVALUE_THUMB_LX].min = INT16_MIN;
-				c->values[MTY_CVALUE_THUMB_LX].min = INT16_MAX;
+				c->values[MTY_CVALUE_THUMB_LX].max = INT16_MAX;
 				break;
 			case ABS_Y:
 				c->values[MTY_CVALUE_THUMB_LY].data = s->values[x].data;
 				c->values[MTY_CVALUE_THUMB_LY].usage = 0x31;
 				c->values[MTY_CVALUE_THUMB_LY].min = INT16_MIN;
-				c->values[MTY_CVALUE_THUMB_LY].min = INT16_MAX;
+				c->values[MTY_CVALUE_THUMB_LY].max = INT16_MAX;
 				break;
 			case ABS_Z:
 				c->values[MTY_CVALUE_TRIGGER_L].data = s->values[x].data;
 				c->values[MTY_CVALUE_TRIGGER_L].usage = 0x33;
 				c->values[MTY_CVALUE_TRIGGER_L].min = INT16_MIN;
-				c->values[MTY_CVALUE_TRIGGER_L].min = INT16_MAX;
+				c->values[MTY_CVALUE_TRIGGER_L].max = INT16_MAX;
 				break;
 			case ABS_RX:
 				c->values[MTY_CVALUE_THUMB_RX].data = s->values[x].data;
 				c->values[MTY_CVALUE_THUMB_RX].usage = 0x32;
 				c->values[MTY_CVALUE_THUMB_RX].min = INT16_MIN;
-				c->values[MTY_CVALUE_THUMB_RX].min = INT16_MAX;
+				c->values[MTY_CVALUE_THUMB_RX].max = INT16_MAX;
 				break;
 			case ABS_RY:
 				c->values[MTY_CVALUE_THUMB_RY].data = s->values[x].data;
 				c->values[MTY_CVALUE_THUMB_RY].usage = 0x35;
 				c->values[MTY_CVALUE_THUMB_RY].min = INT16_MIN;
-				c->values[MTY_CVALUE_THUMB_RY].min = INT16_MAX;
+				c->values[MTY_CVALUE_THUMB_RY].max = INT16_MAX;
 				break;
 			case ABS_RZ:
 				c->values[MTY_CVALUE_TRIGGER_R].data = s->values[x].data;
 				c->values[MTY_CVALUE_TRIGGER_R].usage = 0x34;
 				c->values[MTY_CVALUE_TRIGGER_R].min = INT16_MIN;
-				c->values[MTY_CVALUE_TRIGGER_R].min = INT16_MAX;
+				c->values[MTY_CVALUE_TRIGGER_R].max = INT16_MAX;
 				break;
 
 		}
@@ -471,12 +474,12 @@ static void hid_joystick_state(struct hdevice *ctx, MTY_Msg *msg)
 	c->values[MTY_CVALUE_TRIGGER_L].data = s->buttons[MTY_CBUTTON_LEFT_TRIGGER] ? UINT8_MAX : 0;
 	c->values[MTY_CVALUE_TRIGGER_L].usage = 0x33;
 	c->values[MTY_CVALUE_TRIGGER_L].min = 0;
-	c->values[MTY_CVALUE_TRIGGER_L].min = UINT8_MAX;
+	c->values[MTY_CVALUE_TRIGGER_L].max = UINT8_MAX;
 
 	c->values[MTY_CVALUE_TRIGGER_R].data = s->buttons[MTY_CBUTTON_RIGHT_TRIGGER] ? UINT8_MAX : 0;
 	c->values[MTY_CVALUE_TRIGGER_R].usage = 0x34;
 	c->values[MTY_CVALUE_TRIGGER_R].min = 0;
-	c->values[MTY_CVALUE_TRIGGER_R].min = UINT8_MAX;
+	c->values[MTY_CVALUE_TRIGGER_R].max = UINT8_MAX;
 
 	bool up = false;
 	bool right = false;
@@ -497,25 +500,25 @@ static void hid_joystick_state(struct hdevice *ctx, MTY_Msg *msg)
 				c->values[MTY_CVALUE_THUMB_LX].data = s->values[x].data;
 				c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
 				c->values[MTY_CVALUE_THUMB_LX].min = INT16_MIN;
-				c->values[MTY_CVALUE_THUMB_LX].min = INT16_MAX;
+				c->values[MTY_CVALUE_THUMB_LX].max = INT16_MAX;
 				break;
 			case ABS_Y:
 				c->values[MTY_CVALUE_THUMB_LY].data = s->values[x].data;
 				c->values[MTY_CVALUE_THUMB_LY].usage = 0x31;
 				c->values[MTY_CVALUE_THUMB_LY].min = INT16_MIN;
-				c->values[MTY_CVALUE_THUMB_LY].min = INT16_MAX;
+				c->values[MTY_CVALUE_THUMB_LY].max = INT16_MAX;
 				break;
 			case ABS_Z:
 				c->values[MTY_CVALUE_THUMB_RX].data = s->values[x].data;
 				c->values[MTY_CVALUE_THUMB_RX].usage = 0x32;
 				c->values[MTY_CVALUE_THUMB_RX].min = INT16_MIN;
-				c->values[MTY_CVALUE_THUMB_RX].min = INT16_MAX;
+				c->values[MTY_CVALUE_THUMB_RX].max = INT16_MAX;
 				break;
 			case ABS_RZ:
 				c->values[MTY_CVALUE_THUMB_RY].data = s->values[x].data;
 				c->values[MTY_CVALUE_THUMB_RY].usage = 0x35;
 				c->values[MTY_CVALUE_THUMB_RY].min = INT16_MIN;
-				c->values[MTY_CVALUE_THUMB_RY].min = INT16_MAX;
+				c->values[MTY_CVALUE_THUMB_RY].max = INT16_MAX;
 				break;
 
 		}
