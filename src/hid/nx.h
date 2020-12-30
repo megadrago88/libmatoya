@@ -191,7 +191,7 @@ static void hid_nx_full_state(struct hdevice *device, const uint8_t *d, MTY_Msg 
 	c->buttons[MTY_CBUTTON_TOUCHPAD] = d[4] & 0x20; // The "Capture" button
 
 	int16_t lx = (d[6] | ((d[7] & 0x0F) << 8)) - ctx->lx.c;
-	int16_t ly = ((d[7] >> 4) | (d[8] << 4) - ctx->ly.c);
+	int16_t ly = ((d[7] >> 4) | (d[8] << 4)) - ctx->ly.c;
 	int16_t rx = (d[9] | ((d[10] & 0x0F) << 8)) - ctx->rx.c;
 	int16_t ry = ((d[10] >> 4) | (d[11] << 4)) - ctx->ry.c;
 

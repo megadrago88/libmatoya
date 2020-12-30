@@ -115,6 +115,7 @@ OBJS := $(OBJS) \
 	src/unix/crypto.o \
 	src/unix/aes-gcm-openssl.o \
 	src/unix/linux/generic/gfx/gl-ctx.o \
+	src/unix/linux/generic/hid.o \
 	src/unix/linux/generic/audio.o \
 	src/unix/linux/generic/window.o
 

@@ -9,9 +9,6 @@
 #include <IOKit/hid/IOHIDManager.h>
 #include <IOKit/hid/IOHIDKeys.h>
 
-
-// HID
-
 struct hid {
 	uint32_t id;
 	MTY_Hash *devices;

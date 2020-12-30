@@ -17,6 +17,7 @@
 #include "x-dl.h"
 #include "wsize.h"
 #include "keymap.h"
+#include "hid/hid.h"
 
 struct window {
 	Window window;
@@ -44,6 +45,7 @@ struct MTY_App {
 	MTY_AppFunc app_func;
 	MTY_Hash *hotkey;
 	MTY_Mutex *mutex;
+	struct hid *hid;
 	struct window *windows[MTY_WINDOW_MAX];
 	uint32_t timeout;
 	int64_t suspend_ts;
@@ -60,7 +62,12 @@ struct MTY_App {
 };
 
 
-// Window helpers
+// Helpers, DL
+
+static void __attribute__((destructor)) app_global_destroy(void)
+{
+	x_dl_global_destroy();
+}
 
 struct window *app_get_window(MTY_App *ctx, MTY_Window window)
 {
@@ -490,9 +497,43 @@ static Cursor app_create_empty_cursor(Display *display)
 
 // App
 
-static void __attribute__((destructor)) app_global_destroy(void)
+static void app_hid_connect(struct hdevice *device, void *opaque)
 {
-	x_dl_global_destroy();
+	MTY_App *ctx = opaque;
+
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_CONNECT;
+	msg.controller.vid = hid_device_get_vid(device);
+	msg.controller.pid = hid_device_get_pid(device);
+	msg.controller.id = hid_device_get_id(device);
+
+	ctx->msg_func(&msg, ctx->opaque);
+}
+
+static void app_hid_disconnect(struct hdevice *device, void *opaque)
+{
+	MTY_App *ctx = opaque;
+
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_DISCONNECT;
+	msg.controller.vid = hid_device_get_vid(device);
+	msg.controller.pid = hid_device_get_pid(device);
+	msg.controller.id = hid_device_get_id(device);
+
+	ctx->msg_func(&msg, ctx->opaque);
+}
+
+static void app_hid_report(struct hdevice *device, const void *buf, size_t size, void *opaque)
+{
+	MTY_App *ctx = opaque;
+
+	// Linux uses joydev, so we skip our drivers and go right to default state, which just copies
+	// the values out
+	MTY_Msg msg = {0};
+	hid_default_state(device, buf, size, &msg);
+
+	if (msg.type != MTY_MSG_NONE && MTY_AppIsActive(ctx))
+		ctx->msg_func(&msg, ctx->opaque);
 }
 
 static void app_refresh_scale(MTY_App *ctx)
@@ -520,6 +561,9 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	ctx->msg_func = msgFunc;
 	ctx->opaque = opaque;
 	ctx->class_name = MTY_Strdup(MTY_GetFileName(MTY_ProcessName(), false));
+
+	// This may return NULL
+	ctx->hid = hid_create(app_hid_connect, app_hid_disconnect, app_hid_report, ctx);
 
 	ctx->display = XOpenDisplay(NULL);
 	if (!ctx->display) {
@@ -583,6 +627,8 @@ void MTY_AppDestroy(MTY_App **app)
 
 	if (ctx->display)
 		XCloseDisplay(ctx->display);
+
+	hid_destroy(&ctx->hid);
 
 	MTY_HashDestroy(&ctx->hotkey, NULL);
 	MTY_MutexDestroy(&ctx->mutex);
@@ -799,6 +845,9 @@ void MTY_AppRun(MTY_App *ctx)
 			XNextEvent(ctx->display, &event);
 			app_event(ctx, &event);
 		}
+
+		if (ctx->hid)
+			hid_poll(ctx->hid);
 
 		cont = ctx->app_func(ctx->opaque);
 
