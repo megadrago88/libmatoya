@@ -124,10 +124,10 @@ static void hid_new_device(struct hid *ctx)
 	const char *action = udev_device_get_action(dev);
 	const char *devnode = udev_device_get_devnode(dev);
 	if (!action || !devnode)
-		return;
+		goto except;
 
 	if (!strstr(devnode, "/js"))
-		return;
+		goto except;
 
 	if (!strcmp(action, "add")) {
 		hid_device_add(ctx, devnode);
@@ -135,6 +135,8 @@ static void hid_new_device(struct hid *ctx)
 	} else if (!strcmp(action, "remove")) {
 		hid_device_remove(ctx, devnode);
 	}
+
+	except:
 
 	udev_device_unref(dev);
 }
@@ -318,7 +320,6 @@ void hid_destroy(struct hid **hid)
 	MTY_Free(ctx);
 	*hid = NULL;
 }
-
 
 void hid_device_write(struct hdevice *ctx, const void *buf, size_t size)
 {
