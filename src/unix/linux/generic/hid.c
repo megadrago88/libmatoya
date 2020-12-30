@@ -360,7 +360,7 @@ static void hid_gamepad_state(struct hdevice *ctx, MTY_Msg *msg)
 	c->id = s->id;
 	c->pid = s->pid;
 	c->vid = s->vid;
-	c->numButtons = 14;
+	c->numButtons = 15;
 	c->numValues = 7;
 
 	for (uint8_t x = 0; x < ctx->nbuttons; x++) {
@@ -371,11 +371,19 @@ static void hid_gamepad_state(struct hdevice *ctx, MTY_Msg *msg)
 			case BTN_Y: c->buttons[MTY_CBUTTON_Y] = s->buttons[x]; break;
 			case BTN_TL: c->buttons[MTY_CBUTTON_LEFT_SHOULDER] = s->buttons[x]; break;
 			case BTN_TR: c->buttons[MTY_CBUTTON_RIGHT_SHOULDER] = s->buttons[x]; break;
+			case BTN_TL2: c->buttons[MTY_CBUTTON_LEFT_TRIGGER] = s->buttons[x]; break;
+			case BTN_TR2: c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] = s->buttons[x]; break;
 			case BTN_SELECT: c->buttons[MTY_CBUTTON_BACK] = s->buttons[x]; break;
 			case BTN_START: c->buttons[MTY_CBUTTON_START] = s->buttons[x]; break;
 			case BTN_MODE: c->buttons[MTY_CBUTTON_GUIDE] = s->buttons[x]; break;
 			case BTN_THUMBL: c->buttons[MTY_CBUTTON_LEFT_THUMB] = s->buttons[x]; break;
 			case BTN_THUMBR: c->buttons[MTY_CBUTTON_RIGHT_THUMB] = s->buttons[x]; break;
+
+			// Unknown
+			case BTN_C: c->buttons[MTY_CBUTTON_TOUCHPAD] = s->buttons[x]; break;
+			case BTN_Z: c->buttons[MTY_CBUTTON_TOUCHPAD + 1] = s->buttons[x]; break;
+			default:
+				break;
 		}
 	}
 
@@ -401,7 +409,7 @@ static void hid_gamepad_state(struct hdevice *ctx, MTY_Msg *msg)
 				c->values[MTY_CVALUE_THUMB_LX].max = INT16_MAX;
 				break;
 			case ABS_Y:
-				c->values[MTY_CVALUE_THUMB_LY].data = s->values[x].data;
+				c->values[MTY_CVALUE_THUMB_LY].data = -s->values[x].data;
 				c->values[MTY_CVALUE_THUMB_LY].usage = 0x31;
 				c->values[MTY_CVALUE_THUMB_LY].min = INT16_MIN;
 				c->values[MTY_CVALUE_THUMB_LY].max = INT16_MAX;
@@ -419,7 +427,7 @@ static void hid_gamepad_state(struct hdevice *ctx, MTY_Msg *msg)
 				c->values[MTY_CVALUE_THUMB_RX].max = INT16_MAX;
 				break;
 			case ABS_RY:
-				c->values[MTY_CVALUE_THUMB_RY].data = s->values[x].data;
+				c->values[MTY_CVALUE_THUMB_RY].data = -s->values[x].data;
 				c->values[MTY_CVALUE_THUMB_RY].usage = 0x35;
 				c->values[MTY_CVALUE_THUMB_RY].min = INT16_MIN;
 				c->values[MTY_CVALUE_THUMB_RY].max = INT16_MAX;
@@ -468,6 +476,9 @@ static void hid_joystick_state(struct hdevice *ctx, MTY_Msg *msg)
 			case BTN_BASE4: c->buttons[MTY_CBUTTON_START] = s->buttons[x]; break;
 			case BTN_BASE5: c->buttons[MTY_CBUTTON_LEFT_THUMB] = s->buttons[x]; break;
 			case BTN_BASE6: c->buttons[MTY_CBUTTON_RIGHT_THUMB] = s->buttons[x]; break;
+
+			// Unknown
+			case BTN_DEAD: c->buttons[MTY_CBUTTON_GUIDE] = s->buttons[x]; break;
 		}
 	}
 
@@ -503,7 +514,7 @@ static void hid_joystick_state(struct hdevice *ctx, MTY_Msg *msg)
 				c->values[MTY_CVALUE_THUMB_LX].max = INT16_MAX;
 				break;
 			case ABS_Y:
-				c->values[MTY_CVALUE_THUMB_LY].data = s->values[x].data;
+				c->values[MTY_CVALUE_THUMB_LY].data = -s->values[x].data;
 				c->values[MTY_CVALUE_THUMB_LY].usage = 0x31;
 				c->values[MTY_CVALUE_THUMB_LY].min = INT16_MIN;
 				c->values[MTY_CVALUE_THUMB_LY].max = INT16_MAX;
@@ -515,7 +526,7 @@ static void hid_joystick_state(struct hdevice *ctx, MTY_Msg *msg)
 				c->values[MTY_CVALUE_THUMB_RX].max = INT16_MAX;
 				break;
 			case ABS_RZ:
-				c->values[MTY_CVALUE_THUMB_RY].data = s->values[x].data;
+				c->values[MTY_CVALUE_THUMB_RY].data = -s->values[x].data;
 				c->values[MTY_CVALUE_THUMB_RY].usage = 0x35;
 				c->values[MTY_CVALUE_THUMB_RY].min = INT16_MIN;
 				c->values[MTY_CVALUE_THUMB_RY].max = INT16_MAX;
