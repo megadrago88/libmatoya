@@ -307,3 +307,8 @@ uint32_t hid_device_get_input_report_size(struct hdevice *ctx)
 {
 	return ctx->input_size;
 }
+
+bool hid_device_force_default(struct hdevice *ctx)
+{
+	return false;
+}
