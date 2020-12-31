@@ -7,6 +7,7 @@
 #include "hid/hid.h"
 
 #include <string.h>
+#include <stdlib.h>
 #include <stdio.h>
 
 #include <poll.h>
@@ -83,7 +84,40 @@ static uint8_t hid_find_slot(struct hid *ctx)
 	return 0;
 }
 
-static void hid_device_add(struct hid *ctx, const char *devnode)
+static void hid_device_vid_pid(const char *syspath, uint16_t *vid, uint16_t *pid)
+{
+	char *dsyspath = MTY_Strdup(syspath);
+
+	char *end = strstr(dsyspath, "/input");
+	if (end) {
+		*end = '\0';
+
+		char *begin = strrchr(dsyspath, '/');
+		if (begin) {
+			begin += 1;
+
+			end = strchr(begin, '.');
+			if (end) {
+				*end = '\0';
+
+				begin = strchr(begin, ':');
+				if (begin) {
+					begin += 1;
+
+					char *split = strchr(begin, ':');
+					*split = '\0';
+
+					*vid = strtol(begin, NULL, 16);
+					*pid = strtol(split + 1, NULL, 16);
+				}
+			}
+		}
+	}
+
+	MTY_Free(dsyspath);
+}
+
+static void hid_device_add(struct hid *ctx, const char *devnode, const char *syspath)
 {
 	struct hdevice *hdev = MTY_HashGet(ctx->devices, devnode);
 	if (hdev)
@@ -103,8 +137,8 @@ static void hid_device_add(struct hid *ctx, const char *devnode)
 		hdev->state.driver = MTY_HID_DRIVER_DEFAULT;
 		hdev->state.numValues = 1; // There's always a DPAD
 		hdev->state.id = hdev->id;
-		hdev->state.vid = 0; // TODO
-		hdev->state.pid = 0; // TODO
+
+		hid_device_vid_pid(syspath, &hdev->state.vid, &hdev->state.pid);
 
 		ioctl(ctx->fds[slot].fd, JSIOCGBTNMAP, hdev->btnmap);
 		ioctl(ctx->fds[slot].fd, JSIOCGAXMAP, hdev->axmap);
@@ -153,6 +187,7 @@ static void hid_new_device(struct hid *ctx)
 
 	const char *action = udev_device_get_action(dev);
 	const char *devnode = udev_device_get_devnode(dev);
+	const char *syspath = udev_device_get_syspath(dev);
 	if (!action || !devnode)
 		goto except;
 
@@ -160,7 +195,7 @@ static void hid_new_device(struct hid *ctx)
 		goto except;
 
 	if (!strcmp(action, "add")) {
-		hid_device_add(ctx, devnode);
+		hid_device_add(ctx, devnode, syspath);
 
 	} else if (!strcmp(action, "remove")) {
 		hid_device_remove(ctx, devnode);
@@ -328,7 +363,7 @@ static void hid_initial_scan(struct hid *ctx)
 		if (dev) {
 			const char *devnode = udev_device_get_devnode(dev);
 			if (devnode && strstr(devnode, "/js"))
-				hid_device_add(ctx, devnode);
+				hid_device_add(ctx, devnode, name);
 		}
 	}
 
