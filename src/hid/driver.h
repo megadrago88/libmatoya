@@ -199,6 +199,9 @@ static void hid_default_map_values(MTY_Controller *c)
 
 static MTY_HIDDriver hid_driver(struct hdevice *device)
 {
+	if (hid_device_force_default(device))
+		return MTY_HID_DRIVER_DEFAULT;
+
 	uint16_t vid = hid_device_get_vid(device);
 	uint16_t pid = hid_device_get_pid(device);
 	uint32_t id = ((uint32_t) vid << 16) | pid;

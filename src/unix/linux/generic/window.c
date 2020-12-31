@@ -18,6 +18,7 @@
 #include "wsize.h"
 #include "keymap.h"
 #include "hid/hid.h"
+#include "hid/driver.h"
 
 struct window {
 	Window window;
@@ -501,6 +502,8 @@ static void app_hid_connect(struct hdevice *device, void *opaque)
 {
 	MTY_App *ctx = opaque;
 
+	hid_driver_init(device);
+
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_CONNECT;
 	msg.controller.vid = hid_device_get_vid(device);
@@ -530,7 +533,7 @@ static void app_hid_report(struct hdevice *device, const void *buf, size_t size,
 	// Linux uses joydev, so we skip our drivers and go right to default state, which just copies
 	// the values out
 	MTY_Msg msg = {0};
-	hid_default_state(device, buf, size, &msg);
+	hid_driver_state(device, buf, size, &msg);
 
 	if (msg.type != MTY_MSG_NONE && MTY_AppIsActive(ctx))
 		ctx->msg_func(&msg, ctx->opaque);
@@ -932,7 +935,8 @@ void MTY_AppActivate(MTY_App *app, bool active)
 
 void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {
-	// TODO
+	if (app->hid)
+		hid_driver_rumble(app->hid, id, low, high);
 }
 
 
