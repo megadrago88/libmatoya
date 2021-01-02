@@ -15,12 +15,12 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/time.h>
-#include <linux/joystick.h>
+#include <linux/input.h>
 
 #include "udev-dl.h"
 
+// https://github.com/torvalds/linux/blob/master/include/uapi/linux/input.h
 // https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
-// https://github.com/torvalds/linux/blob/master/include/uapi/linux/joystick.h
 
 #define HID_FD_MAX     33
 #define HID_AXMAP_MAX  ABS_CNT
@@ -48,16 +48,20 @@ struct hat {
 
 struct hdevice {
 	MTY_Controller state;
+	struct ff_effect ff;
 	bool gamepad; // PS4, XInput
-	uint16_t btnmap[HID_BTNMAP_MAX];
-	uint8_t axmap[HID_AXMAP_MAX];
+	bool rumble; // Can rumble
 	struct hat hat;
 	uint8_t slot;
-	uint8_t nbuttons;
-	uint8_t naxes;
 	uint32_t id;
 	uint16_t vid;
 	uint16_t pid;
+
+	struct {
+		uint8_t slot;
+		int32_t min;
+		int32_t max;
+	} ainfo[ABS_CNT];
 };
 
 static void __attribute__((destructor)) hid_global_destroy(void)
@@ -84,39 +88,6 @@ static uint8_t hid_find_slot(struct hid *ctx)
 	return 0;
 }
 
-static void hid_device_vid_pid(const char *syspath, uint16_t *vid, uint16_t *pid)
-{
-	char *dsyspath = MTY_Strdup(syspath);
-
-	char *end = strstr(dsyspath, "/input");
-	if (end) {
-		*end = '\0';
-
-		char *begin = strrchr(dsyspath, '/');
-		if (begin) {
-			begin += 1;
-
-			end = strchr(begin, '.');
-			if (end) {
-				*end = '\0';
-
-				begin = strchr(begin, ':');
-				if (begin) {
-					begin += 1;
-
-					char *split = strchr(begin, ':');
-					*split = '\0';
-
-					*vid = strtol(begin, NULL, 16);
-					*pid = strtol(split + 1, NULL, 16);
-				}
-			}
-		}
-	}
-
-	MTY_Free(dsyspath);
-}
-
 static void hid_device_add(struct hid *ctx, const char *devnode, const char *syspath)
 {
 	struct hdevice *hdev = MTY_HashGet(ctx->devices, devnode);
@@ -127,37 +98,66 @@ static void hid_device_add(struct hid *ctx, const char *devnode, const char *sys
 	if (slot == 0)
 		return;
 
-	ctx->fds[slot].fd = open(devnode, O_RDWR | O_NONBLOCK);
+	int32_t fd = open(devnode, O_RDWR | O_NONBLOCK);
 
-	if (ctx->fds[slot].fd >= 0) {
-		hdev = MTY_Alloc(1, sizeof(struct hdevice));
-		hdev->id = ctx->fds[slot].fd;
-		hdev->slot = slot;
+	if (fd >= 0) {
+		uint64_t evs = 0;
+		ioctl(fd, EVIOCGBIT(0, sizeof(uint64_t)), &evs);
 
-		hdev->state.driver = MTY_HID_DRIVER_DEFAULT;
-		hdev->state.numValues = 1; // There's always a DPAD
-		hdev->state.id = hdev->id;
+		// There is no great way to tell what kind of device this is. Filter by
+		// devices that have EV_KEY (keys and buttons) and EV_ABS (absolute axis)
+		if ((evs & (1 << EV_KEY)) && (evs & (1 << EV_ABS))) {
+			hdev = MTY_Alloc(1, sizeof(struct hdevice));
+			hdev->id = fd;
+			hdev->slot = slot;
 
-		hid_device_vid_pid(syspath, &hdev->state.vid, &hdev->state.pid);
+			hdev->state.driver = MTY_HID_DRIVER_DEFAULT;
+			hdev->state.numValues = 1; // There's always a dummy 'hat' DPAD
+			hdev->state.numButtons = 14; // There's no good way to know how many buttons the device has
+			hdev->state.id = hdev->id;
 
-		ioctl(ctx->fds[slot].fd, JSIOCGBTNMAP, hdev->btnmap);
-		ioctl(ctx->fds[slot].fd, JSIOCGAXMAP, hdev->axmap);
-		ioctl(ctx->fds[slot].fd, JSIOCGAXES, &hdev->naxes);
-		ioctl(ctx->fds[slot].fd, JSIOCGBUTTONS, &hdev->nbuttons);
+			struct input_id ids = {0};
+			ioctl(fd, EVIOCGID, &ids);
+			hdev->state.vid = ids.vendor;
+			hdev->state.pid = ids.product;
 
-		// joydev seems to have two different mappings, one for BTN_GAMEPAD (0x130-0x13e)
-		// and joystcik BTN_JOYSTICK (0x120-0x12f)
-		for (uint8_t x = 0; x < hdev->nbuttons; x++)
-			if (hdev->btnmap[x] >= 0x130 && hdev->btnmap[x] < 0x140)
-				hdev->gamepad = true;
+			hdev->ff.type = FF_RUMBLE;
+			hdev->ff.replay.length = 1000;
+			hdev->ff.id = -1;
 
-		MTY_HashSet(ctx->devices, devnode, hdev);
-		MTY_HashSetInt(ctx->devices_rev, hdev->id, hdev);
+			uint64_t features[2] = {0};
+			if (ioctl(fd, EVIOCGBIT(EV_FF, 2 * sizeof(uint64_t)), features) != -1)
+				hdev->rumble = features[1] & (1 << (FF_RUMBLE - 64));
 
-		ctx->connect(hdev, ctx->opaque);
+			// Discover axis
+			for (uint8_t x = 0x00; x < ABS_CNT; x++) {
+				if (x != ABS_HAT0X && x != ABS_HAT0Y) {
+					struct input_absinfo info = {0};
+					ioctl(fd, EVIOCGABS(x), &info);
+
+					if (info.minimum != 0 || info.maximum != 0) {
+						hdev->ainfo[x].slot = hdev->state.numValues++;
+						hdev->ainfo[x].min = info.minimum;
+						hdev->ainfo[x].max = info.maximum;
+					}
+				}
+			}
+
+			ctx->fds[slot].fd = fd;
+			MTY_HashSet(ctx->devices, devnode, hdev);
+			MTY_HashSetInt(ctx->devices_rev, hdev->id, hdev);
+
+			ctx->connect(hdev, ctx->opaque);
+
+		} else {
+			close(fd);
+		}
 
 	} else {
-		MTY_Log("'open' failed with errno %d", errno);
+		// Many event devnodes are not readable by non-root (like mouse and keyboard)
+		// Joysticks usually are
+		if (errno != EACCES)
+			MTY_Log("'open' failed with errno %d", errno);
 	}
 }
 
@@ -191,7 +191,7 @@ static void hid_new_device(struct hid *ctx)
 	if (!action || !devnode)
 		goto except;
 
-	if (!strstr(devnode, "/js"))
+	if (!strstr(devnode, "/event"))
 		goto except;
 
 	if (!strcmp(action, "add")) {
@@ -206,7 +206,7 @@ static void hid_new_device(struct hid *ctx)
 	udev_device_unref(dev);
 }
 
-static void hid_set_hat(struct hdevice *ctx, uint8_t type, const struct js_event *event)
+static void hid_set_hat(struct hdevice *ctx, uint8_t type, const struct input_event *event)
 {
 	struct hat *h = &ctx->hat;
 
@@ -271,7 +271,7 @@ static MTY_CButton hid_button(uint16_t type)
 	return -1;
 }
 
-static uint16_t hid_gamepad_usage(struct hdevice *ctx, uint16_t type, const struct js_event *event)
+static uint16_t hid_gamepad_usage(struct hdevice *ctx, uint16_t type, const struct input_event *event)
 {
 	switch (type) {
 		case ABS_X: return 0x30;
@@ -285,7 +285,7 @@ static uint16_t hid_gamepad_usage(struct hdevice *ctx, uint16_t type, const stru
 	return 0;
 }
 
-static uint16_t hid_joystick_usage(struct hdevice *ctx, uint16_t type, const struct js_event *event)
+static uint16_t hid_joystick_usage(struct hdevice *ctx, uint16_t type, const struct input_event *event)
 {
 	switch (type) {
 		case ABS_X: return 0x30;
@@ -304,13 +304,16 @@ static void hid_joystick_event(struct hid *ctx, int32_t fd)
 		return;
 
 	MTY_Controller *c = &hdev->state;
-	struct js_event event = {0};
+	struct input_event event = {0};
 
-	if (read(fd, &event, sizeof(struct js_event)) != sizeof(struct js_event))
+	if (read(fd, &event, sizeof(struct input_event)) != sizeof(struct input_event))
 		return;
 
-	if ((event.type & 0xF) == JS_EVENT_BUTTON) {
-		MTY_CButton cb = hid_button(hdev->btnmap[event.number]);
+	if (event.type == EV_KEY) {
+		if (event.code >= 0x130 && event.code < 0x140)
+			hdev->gamepad = true;
+
+		MTY_CButton cb = hid_button(event.code);
 
 		if (cb >= 0) {
 			if (cb >= MTY_CBUTTON_MAX)
@@ -320,30 +323,31 @@ static void hid_joystick_event(struct hid *ctx, int32_t fd)
 				c->numButtons = cb + 1;
 
 			c->buttons[cb] = event.value ? true : false;
+			ctx->report(hdev, NULL, 0, ctx->opaque);
 		}
 
-	} else if ((event.type & 0xF) == JS_EVENT_AXIS) {
-		uint16_t type = hdev->axmap[event.number];
-		hid_set_hat(hdev, type, &event);
+	} else if (event.type == EV_ABS) {
+		hid_set_hat(hdev, event.code, &event);
 
-		uint16_t usage = hdev->gamepad ? hid_gamepad_usage(hdev, type, &event) :
-			hid_joystick_usage(hdev, type, &event);
+		uint16_t usage = hdev->gamepad ? hid_gamepad_usage(hdev, event.code, &event) :
+			hid_joystick_usage(hdev, event.code, &event);
 
 		if (usage > 0) {
-			if (event.number + 1 >= MTY_CVALUE_MAX)
+			uint8_t slot = hdev->ainfo[event.code].slot;
+
+			// Slots will always begin at 1 since the DPAD is in a fixed position of 0
+			if (slot > 0 && slot >= MTY_CVALUE_MAX)
 				return;
 
-			if (event.number + 1 >= c->numValues)
-				c->numValues = event.number + 2;
+			c->values[slot].data  = event.value;
+			c->values[slot].usage  = usage;
+			c->values[slot].min = hdev->ainfo[event.code].min;
+			c->values[slot].max = hdev->ainfo[event.code].max;
 
-			c->values[event.number + 1].data  = event.value;
-			c->values[event.number + 1].usage  = usage;
-			c->values[event.number + 1].min = -INT16_MAX;
-			c->values[event.number + 1].max = INT16_MAX;
 		}
 	}
 
-	if (!(event.type & 0x80))
+	if (event.type != EV_SYN)
 		ctx->report(hdev, NULL, 0, ctx->opaque);
 }
 
@@ -362,7 +366,7 @@ static void hid_initial_scan(struct hid *ctx)
 		struct udev_device *dev = udev_device_new_from_syspath(ctx->udev, name);
 		if (dev) {
 			const char *devnode = udev_device_get_devnode(dev);
-			if (devnode && strstr(devnode, "/js"))
+			if (devnode && strstr(devnode, "/event"))
 				hid_device_add(ctx, devnode, name);
 		}
 	}
@@ -457,7 +461,7 @@ void hid_poll(struct hid *ctx)
 			if (x == 0) {
 				hid_new_device(ctx);
 
-			// joydev event
+			// evdev event
 			} else {
 				hid_joystick_event(ctx, ctx->fds[x].fd);
 			}
@@ -502,6 +506,37 @@ void hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Ms
 {
 	wmsg->type = MTY_MSG_CONTROLLER;
 	wmsg->controller = ctx->state;
+}
+
+void hid_default_rumble(struct hid *ctx, uint32_t id, uint16_t low, uint16_t high)
+{
+	struct hdevice *hdev = MTY_HashGetInt(ctx->devices_rev, id);
+	if (!hdev)
+		return;
+
+	if (!hdev->rumble)
+		return;
+
+	// evdev can only store a certain number of effects, make sure to delete them
+	if (hdev->ff.id != -1) {
+		ioctl(ctx->fds[hdev->slot].fd, EVIOCRMFF, hdev->ff.id);
+		hdev->ff.id = -1;
+	}
+
+	hdev->ff.u.rumble.strong_magnitude = low;
+	hdev->ff.u.rumble.weak_magnitude = high;
+
+	// Upload the effect
+	if (ioctl(ctx->fds[hdev->slot].fd, EVIOCSFF, &hdev->ff) != -1) {
+		struct input_event ev = {0};
+		ev.type = EV_FF;
+		ev.code = hdev->ff.id;
+		ev.value = 1;
+
+		// Write the effect
+		if (write(ctx->fds[hdev->slot].fd, &ev, sizeof(struct input_event)) == -1)
+			MTY_Log("'write' failed with errno %d", errno);
+	}
 }
 
 void *hid_device_get_state(struct hdevice *ctx)
