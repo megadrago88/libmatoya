@@ -283,6 +283,10 @@ void hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Ms
 	c->id = ctx->id;
 }
 
+void hid_default_rumble(struct hid *ctx, uint32_t id, uint16_t low, uint16_t high)
+{
+}
+
 void *hid_device_get_state(struct hdevice *ctx)
 {
 	return ctx->state;
