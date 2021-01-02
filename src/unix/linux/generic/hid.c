@@ -114,11 +114,13 @@ static void hid_device_add(struct hid *ctx, const char *devnode, const char *sys
 			hdev->state.numButtons = 15; // There's no good way to know how many buttons the device has
 			hdev->state.id = hdev->id;
 
+			// VID/PID
 			struct input_id ids = {0};
 			ioctl(fd, EVIOCGID, &ids);
 			hdev->state.vid = ids.vendor;
 			hdev->state.pid = ids.product;
 
+			// Set up rumble
 			hdev->ff.type = FF_RUMBLE;
 			hdev->ff.replay.length = 1000;
 			hdev->ff.id = -1;
