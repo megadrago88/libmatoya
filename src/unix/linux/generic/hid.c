@@ -23,8 +23,6 @@
 // https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
 
 #define HID_FD_MAX     33
-#define HID_AXMAP_MAX  ABS_CNT
-#define HID_BTNMAP_MAX (KEY_MAX - BTN_MISC + 1)
 
 struct hid {
 	bool init_scan;
@@ -113,7 +111,7 @@ static void hid_device_add(struct hid *ctx, const char *devnode, const char *sys
 
 			hdev->state.driver = MTY_HID_DRIVER_DEFAULT;
 			hdev->state.numValues = 1; // There's always a dummy 'hat' DPAD
-			hdev->state.numButtons = 14; // There's no good way to know how many buttons the device has
+			hdev->state.numButtons = 15; // There's no good way to know how many buttons the device has
 			hdev->state.id = hdev->id;
 
 			struct input_id ids = {0};
@@ -318,9 +316,6 @@ static void hid_joystick_event(struct hid *ctx, int32_t fd)
 		if (cb >= 0) {
 			if (cb >= MTY_CBUTTON_MAX)
 				return;
-
-			if (cb >= c->numButtons)
-				c->numButtons = cb + 1;
 
 			c->buttons[cb] = event.value ? true : false;
 			ctx->report(hdev, NULL, 0, ctx->opaque);
