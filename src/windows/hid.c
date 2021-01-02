@@ -320,6 +320,11 @@ uint32_t hid_device_get_input_report_size(struct hdevice *ctx)
 	return ctx->caps.InputReportByteLength;
 }
 
+bool hid_device_force_default(struct hdevice *ctx)
+{
+	return false;
+}
+
 void hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Msg *wmsg)
 {
 	MTY_Controller *c = &wmsg->controller;
