@@ -25,6 +25,7 @@ static struct udev_monitor *(*udev_monitor_unref)(struct udev_monitor *udev_moni
 static int (*udev_monitor_get_fd)(struct udev_monitor *udev_monitor);
 static struct udev_device *(*udev_monitor_receive_device)(struct udev_monitor *udev_monitor);
 static struct udev_device *(*udev_device_new_from_syspath)(struct udev *udev, const char *syspath);
+static const char *(*udev_device_get_syspath)(struct udev_device *udev_device);
 static const char *(*udev_device_get_action)(struct udev_device *udev_device);
 static const char *(*udev_device_get_devnode)(struct udev_device *udev_device);
 static struct udev_device *(*udev_device_unref)(struct udev_device *udev_device);
@@ -80,8 +81,8 @@ static bool udev_dl_global_init(void)
 		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_monitor_receive_device);
 		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_device_new_from_syspath);
 		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_device_get_action);
+		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_device_get_syspath);
 		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_device_get_devnode);
-		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_device_get_sysattr_value);
 		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_device_unref);
 		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_enumerate_new);
 		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_enumerate_add_match_subsystem);

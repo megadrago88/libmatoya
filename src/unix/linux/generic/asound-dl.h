@@ -144,6 +144,8 @@ static snd_pcm_sframes_t (*snd_pcm_writei)(snd_pcm_t *pcm, const void *buffer, s
 static int (*snd_pcm_close)(snd_pcm_t *pcm);
 static int (*snd_pcm_nonblock)(snd_pcm_t *pcm, int nonblock);
 static int (*snd_pcm_status)(snd_pcm_t *pcm, snd_pcm_status_t *status);
+static size_t (*snd_pcm_status_sizeof)(void);
+static size_t (*snd_pcm_hw_params_sizeof)(void);
 static snd_pcm_uframes_t (*snd_pcm_status_get_avail)(const snd_pcm_status_t *obj);
 static snd_pcm_uframes_t (*snd_pcm_status_get_avail_max)(const snd_pcm_status_t *obj);
 
@@ -194,6 +196,8 @@ static bool asound_dl_global_init(void)
 		LOAD_SYM(ASOUND_DL_SO, snd_pcm_close);
 		LOAD_SYM(ASOUND_DL_SO, snd_pcm_nonblock);
 		LOAD_SYM(ASOUND_DL_SO, snd_pcm_status);
+		LOAD_SYM(ASOUND_DL_SO, snd_pcm_status_sizeof);
+		LOAD_SYM(ASOUND_DL_SO, snd_pcm_hw_params_sizeof);
 		LOAD_SYM(ASOUND_DL_SO, snd_pcm_status_get_avail);
 		LOAD_SYM(ASOUND_DL_SO, snd_pcm_status_get_avail_max);
 
