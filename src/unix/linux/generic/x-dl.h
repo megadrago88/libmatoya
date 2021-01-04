@@ -178,8 +178,8 @@
 
 #define XK_Muhenkan               0xff22
 #define XK_Henkan                 0xff23
-#define XK_Romaji                 0xff24
-#define XK_Hiragana_Katakana      0xff27
+#define XK_Romaji                 0xff24 // Ro
+#define XK_Hiragana_Katakana      0xff27 // "JP" Key
 
 #define ShiftMask                 (1<<0)
 #define LockMask                  (1<<1)
@@ -741,11 +741,15 @@ static bool X_DL_INIT;
 
 static void x_dl_global_destroy(void)
 {
+	MTY_GlobalLock(&X_DL_LOCK);
+
 	MTY_SOUnload(&X_DL_GLX_SO);
 	MTY_SOUnload(&X_DL_XI2_SO);
 	MTY_SOUnload(&X_DL_XCURSOR_SO);
 	MTY_SOUnload(&X_DL_SO);
 	X_DL_INIT = false;
+
+	MTY_GlobalUnlock(&X_DL_LOCK);
 }
 
 static bool x_dl_global_init(void)
@@ -756,9 +760,6 @@ static bool x_dl_global_init(void)
 		bool r = true;
 
 		X_DL_SO = MTY_SOLoad("libX11.so.6");
-		if (!X_DL_SO)
-			X_DL_SO = MTY_SOLoad("libX11.so");
-
 		X_DL_XI2_SO = MTY_SOLoad("libXi.so.6");
 		X_DL_XCURSOR_SO = MTY_SOLoad("libXcursor.so.1");
 		X_DL_GLX_SO = MTY_SOLoad("libGL.so.1");

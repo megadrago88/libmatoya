@@ -22,7 +22,7 @@
 // https://github.com/torvalds/linux/blob/master/include/uapi/linux/input.h
 // https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h
 
-#define HID_FD_MAX     33
+#define HID_FD_MAX 33
 
 struct hid {
 	bool init_scan;
@@ -333,7 +333,7 @@ static void hid_joystick_event(struct hid *ctx, int32_t fd)
 			uint8_t slot = hdev->ainfo[event.code].slot;
 
 			// Slots will always begin at 1 since the DPAD is in a fixed position of 0
-			if (slot > 0 && slot >= MTY_CVALUE_MAX)
+			if (slot == 0 || slot >= MTY_CVALUE_MAX)
 				return;
 
 			c->values[slot].data  = event.value;
@@ -359,12 +359,13 @@ static void hid_initial_scan(struct hid *ctx)
 
 	struct udev_list_entry *devs = udev_enumerate_get_list_entry(enumerate);
 	for (struct udev_list_entry *item = devs; item; item = udev_list_entry_get_next(item)) {
-		const char *name = udev_list_entry_get_name(item);
-		struct udev_device *dev = udev_device_new_from_syspath(ctx->udev, name);
+		const char *syspath = udev_list_entry_get_name(item);
+		struct udev_device *dev = udev_device_new_from_syspath(ctx->udev, syspath);
+
 		if (dev) {
 			const char *devnode = udev_device_get_devnode(dev);
 			if (devnode && strstr(devnode, "/event"))
-				hid_device_add(ctx, devnode, name);
+				hid_device_add(ctx, devnode, syspath);
 		}
 	}
 

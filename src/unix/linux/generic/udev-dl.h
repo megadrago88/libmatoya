@@ -26,14 +26,7 @@ static int (*udev_monitor_get_fd)(struct udev_monitor *udev_monitor);
 static struct udev_device *(*udev_monitor_receive_device)(struct udev_monitor *udev_monitor);
 static struct udev_device *(*udev_device_new_from_syspath)(struct udev *udev, const char *syspath);
 static const char *(*udev_device_get_action)(struct udev_device *udev_device);
-static const char *(*udev_device_get_sysname)(struct udev_device *udev_device);
-static const char *(*udev_device_get_syspath)(struct udev_device *udev_device);
-static const char *(*udev_device_get_devpath)(struct udev_device *udev_device);
 static const char *(*udev_device_get_devnode)(struct udev_device *udev_device);
-static const char *(*udev_device_get_devtype)(struct udev_device *udev_device);
-static const char *(*udev_device_get_sysattr_value)(struct udev_device *udev_device, const char *value);
-static struct udev_device *(*udev_device_get_parent_with_subsystem_devtype)(struct udev_device *udev_device,
-	const char *subsystem, const char *devtype);
 static struct udev_device *(*udev_device_unref)(struct udev_device *udev_device);
 static struct udev_enumerate *(*udev_enumerate_new)(struct udev *udev);
 static int (*udev_enumerate_add_match_subsystem)(struct udev_enumerate *udev_enumerate, const char *subsystem);
@@ -52,8 +45,12 @@ static bool UDEV_DL_INIT;
 
 static void udev_dl_global_destroy(void)
 {
+	MTY_GlobalLock(&UDEV_DL_LOCK);
+
 	MTY_SOUnload(&UDEV_DL_SO);
 	UDEV_DL_INIT = false;
+
+	MTY_GlobalUnlock(&UDEV_DL_LOCK);
 }
 
 static bool udev_dl_global_init(void)
@@ -83,13 +80,8 @@ static bool udev_dl_global_init(void)
 		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_monitor_receive_device);
 		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_device_new_from_syspath);
 		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_device_get_action);
-		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_device_get_sysname);
-		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_device_get_syspath);
-		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_device_get_devpath);
 		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_device_get_devnode);
-		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_device_get_devtype);
 		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_device_get_sysattr_value);
-		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_device_get_parent_with_subsystem_devtype);
 		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_device_unref);
 		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_enumerate_new);
 		UDEV_DL_LOAD_SYM(UDEV_DL_SO, udev_enumerate_add_match_subsystem);

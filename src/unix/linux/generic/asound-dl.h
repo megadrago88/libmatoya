@@ -128,8 +128,8 @@ typedef enum _snd_pcm_format {
 	#endif
 } snd_pcm_format_t;
 
-#define	__snd_alloca(ptr, type) do { *ptr = (type##_t *) alloca(type##_sizeof()); memset(*ptr, 0, type##_sizeof()); } while (0)
-#define snd_pcm_status_alloca(ptr) __snd_alloca(ptr, snd_pcm_status)
+#define	__snd_alloca(ptr, type)       do {*ptr = (type##_t *) alloca(type##_sizeof()); memset(*ptr, 0, type##_sizeof());} while (0)
+#define snd_pcm_status_alloca(ptr)    __snd_alloca(ptr, snd_pcm_status)
 #define snd_pcm_hw_params_alloca(ptr) __snd_alloca(ptr, snd_pcm_hw_params)
 
 static int (*snd_pcm_open)(snd_pcm_t **pcm, const char *name, snd_pcm_stream_t stream, int mode);
@@ -143,8 +143,6 @@ static int (*snd_pcm_prepare)(snd_pcm_t *pcm);
 static snd_pcm_sframes_t (*snd_pcm_writei)(snd_pcm_t *pcm, const void *buffer, snd_pcm_uframes_t size);
 static int (*snd_pcm_close)(snd_pcm_t *pcm);
 static int (*snd_pcm_nonblock)(snd_pcm_t *pcm, int nonblock);
-static size_t (*snd_pcm_status_sizeof)(void);
-static size_t (*snd_pcm_hw_params_sizeof)(void);
 static int (*snd_pcm_status)(snd_pcm_t *pcm, snd_pcm_status_t *status);
 static snd_pcm_uframes_t (*snd_pcm_status_get_avail)(const snd_pcm_status_t *obj);
 static snd_pcm_uframes_t (*snd_pcm_status_get_avail_max)(const snd_pcm_status_t *obj);
@@ -158,8 +156,12 @@ static bool ASOUND_DL_INIT;
 
 static void asound_dl_global_destroy(void)
 {
+	MTY_GlobalLock(&ASOUND_DL_LOCK);
+
 	MTY_SOUnload(&ASOUND_DL_SO);
 	ASOUND_DL_INIT = false;
+
+	MTY_GlobalUnlock(&ASOUND_DL_LOCK);
 }
 
 static bool asound_dl_global_init(void)
@@ -192,8 +194,6 @@ static bool asound_dl_global_init(void)
 		LOAD_SYM(ASOUND_DL_SO, snd_pcm_close);
 		LOAD_SYM(ASOUND_DL_SO, snd_pcm_nonblock);
 		LOAD_SYM(ASOUND_DL_SO, snd_pcm_status);
-		LOAD_SYM(ASOUND_DL_SO, snd_pcm_status_sizeof);
-		LOAD_SYM(ASOUND_DL_SO, snd_pcm_hw_params_sizeof);
 		LOAD_SYM(ASOUND_DL_SO, snd_pcm_status_get_avail);
 		LOAD_SYM(ASOUND_DL_SO, snd_pcm_status_get_avail_max);
 

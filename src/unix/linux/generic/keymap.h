@@ -138,6 +138,8 @@ static MTY_Mod window_keystate_to_keymod(KeySym key, bool pressed, unsigned int 
 {
 	MTY_Mod mod = MTY_MOD_NONE;
 
+	// ModXMask may be remapped by the user
+
 	if (state & ShiftMask)    mod |= MTY_MOD_LSHIFT;
 	if (state & LockMask)     mod |= MTY_MOD_CAPS;
 	if (state & ControlMask)  mod |= MTY_MOD_LCTRL;
