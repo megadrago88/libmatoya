@@ -22,6 +22,7 @@
 
 struct window {
 	Window window;
+	MTY_Window index;
 	XIC ic;
 	MTY_GFX api;
 	struct gfx_ctx *gfx_ctx;
@@ -110,22 +111,6 @@ static struct window *app_get_active_window(MTY_App *ctx)
 	}
 
 	return NULL;
-}
-
-static MTY_Window app_get_active_index(MTY_App *ctx)
-{
-	Window w = 0;
-	int32_t revert = 0;
-	XGetInputFocus(ctx->display, &w, &revert);
-
-	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++) {
-		struct window *win = app_get_window(ctx, x);
-
-		if (win && win->window == w)
-			return x;
-	}
-
-	return 0;
 }
 
 
@@ -392,15 +377,8 @@ static void app_apply_mouse_grab(MTY_App *app, struct window *win)
 
 static void app_apply_cursor(MTY_App *app, bool focus)
 {
-	Cursor cur = None;
-
-	if (focus && app->relative && app->detach == MTY_DETACH_NONE) {
-		cur = app->empty_cursor;
-
-	} else {
-		if (app->custom_cursor && !app->default_cursor)
-			cur = app->custom_cursor;
-	}
+	Cursor cur = focus && app->relative && app->detach == MTY_DETACH_NONE ? app->empty_cursor :
+		app->custom_cursor && !app->default_cursor ? app->custom_cursor : None;
 
 	if (cur != app->cursor) {
 		for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++) {
@@ -530,8 +508,6 @@ static void app_hid_report(struct hdevice *device, const void *buf, size_t size,
 {
 	MTY_App *ctx = opaque;
 
-	// Linux uses joydev, so we skip our drivers and go right to default state, which just copies
-	// the values out
 	MTY_Msg msg = {0};
 	hid_driver_state(device, buf, size, &msg);
 
@@ -738,7 +714,7 @@ static void app_event(MTY_App *ctx, XEvent *event)
 				case 5:
 					msg.type = MTY_MSG_MOUSE_WHEEL;
 					msg.mouseWheel.x = 0;
-					msg.mouseWheel.y = event->xbutton.button == 4 ? 100 : -100;
+					msg.mouseWheel.y = event->xbutton.button == 4 ? 80 : -80;
 					break;
 			}
 			break;
@@ -773,17 +749,17 @@ static void app_event(MTY_App *ctx, XEvent *event)
 				break;
 
 			if (XGetEventData(ctx->display, &event->xcookie)) {
-				switch (event->xcookie.evtype) {
-					case XI_RawMotion: {
-						const XIRawEvent *re = (const XIRawEvent *) event->xcookie.data;
-						const double *coords = (const double *) re->raw_values;
+				if (event->xcookie.evtype == XI_RawMotion) {
+					const XIRawEvent *re = (const XIRawEvent *) event->xcookie.data;
+					const double *coords = (const double *) re->raw_values;
 
+					struct window *win = app_get_active_window(ctx);
+					if (win) {
 						msg.type = MTY_MSG_MOUSE_MOTION;
-						msg.window = app_get_active_index(ctx);
+						msg.window = win->index;
 						msg.mouseMotion.relative = true;
 						msg.mouseMotion.x = lrint(coords[0]);
 						msg.mouseMotion.y = lrint(coords[1]);
-						break;
 					}
 				}
 			}
@@ -800,6 +776,7 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			break;
 		case FocusIn:
 		case FocusOut:
+			// Do not respond to NotifyGrab or NotifyUngrab
 			if (event->xfocus.mode == NotifyNormal || event->xfocus.mode == NotifyWhileGrabbed) {
 				msg.type = MTY_MSG_FOCUS;
 				msg.focus = event->type == FocusIn;
@@ -835,6 +812,7 @@ static void app_suspend_ss(MTY_App *ctx)
 void MTY_AppRun(MTY_App *ctx)
 {
 	for (bool cont = true; cont;) {
+		// Grab / mouse state evaluation
 		if (ctx->state != ctx->prev_state) {
 			struct window *win = app_get_active_window(ctx);
 
@@ -846,18 +824,23 @@ void MTY_AppRun(MTY_App *ctx)
 			ctx->prev_state = ctx->state;
 		}
 
+		// Poll selection ownership changes
 		app_poll_clipboard(ctx);
 
+		// X11 events
 		for (XEvent event; XEventsQueued(ctx->display, QueuedAfterFlush) > 0;) {
 			XNextEvent(ctx->display, &event);
 			app_event(ctx, &event);
 		}
 
+		// evdev events
 		if (ctx->hid)
 			hid_poll(ctx->hid);
 
+		// Fire app func after all events have been processed
 		cont = ctx->app_func(ctx->opaque);
 
+		// Keep screensaver from turning on
 		if (ctx->suspend_ss)
 			app_suspend_ss(ctx);
 
@@ -948,6 +931,9 @@ void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t h
 
 static void window_set_up_wm(MTY_App *app, Window w, const MTY_WindowDesc *desc)
 {
+	// This function sets up misc things associated with the standardized _NET_WM
+	// system for communicating with the window manager
+
 	XSizeHints *shints = XAllocSizeHints();
 	shints->flags = PMinSize;
 	shints->min_width = desc->minWidth;
@@ -992,6 +978,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 		goto except;
 	}
 
+	ctx->index = window;
 	app->windows[window] = ctx;
 
 	Window root = XDefaultRootWindow(app->display);
