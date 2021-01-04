@@ -18,6 +18,7 @@
 #define Success                   0
 
 #define None                      0L
+#define NoSymbol                  0L
 #define Bool                      int
 #define True                      1
 #define False                     0
@@ -178,6 +179,7 @@
 #define XK_Muhenkan               0xff22
 #define XK_Henkan                 0xff23
 #define XK_Romaji                 0xff24
+#define XK_Hiragana_Katakana      0xff27
 
 #define ShiftMask                 (1<<0)
 #define LockMask                  (1<<1)

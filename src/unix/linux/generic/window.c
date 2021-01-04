@@ -710,12 +710,16 @@ static void app_event(MTY_App *ctx, XEvent *event)
 
 		case KeyRelease: {
 			KeySym sym = XLookupKeysym(&event->xkey, 0);
-			msg.type = MTY_MSG_KEYBOARD;
-			msg.window = app_find_window(ctx, event->xkey.window);
-			msg.keyboard.pressed = event->type == KeyPress;
-			msg.keyboard.key = window_keysym_to_key(sym);
-			msg.keyboard.mod = window_keystate_to_keymod(sym, msg.keyboard.pressed, event->xkey.state);
-			// TODO japanese, ISO testing
+			if (sym != NoSymbol) {
+				msg.keyboard.key = window_keysym_to_key(sym);
+
+				if (msg.keyboard.key != MTY_KEY_NONE) {
+					msg.type = MTY_MSG_KEYBOARD;
+					msg.window = app_find_window(ctx, event->xkey.window);
+					msg.keyboard.pressed = event->type == KeyPress;
+					msg.keyboard.mod = window_keystate_to_keymod(sym, msg.keyboard.pressed, event->xkey.state);
+				}
+			}
 			break;
 		}
 		case ButtonPress:
