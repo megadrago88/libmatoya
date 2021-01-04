@@ -129,36 +129,41 @@ static void app_hotkey_init(void)
 		XIC xic = XCreateIC(xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing, NULL);
 
 		for (MTY_Key sc = 0; sc < MTY_KEY_MAX; sc++) {
-			KeySym sym = APP_KEY_MAP[sc];
+			unsigned int keycode = APP_KEY_MAP[sc];
+			if (keycode == 0)
+				continue;
 
-			if (sym > 0x00) {
-				KeySym lsym = sym, usym = sym;
-				XConvertCase(sym, &lsym, &usym);
+			XKeyPressedEvent evt = {0};
+			evt.type = KeyPress;
+			evt.display = display;
+			evt.keycode = keycode;
 
-				char utf8_str[16] = {0};
-				bool lookup_ok = false;
+			KeySym sym = XLookupKeysym(&evt, 0);
+			if (sym == NoSymbol)
+				continue;
 
-				// FIXME symbols >= 0x80 seem to crash Xutf8LookupString -- why?
-				if (sym < 0x80) {
-					XKeyPressedEvent evt = {0};
-					evt.type = KeyPress;
-					evt.display = display;
-					evt.state = sym != usym ? ShiftMask : 0;
-					evt.keycode = XKeysymToKeycode(display, usym);
+			KeySym lsym = sym, usym = sym;
+			XConvertCase(sym, &lsym, &usym);
 
-					KeySym ignore;
-					Status status;
-					lookup_ok = Xutf8LookupString(xic, &evt, utf8_str, 16, &ignore, &status) > 0;
-				}
+			char utf8_str[16] = {0};
+			bool lookup_ok = false;
 
-				if (!lookup_ok) {
-					const char *sym_str = XKeysymToString(usym);
-					if (sym_str)
-						snprintf(utf8_str, 16, "%s", sym_str);
-				}
+			// FIXME symbols >= 0x80 seem to crash Xutf8LookupString -- why?
+			if (sym < 0x80) {
+				evt.state = sym != usym ? ShiftMask : 0;
 
-				snprintf(APP_KEYS[sc], 16, "%s", utf8_str);
+				KeySym ignore;
+				Status status;
+				lookup_ok = Xutf8LookupString(xic, &evt, utf8_str, 16, &ignore, &status) > 0;
 			}
+
+			if (!lookup_ok) {
+				const char *sym_str = XKeysymToString(usym);
+				if (sym_str)
+					snprintf(utf8_str, 16, "%s", sym_str);
+			}
+
+			snprintf(APP_KEYS[sc], 16, "%s", utf8_str);
 		}
 
 		XDestroyIC(xic);
@@ -685,16 +690,14 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			// Fall through
 
 		case KeyRelease: {
-			KeySym sym = XLookupKeysym(&event->xkey, 0);
-			if (sym != NoSymbol) {
-				msg.keyboard.key = window_keysym_to_key(sym);
+			msg.keyboard.key = window_keycode_to_key(event->xkey.keycode);
 
-				if (msg.keyboard.key != MTY_KEY_NONE) {
-					msg.type = MTY_MSG_KEYBOARD;
-					msg.window = app_find_window(ctx, event->xkey.window);
-					msg.keyboard.pressed = event->type == KeyPress;
-					msg.keyboard.mod = window_keystate_to_keymod(sym, msg.keyboard.pressed, event->xkey.state);
-				}
+			if (msg.keyboard.key != MTY_KEY_NONE) {
+				msg.type = MTY_MSG_KEYBOARD;
+				msg.window = app_find_window(ctx, event->xkey.window);
+				msg.keyboard.pressed = event->type == KeyPress;
+				msg.keyboard.mod = window_keystate_to_keymod(msg.keyboard.key,
+					msg.keyboard.pressed, event->xkey.state);
 			}
 			break;
 		}
