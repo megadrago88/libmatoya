@@ -393,7 +393,7 @@ const MTY_AUDIO_API = {
 	MTY_AudioIsPlaying: function () {
 		return AC.playing;
 	},
-	MTY_AudioGetQueuedFrames: function () {
+	MTY_AudioGetQueuedMs: function () {
 		if (AC.ctx) {
 			const queued_ms = Math.round((AC.next_time - AC.ctx.currentTime) * 1000.0);
 		}
@@ -409,10 +409,6 @@ const MTY_WEB_API = {
 	web_get_size: function (c_width, c_height) {
 		setUint32(c_width, GL.drawingBufferWidth);
 		setUint32(c_height, GL.drawingBufferHeight);
-	},
-	web_resize_canvas: function () {
-		GL.canvas.width = window.innerWidth;
-		GL.canvas.height = window.innerHeight;
 	},
 	web_set_title: function (title) {
 		document.title = c_to_js(title);
@@ -440,22 +436,22 @@ const MTY_WEB_API = {
 
 		GL = canvas.getContext('webgl2', {depth: 0, antialias: 0, premultipliedAlpha: false});
 	},
-	web_attach_events: function (w, malloc, free, mouse_motion, mouse_button, mouse_wheel, keyboard, drop) {
+	web_attach_events: function (app, malloc, free, mouse_motion, mouse_button, mouse_wheel, keyboard, drop) {
 		// A static buffer for copying javascript strings to C
 		const cbuf = func_ptr(malloc)(1024);
 
 		GL.canvas.addEventListener('mousemove', (ev) => {
-			func_ptr(mouse_motion)(w, ev.clientX, ev.clientY);
+			func_ptr(mouse_motion)(app, ev.clientX, ev.clientY);
 		});
 
 		GL.canvas.addEventListener('mousedown', (ev) => {
 			ev.preventDefault();
-			func_ptr(mouse_button)(w, true, ev.which);
+			func_ptr(mouse_button)(app, true, ev.which);
 		});
 
 		GL.canvas.addEventListener('mouseup', (ev) => {
 			ev.preventDefault();
-			func_ptr(mouse_button)(w, false, ev.which);
+			func_ptr(mouse_button)(app, false, ev.which);
 		});
 
 		GL.canvas.addEventListener('contextmenu', (ev) => {
@@ -463,15 +459,15 @@ const MTY_WEB_API = {
 		});
 
 		GL.canvas.addEventListener('wheel', (ev) => {
-			func_ptr(mouse_wheel)(w, false, ev.deltaX, ev.deltaY);
+			func_ptr(mouse_wheel)(app, false, ev.deltaX, ev.deltaY);
 		}, {passive: true});
 
 		window.addEventListener('keydown', (ev) => {
-			func_ptr(keyboard)(w, true, js_to_c(ev.code, cbuf));
+			func_ptr(keyboard)(app, true, js_to_c(ev.code, cbuf));
 		});
 
 		window.addEventListener('keyup', (ev) => {
-			func_ptr(keyboard)(w, false, js_to_c(ev.code, cbuf));
+			func_ptr(keyboard)(app, false, js_to_c(ev.code, cbuf));
 		});
 
 		GL.canvas.addEventListener('dragover', (ev) => {
@@ -494,7 +490,7 @@ const MTY_WEB_API = {
 							let buf = new Uint8Array(reader.result);
 							let cmem = func_ptr(malloc)(buf.length);
 							copy(cmem, buf);
-							func_ptr(drop)(w, js_to_c(file.name, cbuf), cmem, buf.length);
+							func_ptr(drop)(app, js_to_c(file.name, cbuf), cmem, buf.length);
 							func_ptr(free)(cmem);
 						}
 					});
@@ -507,8 +503,12 @@ const MTY_WEB_API = {
 	web_raf: function (func, opaque) {
 		const step = () => {
 			// TODO This number will affect the "swap interval"
-			if (++FRAME_CTR % 1 == 0)
+			if (++FRAME_CTR % 2 == 0) {
+				GL.canvas.width = window.innerWidth;
+				GL.canvas.height = window.innerHeight;
+
 				func_ptr(func)(opaque);
+			}
 
 			window.requestAnimationFrame(step);
 		};

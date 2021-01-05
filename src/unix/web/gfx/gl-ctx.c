@@ -7,63 +7,22 @@
 #include "gfx/mod-ctx.h"
 GFX_CTX_PROTOTYPES(_gl_)
 
-#include "x-dl.h"
-#include "gfx/gl-dl.h"
+#include "../web.h"
 
 struct gfx_gl_ctx {
-	Display *display;
-	XVisualInfo *vis;
-	Window window;
-	GLXContext gl;
 	MTY_Renderer *renderer;
 	uint32_t fb0;
-	uint32_t interval;
 };
-
-static void __attribute__((destructor)) gfx_gl_ctx_global_destroy(void)
-{
-	x_dl_global_destroy();
-}
 
 static void gfx_gl_ctx_get_size(struct gfx_gl_ctx *ctx, uint32_t *width, uint32_t *height)
 {
-	XWindowAttributes attr = {0};
-	XGetWindowAttributes(ctx->display, ctx->window, &attr);
-
-	*width = attr.width;
-	*height = attr.height;
+	web_get_size(width, height);
 }
 
 struct gfx_ctx *gfx_gl_ctx_create(void *native_window, bool vsync)
 {
-	if (!x_dl_global_init())
-		return NULL;
-
-	if (!gl_dl_global_init())
-		return NULL;
-
-	bool r = true;
-
 	struct gfx_gl_ctx *ctx = MTY_Alloc(1, sizeof(struct gfx_gl_ctx));
-	struct xinfo *info = (struct xinfo *) native_window;
-	ctx->display = info->display;
-	ctx->vis = info->vis;
-	ctx->window = info->window;
 	ctx->renderer = MTY_RendererCreate();
-
-	ctx->gl = glXCreateContext(ctx->display, ctx->vis, NULL, GL_TRUE);
-	if (!ctx->gl) {
-		r = false;
-		MTY_Log("'glXCreateContext' failed");
-		goto except;
-	}
-
-	glXMakeCurrent(ctx->display, ctx->window, ctx->gl);
-
-	except:
-
-	if (!r)
-		gfx_gl_ctx_destroy((struct gfx_ctx **) &ctx);
 
 	return (struct gfx_ctx *) ctx;
 }
@@ -77,9 +36,6 @@ void gfx_gl_ctx_destroy(struct gfx_ctx **gfx_ctx)
 
 	MTY_RendererDestroy(&ctx->renderer);
 
-	if (ctx->gl)
-		glXDestroyContext(ctx->display, ctx->gl);
-
 	MTY_Free(ctx);
 	*gfx_ctx = NULL;
 }
@@ -91,12 +47,7 @@ MTY_Device *gfx_gl_ctx_get_device(struct gfx_ctx *gfx_ctx)
 
 MTY_Context *gfx_gl_ctx_get_context(struct gfx_ctx *gfx_ctx)
 {
-	struct gfx_gl_ctx *ctx = (struct gfx_gl_ctx *) gfx_ctx;
-
-	if (glXGetCurrentContext() != ctx->gl)
-		glXMakeCurrent(ctx->display, ctx->window, ctx->gl);
-
-	return (MTY_Context *) ctx->gl;
+	return NULL;
 }
 
 MTY_Texture *gfx_gl_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
@@ -108,15 +59,6 @@ MTY_Texture *gfx_gl_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 
 void gfx_gl_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 {
-	struct gfx_gl_ctx *ctx = (struct gfx_gl_ctx *) gfx_ctx;
-
-	if (interval != ctx->interval) {
-		glXSwapIntervalEXT(ctx->display, ctx->window, interval);
-		ctx->interval = interval;
-	}
-
-	glXSwapBuffers(ctx->display, ctx->window);
-	glFinish();
 }
 
 void gfx_gl_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const MTY_RenderDesc *desc)

@@ -75,17 +75,6 @@ endif
 ### WASM ###
 ############
 ifdef WASM
-ifdef EMSDK
-
-CC = emcc
-AR = emar
-
-ARCH := emscripten
-
-OBJS := $(OBJS) \
-	src/unix/crypto.o
-
-else
 WASI_SDK = $(HOME)/wasi-sdk-11.0
 
 CC = $(WASI_SDK)/bin/clang --sysroot=$(WASI_SDK)/share/wasi-sysroot
@@ -93,9 +82,8 @@ AR = $(WASI_SDK)/bin/ar
 
 ARCH := wasm32
 
-endif
-
 OBJS := $(OBJS) \
+	src/unix/web/gfx/gl-ctx.o \
 	src/unix/web/window.o
 
 DEFS := $(DEFS) \
