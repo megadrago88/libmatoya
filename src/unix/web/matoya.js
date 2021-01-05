@@ -524,6 +524,8 @@ const MTY_WEB_API = {
 
 // WASI API
 
+// https://github.com/WebAssembly/WASI/blob/master/phases/snapshot/docs.md
+
 const FDS = {};
 let FD_NUM = 64;
 let FD_PREOPEN = false;
