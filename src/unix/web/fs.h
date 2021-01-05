@@ -12,6 +12,5 @@ struct passwd {
 
 static struct passwd __HOME = {"/"};
 
-#define getcwd(s, n) snprintf(s, n, "/")
 #define getuid() 0
 #define getpwuid(uid) (&__HOME)

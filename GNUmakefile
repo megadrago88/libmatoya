@@ -75,7 +75,7 @@ endif
 ### WASM ###
 ############
 ifdef WASM
-WASI_SDK = $(HOME)/wasi-sdk-11.0
+WASI_SDK = $(HOME)/wasi-sdk-12.0
 
 CC = $(WASI_SDK)/bin/clang --sysroot=$(WASI_SDK)/share/wasi-sysroot
 AR = $(WASI_SDK)/bin/ar

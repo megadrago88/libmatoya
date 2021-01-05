@@ -41,18 +41,21 @@ function copy(cptr, abuffer) {
 	heap.set(abuffer);
 }
 
-function c_to_js(ptr) {
-	const view = new Uint8Array(mem(), ptr);
+function char_to_js(buf) {
 	let str = '';
 
 	for (let x = 0; x < 0x7FFFFFFF; x++) {
-		if (view[x] == 0)
+		if (buf[x] == 0)
 			break;
 
-		str += String.fromCharCode(view[x]);
+		str += String.fromCharCode(buf[x]);
 	}
 
 	return str;
+}
+
+function c_to_js(ptr) {
+	return char_to_js(new Uint8Array(mem(), ptr));
 }
 
 function js_to_c(js_str, ptr) {
@@ -521,77 +524,161 @@ const MTY_WEB_API = {
 
 // WASI API
 
+const FDS = {};
+let FD_NUM = 64;
+let FD_PREOPEN = false;
+
+function b64_to_buf(str) {
+	return Uint8Array.from(atob(str), c => c.charCodeAt(0))
+}
+
+function buf_to_b64(buf) {
+	let str = '';
+	for (let x = 0; x < buf.length; x++)
+		str += String.fromCharCode(buf[x]);
+
+	return btoa(str);
+}
+
 const WASI_API = {
+	// Command line arguments
 	args_get: function () {
+		console.log('args_get', arguments);
 		return 0;
 	},
 	args_sizes_get: function (argc, argv_buf_size) {
+		console.log('args_sizes_get', arguments);
 		setUint32(argc, 0);
 		setUint32(argv_buf_size, 0);
 		return 0;
 	},
-	clock_time_get: function (id, precision, time_out) {
-		setUint64(time_out, Math.trunc(performance.now() * 1000.0 * 1000.0));
-		return 0;
-	},
-	fd_close: function () {
-	},
-	fd_fdstat_get: function () {
-	},
-	fd_fdstat_set_flags: function () {
+
+
+	// WASI preopened directory (/)
+	fd_prestat_get: function (fd, path) {
+		return !FD_PREOPEN ? 0 : 8;
 	},
 	fd_prestat_dir_name: function (fd, path, path_len) {
-		return 28;
-	},
-	fd_prestat_get: function (fd, path) {
-		return 8;
-	},
-	fd_read: function () {
-	},
-	fd_readdir: function () {
-	},
-	fd_seek: function () {
-	},
-	fd_write: function (fd, iovs, iovs_len, nwritten) {
-		let buffers = Array.from({length: iovs_len}, function (_, i) {
-		   let ptr = iovs + i * 8;
-		   let buf = getUint32(ptr);
-		   let bufLen = getUint32(ptr + 4);
+		if (!FD_PREOPEN) {
+			js_to_c('/', path);
+			FD_PREOPEN = true;
 
-		   return new Uint8Array(mem(), buf, bufLen);
-		});
-
-		let written = 0;
-		let bufferBytes = [];
-		for (let x = 0; x < buffers.length; x++) {
-			for (var b = 0; b < buffers[x].byteLength; b++)
-			   bufferBytes.push(buffers[x][b]);
-
-			written += buffers[x].byteLength;
+			return 0;
 		}
 
-		if (fd == 1)
-			console.log(String.fromCharCode.apply(null, bufferBytes));
+		return 28;
+	},
 
-		if (fd == 2)
-			console.error(String.fromCharCode.apply(null, bufferBytes));
+	// Paths
+	path_filestat_get: function (fd, flags, cpath, _0, filestat_out) {
+		const path = c_to_js(cpath);
+		if (localStorage[path]) {
+			// We only need to return the size
+			const buf = b64_to_buf(localStorage[path]);
+			setUint64(filestat_out + 32, buf.byteLength);
+		}
 
-		setUint32(nwritten, written);
+		return 0;
+	},
+	path_open: function (fd, dir_flags, path, o_flags, _0, _1, _2, _3, fd_out) {
+		const new_fd = FD_NUM++;
+		setUint32(fd_out, new_fd);
+
+		FDS[new_fd] = c_to_js(path);
 
 		return 0;
 	},
 	path_create_directory: function () {
-	},
-	path_filestat_get: function () {
-	},
-	path_open: function () {
+		return 0;
 	},
 	path_readlink: function () {
+		console.log('path_readlink', arguments);
+	},
+
+	// File descriptors
+	fd_close: function (fd) {
+		delete FDS[fd];
+	},
+	fd_fdstat_get: function () {
+		return 0;
+	},
+	fd_fdstat_set_flags: function () {
+		console.log('fd_fdstat_set_flags', arguments);
+	},
+	fd_readdir: function () {
+		console.log('fd_readdir', arguments);
+		return 8;
+	},
+	fd_seek: function (fd, offset, whence, offset_out) {
+		return 0;
+	},
+	fd_read: function (fd, iovs, iovs_len, nread) {
+		const path = FDS[fd];
+
+		if (path && localStorage[path]) {
+			const full_buf = b64_to_buf(localStorage[path]);
+
+			let ptr = iovs;
+			let cbuf = getUint32(ptr);
+			let cbuf_len = getUint32(ptr + 4);
+			let len = cbuf_len < full_buf.length ? cbuf_len : full_buf.length;
+
+			let view = new Uint8Array(mem(), cbuf, cbuf_len);
+			let slice = new Uint8Array(full_buf.buffer, 0, len);
+			view.set(slice);
+
+			setUint32(nread, len);
+		}
+
+		return 0;
+	},
+	fd_write: function (fd, iovs, iovs_len, nwritten) {
+		// Calculate full write size
+		let len = 0;
+		for (let x = 0; x < iovs_len; x++)
+			len += getUint32(iovs + x * 8 + 4);
+
+		setUint32(nwritten, len);
+
+		// Create a contiguous buffer
+		let offset = 0;
+		let full_buf = new Uint8Array(len);
+		for (let x = 0; x < iovs_len; x++) {
+			let ptr = iovs + x * 8;
+			let cbuf = getUint32(ptr);
+			let cbuf_len = getUint32(ptr + 4);
+
+			full_buf.set(new Uint8Array(mem(), cbuf, cbuf_len), offset);
+			offset += cbuf_len;
+		}
+
+		// stdout
+		if (fd == 1) {
+			console.log(char_to_js(full_buf));
+
+		// stderr
+		} else if (fd == 2) {
+			console.error(char_to_js(full_buf));
+
+		// Filesystem
+		} else if (FDS[fd]) {
+			localStorage[FDS[fd]] = buf_to_b64(full_buf, len);
+		}
+
+		return 0;
+	},
+
+	// Misc
+	clock_time_get: function (id, precision, time_out) {
+		setUint64(time_out, Math.trunc(performance.now() * 1000.0 * 1000.0));
+		return 0;
 	},
 	poll_oneoff: function (sin, sout, nsubscriptions, nevents) {
+		console.log('poll_oneoff', arguments);
 		return 0;
 	},
 	proc_exit: function () {
+		console.log('proc_exit', arguments);
 	},
 };
 
