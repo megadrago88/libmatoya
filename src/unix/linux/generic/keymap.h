@@ -4,6 +4,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+// https://wiki.archlinux.org/index.php/Keyboard_input
+// https://cgit.freedesktop.org/xorg/driver/xf86-input-evdev/tree/src/evdev.c
+
+// These keycodes originate in evdev based on the scancode, then X11 adds
+// MIN_KEYCODE (8) to them
+
 static const KeySym APP_KEY_MAP[MTY_KEY_MAX] = {
 	[MTY_KEY_NONE]           = 0,
 	[MTY_KEY_ESCAPE]         = 9,
