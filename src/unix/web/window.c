@@ -85,9 +85,17 @@ static void window_mouse_wheel(MTY_App *ctx, int32_t x, int32_t y)
 	ctx->msg_func(&msg, ctx->opaque);
 }
 
-static void window_keyboard(MTY_App *ctx, bool pressed, const char *code)
+static void window_keyboard(MTY_App *ctx, bool pressed, uint32_t keyCode, const char *code, const char *key)
 {
 	MTY_Msg msg = {0};
+
+	if (key) {
+		msg.type = MTY_MSG_TEXT;
+		snprintf(msg.text, 8, "%s", key);
+
+		ctx->msg_func(&msg, ctx->opaque);
+	}
+
 	msg.keyboard.key = (MTY_Key) MTY_HashGet(ctx->h, code);
 
 	if (msg.keyboard.key != 0) {

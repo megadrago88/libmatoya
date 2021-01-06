@@ -44,7 +44,7 @@ function copy(cptr, abuffer) {
 function char_to_js(buf) {
 	let str = '';
 
-	for (let x = 0; x < 0x7FFFFFFF; x++) {
+	for (let x = 0; x < 0x7FFFFFFF && x < buf.length; x++) {
 		if (buf[x] == 0)
 			break;
 
@@ -77,9 +77,7 @@ function js_to_c(js_str, ptr) {
 
 let GL;
 let GL_OBJ_INDEX = 0;
-let GL_BOUND_TEX = 0;
 let GL_OBJ = {};
-let GL_TEX = {};
 
 function gl_new(obj) {
 	GL_OBJ[GL_OBJ_INDEX] = obj;
@@ -176,21 +174,10 @@ const GL_API = {
 	},
 	glBindTexture: function (target, texture) {
 		GL.bindTexture(target, texture ? gl_obj(texture) : null);
-		GL_BOUND_TEX = texture;
 	},
 	glDeleteTextures: function (n, ids) {
 		for (let x = 0; x < n; x++)
 			GL.deleteTexture(gl_del(getUint32(ids + x * 4)));
-	},
-	glGetTexLevelParameteriv: function (target, level, pname, params) {
-		switch (pname) {
-			case 0x1000: // Width
-				setUint32(params, GL_TEX[GL_BOUND_TEX].x);
-				break;
-			case 0x1001: // Height
-				setUint32(params, GL_TEX[GL_BOUND_TEX].y);
-				break;
-		}
 	},
 	glTexParameteri: function (target, pname, param) {
 		GL.texParameteri(target, pname, param);
@@ -202,12 +189,6 @@ const GL_API = {
 	glTexImage2D: function (target, level, internalformat, width, height, border, format, type, data) {
 		GL.texImage2D(target, level, internalformat, width, height, border, format, type,
 			new Uint8Array(mem(), data));
-
-		if (!GL_TEX[GL_BOUND_TEX])
-			GL_TEX[GL_BOUND_TEX] = {};
-
-		GL_TEX[GL_BOUND_TEX].x = width;
-		GL_TEX[GL_BOUND_TEX].y = height;
 	},
 	glTexSubImage2D: function (target, level, xoffset, yoffset, width, height, format, type, pixels) {
 		GL.texSubImage2D(target, level, xoffset, yoffset, width, height, format, type,
@@ -409,6 +390,21 @@ const MTY_AUDIO_API = {
 let FRAME_CTR = 0;
 
 const MTY_WEB_API = {
+	// crypto
+	MTY_RandomBytes: function (cbuf, size) {
+		const buf = new Uint8Array(mem(), size);
+		Crypto.getRandomValues(buf);
+	},
+
+	// unistd
+	gethostname: function(cbuf, size) {
+		js_to_c(cbuf, location.hostname);
+	},
+	flock: function(fd, flags) {
+		return 0;
+	},
+
+	// window
 	web_get_size: function (c_width, c_height) {
 		setUint32(c_width, GL.drawingBufferWidth);
 		setUint32(c_height, GL.drawingBufferHeight);
@@ -437,11 +433,12 @@ const MTY_WEB_API = {
 		const canvas = document.createElement('canvas');
 		document.body.appendChild(canvas);
 
-		GL = canvas.getContext('webgl2', {depth: 0, antialias: 0, premultipliedAlpha: false});
+		GL = canvas.getContext('webgl2', {depth: 0, antialias: 0, premultipliedAlpha: true});
 	},
 	web_attach_events: function (app, malloc, free, mouse_motion, mouse_button, mouse_wheel, keyboard, drop) {
 		// A static buffer for copying javascript strings to C
-		const cbuf = func_ptr(malloc)(1024);
+		const cbuf0 = func_ptr(malloc)(1024);
+		const cbuf1 = func_ptr(malloc)(16);
 
 		GL.canvas.addEventListener('mousemove', (ev) => {
 			func_ptr(mouse_motion)(app, ev.clientX, ev.clientY);
@@ -466,11 +463,12 @@ const MTY_WEB_API = {
 		}, {passive: true});
 
 		window.addEventListener('keydown', (ev) => {
-			func_ptr(keyboard)(app, true, js_to_c(ev.code, cbuf));
+			func_ptr(keyboard)(app, true, ev.keyCode, js_to_c(ev.code, cbuf0),
+				ev.key.length == 1 ? js_to_c(ev.key, cbuf1) : 0);
 		});
 
 		window.addEventListener('keyup', (ev) => {
-			func_ptr(keyboard)(app, false, js_to_c(ev.code, cbuf));
+			func_ptr(keyboard)(app, false, ev.keyCode, js_to_c(ev.code, cbuf0), 0);
 		});
 
 		GL.canvas.addEventListener('dragover', (ev) => {
@@ -493,7 +491,7 @@ const MTY_WEB_API = {
 							let buf = new Uint8Array(reader.result);
 							let cmem = func_ptr(malloc)(buf.length);
 							copy(cmem, buf);
-							func_ptr(drop)(app, js_to_c(file.name, cbuf), cmem, buf.length);
+							func_ptr(drop)(app, js_to_c(file.name, cbuf0), cmem, buf.length);
 							func_ptr(free)(cmem);
 						}
 					});
@@ -593,6 +591,14 @@ const WASI_API = {
 	path_create_directory: function () {
 		return 0;
 	},
+	path_remove_directory: function () {
+		console.log('path_remove_directory', arguments);
+		return 0;
+	},
+	path_unlink_file: function () {
+		console.log('path_unlink_file', arguments);
+		return 0;
+	},
 	path_readlink: function () {
 		console.log('path_readlink', arguments);
 	},
@@ -687,7 +693,10 @@ const WASI_API = {
 
 // Entry
 
-export async function MTY_Start(bin) {
+async function MTY_Start(bin, userEnv) {
+	if (!userEnv)
+		userEnv = {};
+
 	// Fetch the wasm file as an ArrayBuffer
 	const res = await fetch(bin);
 	const buf = await res.arrayBuffer();
@@ -699,6 +708,7 @@ export async function MTY_Start(bin) {
 			...GL_API,
 			...MTY_AUDIO_API,
 			...MTY_WEB_API,
+			...userEnv,
 		},
 
 		// Current version of WASI we're compiling against, 'wasi_snapshot_preview1'
