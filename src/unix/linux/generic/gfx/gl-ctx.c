@@ -18,6 +18,7 @@ struct gfx_gl_ctx {
 	MTY_Renderer *renderer;
 	uint32_t fb0;
 	uint32_t interval;
+	void (*glXSwapIntervalEXT)(Display *dpy, GLXDrawable drawable, int interval);
 };
 
 static void __attribute__((destructor)) gfx_gl_ctx_global_destroy(void)
@@ -59,6 +60,8 @@ struct gfx_ctx *gfx_gl_ctx_create(void *native_window, bool vsync)
 	}
 
 	glXMakeCurrent(ctx->display, ctx->window, ctx->gl);
+
+	ctx->glXSwapIntervalEXT = glXGetProcAddress((const unsigned char *) "glXSwapIntervalEXT");
 
 	except:
 
@@ -110,8 +113,8 @@ void gfx_gl_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 {
 	struct gfx_gl_ctx *ctx = (struct gfx_gl_ctx *) gfx_ctx;
 
-	if (interval != ctx->interval) {
-		glXSwapIntervalEXT(ctx->display, ctx->window, interval);
+	if (ctx->glXSwapIntervalEXT && interval != ctx->interval) {
+		ctx->glXSwapIntervalEXT(ctx->display, ctx->window, interval);
 		ctx->interval = interval;
 	}
 

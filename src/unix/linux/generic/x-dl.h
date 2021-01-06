@@ -600,7 +600,6 @@ static void (*glXSwapBuffers)(Display *dpy, GLXDrawable drawable);
 static XVisualInfo *(*glXChooseVisual)(Display *dpy, int screen, int *attribList);
 static GLXContext (*glXCreateContext)(Display *dpy, XVisualInfo *vis, GLXContext shareList, Bool direct);
 static Bool (*glXMakeCurrent)(Display *dpy, GLXDrawable drawable, GLXContext ctx);
-static void (*glXSwapIntervalEXT)(Display *dpy, GLXDrawable drawable, int interval);
 static void (*glXDestroyContext)(Display *dpy, GLXContext ctx);
 static GLXContext (*glXGetCurrentContext)(void);
 
@@ -729,7 +728,6 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_GLX_SO, glXChooseVisual);
 		X_DL_LOAD_SYM(X_DL_GLX_SO, glXCreateContext);
 		X_DL_LOAD_SYM(X_DL_GLX_SO, glXMakeCurrent);
-		X_DL_LOAD_SYM(X_DL_GLX_SO, glXSwapIntervalEXT);
 		X_DL_LOAD_SYM(X_DL_GLX_SO, glXDestroyContext);
 		X_DL_LOAD_SYM(X_DL_GLX_SO, glXGetCurrentContext);
 
