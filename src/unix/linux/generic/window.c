@@ -711,13 +711,22 @@ static void app_event(MTY_App *ctx, XEvent *event)
 				case 1: msg.mouseButton.button = MTY_MOUSE_BUTTON_LEFT;   break;
 				case 2: msg.mouseButton.button = MTY_MOUSE_BUTTON_MIDDLE; break;
 				case 3: msg.mouseButton.button = MTY_MOUSE_BUTTON_RIGHT;  break;
+				case 8: msg.mouseButton.button = MTY_MOUSE_BUTTON_X1;     break;
+				case 9: msg.mouseButton.button = MTY_MOUSE_BUTTON_X2;     break;
 
 				// Mouse wheel
 				case 4:
 				case 5:
-					msg.type = MTY_MSG_MOUSE_WHEEL;
-					msg.mouseWheel.x = 0;
-					msg.mouseWheel.y = event->xbutton.button == 4 ? 80 : -80;
+				case 6:
+				case 7:
+					if (event->type == ButtonPress) {
+						msg.type = MTY_MSG_MOUSE_WHEEL;
+						msg.mouseWheel.x = event->xbutton.button == 6 ? -120 : event->xbutton.button == 7 ?  120 : 0;
+						msg.mouseWheel.y = event->xbutton.button == 4 ?  120 : event->xbutton.button == 5 ? -120 : 0;
+
+					} else {
+						msg.type = MTY_MSG_NONE;
+					}
 					break;
 			}
 			break;
