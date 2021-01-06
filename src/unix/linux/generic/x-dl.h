@@ -498,6 +498,11 @@ static XClassHint *(*XAllocClassHint)(void);
 static int (*XResetScreenSaver)(Display *display);
 
 
+// XKB interface (part of libX11 in modern times)
+
+static Bool (*XkbSetDetectableAutoRepeat)(Display *dpy, Bool detectable, Bool *supported);
+
+
 // XI2 interface
 
 // Reference: https://code.woboq.org/kde/include/X11/extensions/
@@ -652,6 +657,9 @@ static bool x_dl_global_init(void)
 			name = MTY_SOGetSymbol(so, #name); \
 			if (!name) {r = false; goto except;}
 
+		#define X_DL_LOAD_SYM_OPT(so, name) \
+			name = MTY_SOGetSymbol(so, #name);
+
 		X_DL_LOAD_SYM(X_DL_SO, XOpenDisplay);
 		X_DL_LOAD_SYM(X_DL_SO, XCloseDisplay);
 		X_DL_LOAD_SYM(X_DL_SO, XDefaultRootWindow);
@@ -707,6 +715,8 @@ static bool x_dl_global_init(void)
 		X_DL_LOAD_SYM(X_DL_SO, XAllocWMHints);
 		X_DL_LOAD_SYM(X_DL_SO, XAllocClassHint);
 		X_DL_LOAD_SYM(X_DL_SO, XResetScreenSaver);
+
+		X_DL_LOAD_SYM_OPT(X_DL_SO, XkbSetDetectableAutoRepeat);
 
 		X_DL_LOAD_SYM(X_DL_XI2_SO, XISelectEvents);
 

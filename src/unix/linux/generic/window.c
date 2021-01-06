@@ -555,6 +555,10 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 		goto except;
 	}
 
+	// Prevents KeyRelease from being generated on keyboard autorepeat (optional)
+	if (XkbSetDetectableAutoRepeat)
+		XkbSetDetectableAutoRepeat(ctx->display, True, NULL);
+
 	ctx->empty_cursor = app_create_empty_cursor(ctx->display);
 
 	unsigned char mask[3] = {0};
