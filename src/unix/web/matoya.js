@@ -554,6 +554,20 @@ function buf_to_b64(buf) {
 	return btoa(str);
 }
 
+function append_buf_to_b64(b64, buf)
+{
+	// FIXME This is a crude way to handle appending to an open file,
+	// complex seek operations will break this
+
+	const cur_buf = b64_to_buf(b64);
+	const new_buf = new Uint8Array(cur_buf.length + buf.length);
+
+	new_buf.set(cur_buf);
+	new_buf.set(buf, cur_buf.length);
+
+	return buf_to_b64(new_buf);
+}
+
 const WASI_API = {
 	// Command line arguments
 	args_get: function () {
@@ -594,11 +608,15 @@ const WASI_API = {
 
 		return 0;
 	},
-	path_open: function (fd, dir_flags, path, o_flags, _0, _1, _2, _3, fd_out) {
+	path_open: function (fd, dir_flags, path, o_flags, _0, _1, _2, mode, fd_out) {
 		const new_fd = FD_NUM++;
 		setUint32(fd_out, new_fd);
 
-		FDS[new_fd] = c_to_js(path);
+		FDS[new_fd] = {
+			path: c_to_js(path),
+			append: mode == 1,
+			offset: 0,
+		};
 
 		return 0;
 	},
@@ -635,10 +653,10 @@ const WASI_API = {
 		return 0;
 	},
 	fd_read: function (fd, iovs, iovs_len, nread) {
-		const path = FDS[fd];
+		const finfo = FDS[fd];
 
-		if (path && localStorage[path]) {
-			const full_buf = b64_to_buf(localStorage[path]);
+		if (finfo && localStorage[finfo.path]) {
+			const full_buf = b64_to_buf(localStorage[finfo.path]);
 
 			let ptr = iovs;
 			let cbuf = getUint32(ptr);
@@ -684,7 +702,17 @@ const WASI_API = {
 
 		// Filesystem
 		} else if (FDS[fd]) {
-			localStorage[FDS[fd]] = buf_to_b64(full_buf, len);
+			const finfo = FDS[fd];
+			const cur_b64 = localStorage[finfo.path];
+
+			if (cur_b64 && finfo.append) {
+				localStorage[finfo.path] = append_buf_to_b64(cur_b64, full_buf);
+
+			} else {
+				localStorage[finfo.path] = buf_to_b64(full_buf, len);
+			}
+
+			finfo.offet += len;
 		}
 
 		return 0;
