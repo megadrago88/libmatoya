@@ -194,6 +194,15 @@ static void window_keyboard(MTY_App *ctx, bool pressed, uint32_t keyCode, const 
 	}
 }
 
+static void window_focus(MTY_App *ctx, bool focus)
+{
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_FOCUS;
+	msg.focus = focus;
+
+	ctx->msg_func(&msg, ctx->opaque);
+}
+
 static void window_drop(MTY_App *ctx, const char *name, const void *data, size_t size)
 {
 	MTY_Msg msg = {0};
@@ -243,7 +252,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 
 	web_create_canvas();
 	web_attach_events(ctx, window_mouse_motion, window_mouse_button,
-		window_mouse_wheel, window_keyboard, window_drop);
+		window_mouse_wheel, window_keyboard, window_focus, window_drop);
 
 	ctx->h = MTY_HashCreate(100);
 	window_hash_codes(ctx->h);
@@ -299,7 +308,7 @@ bool MTY_AppGetRelativeMouse(MTY_App *app)
 
 bool MTY_AppIsActive(MTY_App *ctx)
 {
-	return true;
+	return web_has_focus();
 }
 
 void MTY_AppActivate(MTY_App *app, bool active)
@@ -360,12 +369,12 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 
 bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
 {
-	return true;
+	return web_is_visible();
 }
 
 bool MTY_WindowIsActive(MTY_App *app, MTY_Window window)
 {
-	return true;
+	return web_has_focus();
 }
 
 

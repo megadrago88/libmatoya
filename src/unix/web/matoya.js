@@ -14,12 +14,16 @@ function mem() {
 	return MODULE.instance.exports.memory.buffer;
 }
 
+function MTY_CFunc(ptr) {
+	return MODULE.instance.exports.__indirect_function_table.get(ptr);
+}
+
 function MTY_Alloc(size, el) {
-	return func_ptr(MTY_ALLOC)(size, el ? el : 1);
+	return MTY_CFunc(MTY_ALLOC)(size, el ? el : 1);
 }
 
 function MTY_Free(ptr) {
-	func_ptr(MTY_FREE)(ptr);
+	MTY_CFunc(MTY_FREE)(ptr);
 }
 
 function mem_view() {
@@ -40,10 +44,6 @@ function setUint64(ptr, value) {
 
 function getUint32(ptr) {
 	return mem_view().getUint32(ptr, true);
-}
-
-function func_ptr(ptr) {
-	return MODULE.instance.exports.__indirect_function_table.get(ptr);
 }
 
 function copy(cptr, abuffer) {
@@ -414,10 +414,23 @@ const MTY_WEB_API = {
 		return 0;
 	},
 
-	// window
+	// browser
 	web_set_mem_funcs: function (alloc, free) {
 		MTY_ALLOC = alloc;
 		MTY_FREE = free;
+	},
+	web_has_focus: function () {
+		return document.hasFocus();
+	},
+	web_is_visible: function () {
+		if (document.hidden != undefined) {
+			return !document.hidden;
+
+		} else if (document.webkitHidden != undefined) {
+			return !document.webkitHidden;
+		}
+
+		return true;
 	},
 	web_get_size: function (c_width, c_height) {
 		setUint32(c_width, GL.drawingBufferWidth);
@@ -449,23 +462,23 @@ const MTY_WEB_API = {
 
 		GL = canvas.getContext('webgl2', {depth: 0, antialias: 0, premultipliedAlpha: true});
 	},
-	web_attach_events: function (app, mouse_motion, mouse_button, mouse_wheel, keyboard, drop) {
+	web_attach_events: function (app, mouse_motion, mouse_button, mouse_wheel, keyboard, focus, drop) {
 		// A static buffer for copying javascript strings to C
 		const cbuf0 = MTY_Alloc(1024);
 		const cbuf1 = MTY_Alloc(16);
 
 		GL.canvas.addEventListener('mousemove', (ev) => {
-			func_ptr(mouse_motion)(app, ev.clientX, ev.clientY);
+			MTY_CFunc(mouse_motion)(app, ev.clientX, ev.clientY);
 		});
 
 		GL.canvas.addEventListener('mousedown', (ev) => {
 			ev.preventDefault();
-			func_ptr(mouse_button)(app, true, ev.which);
+			MTY_CFunc(mouse_button)(app, true, ev.which);
 		});
 
 		GL.canvas.addEventListener('mouseup', (ev) => {
 			ev.preventDefault();
-			func_ptr(mouse_button)(app, false, ev.which);
+			MTY_CFunc(mouse_button)(app, false, ev.which);
 		});
 
 		GL.canvas.addEventListener('contextmenu', (ev) => {
@@ -473,20 +486,28 @@ const MTY_WEB_API = {
 		});
 
 		GL.canvas.addEventListener('wheel', (ev) => {
-			func_ptr(mouse_wheel)(app, ev.deltaX, ev.deltaY);
+			MTY_CFunc(mouse_wheel)(app, ev.deltaX, ev.deltaY);
 		}, {passive: true});
 
 		window.addEventListener('keydown', (ev) => {
-			func_ptr(keyboard)(app, true, ev.keyCode, js_to_c(ev.code, cbuf0),
-				ev.key.length == 1 ? js_to_c(ev.key, cbuf1) : 0);
+			const text = ev.key.length == 1 ? js_to_c(ev.key, cbuf1) : 0;
+			MTY_CFunc(keyboard)(app, true, ev.keyCode, js_to_c(ev.code, cbuf0), text);
 		});
 
 		window.addEventListener('keyup', (ev) => {
-			func_ptr(keyboard)(app, false, ev.keyCode, js_to_c(ev.code, cbuf0), 0);
+			MTY_CFunc(keyboard)(app, false, ev.keyCode, js_to_c(ev.code, cbuf0), 0);
 		});
 
 		GL.canvas.addEventListener('dragover', (ev) => {
 			ev.preventDefault();
+		});
+
+		window.addEventListener('blur', (ev) => {
+			MTY_CFunc(focus)(app, false);
+		});
+
+		window.addEventListener('focus', (ev) => {
+			MTY_CFunc(focus)(app, true);
 		});
 
 		GL.canvas.addEventListener('drop', (ev) => {
@@ -505,7 +526,7 @@ const MTY_WEB_API = {
 							let buf = new Uint8Array(reader.result);
 							let cmem = MTY_Alloc(buf.length);
 							copy(cmem, buf);
-							func_ptr(drop)(app, js_to_c(file.name, cbuf0), cmem, buf.length);
+							MTY_CFunc(drop)(app, js_to_c(file.name, cbuf0), cmem, buf.length);
 							MTY_Free(cmem);
 						}
 					});
@@ -522,7 +543,7 @@ const MTY_WEB_API = {
 				GL.canvas.width = window.innerWidth;
 				GL.canvas.height = window.innerHeight;
 
-				func_ptr(func)(opaque);
+				MTY_CFunc(func)(opaque);
 			}
 
 			window.requestAnimationFrame(step);
