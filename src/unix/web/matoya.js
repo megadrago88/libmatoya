@@ -399,6 +399,20 @@ const MTY_AUDIO_API = {
 // Matoya web API
 let FRAME_CTR = 0;
 
+function get_mods(ev) {
+	let mods = 0;
+
+	if (ev.shiftKey) mods |= 0x01;
+	if (ev.ctrlKey)  mods |= 0x02;
+	if (ev.altKey)   mods |= 0x04;
+	if (ev.metaKey)  mods |= 0x08;
+
+	if (ev.getModifierState("CapsLock")) mods |= 0x10;
+	if (ev.getModifierState("NumLock") ) mods |= 0x20;
+
+	return mods;
+}
+
 const MTY_WEB_API = {
 	// crypto
 	MTY_RandomBytes: function (cbuf, size) {
@@ -424,14 +438,14 @@ const MTY_WEB_API = {
 	},
 	web_get_clipboard_text: function () {
 		navigator.clipboard.readText().then(text => {
-			js_to_c(text, text_c);
-		});
-		if (text && text.length > 0) {
 			const text_c = MTY_Alloc(text.length * 4);
-			console.log(text_c);
 
-			return text_c;
-		}
+			js_to_c(text, text_c);
+			console.log('web_get_clipboard_text:', text);
+
+			MTY_Free(text_c);
+		});
+
 		return 0;
 	},
 	web_has_focus: function () {
@@ -495,12 +509,12 @@ const MTY_WEB_API = {
 
 		GL.canvas.addEventListener('mousedown', (ev) => {
 			ev.preventDefault();
-			MTY_CFunc(mouse_button)(app, true, ev.button);
+			MTY_CFunc(mouse_button)(app, true, ev.button, ev.clientX, ev.clientY);
 		});
 
 		GL.canvas.addEventListener('mouseup', (ev) => {
 			ev.preventDefault();
-			MTY_CFunc(mouse_button)(app, false, ev.button);
+			MTY_CFunc(mouse_button)(app, false, ev.button, ev.clientX, ev.clientY);
 		});
 
 		GL.canvas.addEventListener('contextmenu', (ev) => {
@@ -513,11 +527,11 @@ const MTY_WEB_API = {
 
 		window.addEventListener('keydown', (ev) => {
 			const text = ev.key.length == 1 ? js_to_c(ev.key, cbuf1) : 0;
-			MTY_CFunc(keyboard)(app, true, ev.keyCode, js_to_c(ev.code, cbuf0), text);
+			MTY_CFunc(keyboard)(app, true, ev.keyCode, js_to_c(ev.code, cbuf0), text, get_mods(ev));
 		});
 
 		window.addEventListener('keyup', (ev) => {
-			MTY_CFunc(keyboard)(app, false, ev.keyCode, js_to_c(ev.code, cbuf0), 0);
+			MTY_CFunc(keyboard)(app, false, ev.keyCode, js_to_c(ev.code, cbuf0), 0, get_mods(ev));
 		});
 
 		GL.canvas.addEventListener('dragover', (ev) => {
@@ -565,6 +579,7 @@ const MTY_WEB_API = {
 				GL.canvas.width = window.innerWidth;
 				GL.canvas.height = window.innerHeight;
 
+				// TODO check return value, call cleanup routine on false (web_close)
 				MTY_CFunc(func)(opaque);
 			}
 

@@ -20,6 +20,7 @@ struct MTY_App {
 	void *opaque;
 
 	MTY_GFX api;
+	bool relative;
 	struct gfx_ctx *gfx_ctx;
 };
 
@@ -160,7 +161,7 @@ static void window_mouse_motion(MTY_App *ctx, int32_t x, int32_t y)
 	ctx->msg_func(&msg, ctx->opaque);
 }
 
-static void window_mouse_button(MTY_App *ctx, bool pressed, int32_t button)
+static void window_mouse_button(MTY_App *ctx, bool pressed, int32_t button, int32_t x, int32_t y)
 {
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_MOUSE_BUTTON;
@@ -173,7 +174,17 @@ static void window_mouse_button(MTY_App *ctx, bool pressed, int32_t button)
 		button == 4 ? MTY_MOUSE_BUTTON_X2 :
 		MTY_MOUSE_BUTTON_NONE;
 
-	// TODO Simulate movement
+	// Simulate movement to where the click occurs
+	if (pressed && !ctx->relative) {
+		MTY_Msg mmsg = {0};
+		mmsg.type = MTY_MSG_MOUSE_MOTION;
+		mmsg.mouseMotion.relative = false;
+		mmsg.mouseMotion.click = true;
+		mmsg.mouseMotion.x = x;
+		mmsg.mouseMotion.y = y;
+
+		ctx->msg_func(&mmsg, ctx->opaque);
+	}
 
 	ctx->msg_func(&msg, ctx->opaque);
 }
@@ -204,11 +215,10 @@ static void app_kb_to_hotkey(MTY_App *app, MTY_Msg *msg)
 	}
 }
 
-static void window_keyboard(MTY_App *ctx, bool pressed, uint32_t keyCode, const char *code, const char *key)
+static void window_keyboard(MTY_App *ctx, bool pressed, uint32_t keyCode, const char *code,
+	const char *key, uint32_t mods)
 {
 	MTY_Msg msg = {0};
-
-	// TODO mods
 
 	if (key) {
 		msg.type = MTY_MSG_TEXT;
@@ -222,6 +232,13 @@ static void window_keyboard(MTY_App *ctx, bool pressed, uint32_t keyCode, const 
 	if (msg.keyboard.key != 0) {
 		msg.type = MTY_MSG_KEYBOARD;
 		msg.keyboard.pressed = pressed;
+
+		if (mods & 0x01) msg.keyboard.mod |= MTY_MOD_LSHIFT;
+		if (mods & 0x02) msg.keyboard.mod |= MTY_MOD_LCTRL;
+		if (mods & 0x04) msg.keyboard.mod |= MTY_MOD_LALT;
+		if (mods & 0x08) msg.keyboard.mod |= MTY_MOD_LWIN;
+		if (mods & 0x10) msg.keyboard.mod |= MTY_MOD_CAPS;
+		if (mods & 0x20) msg.keyboard.mod |= MTY_MOD_NUM;
 
 		app_kb_to_hotkey(ctx, &msg);
 		ctx->msg_func(&msg, ctx->opaque);
