@@ -419,6 +419,21 @@ const MTY_WEB_API = {
 		MTY_ALLOC = alloc;
 		MTY_FREE = free;
 	},
+	web_set_clipboard_text: function (text_c) {
+		navigator.clipboard.writeText(c_to_js(text_c));
+	},
+	web_get_clipboard_text: function () {
+		navigator.clipboard.readText().then(text => {
+			js_to_c(text, text_c);
+		});
+		if (text && text.length > 0) {
+			const text_c = MTY_Alloc(text.length * 4);
+			console.log(text_c);
+
+			return text_c;
+		}
+		return 0;
+	},
 	web_has_focus: function () {
 		return document.hasFocus();
 	},
@@ -432,9 +447,16 @@ const MTY_WEB_API = {
 
 		return true;
 	},
+	web_is_fullscreen: function () {
+		return screen.height == window.outerHeight;
+	},
 	web_get_size: function (c_width, c_height) {
 		setUint32(c_width, GL.drawingBufferWidth);
 		setUint32(c_height, GL.drawingBufferHeight);
+	},
+	web_get_screen_size: function (c_width, c_height) {
+		setUint32(c_width, screen.width);
+		setUint32(c_height, screen.height);
 	},
 	web_set_title: function (title) {
 		document.title = c_to_js(title);
@@ -473,12 +495,12 @@ const MTY_WEB_API = {
 
 		GL.canvas.addEventListener('mousedown', (ev) => {
 			ev.preventDefault();
-			MTY_CFunc(mouse_button)(app, true, ev.which);
+			MTY_CFunc(mouse_button)(app, true, ev.button);
 		});
 
 		GL.canvas.addEventListener('mouseup', (ev) => {
 			ev.preventDefault();
-			MTY_CFunc(mouse_button)(app, false, ev.which);
+			MTY_CFunc(mouse_button)(app, false, ev.button);
 		});
 
 		GL.canvas.addEventListener('contextmenu', (ev) => {

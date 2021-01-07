@@ -10,8 +10,12 @@
 
 bool web_has_focus(void);
 bool web_is_visible(void);
+bool web_is_fullscreen(void);
+char *web_get_clipboard_text(void);
+void web_set_clipboard_text(const char *text);
 void web_set_mem_funcs(void *alloc, void *free);
 void web_get_size(uint32_t *width, uint32_t *height);
+void web_get_screen_size(uint32_t *width, uint32_t *height);
 void web_set_title(const char *title);
 void web_create_canvas(void);
 void web_raf(MTY_AppFunc func, const void *opaque);
