@@ -460,7 +460,7 @@ const MTY_WEB_API = {
 		const canvas = document.createElement('canvas');
 		document.body.appendChild(canvas);
 
-		GL = canvas.getContext('webgl2', {depth: 0, antialias: 0, premultipliedAlpha: true});
+		GL = canvas.getContext('webgl', {depth: 0, antialias: 0, premultipliedAlpha: true});
 	},
 	web_attach_events: function (app, mouse_motion, mouse_button, mouse_wheel, keyboard, focus, drop) {
 		// A static buffer for copying javascript strings to C
