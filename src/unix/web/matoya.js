@@ -473,7 +473,7 @@ const MTY_WEB_API = {
 		});
 
 		GL.canvas.addEventListener('wheel', (ev) => {
-			func_ptr(mouse_wheel)(app, false, ev.deltaX, ev.deltaY);
+			func_ptr(mouse_wheel)(app, ev.deltaX, ev.deltaY);
 		}, {passive: true});
 
 		window.addEventListener('keydown', (ev) => {

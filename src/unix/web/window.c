@@ -168,7 +168,7 @@ static void window_mouse_wheel(MTY_App *ctx, int32_t x, int32_t y)
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_MOUSE_WHEEL;
 	msg.mouseWheel.x = x;
-	msg.mouseWheel.y = y;
+	msg.mouseWheel.y = -y;
 
 	ctx->msg_func(&msg, ctx->opaque);
 }
