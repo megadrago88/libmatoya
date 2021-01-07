@@ -21,37 +21,125 @@ struct MTY_App {
 	struct gfx_ctx *gfx_ctx;
 };
 
+static void __attribute__((constructor)) app_global_init(void)
+{
+	web_set_mem_funcs(MTY_Alloc, MTY_Free);
+}
+
 static void window_hash_codes(MTY_Hash *h)
 {
-	MTY_HashSet(h, "Key1", (void *) MTY_KEY_1);
-	MTY_HashSet(h, "KeyA", (void *) MTY_KEY_A);
-	MTY_HashSet(h, "KeyC", (void *) MTY_KEY_C);
-	MTY_HashSet(h, "KeyD", (void *) MTY_KEY_D);
-	MTY_HashSet(h, "KeyL", (void *) MTY_KEY_L);
-	MTY_HashSet(h, "KeyM", (void *) MTY_KEY_M);
-	MTY_HashSet(h, "KeyO", (void *) MTY_KEY_O);
-	MTY_HashSet(h, "KeyP", (void *) MTY_KEY_P);
-	MTY_HashSet(h, "KeyR", (void *) MTY_KEY_R);
-	MTY_HashSet(h, "KeyS", (void *) MTY_KEY_S);
-	MTY_HashSet(h, "KeyT", (void *) MTY_KEY_T);
-	MTY_HashSet(h, "KeyV", (void *) MTY_KEY_V);
-	MTY_HashSet(h, "KeyW", (void *) MTY_KEY_W);
-	MTY_HashSet(h, "KeyX", (void *) MTY_KEY_X);
-	MTY_HashSet(h, "KeyY", (void *) MTY_KEY_Y);
-	MTY_HashSet(h, "KeyZ", (void *) MTY_KEY_Z);
-	MTY_HashSet(h, "Space", (void *) MTY_KEY_SPACE);
-	MTY_HashSet(h, "ArrowDown", (void *) MTY_KEY_DOWN);
-	MTY_HashSet(h, "ArrowLeft", (void *) MTY_KEY_LEFT);
-	MTY_HashSet(h, "ArrowUp", (void *) MTY_KEY_UP);
-	MTY_HashSet(h, "ArrowRight", (void *) MTY_KEY_RIGHT);
-	MTY_HashSet(h, "Escape", (void *) MTY_KEY_ESCAPE);
-	MTY_HashSet(h, "Semicolon", (void *) MTY_KEY_SEMICOLON);
-	MTY_HashSet(h, "ShiftLeft", (void *) MTY_KEY_LSHIFT);
-	MTY_HashSet(h, "ShiftRight", (void *) MTY_KEY_RSHIFT);
-	MTY_HashSet(h, "ControlLeft", (void *) MTY_KEY_LCTRL);
-	MTY_HashSet(h, "ControlRight", (void *) MTY_KEY_RCTRL);
-	MTY_HashSet(h, "AltLeft", (void *) MTY_KEY_LALT);
-	MTY_HashSet(h, "AltRight", (void *) MTY_KEY_RALT);
+	MTY_HashSet(h, "Escape",          (void *) MTY_KEY_ESCAPE);
+	MTY_HashSet(h, "F1",              (void *) MTY_KEY_F1);
+	MTY_HashSet(h, "F2",              (void *) MTY_KEY_F2);
+	MTY_HashSet(h, "F3",              (void *) MTY_KEY_F3);
+	MTY_HashSet(h, "F4",              (void *) MTY_KEY_F4);
+	MTY_HashSet(h, "F5",              (void *) MTY_KEY_F5);
+	MTY_HashSet(h, "F6",              (void *) MTY_KEY_F6);
+	MTY_HashSet(h, "F7",              (void *) MTY_KEY_F7);
+	MTY_HashSet(h, "F8",              (void *) MTY_KEY_F8);
+	MTY_HashSet(h, "F9",              (void *) MTY_KEY_F9);
+	MTY_HashSet(h, "F10",             (void *) MTY_KEY_F10);
+	MTY_HashSet(h, "F11",             (void *) MTY_KEY_F11);
+	MTY_HashSet(h, "F12",             (void *) MTY_KEY_F12);
+
+	MTY_HashSet(h, "Backquote",       (void *) MTY_KEY_GRAVE);
+	MTY_HashSet(h, "Digit1",          (void *) MTY_KEY_1);
+	MTY_HashSet(h, "Digit2",          (void *) MTY_KEY_2);
+	MTY_HashSet(h, "Digit3",          (void *) MTY_KEY_3);
+	MTY_HashSet(h, "Digit4",          (void *) MTY_KEY_4);
+	MTY_HashSet(h, "Digit5",          (void *) MTY_KEY_5);
+	MTY_HashSet(h, "Digit6",          (void *) MTY_KEY_6);
+	MTY_HashSet(h, "Digit7",          (void *) MTY_KEY_7);
+	MTY_HashSet(h, "Digit8",          (void *) MTY_KEY_8);
+	MTY_HashSet(h, "Digit9",          (void *) MTY_KEY_9);
+	MTY_HashSet(h, "Digit0",          (void *) MTY_KEY_0);
+	MTY_HashSet(h, "Minus",           (void *) MTY_KEY_MINUS);
+	MTY_HashSet(h, "Equal",           (void *) MTY_KEY_EQUALS);
+	MTY_HashSet(h, "Backspace",       (void *) MTY_KEY_BACKSPACE);
+
+	MTY_HashSet(h, "Tab",             (void *) MTY_KEY_TAB);
+	MTY_HashSet(h, "KeyQ",            (void *) MTY_KEY_Q);
+	MTY_HashSet(h, "KeyW",            (void *) MTY_KEY_W);
+	MTY_HashSet(h, "KeyE",            (void *) MTY_KEY_E);
+	MTY_HashSet(h, "KeyR",            (void *) MTY_KEY_R);
+	MTY_HashSet(h, "KeyT",            (void *) MTY_KEY_T);
+	MTY_HashSet(h, "KeyY",            (void *) MTY_KEY_Y);
+	MTY_HashSet(h, "KeyU",            (void *) MTY_KEY_U);
+	MTY_HashSet(h, "KeyI",            (void *) MTY_KEY_I);
+	MTY_HashSet(h, "KeyO",            (void *) MTY_KEY_O);
+	MTY_HashSet(h, "KeyP",            (void *) MTY_KEY_P);
+	MTY_HashSet(h, "BracketLeft",     (void *) MTY_KEY_LBRACKET);
+	MTY_HashSet(h, "BracketRight",    (void *) MTY_KEY_RBRACKET);
+	MTY_HashSet(h, "Backslash",       (void *) MTY_KEY_BACKSLASH);
+
+	MTY_HashSet(h, "CapsLock",        (void *) MTY_KEY_CAPS);
+	MTY_HashSet(h, "KeyA",            (void *) MTY_KEY_A);
+	MTY_HashSet(h, "KeyS",            (void *) MTY_KEY_S);
+	MTY_HashSet(h, "KeyD",            (void *) MTY_KEY_D);
+	MTY_HashSet(h, "KeyF",            (void *) MTY_KEY_F);
+	MTY_HashSet(h, "KeyG",            (void *) MTY_KEY_G);
+	MTY_HashSet(h, "KeyH",            (void *) MTY_KEY_H);
+	MTY_HashSet(h, "KeyJ",            (void *) MTY_KEY_J);
+	MTY_HashSet(h, "KeyK",            (void *) MTY_KEY_K);
+	MTY_HashSet(h, "KeyL",            (void *) MTY_KEY_L);
+	MTY_HashSet(h, "Semicolon",       (void *) MTY_KEY_SEMICOLON);
+	MTY_HashSet(h, "Quote",           (void *) MTY_KEY_QUOTE);
+	MTY_HashSet(h, "Enter",           (void *) MTY_KEY_ENTER);
+
+	MTY_HashSet(h, "ShiftLeft",       (void *) MTY_KEY_LSHIFT);
+	MTY_HashSet(h, "KeyZ",            (void *) MTY_KEY_Z);
+	MTY_HashSet(h, "KeyX",            (void *) MTY_KEY_X);
+	MTY_HashSet(h, "KeyC",            (void *) MTY_KEY_C);
+	MTY_HashSet(h, "KeyV",            (void *) MTY_KEY_V);
+	MTY_HashSet(h, "KeyB",            (void *) MTY_KEY_B);
+	MTY_HashSet(h, "KeyN",            (void *) MTY_KEY_N);
+	MTY_HashSet(h, "KeyM",            (void *) MTY_KEY_M);
+	MTY_HashSet(h, "Comma",           (void *) MTY_KEY_COMMA);
+	MTY_HashSet(h, "Period",          (void *) MTY_KEY_PERIOD);
+	MTY_HashSet(h, "ShiftRight",      (void *) MTY_KEY_RSHIFT);
+
+	MTY_HashSet(h, "ControlLeft",     (void *) MTY_KEY_LCTRL);
+	MTY_HashSet(h, "MetaLeft",        (void *) MTY_KEY_LWIN);
+	MTY_HashSet(h, "AltLeft",         (void *) MTY_KEY_LALT);
+	MTY_HashSet(h, "Space",           (void *) MTY_KEY_SPACE);
+	MTY_HashSet(h, "AltRight",        (void *) MTY_KEY_RALT);
+	MTY_HashSet(h, "MetaRight",       (void *) MTY_KEY_RWIN);
+	MTY_HashSet(h, "ContextMenu",     (void *) MTY_KEY_APP);
+	MTY_HashSet(h, "ControlRight",    (void *) MTY_KEY_RCTRL);
+
+	MTY_HashSet(h, "PrintScreen",     (void *) MTY_KEY_PRINT_SCREEN);
+	MTY_HashSet(h, "ScrollLock",      (void *) MTY_KEY_SCROLL_LOCK);
+	MTY_HashSet(h, "Pause",           (void *) MTY_KEY_PAUSE);
+
+	MTY_HashSet(h, "Insert",          (void *) MTY_KEY_INSERT);
+	MTY_HashSet(h, "Home",            (void *) MTY_KEY_HOME);
+	MTY_HashSet(h, "PageUp",          (void *) MTY_KEY_PAGE_UP);
+	MTY_HashSet(h, "Delete",          (void *) MTY_KEY_DELETE);
+	MTY_HashSet(h, "End",             (void *) MTY_KEY_END);
+	MTY_HashSet(h, "PageDown",        (void *) MTY_KEY_PAGE_DOWN);
+
+	MTY_HashSet(h, "ArrowUp",         (void *) MTY_KEY_UP);
+	MTY_HashSet(h, "ArrowLeft",       (void *) MTY_KEY_LEFT);
+	MTY_HashSet(h, "ArrowDown",       (void *) MTY_KEY_DOWN);
+	MTY_HashSet(h, "ArrowRight",      (void *) MTY_KEY_RIGHT);
+
+	MTY_HashSet(h, "NumLock",         (void *) MTY_KEY_NUM_LOCK);
+	MTY_HashSet(h, "NumpadDivide",    (void *) MTY_KEY_NP_DIVIDE);
+	MTY_HashSet(h, "NumpadMultiply",  (void *) MTY_KEY_NP_MULTIPLY);
+	MTY_HashSet(h, "NumpadSubtract",  (void *) MTY_KEY_NP_MINUS);
+	MTY_HashSet(h, "Numpad7",         (void *) MTY_KEY_NP_7);
+	MTY_HashSet(h, "Numpad8",         (void *) MTY_KEY_NP_8);
+	MTY_HashSet(h, "Numpad9",         (void *) MTY_KEY_NP_9);
+	MTY_HashSet(h, "NumpadAdd",       (void *) MTY_KEY_NP_PLUS);
+	MTY_HashSet(h, "Numpad4",         (void *) MTY_KEY_NP_4);
+	MTY_HashSet(h, "Numpad5",         (void *) MTY_KEY_NP_5);
+	MTY_HashSet(h, "Numpad6",         (void *) MTY_KEY_NP_6);
+	MTY_HashSet(h, "Numpad1",         (void *) MTY_KEY_NP_1);
+	MTY_HashSet(h, "Numpad2",         (void *) MTY_KEY_NP_2);
+	MTY_HashSet(h, "Numpad3",         (void *) MTY_KEY_NP_3);
+	MTY_HashSet(h, "NumpadEnter",     (void *) MTY_KEY_NP_ENTER);
+	MTY_HashSet(h, "Numpad0",         (void *) MTY_KEY_NP_0);
+	MTY_HashSet(h, "NumpadDecimal",   (void *) MTY_KEY_NP_PERIOD);
 }
 
 static void window_mouse_motion(MTY_App *ctx, int32_t x, int32_t y)
@@ -154,8 +242,8 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	ctx->opaque = opaque;
 
 	web_create_canvas();
-	web_attach_events(ctx, malloc, free, window_mouse_motion,
-		window_mouse_button, window_mouse_wheel, window_keyboard, window_drop);
+	web_attach_events(ctx, window_mouse_motion, window_mouse_button,
+		window_mouse_wheel, window_keyboard, window_drop);
 
 	ctx->h = MTY_HashCreate(100);
 	window_hash_codes(ctx->h);

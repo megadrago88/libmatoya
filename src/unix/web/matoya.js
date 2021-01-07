@@ -7,9 +7,19 @@
 // Helpers
 
 let MODULE;
+let MTY_ALLOC;
+let MTY_FREE;
 
 function mem() {
 	return MODULE.instance.exports.memory.buffer;
+}
+
+function MTY_Alloc(size, el) {
+	return func_ptr(MTY_ALLOC)(size, el ? el : 1);
+}
+
+function MTY_Free(ptr) {
+	func_ptr(MTY_FREE)(ptr);
 }
 
 function mem_view() {
@@ -405,6 +415,10 @@ const MTY_WEB_API = {
 	},
 
 	// window
+	web_set_mem_funcs: function (alloc, free) {
+		MTY_ALLOC = alloc;
+		MTY_FREE = free;
+	},
 	web_get_size: function (c_width, c_height) {
 		setUint32(c_width, GL.drawingBufferWidth);
 		setUint32(c_height, GL.drawingBufferHeight);
@@ -435,10 +449,10 @@ const MTY_WEB_API = {
 
 		GL = canvas.getContext('webgl2', {depth: 0, antialias: 0, premultipliedAlpha: true});
 	},
-	web_attach_events: function (app, malloc, free, mouse_motion, mouse_button, mouse_wheel, keyboard, drop) {
+	web_attach_events: function (app, mouse_motion, mouse_button, mouse_wheel, keyboard, drop) {
 		// A static buffer for copying javascript strings to C
-		const cbuf0 = func_ptr(malloc)(1024);
-		const cbuf1 = func_ptr(malloc)(16);
+		const cbuf0 = MTY_Alloc(1024);
+		const cbuf1 = MTY_Alloc(16);
 
 		GL.canvas.addEventListener('mousemove', (ev) => {
 			func_ptr(mouse_motion)(app, ev.clientX, ev.clientY);
@@ -489,10 +503,10 @@ const MTY_WEB_API = {
 					reader.addEventListener('loadend', (fev) => {
 						if (reader.readyState == 2) {
 							let buf = new Uint8Array(reader.result);
-							let cmem = func_ptr(malloc)(buf.length);
+							let cmem = MTY_Alloc(buf.length);
 							copy(cmem, buf);
 							func_ptr(drop)(app, js_to_c(file.name, cbuf0), cmem, buf.length);
-							func_ptr(free)(cmem);
+							MTY_Free(cmem);
 						}
 					});
 					reader.readAsArrayBuffer(file);
