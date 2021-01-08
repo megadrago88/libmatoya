@@ -34,6 +34,14 @@ function setUint32(ptr, value) {
 	mem_view().setUint32(ptr, value, true);
 }
 
+function setInt32(ptr, value) {
+	mem_view().setInt32(ptr, value, true);
+}
+
+function setInt8(ptr, value) {
+	mem_view().setInt8(ptr, value);
+}
+
 function setFloat(ptr, value) {
 	mem_view().setFloat32(ptr, value, true);
 }

@@ -87,6 +87,7 @@ OBJS := $(OBJS) \
 	src/unix/web/window.o
 
 DEFS := $(DEFS) \
+	-DMTY_GLUI_CLEAR_ALPHA=0.0f \
 	-DMTY_GL_EXTERNAL \
 	-DMTY_GL_ES
 

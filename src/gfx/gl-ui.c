@@ -7,6 +7,10 @@
 #include "gfx/mod-ui.h"
 GFX_UI_PROTOTYPES(_gl_)
 
+#if !defined(MTY_GLUI_CLEAR_ALPHA)
+	#define MTY_GLUI_CLEAR_ALPHA 1.0f
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -154,7 +158,7 @@ bool gfx_gl_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *co
 	// Clear render target to black
 	if (dd->clear) {
 		glDisable(GL_SCISSOR_TEST);
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		glClearColor(0.0f, 0.0f, 0.0f, MTY_GLUI_CLEAR_ALPHA);
 		glClear(GL_COLOR_BUFFER_BIT);
 	}
 
