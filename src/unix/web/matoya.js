@@ -456,6 +456,17 @@ const MTY_WEB_API = {
 
 		return 0;
 	},
+	web_set_pointer_lock: function (enable) {
+		if (enable && !document.pointerLockElement) {
+			GL.canvas.requestPointerLock();
+
+		} else if (!enable && document.pointerLockElement) {
+			document.exitPointerLock();
+		}
+	},
+	web_get_pointer_lock: function () {
+		return document.pointerLockElement ? true : false;
+	},
 	web_has_focus: function () {
 		return document.hasFocus();
 	},
@@ -468,9 +479,6 @@ const MTY_WEB_API = {
 		}
 
 		return true;
-	},
-	web_is_fullscreen: function () {
-		return screen.height == window.outerHeight;
 	},
 	web_get_size: function (c_width, c_height) {
 		setUint32(c_width, GL.drawingBufferWidth);
@@ -512,7 +520,16 @@ const MTY_WEB_API = {
 		const cbuf1 = MTY_Alloc(16);
 
 		GL.canvas.addEventListener('mousemove', (ev) => {
-			MTY_CFunc(mouse_motion)(app, ev.clientX, ev.clientY);
+			let relative = document.pointerLockElement ? true : false;
+			let x = ev.clientX;
+			let y = ev.clientY;
+
+			if (relative) {
+				x = ev.movementX;
+				y = ev.movementY;
+			}
+
+			MTY_CFunc(mouse_motion)(app, relative, x, y);
 		});
 
 		GL.canvas.addEventListener('mousedown', (ev) => {

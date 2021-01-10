@@ -10,7 +10,8 @@
 
 bool web_has_focus(void);
 bool web_is_visible(void);
-bool web_is_fullscreen(void);
+void web_set_pointer_lock(bool enable);
+bool web_get_pointer_lock(void);
 char *web_get_clipboard_text(void);
 void web_set_clipboard_text(const char *text);
 void web_set_mem_funcs(void *alloc, void *free);

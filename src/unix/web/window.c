@@ -151,10 +151,11 @@ static void window_hash_codes(MTY_Hash *h)
 
 // Events
 
-static void window_mouse_motion(MTY_App *ctx, int32_t x, int32_t y)
+static void window_mouse_motion(MTY_App *ctx, bool relative, int32_t x, int32_t y)
 {
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_MOUSE_MOTION;
+	msg.mouseMotion.relative = relative;
 	msg.mouseMotion.x = x;
 	msg.mouseMotion.y = y;
 
@@ -376,14 +377,12 @@ void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
 
 void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 {
-	// TODO
+	web_set_pointer_lock(relative);
 }
 
 bool MTY_AppGetRelativeMouse(MTY_App *app)
 {
-	// TODO
-
-	return false;
+	return web_get_pointer_lock();
 }
 
 bool MTY_AppIsActive(MTY_App *ctx)
@@ -427,16 +426,6 @@ float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
 	return web_get_pixel_ratio();
 }
 
-void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
-{
-	// TODO
-}
-
-bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
-{
-	return web_is_fullscreen();
-}
-
 bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
 {
 	return web_is_visible();
@@ -471,6 +460,15 @@ void *window_get_native(MTY_App *app, MTY_Window window)
 
 
 // Unimplemented
+
+void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
+{
+}
+
+bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
+{
+	return false;
+}
 
 void MTY_AppActivate(MTY_App *app, bool active)
 {
