@@ -674,7 +674,9 @@ const MTY_WEB_API = {
 		});
 
 		GL.canvas.addEventListener('wheel', (ev) => {
-			MTY_CFunc(mouse_wheel)(app, ev.deltaX, ev.deltaY);
+			let x = ev.deltaX > 0 ? 120 : ev.deltaX < 0 ? -120 : 0;
+			let y = ev.deltaY > 0 ? 120 : ev.deltaY < 0 ? -120 : 0;
+			MTY_CFunc(mouse_wheel)(app, x, y);
 		}, {passive: true});
 
 		window.addEventListener('keydown', (ev) => {
