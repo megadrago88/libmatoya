@@ -23,7 +23,6 @@ void web_set_mem_funcs(void *alloc, void *free);
 void web_get_size(uint32_t *width, uint32_t *height);
 void web_get_screen_size(uint32_t *width, uint32_t *height);
 void web_set_title(const char *title);
-void web_create_canvas(void);
 void web_raf(MTY_App *app, MTY_AppFunc func, void *controller, const void *opaque);
 void web_register_drag(void);
 float web_get_pixel_ratio(void);

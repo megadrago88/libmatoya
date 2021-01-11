@@ -79,7 +79,7 @@ function c_to_js(ptr) {
 function js_to_c(js_str, ptr) {
 	const view = new Uint8Array(mem(), ptr);
 
-	// XXX No bounds checking!
+	// FIXME No bounds checking!
 	let len = 0;
 	for (; len < js_str.length; len++)
 		view[len] = js_str.charCodeAt(len);
@@ -418,7 +418,8 @@ const MTY_AUDIO_API = {
 
 // Matoya web API
 let KB_MAP;
-let FRAME_CTR = 0;
+let CBUF0;
+let CBUF1;
 let CURSOR_ID = 0;
 let CURSOR_CACHE = {};
 let CURSOR_STYLES = [];
@@ -509,6 +510,10 @@ const MTY_WEB_API = {
 	web_set_mem_funcs: function (alloc, free) {
 		MTY_ALLOC = alloc;
 		MTY_FREE = free;
+
+		// Global buffers for scratch heap space
+		CBUF0 = MTY_Alloc(1024);
+		CBUF1 = MTY_Alloc(16);
 	},
 	web_get_key: function (code, cbuf, len) {
 		if (KB_MAP) {
@@ -635,29 +640,7 @@ const MTY_WEB_API = {
 		// to figure out window.devicePixelRatio
 		return 1.0;
 	},
-	web_create_canvas: function () {
-		const html = document.querySelector('html');
-		html.style.width = '100%';
-		html.style.height = '100%';
-		html.style.margin = 0;
-
-		const body = document.querySelector('body');
-		body.style.width = '100%';
-		body.style.height = '100%';
-		body.style.background = 'black';
-		body.style.overflow = 'hidden';
-		body.style.margin = 0;
-
-		const canvas = document.createElement('canvas');
-		document.body.appendChild(canvas);
-
-		GL = canvas.getContext('webgl', {depth: 0, antialias: 0, premultipliedAlpha: true});
-	},
 	web_attach_events: function (app, mouse_motion, mouse_button, mouse_wheel, keyboard, focus, drop) {
-		// A static buffer for copying javascript strings to C
-		const cbuf0 = MTY_Alloc(1024);
-		const cbuf1 = MTY_Alloc(16);
-
 		GL.canvas.addEventListener('mousemove', (ev) => {
 			let relative = document.pointerLockElement ? true : false;
 			let x = ev.clientX;
@@ -692,13 +675,13 @@ const MTY_WEB_API = {
 		}, {passive: true});
 
 		window.addEventListener('keydown', (ev) => {
-			const text = ev.key.length == 1 ? js_to_c(ev.key, cbuf1) : 0;
-			if (MTY_CFunc(keyboard)(app, true, ev.keyCode, js_to_c(ev.code, cbuf0), text, get_mods(ev)))
+			const text = ev.key.length == 1 ? js_to_c(ev.key, CBUF1) : 0;
+			if (MTY_CFunc(keyboard)(app, true, ev.keyCode, js_to_c(ev.code, CBUF0), text, get_mods(ev)))
 				ev.preventDefault();
 		});
 
 		window.addEventListener('keyup', (ev) => {
-			if (MTY_CFunc(keyboard)(app, false, ev.keyCode, js_to_c(ev.code, cbuf0), 0, get_mods(ev)))
+			if (MTY_CFunc(keyboard)(app, false, ev.keyCode, js_to_c(ev.code, CBUF0), 0, get_mods(ev)))
 				ev.preventDefault();
 		});
 
@@ -730,7 +713,7 @@ const MTY_WEB_API = {
 							let buf = new Uint8Array(reader.result);
 							let cmem = MTY_Alloc(buf.length);
 							copy(cmem, buf);
-							MTY_CFunc(drop)(app, js_to_c(file.name, cbuf0), cmem, buf.length);
+							MTY_CFunc(drop)(app, js_to_c(file.name, CBUF0), cmem, buf.length);
 							MTY_Free(cmem);
 						}
 					});
@@ -742,16 +725,13 @@ const MTY_WEB_API = {
 	},
 	web_raf: function (app, func, controller, opaque) {
 		const step = () => {
-			// TODO This number will affect the "swap interval"
-			if (++FRAME_CTR % 2 == 0) {
-				poll_gamepads(app, controller);
+			poll_gamepads(app, controller);
 
-				GL.canvas.width = window.innerWidth;
-				GL.canvas.height = window.innerHeight;
+			GL.canvas.width = window.innerWidth;
+			GL.canvas.height = window.innerHeight;
 
-				// TODO check return value, call cleanup routine on false (web_close)
-				MTY_CFunc(func)(opaque);
-			}
+			// TODO check return value, call cleanup routine on false (web_close)
+			MTY_CFunc(func)(opaque);
 
 			window.requestAnimationFrame(step);
 		};
@@ -954,6 +934,24 @@ const WASI_API = {
 async function MTY_Start(bin, userEnv) {
 	if (!userEnv)
 		userEnv = {};
+
+	// Set up full window canvas and webgl context
+	const html = document.querySelector('html');
+	html.style.width = '100%';
+	html.style.height = '100%';
+	html.style.margin = 0;
+
+	const body = document.querySelector('body');
+	body.style.width = '100%';
+	body.style.height = '100%';
+	body.style.background = 'black';
+	body.style.overflow = 'hidden';
+	body.style.margin = 0;
+
+	const canvas = document.createElement('canvas');
+	document.body.appendChild(canvas);
+
+	GL = canvas.getContext('webgl', {depth: 0, antialias: 0, premultipliedAlpha: true});
 
 	// Load keyboard map
 	KB_MAP = await navigator.keyboard.getLayoutMap();

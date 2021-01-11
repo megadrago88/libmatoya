@@ -462,7 +462,6 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	ctx->msg_func = msgFunc;
 	ctx->opaque = opaque;
 
-	web_create_canvas();
 	web_attach_events(ctx, window_mouse_motion, window_mouse_button,
 		window_mouse_wheel, window_keyboard, window_focus, window_drop);
 
