@@ -339,7 +339,7 @@ void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t 
 
 void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 {
-	// TODO
+	web_use_default_cursor(useDefault);
 }
 
 void MTY_AppShowCursor(MTY_App *ctx, bool show)

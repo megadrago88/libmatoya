@@ -422,6 +422,7 @@ let CURSOR_ID = 0;
 let CURSOR_CACHE = {};
 let CURSOR_STYLES = [];
 let CURSOR_CLASS = '';
+let USE_DEFAULT_CURSOR = false;
 
 function get_mods(ev) {
 	let mods = 0;
@@ -510,27 +511,49 @@ const MTY_WEB_API = {
 	web_set_title: function (title) {
 		document.title = c_to_js(title);
 	},
-	web_set_png_cursor: function (buffer, size, hot_x, hot_y) {
-		const buf = new Uint8Array(mem(), buffer, size);
-		const b64_png = buf_to_b64(buf);
+	web_use_default_cursor: function (use_default) {
+		if (CURSOR_CLASS.length > 0) {
+			if (use_default) {
+				GL.canvas.classList.remove(CURSOR_CLASS);
 
-		if (!CURSOR_CACHE[b64_png]) {
-			CURSOR_CACHE[b64_png] = `cursor-x-${CURSOR_ID}`;
-
-			const style = document.createElement('style');
-			style.type = 'text/css';
-			style.innerHTML = `.cursor-x-${CURSOR_ID++} ` +
-				`{cursor: url(data:image/png;base64,${b64_png}) ${hot_x} ${hot_y}, auto;}`;
-			document.querySelector('head').appendChild(style);
-
-			CURSOR_STYLES.push(style);
+			} else {
+				GL.canvas.classList.add(CURSOR_CLASS);
+			}
 		}
 
-		if (CURSOR_CLASS.length > 0)
-			GL.canvas.classList.remove(CURSOR_CLASS);
+		USE_DEFAULT_CURSOR = use_default;
+	},
+	web_set_png_cursor: function (buffer, size, hot_x, hot_y) {
+		if (buffer) {
+			const buf = new Uint8Array(mem(), buffer, size);
+			const b64_png = buf_to_b64(buf);
 
-		GL.canvas.classList.add(CURSOR_CACHE[b64_png]);
-		CURSOR_CLASS = CURSOR_CACHE[b64_png];
+			if (!CURSOR_CACHE[b64_png]) {
+				CURSOR_CACHE[b64_png] = `cursor-x-${CURSOR_ID}`;
+
+				const style = document.createElement('style');
+				style.type = 'text/css';
+				style.innerHTML = `.cursor-x-${CURSOR_ID++} ` +
+					`{cursor: url(data:image/png;base64,${b64_png}) ${hot_x} ${hot_y}, auto;}`;
+				document.querySelector('head').appendChild(style);
+
+				CURSOR_STYLES.push(style);
+			}
+
+			if (CURSOR_CLASS.length > 0)
+				GL.canvas.classList.remove(CURSOR_CLASS);
+
+			CURSOR_CLASS = CURSOR_CACHE[b64_png];
+
+			if (!USE_DEFAULT_CURSOR)
+				GL.canvas.classList.add(CURSOR_CLASS);
+
+		} else {
+			if (!USE_DEFAULT_CURSOR && CURSOR_CLASS.length > 0)
+				GL.canvas.classList.remove(CURSOR_CLASS);
+
+			CURSOR_CLASS = '';
+		}
 	},
 	web_get_pixel_ratio: function () {
 		// FIXME Currently the browser scales the canvas to handle DPI, need
