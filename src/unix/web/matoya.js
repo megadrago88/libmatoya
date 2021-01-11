@@ -417,6 +417,7 @@ const MTY_AUDIO_API = {
 
 
 // Matoya web API
+let KB_MAP;
 let FRAME_CTR = 0;
 let CURSOR_ID = 0;
 let CURSOR_CACHE = {};
@@ -508,6 +509,17 @@ const MTY_WEB_API = {
 	web_set_mem_funcs: function (alloc, free) {
 		MTY_ALLOC = alloc;
 		MTY_FREE = free;
+	},
+	web_get_key: function (code, cbuf, len) {
+		if (KB_MAP) {
+			const key = KB_MAP.get(c_to_js(code));
+			if (key) {
+				js_to_c(key.toUpperCase(), cbuf);
+				return true;
+			}
+		}
+
+		return false;
 	},
 	web_rumble_gamepad: function (id, low, high) {
 		const gps = navigator.getGamepads();
@@ -942,6 +954,9 @@ const WASI_API = {
 async function MTY_Start(bin, userEnv) {
 	if (!userEnv)
 		userEnv = {};
+
+	// Load keyboard map
+	KB_MAP = await navigator.keyboard.getLayoutMap();
 
 	// Fetch the wasm file as an ArrayBuffer
 	const res = await fetch(bin);
