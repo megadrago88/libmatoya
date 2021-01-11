@@ -57,6 +57,7 @@ struct MTY_App {
 	bool kbgrab;
 	bool mgrab;
 	bool default_cursor;
+	bool hide_cursor;
 	bool ghk_disabled;
 	bool filter_move;
 	uint64_t prev_state;
@@ -663,7 +664,7 @@ static void app_apply_clip(MTY_App *app, bool focus)
 
 static void app_apply_cursor(MTY_App *app, bool focus)
 {
-	if (focus && app->relative && app->detach == MTY_DETACH_NONE) {
+	if (focus && (app->hide_cursor || (app->relative && app->detach == MTY_DETACH_NONE))) {
 		app->cursor = NULL;
 
 	} else {
@@ -1210,6 +1211,19 @@ void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 		app->default_cursor = useDefault;
 		app->state++;
 	}
+}
+
+void MTY_AppShowCursor(MTY_App *ctx, bool show)
+{
+	if (ctx->hide_cursor == show) {
+		ctx->hide_cursor = !show;
+		ctx->state++;
+	}
+}
+
+bool MTY_AppCanWarpCursor(MTY_App *ctx)
+{
+	return true;
 }
 
 

@@ -1017,6 +1017,18 @@ void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 	app_apply_cursor(ctx);
 }
 
+void MTY_AppShowCursor(MTY_App *app, bool show)
+{
+	App *ctx = (__bridge App *) app;
+
+	app_show_cursor(ctx, show);
+}
+
+bool MTY_AppCanWarpCursor(MTY_App *ctx)
+{
+	return true;
+}
+
 
 // App
 

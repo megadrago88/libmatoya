@@ -313,6 +313,16 @@ void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 	// TODO
 }
 
+void MTY_AppShowCursor(MTY_App *ctx, bool show)
+{
+	// TODO
+}
+
+bool MTY_AppCanWarpCursor(MTY_App *ctx)
+{
+	return false;
+}
+
 MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 {
 	MTY_App *ctx = MTY_Alloc(1, sizeof(MTY_App));

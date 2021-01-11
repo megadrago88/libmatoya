@@ -35,6 +35,7 @@ struct MTY_App {
 	Cursor custom_cursor;
 	Cursor cursor;
 	bool default_cursor;
+	bool hide_cursor;
 	char *class_name;
 	MTY_Detach detach;
 	XVisualInfo *vis;
@@ -382,8 +383,9 @@ static void app_apply_mouse_grab(MTY_App *app, struct window *win)
 
 static void app_apply_cursor(MTY_App *app, bool focus)
 {
-	Cursor cur = focus && app->relative && app->detach == MTY_DETACH_NONE ? app->empty_cursor :
-		app->custom_cursor && !app->default_cursor ? app->custom_cursor : None;
+	Cursor cur = focus && (app->hide_cursor || (app->relative && app->detach == MTY_DETACH_NONE)) ?
+		app->empty_cursor : app->custom_cursor && !app->default_cursor ?
+		app->custom_cursor : None;
 
 	if (cur != app->cursor) {
 		for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++) {
@@ -459,6 +461,19 @@ void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 		app->default_cursor = useDefault;
 		app->state++;
 	}
+}
+
+void MTY_AppShowCursor(MTY_App *ctx, bool show)
+{
+	if (ctx->hide_cursor == show) {
+		ctx->hide_cursor = !show;
+		ctx->state++;
+	}
+}
+
+bool MTY_AppCanWarpCursor(MTY_App *ctx)
+{
+	return true;
 }
 
 static Cursor app_create_empty_cursor(Display *display)

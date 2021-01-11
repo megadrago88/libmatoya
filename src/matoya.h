@@ -1336,6 +1336,12 @@ MTY_EXPORT void
 MTY_AppUseDefaultCursor(MTY_App *ctx, bool useDefault);
 
 MTY_EXPORT void
+MTY_AppShowCursor(MTY_App *ctx, bool show);
+
+MTY_EXPORT bool
+MTY_AppCanWarpCursor(MTY_App *ctx);
+
+MTY_EXPORT void
 MTY_AppHotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len);
 
 MTY_EXPORT void
