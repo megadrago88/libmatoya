@@ -90,6 +90,18 @@ function js_to_c(js_str, ptr) {
 	return ptr;
 }
 
+function b64_to_buf(str) {
+	return Uint8Array.from(atob(str), c => c.charCodeAt(0))
+}
+
+function buf_to_b64(buf) {
+	let str = '';
+	for (let x = 0; x < buf.length; x++)
+		str += String.fromCharCode(buf[x]);
+
+	return btoa(str);
+}
+
 
 // GL
 
@@ -406,6 +418,10 @@ const MTY_AUDIO_API = {
 
 // Matoya web API
 let FRAME_CTR = 0;
+let CURSOR_ID = 0;
+let CURSOR_CACHE = {};
+let CURSOR_STYLES = [];
+let CURSOR_CLASS = '';
 
 function get_mods(ev) {
 	let mods = 0;
@@ -440,6 +456,9 @@ const MTY_WEB_API = {
 	web_set_mem_funcs: function (alloc, free) {
 		MTY_ALLOC = alloc;
 		MTY_FREE = free;
+	},
+	web_show_cursor: function (show) {
+		GL.canvas.style.cursor = show ? '': 'none';
 	},
 	web_set_clipboard_text: function (text_c) {
 		navigator.clipboard.writeText(c_to_js(text_c));
@@ -490,6 +509,28 @@ const MTY_WEB_API = {
 	},
 	web_set_title: function (title) {
 		document.title = c_to_js(title);
+	},
+	web_set_png_cursor: function (buffer, size, hot_x, hot_y) {
+		const buf = new Uint8Array(mem(), buffer, size);
+		const b64_png = buf_to_b64(buf);
+
+		if (!CURSOR_CACHE[b64_png]) {
+			CURSOR_CACHE[b64_png] = `cursor-x-${CURSOR_ID}`;
+
+			const style = document.createElement('style');
+			style.type = 'text/css';
+			style.innerHTML = `.cursor-x-${CURSOR_ID++} ` +
+				`{cursor: url(data:image/png;base64,${b64_png}) ${hot_x} ${hot_y}, auto;}`;
+			document.querySelector('head').appendChild(style);
+
+			CURSOR_STYLES.push(style);
+		}
+
+		if (CURSOR_CLASS.length > 0)
+			GL.canvas.classList.remove(CURSOR_CLASS);
+
+		GL.canvas.classList.add(CURSOR_CACHE[b64_png]);
+		CURSOR_CLASS = CURSOR_CACHE[b64_png];
 	},
 	web_get_pixel_ratio: function () {
 		// FIXME Currently the browser scales the canvas to handle DPI, need
@@ -552,11 +593,13 @@ const MTY_WEB_API = {
 
 		window.addEventListener('keydown', (ev) => {
 			const text = ev.key.length == 1 ? js_to_c(ev.key, cbuf1) : 0;
-			MTY_CFunc(keyboard)(app, true, ev.keyCode, js_to_c(ev.code, cbuf0), text, get_mods(ev));
+			if (MTY_CFunc(keyboard)(app, true, ev.keyCode, js_to_c(ev.code, cbuf0), text, get_mods(ev)))
+				ev.preventDefault();
 		});
 
 		window.addEventListener('keyup', (ev) => {
-			MTY_CFunc(keyboard)(app, false, ev.keyCode, js_to_c(ev.code, cbuf0), 0, get_mods(ev));
+			if (MTY_CFunc(keyboard)(app, false, ev.keyCode, js_to_c(ev.code, cbuf0), 0, get_mods(ev)))
+				ev.preventDefault();
 		});
 
 		GL.canvas.addEventListener('dragover', (ev) => {
@@ -624,18 +667,6 @@ const MTY_WEB_API = {
 const FDS = {};
 let FD_NUM = 64;
 let FD_PREOPEN = false;
-
-function b64_to_buf(str) {
-	return Uint8Array.from(atob(str), c => c.charCodeAt(0))
-}
-
-function buf_to_b64(buf) {
-	let str = '';
-	for (let x = 0; x < buf.length; x++)
-		str += String.fromCharCode(buf[x]);
-
-	return btoa(str);
-}
 
 function append_buf_to_b64(b64, buf)
 {

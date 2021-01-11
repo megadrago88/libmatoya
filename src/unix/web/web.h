@@ -10,6 +10,8 @@
 
 bool web_has_focus(void);
 bool web_is_visible(void);
+void web_show_cursor(bool show);
+void web_set_png_cursor(const void *image, size_t size, uint32_t hotX, uint32_t hotY);
 void web_set_pointer_lock(bool enable);
 bool web_get_pointer_lock(void);
 char *web_get_clipboard_text(void);

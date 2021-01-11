@@ -117,6 +117,36 @@ bool MTY_JSONToUInt(const MTY_JSON *json, uint32_t *value)
 	return MTY_JSONToInt(json, (int32_t *) value);
 }
 
+bool MTY_JSONToInt16(const MTY_JSON *json, int16_t *value)
+{
+	int32_t v = 0;
+	bool r = MTY_JSONToInt(json, &v);
+
+	*value = (int16_t) v;
+
+	return r;
+}
+
+bool MTY_JSONToUInt16(const MTY_JSON *json, uint16_t *value)
+{
+	return MTY_JSONToInt16(json, (int16_t *) value);
+}
+
+bool MTY_JSONToInt8(const MTY_JSON *json, int8_t *value)
+{
+	int32_t v = 0;
+	bool r = MTY_JSONToInt(json, &v);
+
+	*value = (int8_t) v;
+
+	return r;
+}
+
+bool MTY_JSONToUInt8(const MTY_JSON *json, uint8_t *value)
+{
+	return MTY_JSONToInt8(json, (int8_t *) value);
+}
+
 bool MTY_JSONToFloat(const MTY_JSON *json, float *value)
 {
 	cJSON *cj = (cJSON *) json;

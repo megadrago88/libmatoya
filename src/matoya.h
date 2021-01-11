@@ -262,6 +262,18 @@ MTY_EXPORT bool
 MTY_JSONToUInt(const MTY_JSON *json, uint32_t *value);
 
 MTY_EXPORT bool
+MTY_JSONToInt16(const MTY_JSON *json, int16_t *value);
+
+MTY_EXPORT bool
+MTY_JSONToUInt16(const MTY_JSON *json, uint16_t *value);
+
+MTY_EXPORT bool
+MTY_JSONToInt8(const MTY_JSON *json, int8_t *value);
+
+MTY_EXPORT bool
+MTY_JSONToUInt8(const MTY_JSON *json, uint8_t *value);
+
+MTY_EXPORT bool
 MTY_JSONToFloat(const MTY_JSON *json, float *value);
 
 MTY_EXPORT bool
@@ -332,6 +344,18 @@ MTY_JSONArrayAppend(MTY_JSON *json, const MTY_JSON *value);
 
 #define MTY_JSONObjGetUInt(j, k, v) \
 	MTY_JSONToUInt(MTY_JSONObjGet(j, k), v)
+
+#define MTY_JSONObjGetInt16(j, k, v) \
+	MTY_JSONToInt16(MTY_JSONObjGet(j, k), v)
+
+#define MTY_JSONObjGetUInt16(j, k, v) \
+	MTY_JSONToUInt16(MTY_JSONObjGet(j, k), v)
+
+#define MTY_JSONObjGetInt8(j, k, v) \
+	MTY_JSONToInt8(MTY_JSONObjGet(j, k), v)
+
+#define MTY_JSONObjGetUInt8(j, k, v) \
+	MTY_JSONToUInt8(MTY_JSONObjGet(j, k), v)
 
 #define MTY_JSONObjGetFloat(j, k, v) \
 	MTY_JSONToFloat(MTY_JSONObjGet(j, k), v)

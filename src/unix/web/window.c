@@ -17,10 +17,11 @@ struct MTY_App {
 	MTY_Hash *hotkey;
 	MTY_MsgFunc msg_func;
 	MTY_AppFunc app_func;
+	MTY_Detach detach;
 	void *opaque;
 
 	MTY_GFX api;
-	bool relative;
+	bool kb_grab;
 	struct gfx_ctx *gfx_ctx;
 };
 
@@ -34,6 +35,8 @@ static void __attribute__((constructor)) app_global_init(void)
 
 static void window_hash_codes(MTY_Hash *h)
 {
+	// TODO JIS/ISO keys
+
 	MTY_HashSet(h, "Escape",          (void *) MTY_KEY_ESCAPE);
 	MTY_HashSet(h, "F1",              (void *) MTY_KEY_F1);
 	MTY_HashSet(h, "F2",              (void *) MTY_KEY_F2);
@@ -176,7 +179,7 @@ static void window_mouse_button(MTY_App *ctx, bool pressed, int32_t button, int3
 		MTY_MOUSE_BUTTON_NONE;
 
 	// Simulate movement to where the click occurs
-	if (pressed && !ctx->relative) {
+	if (pressed && !web_get_pointer_lock()) {
 		MTY_Msg mmsg = {0};
 		mmsg.type = MTY_MSG_MOUSE_MOTION;
 		mmsg.mouseMotion.relative = false;
@@ -216,7 +219,29 @@ static void app_kb_to_hotkey(MTY_App *app, MTY_Msg *msg)
 	}
 }
 
-static void window_keyboard(MTY_App *ctx, bool pressed, uint32_t keyCode, const char *code,
+static bool window_allow_default(MTY_Mod mod, MTY_Key key)
+{
+	// The "allowed" browser hotkey list. Refresh, fullscreen, developer console, and tab switching
+
+	return
+		((mod & MTY_MOD_CTRL) && (mod & MTY_MOD_SHIFT) && key == MTY_KEY_I) ||
+		((mod & MTY_MOD_CTRL) && key == MTY_KEY_R) ||
+		((mod & MTY_MOD_CTRL) && key == MTY_KEY_F5) ||
+		((mod & MTY_MOD_CTRL) && key == MTY_KEY_1) ||
+		((mod & MTY_MOD_CTRL) && key == MTY_KEY_2) ||
+		((mod & MTY_MOD_CTRL) && key == MTY_KEY_3) ||
+		((mod & MTY_MOD_CTRL) && key == MTY_KEY_4) ||
+		((mod & MTY_MOD_CTRL) && key == MTY_KEY_5) ||
+		((mod & MTY_MOD_CTRL) && key == MTY_KEY_6) ||
+		((mod & MTY_MOD_CTRL) && key == MTY_KEY_7) ||
+		((mod & MTY_MOD_CTRL) && key == MTY_KEY_8) ||
+		((mod & MTY_MOD_CTRL) && key == MTY_KEY_9) ||
+		(key == MTY_KEY_F5) ||
+		(key == MTY_KEY_F11) ||
+		(key == MTY_KEY_F12);
+}
+
+static bool window_keyboard(MTY_App *ctx, bool pressed, uint32_t keyCode, const char *code,
 	const char *key, uint32_t mods)
 {
 	MTY_Msg msg = {0};
@@ -243,7 +268,11 @@ static void window_keyboard(MTY_App *ctx, bool pressed, uint32_t keyCode, const 
 
 		app_kb_to_hotkey(ctx, &msg);
 		ctx->msg_func(&msg, ctx->opaque);
+
+		return !window_allow_default(msg.keyboard.mod, msg.keyboard.key) || ctx->kb_grab;
 	}
+
+	return true;
 }
 
 static void window_focus(MTY_App *ctx, bool focus)
@@ -305,7 +334,7 @@ void MTY_AppSetClipboard(MTY_App *app, const char *text)
 
 void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
-	// TODO
+	web_set_png_cursor(image, size, hotX, hotY);
 }
 
 void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
@@ -315,7 +344,7 @@ void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 
 void MTY_AppShowCursor(MTY_App *ctx, bool show)
 {
-	// TODO
+	web_show_cursor(show);
 }
 
 bool MTY_AppCanWarpCursor(MTY_App *ctx)
@@ -368,9 +397,7 @@ void MTY_AppDetach(MTY_App *app, MTY_Detach type)
 
 MTY_Detach MTY_AppGetDetached(MTY_App *app)
 {
-	// TODO
-
-	return MTY_DETACH_NONE;
+	return app->detach;
 }
 
 void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
@@ -382,7 +409,7 @@ void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 
 void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
 {
-	// TODO
+	app->kb_grab = grab;
 }
 
 void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
