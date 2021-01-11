@@ -671,12 +671,12 @@ const MTY_WEB_API = {
 			MTY_CFunc(mouse_motion)(app, relative, x, y);
 		});
 
-		GL.canvas.addEventListener('mousedown', (ev) => {
+		window.addEventListener('mousedown', (ev) => {
 			ev.preventDefault();
 			MTY_CFunc(mouse_button)(app, true, ev.button, ev.clientX, ev.clientY);
 		});
 
-		GL.canvas.addEventListener('mouseup', (ev) => {
+		window.addEventListener('mouseup', (ev) => {
 			ev.preventDefault();
 			MTY_CFunc(mouse_button)(app, false, ev.button, ev.clientX, ev.clientY);
 		});
