@@ -10,6 +10,7 @@
 
 bool web_has_focus(void);
 bool web_is_visible(void);
+void web_rumble_gamepad(uint32_t id, float low, float high);
 void web_show_cursor(bool show);
 void web_use_default_cursor(bool use_default);
 void web_set_png_cursor(const void *image, size_t size, uint32_t hotX, uint32_t hotY);
@@ -22,7 +23,7 @@ void web_get_size(uint32_t *width, uint32_t *height);
 void web_get_screen_size(uint32_t *width, uint32_t *height);
 void web_set_title(const char *title);
 void web_create_canvas(void);
-void web_raf(MTY_AppFunc func, const void *opaque);
+void web_raf(MTY_App *app, MTY_AppFunc func, void *controller, const void *opaque);
 void web_register_drag(void);
 float web_get_pixel_ratio(void);
 void web_attach_events(MTY_App *app, void *mouse_motion, void *mouse_button,

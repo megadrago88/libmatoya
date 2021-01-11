@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "web.h"
 
@@ -295,6 +296,92 @@ static void window_drop(MTY_App *ctx, const char *name, const void *data, size_t
 	ctx->msg_func(&msg, ctx->opaque);
 }
 
+static void window_controller(MTY_App *ctx, uint32_t id, uint32_t state, uint32_t buttons,
+	float lx, float ly, float rx, float ry, float lt, float rt)
+{
+	#define TEST_BUTTON(i) \
+		((buttons & (i)) == (i))
+
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_CONTROLLER;
+
+	MTY_Controller *c = &msg.controller;
+	c->driver = MTY_HID_DRIVER_DEFAULT;
+	c->numButtons = 16;
+	c->numValues = 7;
+	c->vid = 0xCDD;
+	c->pid = 0xCDD;
+	c->id = id;
+
+	c->buttons[MTY_CBUTTON_A]              = TEST_BUTTON(0x0001);
+	c->buttons[MTY_CBUTTON_B]              = TEST_BUTTON(0x0002);
+	c->buttons[MTY_CBUTTON_X]              = TEST_BUTTON(0x0004);
+	c->buttons[MTY_CBUTTON_Y]              = TEST_BUTTON(0x0008);
+	c->buttons[MTY_CBUTTON_LEFT_SHOULDER]  = TEST_BUTTON(0x0010);
+	c->buttons[MTY_CBUTTON_RIGHT_SHOULDER] = TEST_BUTTON(0x0020);
+	c->buttons[MTY_CBUTTON_BACK]           = TEST_BUTTON(0x0100);
+	c->buttons[MTY_CBUTTON_START]          = TEST_BUTTON(0x0200);
+	c->buttons[MTY_CBUTTON_LEFT_THUMB]     = TEST_BUTTON(0x0400);
+	c->buttons[MTY_CBUTTON_RIGHT_THUMB]    = TEST_BUTTON(0x0800);
+
+	c->values[MTY_CVALUE_THUMB_LX].data = lx < 0.0f ? lrint(lx * abs(INT16_MIN)) : lrint(lx * INT16_MAX);
+	c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
+	c->values[MTY_CVALUE_THUMB_LX].min = INT16_MIN;
+	c->values[MTY_CVALUE_THUMB_LX].max = INT16_MAX;
+
+	c->values[MTY_CVALUE_THUMB_LY].data = ly > 0.0f ? lrint(-ly * abs(INT16_MIN)) : lrint(-ly * INT16_MAX);
+	c->values[MTY_CVALUE_THUMB_LY].usage = 0x31;
+	c->values[MTY_CVALUE_THUMB_LY].min = INT16_MIN;
+	c->values[MTY_CVALUE_THUMB_LY].max = INT16_MAX;
+
+	c->values[MTY_CVALUE_THUMB_RX].data = rx < 0.0f ? lrint(rx * abs(INT16_MIN)) : lrint(rx * INT16_MAX);
+	c->values[MTY_CVALUE_THUMB_RX].usage = 0x32;
+	c->values[MTY_CVALUE_THUMB_RX].min = INT16_MIN;
+	c->values[MTY_CVALUE_THUMB_RX].max = INT16_MAX;
+
+	c->values[MTY_CVALUE_THUMB_RY].data = ry > 0.0f ? lrint(-ry * abs(INT16_MIN)) : lrint(-ry * INT16_MAX);
+	c->values[MTY_CVALUE_THUMB_RY].usage = 0x35;
+	c->values[MTY_CVALUE_THUMB_RY].min = INT16_MIN;
+	c->values[MTY_CVALUE_THUMB_RY].max = INT16_MAX;
+
+	c->values[MTY_CVALUE_TRIGGER_L].data = lrint(lt * UINT8_MAX);
+	c->values[MTY_CVALUE_TRIGGER_L].usage = 0x33;
+	c->values[MTY_CVALUE_TRIGGER_L].min = 0;
+	c->values[MTY_CVALUE_TRIGGER_L].max = UINT8_MAX;
+
+	c->values[MTY_CVALUE_TRIGGER_R].data = lrint(rt * UINT8_MAX);
+	c->values[MTY_CVALUE_TRIGGER_R].usage = 0x34;
+	c->values[MTY_CVALUE_TRIGGER_R].min = 0;
+	c->values[MTY_CVALUE_TRIGGER_R].max = UINT8_MAX;
+
+	c->buttons[MTY_CBUTTON_LEFT_TRIGGER] = c->values[MTY_CVALUE_TRIGGER_L].data > 0;
+	c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] = c->values[MTY_CVALUE_TRIGGER_R].data > 0;
+
+	bool up = TEST_BUTTON(0x1000);
+	bool down = TEST_BUTTON(0x2000);
+	bool left = TEST_BUTTON(0x4000);
+	bool right = TEST_BUTTON(0x8000);
+
+	c->values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
+		(down && left) ? 5 : (left && up) ? 7 : up ? 0 : right ? 2 : down ? 4 : left ? 6 : 8;
+	c->values[MTY_CVALUE_DPAD].usage = 0x39;
+	c->values[MTY_CVALUE_DPAD].min = 0;
+	c->values[MTY_CVALUE_DPAD].max = 7;
+
+	// Connect
+	if (state == 1) {
+		MTY_Msg cmsg = msg;
+		cmsg.type = MTY_MSG_CONNECT;
+		ctx->msg_func(&cmsg, ctx->opaque);
+
+	// Disconnect
+	} else if (state == 2) {
+		msg.type = MTY_MSG_DISCONNECT;
+	}
+
+	ctx->msg_func(&msg, ctx->opaque);
+}
+
 
 // App / Window
 
@@ -387,7 +474,7 @@ void MTY_AppDestroy(MTY_App **app)
 
 void MTY_AppRun(MTY_App *ctx)
 {
-	web_raf(ctx->app_func, ctx->opaque);
+	web_raf(ctx, ctx->app_func, window_controller, ctx->opaque);
 }
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
@@ -429,7 +516,7 @@ bool MTY_AppIsActive(MTY_App *ctx)
 
 void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {
-	// TODO
+	web_rumble_gamepad(id, (float) low / (float) UINT16_MAX, (float) high / (float) UINT16_MAX);
 }
 
 MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)

@@ -423,6 +423,7 @@ let CURSOR_CACHE = {};
 let CURSOR_STYLES = [];
 let CURSOR_CLASS = '';
 let USE_DEFAULT_CURSOR = false;
+let GPS = [false, false, false, false];
 
 function get_mods(ev) {
 	let mods = 0;
@@ -436,6 +437,56 @@ function get_mods(ev) {
 	if (ev.getModifierState("NumLock") ) mods |= 0x20;
 
 	return mods;
+}
+
+function poll_gamepads(app, controller) {
+	const gps = navigator.getGamepads();
+
+	for (let x = 0; x < 4; x++) {
+		const gp = gps[x];
+
+		if (gp) {
+			let state = 0;
+
+			// Connected
+			if (!GPS[x]) {
+				GPS[x] = true;
+				state = 1;
+			}
+
+			let lx = 0;
+			let ly = 0;
+			let rx = 0;
+			let ry = 0;
+			let lt = 0;
+			let rt = 0;
+			let buttons = 0;
+
+			if (gp.buttons) {
+				lt = gp.buttons[6].value;
+				rt = gp.buttons[7].value;
+
+				for (let i = 0; i < gp.buttons.length && i < 32; i++)
+					if (gp.buttons[i].pressed)
+						buttons |= 1 << i;
+			}
+
+			if (gp.axes) {
+				if (gp.axes[0]) lx = gp.axes[0];
+				if (gp.axes[1]) ly = gp.axes[1];
+				if (gp.axes[2]) rx = gp.axes[2];
+				if (gp.axes[3]) ry = gp.axes[3];
+			}
+
+			MTY_CFunc(controller)(app, x, state, buttons, lx, ly, rx, ry, lt, rt);
+
+		// Disconnected
+		} else if (GPS[x]) {
+			MTY_CFunc(controller)(app, x, 2, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+
+			GPS[x] = false;
+		}
+	}
 }
 
 const MTY_WEB_API = {
@@ -457,6 +508,18 @@ const MTY_WEB_API = {
 	web_set_mem_funcs: function (alloc, free) {
 		MTY_ALLOC = alloc;
 		MTY_FREE = free;
+	},
+	web_rumble_gamepad: function (id, low, high) {
+		const gps = navigator.getGamepads();
+		const gp = gps[id];
+
+		if (gp && gp.vibrationActuator)
+			gp.vibrationActuator.playEffect('dual-rumble', {
+				startDelay: 0,
+				duration: 2000,
+				weakMagnitude: low,
+				strongMagnitude: high,
+			});
 	},
 	web_show_cursor: function (show) {
 		GL.canvas.style.cursor = show ? '': 'none';
@@ -663,10 +726,12 @@ const MTY_WEB_API = {
 			}
 		});
 	},
-	web_raf: function (func, opaque) {
+	web_raf: function (app, func, controller, opaque) {
 		const step = () => {
 			// TODO This number will affect the "swap interval"
 			if (++FRAME_CTR % 2 == 0) {
+				poll_gamepads(app, controller);
+
 				GL.canvas.width = window.innerWidth;
 				GL.canvas.height = window.innerHeight;
 
