@@ -965,7 +965,8 @@ async function MTY_Start(bin, userEnv) {
 	GL = canvas.getContext('webgl', {depth: 0, antialias: 0, premultipliedAlpha: true});
 
 	// Load keyboard map
-	KB_MAP = await navigator.keyboard.getLayoutMap();
+	if (navigator.keyboard)
+		KB_MAP = await navigator.keyboard.getLayoutMap();
 
 	// Fetch the wasm file as an ArrayBuffer
 	const res = await fetch(bin);
