@@ -820,15 +820,12 @@ const WASI_API = {
 		return 0;
 	},
 	path_remove_directory: function () {
-		console.log('path_remove_directory', arguments);
 		return 0;
 	},
 	path_unlink_file: function () {
-		console.log('path_unlink_file', arguments);
 		return 0;
 	},
 	path_readlink: function () {
-		console.log('path_readlink', arguments);
 	},
 
 	// File descriptors
@@ -839,10 +836,8 @@ const WASI_API = {
 		return 0;
 	},
 	fd_fdstat_set_flags: function () {
-		console.log('fd_fdstat_set_flags', arguments);
 	},
 	fd_readdir: function () {
-		console.log('fd_readdir', arguments);
 		return 8;
 	},
 	fd_seek: function (fd, offset, whence, offset_out) {
@@ -920,11 +915,9 @@ const WASI_API = {
 		return 0;
 	},
 	poll_oneoff: function (sin, sout, nsubscriptions, nevents) {
-		console.log('poll_oneoff', arguments);
 		return 0;
 	},
 	proc_exit: function () {
-		console.log('proc_exit', arguments);
 	},
 };
 

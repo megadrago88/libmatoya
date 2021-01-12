@@ -31,6 +31,10 @@ struct MTY_App {
 static void __attribute__((constructor)) app_global_init(void)
 {
 	web_set_mem_funcs(MTY_Alloc, MTY_Free);
+
+	// WASI will buffer stdout and stderr by default
+	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
 }
 
 
