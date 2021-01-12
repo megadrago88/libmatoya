@@ -747,11 +747,11 @@ const MTY_WEB_API = {
 // https://github.com/WebAssembly/WASI/blob/master/phases/snapshot/docs.md
 
 const FDS = {};
+let ARG0 = '';
 let FD_NUM = 64;
 let FD_PREOPEN = false;
 
-function append_buf_to_b64(b64, buf)
-{
+function append_buf_to_b64(b64, buf) {
 	// FIXME This is a crude way to handle appending to an open file,
 	// complex seek operations will break this
 
@@ -764,19 +764,35 @@ function append_buf_to_b64(b64, buf)
 	return buf_to_b64(new_buf);
 }
 
+function arg_list() {
+	const params = new URLSearchParams(window.location.search);
+
+	let plist = [ARG0];
+	for (let p of params)
+		plist.push(p[0] + '=' + p[1]);
+
+	return plist;
+}
+
 const WASI_API = {
 	// Command line arguments
-	args_get: function () {
-		console.log('args_get', arguments);
+	args_get: function (argv, argv_buf) {
+		const args = arg_list();
+		for (let x = 0; x < args.length; x++) {
+			js_to_c(args[x], argv_buf);
+			setUint32(argv + x * 4, argv_buf);
+			argv_buf += args[x].length + 1;
+		}
+
 		return 0;
 	},
 	args_sizes_get: function (argc, argv_buf_size) {
-		console.log('args_sizes_get', arguments);
-		setUint32(argc, 0);
-		setUint32(argv_buf_size, 0);
+		const args = arg_list();
+
+		setUint32(argc, args.length);
+		setUint32(argv_buf_size, args.join(' ').length + 1);
 		return 0;
 	},
-
 
 	// WASI preopened directory (/)
 	fd_prestat_get: function (fd, path) {
@@ -925,6 +941,8 @@ const WASI_API = {
 // Entry
 
 async function MTY_Start(bin, userEnv) {
+	ARG0 = bin;
+
 	if (!userEnv)
 		userEnv = {};
 
