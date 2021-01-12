@@ -536,13 +536,15 @@ const MTY_WEB_API = {
 		return false;
 	},
 	web_wake_lock: async function (enable) {
-		if (!enable && !WAKE_LOCK) {
-			WAKE_LOCK = await navigator.wakeLock.request('screen');
+		try {
+			if (!enable && !WAKE_LOCK) {
+				WAKE_LOCK = await navigator.wakeLock.request('screen');
 
-		} else if (enable && WAKE_LOCK) {
-			WAKE_LOCK.release();
-			WAKE_LOCK = undefined;
-		}
+			} else if (enable && WAKE_LOCK) {
+				WAKE_LOCK.release();
+				WAKE_LOCK = undefined;
+			}
+		} catch (e) {}
 	},
 	web_rumble_gamepad: function (id, low, high) {
 		const gps = navigator.getGamepads();
