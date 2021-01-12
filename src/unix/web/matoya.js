@@ -424,6 +424,7 @@ const MTY_AUDIO_API = {
 let KB_MAP;
 let CBUF0;
 let CBUF1;
+let WAKE_LOCK;
 let CURSOR_ID = 0;
 let CURSOR_CACHE = {};
 let CURSOR_STYLES = [];
@@ -533,6 +534,15 @@ const MTY_WEB_API = {
 		}
 
 		return false;
+	},
+	web_wake_lock: async function (enable) {
+		if (!enable && !WAKE_LOCK) {
+			WAKE_LOCK = await navigator.wakeLock.request('screen');
+
+		} else if (enable && WAKE_LOCK) {
+			WAKE_LOCK.release();
+			WAKE_LOCK = undefined;
+		}
 	},
 	web_rumble_gamepad: function (id, low, high) {
 		const gps = navigator.getGamepads();

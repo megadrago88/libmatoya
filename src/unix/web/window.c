@@ -331,7 +331,7 @@ static void window_drop(MTY_App *ctx, const char *name, const void *data, size_t
 static void window_controller(MTY_App *ctx, uint32_t id, uint32_t state, uint32_t buttons,
 	float lx, float ly, float rx, float ry, float lt, float rt)
 {
-	#define TEST_BUTTON(i) \
+	#define TESTB(i) \
 		((buttons & (i)) == (i))
 
 	MTY_Msg msg = {0};
@@ -345,16 +345,16 @@ static void window_controller(MTY_App *ctx, uint32_t id, uint32_t state, uint32_
 	c->pid = 0xCDD;
 	c->id = id;
 
-	c->buttons[MTY_CBUTTON_A]              = TEST_BUTTON(0x0001);
-	c->buttons[MTY_CBUTTON_B]              = TEST_BUTTON(0x0002);
-	c->buttons[MTY_CBUTTON_X]              = TEST_BUTTON(0x0004);
-	c->buttons[MTY_CBUTTON_Y]              = TEST_BUTTON(0x0008);
-	c->buttons[MTY_CBUTTON_LEFT_SHOULDER]  = TEST_BUTTON(0x0010);
-	c->buttons[MTY_CBUTTON_RIGHT_SHOULDER] = TEST_BUTTON(0x0020);
-	c->buttons[MTY_CBUTTON_BACK]           = TEST_BUTTON(0x0100);
-	c->buttons[MTY_CBUTTON_START]          = TEST_BUTTON(0x0200);
-	c->buttons[MTY_CBUTTON_LEFT_THUMB]     = TEST_BUTTON(0x0400);
-	c->buttons[MTY_CBUTTON_RIGHT_THUMB]    = TEST_BUTTON(0x0800);
+	c->buttons[MTY_CBUTTON_A] = TESTB(0x0001);
+	c->buttons[MTY_CBUTTON_B] = TESTB(0x0002);
+	c->buttons[MTY_CBUTTON_X] = TESTB(0x0004);
+	c->buttons[MTY_CBUTTON_Y] = TESTB(0x0008);
+	c->buttons[MTY_CBUTTON_LEFT_SHOULDER] = TESTB(0x0010);
+	c->buttons[MTY_CBUTTON_RIGHT_SHOULDER] = TESTB(0x0020);
+	c->buttons[MTY_CBUTTON_BACK] = TESTB(0x0100);
+	c->buttons[MTY_CBUTTON_START] = TESTB(0x0200);
+	c->buttons[MTY_CBUTTON_LEFT_THUMB] = TESTB(0x0400);
+	c->buttons[MTY_CBUTTON_RIGHT_THUMB] = TESTB(0x0800);
 
 	c->values[MTY_CVALUE_THUMB_LX].data = lx < 0.0f ? lrint(lx * abs(INT16_MIN)) : lrint(lx * INT16_MAX);
 	c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
@@ -389,10 +389,10 @@ static void window_controller(MTY_App *ctx, uint32_t id, uint32_t state, uint32_
 	c->buttons[MTY_CBUTTON_LEFT_TRIGGER] = c->values[MTY_CVALUE_TRIGGER_L].data > 0;
 	c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] = c->values[MTY_CVALUE_TRIGGER_R].data > 0;
 
-	bool up = TEST_BUTTON(0x1000);
-	bool down = TEST_BUTTON(0x2000);
-	bool left = TEST_BUTTON(0x4000);
-	bool right = TEST_BUTTON(0x8000);
+	bool up = TESTB(0x1000);
+	bool down = TESTB(0x2000);
+	bool left = TESTB(0x4000);
+	bool right = TESTB(0x8000);
 
 	c->values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
 		(down && left) ? 5 : (left && up) ? 7 : up ? 0 : right ? 2 : down ? 4 : left ? 6 : 8;
@@ -524,9 +524,7 @@ MTY_Detach MTY_AppGetDetached(MTY_App *app)
 
 void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 {
-	// TODO
-	// const wl = await navigator.wakeLock.request("screen");
-	// wl.release();
+	web_wake_lock(enable);
 }
 
 void MTY_AppGrabKeyboard(MTY_App *app, bool grab)

@@ -10,6 +10,7 @@
 
 bool web_has_focus(void);
 bool web_is_visible(void);
+void web_wake_lock(bool enable);
 bool web_get_key(const char *code, char *key, size_t len);
 void web_rumble_gamepad(uint32_t id, float low, float high);
 void web_show_cursor(bool show);
