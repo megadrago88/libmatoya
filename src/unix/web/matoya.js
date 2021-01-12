@@ -441,6 +441,10 @@ function get_mods(ev) {
 	return mods;
 }
 
+function scale() {
+	return window.devicePixelRatio;
+}
+
 function poll_gamepads(app, controller) {
 	const gps = navigator.getGamepads();
 
@@ -636,15 +640,13 @@ const MTY_WEB_API = {
 		}
 	},
 	web_get_pixel_ratio: function () {
-		// FIXME Currently the browser scales the canvas to handle DPI, need
-		// to figure out window.devicePixelRatio
-		return 1.0;
+		return scale();
 	},
 	web_attach_events: function (app, mouse_motion, mouse_button, mouse_wheel, keyboard, focus, drop) {
 		GL.canvas.addEventListener('mousemove', (ev) => {
 			let relative = document.pointerLockElement ? true : false;
-			let x = ev.clientX;
-			let y = ev.clientY;
+			let x = ev.clientX * scale();
+			let y = ev.clientY * scale();
 
 			if (relative) {
 				x = ev.movementX;
@@ -656,12 +658,12 @@ const MTY_WEB_API = {
 
 		window.addEventListener('mousedown', (ev) => {
 			ev.preventDefault();
-			MTY_CFunc(mouse_button)(app, true, ev.button, ev.clientX, ev.clientY);
+			MTY_CFunc(mouse_button)(app, true, ev.button, ev.clientX * scale(), ev.clientY * scale());
 		});
 
 		window.addEventListener('mouseup', (ev) => {
 			ev.preventDefault();
-			MTY_CFunc(mouse_button)(app, false, ev.button, ev.clientX, ev.clientY);
+			MTY_CFunc(mouse_button)(app, false, ev.button, ev.clientX * scale(), ev.clientY * scale());
 		});
 
 		GL.canvas.addEventListener('contextmenu', (ev) => {
@@ -727,8 +729,8 @@ const MTY_WEB_API = {
 		const step = () => {
 			poll_gamepads(app, controller);
 
-			GL.canvas.width = window.innerWidth;
-			GL.canvas.height = window.innerHeight;
+			GL.canvas.width = window.innerWidth * scale();
+			GL.canvas.height = window.innerHeight * scale();
 
 			// TODO check return value, call cleanup routine on false (web_close)
 			MTY_CFunc(func)(opaque);
@@ -960,6 +962,8 @@ async function MTY_Start(bin, userEnv) {
 	body.style.margin = 0;
 
 	const canvas = document.createElement('canvas');
+	canvas.style.width = '100%';
+	canvas.style.height = '100%';
 	document.body.appendChild(canvas);
 
 	GL = canvas.getContext('webgl', {depth: 0, antialias: 0, premultipliedAlpha: true});

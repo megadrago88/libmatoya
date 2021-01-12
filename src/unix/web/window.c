@@ -49,13 +49,12 @@ static void window_map_code(MTY_Hash *h, MTY_Hash *rev, const char *code, MTY_Ke
 	if (!web_get_key(code, buf, 32))
 		snprintf(buf, 32, "%s", code);
 
-	MTY_HashSetInt(rev, key, buf);
+	if (rev)
+		MTY_HashSetInt(rev, key, buf);
 }
 
 static void window_hash_codes(MTY_Hash *h, MTY_Hash *rev)
 {
-	// TODO JIS/ISO keys
-
 	window_map_code(h, rev, "Escape",          MTY_KEY_ESCAPE);
 	window_map_code(h, rev, "F1",              MTY_KEY_F1);
 	window_map_code(h, rev, "F2",              MTY_KEY_F2);
@@ -124,6 +123,7 @@ static void window_hash_codes(MTY_Hash *h, MTY_Hash *rev)
 	window_map_code(h, rev, "KeyM",            MTY_KEY_M);
 	window_map_code(h, rev, "Comma",           MTY_KEY_COMMA);
 	window_map_code(h, rev, "Period",          MTY_KEY_PERIOD);
+	window_map_code(h, rev, "Slash",           MTY_KEY_SLASH);
 	window_map_code(h, rev, "ShiftRight",      MTY_KEY_RSHIFT);
 
 	window_map_code(h, rev, "ControlLeft",     MTY_KEY_LCTRL);
@@ -168,6 +168,20 @@ static void window_hash_codes(MTY_Hash *h, MTY_Hash *rev)
 	window_map_code(h, rev, "NumpadEnter",     MTY_KEY_NP_ENTER);
 	window_map_code(h, rev, "Numpad0",         MTY_KEY_NP_0);
 	window_map_code(h, rev, "NumpadDecimal",   MTY_KEY_NP_PERIOD);
+
+	// Non-US keys
+	window_map_code(h, rev, "IntlBackslash",   MTY_KEY_INTL_BACKSLASH);
+	window_map_code(h, rev, "IntlYen",         MTY_KEY_YEN);
+	window_map_code(h, rev, "IntlRo",          MTY_KEY_RO);
+	window_map_code(h, rev, "NonConvert",      MTY_KEY_MUHENKAN);
+	window_map_code(h, rev, "Convert",         MTY_KEY_HENKAN);
+	window_map_code(h, rev, "Hiragana",        MTY_KEY_JP);
+
+	window_map_code(h, NULL, "AltGraph",       MTY_KEY_RALT);
+	window_map_code(h, NULL, "Lang2",          MTY_KEY_MUHENKAN);
+	window_map_code(h, NULL, "Lang1",          MTY_KEY_HENKAN);
+	window_map_code(h, NULL, "KanaMode",       MTY_KEY_JP);
+	window_map_code(h, NULL, "Zenkaku",        MTY_KEY_GRAVE);
 }
 
 
