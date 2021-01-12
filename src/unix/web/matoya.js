@@ -4,59 +4,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// Helpers
+// Private helpers
 
 let MODULE;
-let MTY_ALLOC;
-let MTY_FREE;
 
 function mem() {
 	return MODULE.instance.exports.memory.buffer;
 }
 
-function MTY_CFunc(ptr) {
-	return MODULE.instance.exports.__indirect_function_table.get(ptr);
-}
-
-function MTY_Alloc(size, el) {
-	return MTY_CFunc(MTY_ALLOC)(size, el ? el : 1);
-}
-
-function MTY_Free(ptr) {
-	MTY_CFunc(MTY_FREE)(ptr);
-}
-
 function mem_view() {
 	return new DataView(mem());
-}
-
-function setUint32(ptr, value) {
-	mem_view().setUint32(ptr, value, true);
-}
-
-function setInt32(ptr, value) {
-	mem_view().setInt32(ptr, value, true);
-}
-
-function setInt8(ptr, value) {
-	mem_view().setInt8(ptr, value);
-}
-
-function setFloat(ptr, value) {
-	mem_view().setFloat32(ptr, value, true);
-}
-
-function setUint64(ptr, value) {
-	mem_view().setBigUint64(ptr, BigInt(value), true);
-}
-
-function getUint32(ptr) {
-	return mem_view().getUint32(ptr, true);
-}
-
-function copy(cptr, abuffer) {
-	let heap = new Uint8Array(mem(), cptr);
-	heap.set(abuffer);
 }
 
 function char_to_js(buf) {
@@ -72,11 +29,70 @@ function char_to_js(buf) {
 	return str;
 }
 
-function c_to_js(ptr) {
+function b64_to_buf(str) {
+	return Uint8Array.from(atob(str), c => c.charCodeAt(0))
+}
+
+function buf_to_b64(buf) {
+	let str = '';
+	for (let x = 0; x < buf.length; x++)
+		str += String.fromCharCode(buf[x]);
+
+	return btoa(str);
+}
+
+
+// Utility
+
+let MTY_ALLOC;
+let MTY_FREE;
+
+function MTY_CFunc(ptr) {
+	return MODULE.instance.exports.__indirect_function_table.get(ptr);
+}
+
+function MTY_Alloc(size, el) {
+	return MTY_CFunc(MTY_ALLOC)(size, el ? el : 1);
+}
+
+function MTY_Free(ptr) {
+	MTY_CFunc(MTY_FREE)(ptr);
+}
+
+function MTY_SetUint32(ptr, value) {
+	mem_view().setUint32(ptr, value, true);
+}
+
+function MTY_SetInt32(ptr, value) {
+	mem_view().setInt32(ptr, value, true);
+}
+
+function MTY_SetInt8(ptr, value) {
+	mem_view().setInt8(ptr, value);
+}
+
+function MTY_SetFloat(ptr, value) {
+	mem_view().setFloat32(ptr, value, true);
+}
+
+function MTY_SetUint64(ptr, value) {
+	mem_view().setBigUint64(ptr, BigInt(value), true);
+}
+
+function MTY_GetUint32(ptr) {
+	return mem_view().getUint32(ptr, true);
+}
+
+function MTY_Memcpy(cptr, abuffer) {
+	const heap = new Uint8Array(mem(), cptr, abuffer.length);
+	heap.set(abuffer);
+}
+
+function MTY_StrToJS(ptr) {
 	return char_to_js(new Uint8Array(mem(), ptr));
 }
 
-function js_to_c(js_str, ptr) {
+function MTY_StrToC(js_str, ptr) {
 	const view = new Uint8Array(mem(), ptr);
 
 	// FIXME No bounds checking!
@@ -88,18 +104,6 @@ function js_to_c(js_str, ptr) {
 	view[len] = 0;
 
 	return ptr;
-}
-
-function b64_to_buf(str) {
-	return Uint8Array.from(atob(str), c => c.charCodeAt(0))
-}
-
-function buf_to_b64(buf) {
-	let str = '';
-	for (let x = 0; x < buf.length; x++)
-		str += String.fromCharCode(buf[x]);
-
-	return btoa(str);
 }
 
 
@@ -131,11 +135,11 @@ function gl_obj(index) {
 const GL_API = {
 	glGenFramebuffers: function (n, ids) {
 		for (let x = 0; x < n; x++)
-			setUint32(ids + x * 4, gl_new(GL.createFramebuffer()));
+			MTY_SetUint32(ids + x * 4, gl_new(GL.createFramebuffer()));
 	},
 	glDeleteFramebuffers: function (n, ids) {
 		for (let x = 0; x < n; x++)
-			GL.deleteFramebuffer(gl_del(getUint32(ids + x * 4)));
+			GL.deleteFramebuffer(gl_del(MTY_GetUint32(ids + x * 4)));
 	},
 	glBindFramebuffer: function (target, fb) {
 		GL.bindFramebuffer(target, fb ? gl_obj(fb) : null);
@@ -168,14 +172,14 @@ const GL_API = {
 			case GL.ARRAY_BUFFER_BINDING:
 			case GL.TEXTURE_BINDING_2D:
 			case GL.CURRENT_PROGRAM:
-				setUint32(data, gl_new(p));
+				MTY_SetUint32(data, gl_new(p));
 				break;
 
 			// int32[4]
 			case GL.VIEWPORT:
 			case GL.SCISSOR_BOX:
 				for (let x = 0; x < 4; x++)
-					setUint32(data + x * 4, p[x]);
+					MTY_SetUint32(data + x * 4, p[x]);
 				break;
 
 			// int
@@ -186,11 +190,11 @@ const GL_API = {
 			case GL.BLEND_DST_ALPHA:
 			case GL.BLEND_EQUATION_RGB:
 			case GL.BLEND_EQUATION_ALPHA:
-				setUint32(data, p);
+				MTY_SetUint32(data, p);
 				break;
 		}
 
-		setUint32(data, p);
+		MTY_SetUint32(data, p);
 	},
 	glGetFloatv: function (name, data) {
 		switch (name) {
@@ -198,7 +202,7 @@ const GL_API = {
 				const p = GL.getParameter(name);
 
 				for (let x = 0; x < 4; x++)
-					setFloat(data + x * 4, p[x]);
+					MTY_SetFloat(data + x * 4, p[x]);
 				break;
 		}
 	},
@@ -207,14 +211,14 @@ const GL_API = {
 	},
 	glDeleteTextures: function (n, ids) {
 		for (let x = 0; x < n; x++)
-			GL.deleteTexture(gl_del(getUint32(ids + x * 4)));
+			GL.deleteTexture(gl_del(MTY_GetUint32(ids + x * 4)));
 	},
 	glTexParameteri: function (target, pname, param) {
 		GL.texParameteri(target, pname, param);
 	},
 	glGenTextures: function (n, ids) {
 		for (let x = 0; x < n; x++)
-			setUint32(ids + x * 4, gl_new(GL.createTexture()));
+			MTY_SetUint32(ids + x * 4, gl_new(GL.createTexture()));
 	},
 	glTexImage2D: function (target, level, internalformat, width, height, border, format, type, data) {
 		GL.texImage2D(target, level, internalformat, width, height, border, format, type,
@@ -228,12 +232,12 @@ const GL_API = {
 		GL.drawElements(mode, count, type, indices);
 	},
 	glGetAttribLocation: function (program, c_name) {
-		return GL.getAttribLocation(gl_obj(program), c_to_js(c_name));
+		return GL.getAttribLocation(gl_obj(program), MTY_StrToJS(c_name));
 	},
 	glShaderSource: function (shader, count, c_strings, c_len) {
 		let source = '';
 		for (let x = 0; x < count; x++)
-			source += c_to_js(getUint32(c_strings + x * 4));
+			source += MTY_StrToJS(MTY_GetUint32(c_strings + x * 4));
 
 		GL.shaderSource(gl_obj(shader), source);
 	},
@@ -263,7 +267,7 @@ const GL_API = {
 	},
 	glDeleteBuffers: function (n, ids) {
 		for (let x = 0; x < n; x++)
-			GL.deleteBuffer(gl_del(getUint32(ids + x * 4)));
+			GL.deleteBuffer(gl_del(MTY_GetUint32(ids + x * 4)));
 	},
 	glEnableVertexAttribArray: function (index) {
 		GL.enableVertexAttribArray(index);
@@ -276,7 +280,7 @@ const GL_API = {
 	},
 	glGenBuffers: function (n, ids) {
 		for (let x = 0; x < n; x++)
-			setUint32(ids + x * 4, gl_new(GL.createBuffer()));
+			MTY_SetUint32(ids + x * 4, gl_new(GL.createBuffer()));
 	},
 	glCompileShader: function (shader) {
 		GL.compileShader(gl_obj(shader));
@@ -285,7 +289,7 @@ const GL_API = {
 		GL.linkProgram(gl_obj(program));
 	},
 	glGetUniformLocation: function (program, name) {
-		return gl_new(GL.getUniformLocation(gl_obj(program), c_to_js(name)));
+		return gl_new(GL.getUniformLocation(gl_obj(program), MTY_StrToJS(name)));
 	},
 	glCreateShader: function (type) {
 		return gl_new(GL.createShader(type));
@@ -299,13 +303,13 @@ const GL_API = {
 	glGetShaderiv: function (shader, pname, params) {
 		if (pname == 0x8B81) {
 			let ok = GL.getShaderParameter(gl_obj(shader), GL.COMPILE_STATUS);
-			setUint32(params, ok);
+			MTY_SetUint32(params, ok);
 
 			if (!ok)
 				console.warn(GL.getShaderInfoLog(gl_obj(shader)));
 
 		} else {
-			setUint32(params, 0);
+			MTY_SetUint32(params, 0);
 		}
 	},
 	glDetachShader: function (program, shader) {
@@ -348,7 +352,7 @@ const GL_API = {
 		GL.blendFuncSeparate(srcRGB, dstRGB, srcAlpha, dstAlpha);
 	},
 	glGetProgramiv: function (program, pname, params) {
-		setUint32(params, GL.getProgramParameter(gl_obj(program), pname));
+		MTY_SetUint32(params, GL.getProgramParameter(gl_obj(program), pname));
 	},
 };
 
@@ -364,7 +368,7 @@ const MTY_AUDIO_API = {
 		return 1; // In case the app checks for NULL
 	},
 	MTY_AudioDestroy: function (_) {
-		setUint32(_, 0);
+		MTY_SetUint32(_, 0);
 		AC = {};
 	},
 	MTY_AudioPlay: function () {
@@ -504,7 +508,7 @@ const MTY_WEB_API = {
 
 	// unistd
 	gethostname: function(cbuf, size) {
-		js_to_c(cbuf, location.hostname);
+		MTY_StrToC(cbuf, location.hostname);
 	},
 	flock: function(fd, flags) {
 		return 0;
@@ -521,9 +525,9 @@ const MTY_WEB_API = {
 	},
 	web_get_key: function (code, cbuf, len) {
 		if (KB_MAP) {
-			const key = KB_MAP.get(c_to_js(code));
+			const key = KB_MAP.get(MTY_StrToJS(code));
 			if (key) {
-				js_to_c(key.toUpperCase(), cbuf);
+				MTY_StrToC(key.toUpperCase(), cbuf);
 				return true;
 			}
 		}
@@ -546,13 +550,13 @@ const MTY_WEB_API = {
 		GL.canvas.style.cursor = show ? '': 'none';
 	},
 	web_set_clipboard_text: function (text_c) {
-		navigator.clipboard.writeText(c_to_js(text_c));
+		navigator.clipboard.writeText(MTY_StrToJS(text_c));
 	},
 	web_get_clipboard_text: function () {
 		navigator.clipboard.readText().then(text => {
 			const text_c = MTY_Alloc(text.length * 4);
 
-			js_to_c(text, text_c);
+			MTY_StrToC(text, text_c);
 			console.log('web_get_clipboard_text:', text);
 
 			MTY_Free(text_c);
@@ -585,15 +589,15 @@ const MTY_WEB_API = {
 		return true;
 	},
 	web_get_size: function (c_width, c_height) {
-		setUint32(c_width, GL.drawingBufferWidth);
-		setUint32(c_height, GL.drawingBufferHeight);
+		MTY_SetUint32(c_width, GL.drawingBufferWidth);
+		MTY_SetUint32(c_height, GL.drawingBufferHeight);
 	},
 	web_get_screen_size: function (c_width, c_height) {
-		setUint32(c_width, screen.width);
-		setUint32(c_height, screen.height);
+		MTY_SetUint32(c_width, screen.width);
+		MTY_SetUint32(c_height, screen.height);
 	},
 	web_set_title: function (title) {
-		document.title = c_to_js(title);
+		document.title = MTY_StrToJS(title);
 	},
 	web_use_default_cursor: function (use_default) {
 		if (CURSOR_CLASS.length > 0) {
@@ -677,13 +681,13 @@ const MTY_WEB_API = {
 		}, {passive: true});
 
 		window.addEventListener('keydown', (ev) => {
-			const text = ev.key.length == 1 ? js_to_c(ev.key, CBUF1) : 0;
-			if (MTY_CFunc(keyboard)(app, true, ev.keyCode, js_to_c(ev.code, CBUF0), text, get_mods(ev)))
+			const text = ev.key.length == 1 ? MTY_StrToC(ev.key, CBUF1) : 0;
+			if (MTY_CFunc(keyboard)(app, true, ev.keyCode, MTY_StrToC(ev.code, CBUF0), text, get_mods(ev)))
 				ev.preventDefault();
 		});
 
 		window.addEventListener('keyup', (ev) => {
-			if (MTY_CFunc(keyboard)(app, false, ev.keyCode, js_to_c(ev.code, CBUF0), 0, get_mods(ev)))
+			if (MTY_CFunc(keyboard)(app, false, ev.keyCode, MTY_StrToC(ev.code, CBUF0), 0, get_mods(ev)))
 				ev.preventDefault();
 		});
 
@@ -714,8 +718,8 @@ const MTY_WEB_API = {
 						if (reader.readyState == 2) {
 							let buf = new Uint8Array(reader.result);
 							let cmem = MTY_Alloc(buf.length);
-							copy(cmem, buf);
-							MTY_CFunc(drop)(app, js_to_c(file.name, CBUF0), cmem, buf.length);
+							MTY_Memcpy(cmem, buf);
+							MTY_CFunc(drop)(app, MTY_StrToC(file.name, CBUF0), cmem, buf.length);
 							MTY_Free(cmem);
 						}
 					});
@@ -781,8 +785,8 @@ const WASI_API = {
 	args_get: function (argv, argv_buf) {
 		const args = arg_list();
 		for (let x = 0; x < args.length; x++) {
-			js_to_c(args[x], argv_buf);
-			setUint32(argv + x * 4, argv_buf);
+			MTY_StrToC(args[x], argv_buf);
+			MTY_SetUint32(argv + x * 4, argv_buf);
 			argv_buf += args[x].length + 1;
 		}
 
@@ -791,8 +795,8 @@ const WASI_API = {
 	args_sizes_get: function (argc, argv_buf_size) {
 		const args = arg_list();
 
-		setUint32(argc, args.length);
-		setUint32(argv_buf_size, args.join(' ').length + 1);
+		MTY_SetUint32(argc, args.length);
+		MTY_SetUint32(argv_buf_size, args.join(' ').length + 1);
 		return 0;
 	},
 
@@ -802,7 +806,7 @@ const WASI_API = {
 	},
 	fd_prestat_dir_name: function (fd, path, path_len) {
 		if (!FD_PREOPEN) {
-			js_to_c('/', path);
+			MTY_StrToC('/', path);
 			FD_PREOPEN = true;
 
 			return 0;
@@ -813,21 +817,21 @@ const WASI_API = {
 
 	// Paths
 	path_filestat_get: function (fd, flags, cpath, _0, filestat_out) {
-		const path = c_to_js(cpath);
+		const path = MTY_StrToJS(cpath);
 		if (localStorage[path]) {
 			// We only need to return the size
 			const buf = b64_to_buf(localStorage[path]);
-			setUint64(filestat_out + 32, buf.byteLength);
+			MTY_SetUint64(filestat_out + 32, buf.byteLength);
 		}
 
 		return 0;
 	},
 	path_open: function (fd, dir_flags, path, o_flags, _0, _1, _2, mode, fd_out) {
 		const new_fd = FD_NUM++;
-		setUint32(fd_out, new_fd);
+		MTY_SetUint32(fd_out, new_fd);
 
 		FDS[new_fd] = {
-			path: c_to_js(path),
+			path: MTY_StrToJS(path),
 			append: mode == 1,
 			offset: 0,
 		};
@@ -868,15 +872,15 @@ const WASI_API = {
 			const full_buf = b64_to_buf(localStorage[finfo.path]);
 
 			let ptr = iovs;
-			let cbuf = getUint32(ptr);
-			let cbuf_len = getUint32(ptr + 4);
+			let cbuf = MTY_GetUint32(ptr);
+			let cbuf_len = MTY_GetUint32(ptr + 4);
 			let len = cbuf_len < full_buf.length ? cbuf_len : full_buf.length;
 
 			let view = new Uint8Array(mem(), cbuf, cbuf_len);
 			let slice = new Uint8Array(full_buf.buffer, 0, len);
 			view.set(slice);
 
-			setUint32(nread, len);
+			MTY_SetUint32(nread, len);
 		}
 
 		return 0;
@@ -885,17 +889,17 @@ const WASI_API = {
 		// Calculate full write size
 		let len = 0;
 		for (let x = 0; x < iovs_len; x++)
-			len += getUint32(iovs + x * 8 + 4);
+			len += MTY_GetUint32(iovs + x * 8 + 4);
 
-		setUint32(nwritten, len);
+		MTY_SetUint32(nwritten, len);
 
 		// Create a contiguous buffer
 		let offset = 0;
 		let full_buf = new Uint8Array(len);
 		for (let x = 0; x < iovs_len; x++) {
 			let ptr = iovs + x * 8;
-			let cbuf = getUint32(ptr);
-			let cbuf_len = getUint32(ptr + 4);
+			let cbuf = MTY_GetUint32(ptr);
+			let cbuf_len = MTY_GetUint32(ptr + 4);
 
 			full_buf.set(new Uint8Array(mem(), cbuf, cbuf_len), offset);
 			offset += cbuf_len;
@@ -929,7 +933,7 @@ const WASI_API = {
 
 	// Misc
 	clock_time_get: function (id, precision, time_out) {
-		setUint64(time_out, Math.trunc(performance.now() * 1000.0 * 1000.0));
+		MTY_SetUint64(time_out, Math.trunc(performance.now() * 1000.0 * 1000.0));
 		return 0;
 	},
 	poll_oneoff: function (sin, sout, nsubscriptions, nevents) {
