@@ -544,7 +544,9 @@ const MTY_WEB_API = {
 				WAKE_LOCK.release();
 				WAKE_LOCK = undefined;
 			}
-		} catch (e) {}
+		} catch (e) {
+			WAKE_LOCK = undefined;
+		}
 	},
 	web_rumble_gamepad: function (id, low, high) {
 		const gps = navigator.getGamepads();
