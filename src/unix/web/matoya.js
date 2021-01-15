@@ -817,10 +817,20 @@ function append_buf_to_b64(b64, buf) {
 
 function arg_list() {
 	const params = new URLSearchParams(window.location.search);
+	const qs = params.toString();
 
 	let plist = [ARG0];
-	for (let p of params)
-		plist.push(p[0] + '=' + p[1]);
+
+	// TODO This would put each key/val pair as a separate arg
+	// for (let p of params)
+	// 	plist.push(p[0] + '=' + p[1]);
+
+	//return plist;
+
+
+	// For now treat the entire query string as argv[1]
+	if (qs)
+		plist.push(qs);
 
 	return plist;
 }
