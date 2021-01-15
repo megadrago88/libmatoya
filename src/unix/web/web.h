@@ -9,17 +9,19 @@
 #include "matoya.h"
 
 bool web_has_focus(void);
+void web_set_key(bool reverse, const char *code, MTY_Key key);
+bool web_get_key(MTY_Key key, char *str, size_t len);
 bool web_is_visible(void);
 void web_wake_lock(bool enable);
-bool web_get_key(const char *code, char *key, size_t len);
 void web_rumble_gamepad(uint32_t id, float low, float high);
 void web_show_cursor(bool show);
 void web_use_default_cursor(bool use_default);
 void web_set_png_cursor(const void *image, size_t size, uint32_t hotX, uint32_t hotY);
 void web_set_pointer_lock(bool enable);
 bool web_get_pointer_lock(void);
-char *web_get_clipboard_text(void);
-void web_set_clipboard_text(const char *text);
+void web_update_clipboard(MTY_App *app, void (*update)(MTY_App *ctx));
+char *web_get_clipboard(void);
+void web_set_clipboard(const char *text);
 void web_set_mem_funcs(void *alloc, void *free);
 void web_get_size(uint32_t *width, uint32_t *height);
 void web_get_screen_size(uint32_t *width, uint32_t *height);

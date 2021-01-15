@@ -1320,6 +1320,9 @@ MTY_AppDetach(MTY_App *ctx, MTY_Detach type);
 MTY_EXPORT void
 MTY_AppEnableScreenSaver(MTY_App *ctx, bool enable);
 
+MTY_EXPORT void
+MTY_AppUpdateClipboard(MTY_App *ctx);
+
 MTY_EXPORT char *
 MTY_AppGetClipboard(MTY_App *ctx);
 

@@ -428,6 +428,9 @@ let WAKE_LOCK;
 let CURSOR_ID = 0;
 let CURSOR_CACHE = {};
 let CURSOR_STYLES = [];
+let KEYS = {};
+let KEYS_REV = {};
+let CLIPBOARD = '';
 let CURSOR_CLASS = '';
 let USE_DEFAULT_CURSOR = false;
 let GPS = [false, false, false, false];
@@ -446,8 +449,8 @@ function get_mods(ev) {
 	return mods;
 }
 
-function scale() {
-	return window.devicePixelRatio;
+function scaled(num) {
+	return Math.round(num * window.devicePixelRatio);
 }
 
 function poll_gamepads(app, controller) {
@@ -524,12 +527,23 @@ const MTY_WEB_API = {
 		CBUF0 = MTY_Alloc(1024);
 		CBUF1 = MTY_Alloc(16);
 	},
-	web_get_key: function (code, cbuf, len) {
+	web_set_key: function (reverse, code, key) {
+		const str = MTY_StrToJS(code);
+		KEYS[str] = key;
+
+		if (reverse)
+			KEYS_REV[key] = str;
+	},
+	web_get_key: function (key, cbuf, len) {
 		if (KB_MAP) {
-			const key = KB_MAP.get(MTY_StrToJS(code));
-			if (key) {
-				MTY_StrToC(key.toUpperCase(), cbuf);
-				return true;
+			const code = KEYS_REV[key];
+
+			if (code != undefined) {
+				const text = KB_MAP.get(code);
+				if (text) {
+					MTY_StrToC(text.toUpperCase(), cbuf);
+					return true;
+				}
 			}
 		}
 
@@ -563,20 +577,25 @@ const MTY_WEB_API = {
 	web_show_cursor: function (show) {
 		GL.canvas.style.cursor = show ? '': 'none';
 	},
-	web_set_clipboard_text: function (text_c) {
-		navigator.clipboard.writeText(MTY_StrToJS(text_c));
-	},
-	web_get_clipboard_text: function () {
+	web_update_clipboard: function (app, update) {
+		CLIPBOARD = '';
 		navigator.clipboard.readText().then(text => {
-			const text_c = MTY_Alloc(text.length * 4);
-
-			MTY_StrToC(text, text_c);
-			console.log('web_get_clipboard_text:', text);
-
-			MTY_Free(text_c);
+			CLIPBOARD = text;
+			MTY_CFunc(update)(app);
 		});
+	},
+	web_get_clipboard: function () {
+		if (CLIPBOARD.length > 0) {
+			const text_c = MTY_Alloc(CLIPBOARD.length * 4);
+			MTY_StrToC(CLIPBOARD, text_c);
+
+			return text_c;
+		}
 
 		return 0;
+	},
+	web_set_clipboard: function (text_c) {
+		navigator.clipboard.writeText(MTY_StrToJS(text_c));
 	},
 	web_set_pointer_lock: function (enable) {
 		if (enable && !document.pointerLockElement) {
@@ -658,13 +677,13 @@ const MTY_WEB_API = {
 		}
 	},
 	web_get_pixel_ratio: function () {
-		return scale();
+		return window.devicePixelRatio;
 	},
 	web_attach_events: function (app, mouse_motion, mouse_button, mouse_wheel, keyboard, focus, drop) {
 		GL.canvas.addEventListener('mousemove', (ev) => {
 			let relative = document.pointerLockElement ? true : false;
-			let x = ev.clientX * scale();
-			let y = ev.clientY * scale();
+			let x = scaled(ev.clientX);
+			let y = scaled(ev.clientY);
 
 			if (relative) {
 				x = ev.movementX;
@@ -676,12 +695,12 @@ const MTY_WEB_API = {
 
 		window.addEventListener('mousedown', (ev) => {
 			ev.preventDefault();
-			MTY_CFunc(mouse_button)(app, true, ev.button, ev.clientX * scale(), ev.clientY * scale());
+			MTY_CFunc(mouse_button)(app, true, ev.button, scaled(ev.clientX), scaled(ev.clientY));
 		});
 
 		window.addEventListener('mouseup', (ev) => {
 			ev.preventDefault();
-			MTY_CFunc(mouse_button)(app, false, ev.button, ev.clientX * scale(), ev.clientY * scale());
+			MTY_CFunc(mouse_button)(app, false, ev.button, scaled(ev.clientX), scaled(ev.clientY));
 		});
 
 		GL.canvas.addEventListener('contextmenu', (ev) => {
@@ -695,14 +714,22 @@ const MTY_WEB_API = {
 		}, {passive: true});
 
 		window.addEventListener('keydown', (ev) => {
-			const text = ev.key.length == 1 ? MTY_StrToC(ev.key, CBUF1) : 0;
-			if (MTY_CFunc(keyboard)(app, true, ev.keyCode, MTY_StrToC(ev.code, CBUF0), text, get_mods(ev)))
-				ev.preventDefault();
+			const key = KEYS[ev.code];
+
+			if (key != undefined) {
+				const text = ev.key.length == 1 ? MTY_StrToC(ev.key, CBUF1) : 0;
+
+				if (MTY_CFunc(keyboard)(app, true, key, text, get_mods(ev)))
+					ev.preventDefault();
+			}
 		});
 
 		window.addEventListener('keyup', (ev) => {
-			if (MTY_CFunc(keyboard)(app, false, ev.keyCode, MTY_StrToC(ev.code, CBUF0), 0, get_mods(ev)))
-				ev.preventDefault();
+			const key = KEYS[ev.code];
+
+			if (key != undefined)
+				if (MTY_CFunc(keyboard)(app, false, key, 0, get_mods(ev)))
+					ev.preventDefault();
 		});
 
 		GL.canvas.addEventListener('dragover', (ev) => {
@@ -747,8 +774,8 @@ const MTY_WEB_API = {
 		const step = () => {
 			poll_gamepads(app, controller);
 
-			GL.canvas.width = window.innerWidth * scale();
-			GL.canvas.height = window.innerHeight * scale();
+			GL.canvas.width = scaled(visualViewport.width);
+			GL.canvas.height = scaled(visualViewport.height);
 
 			// TODO check return value, call cleanup routine on false (web_close)
 			MTY_CFunc(func)(opaque);
