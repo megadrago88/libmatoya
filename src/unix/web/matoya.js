@@ -425,6 +425,7 @@ let KB_MAP;
 let CBUF0;
 let CBUF1;
 let WAKE_LOCK;
+let END_FUNC = () => {};
 let CURSOR_ID = 0;
 let CURSOR_CACHE = {};
 let CURSOR_STYLES = [];
@@ -772,15 +773,18 @@ const MTY_WEB_API = {
 	},
 	web_raf: function (app, func, controller, opaque) {
 		const step = () => {
-			poll_gamepads(app, controller);
+			if (document.hasFocus())
+				poll_gamepads(app, controller);
 
 			GL.canvas.width = scaled(visualViewport.width);
 			GL.canvas.height = scaled(visualViewport.height);
 
-			// TODO check return value, call cleanup routine on false (web_close)
-			MTY_CFunc(func)(opaque);
+			if (MTY_CFunc(func)(opaque)) {
+				window.requestAnimationFrame(step);
 
-			window.requestAnimationFrame(step);
+			} else {
+				END_FUNC();
+			}
 		};
 
 		window.requestAnimationFrame(step);
@@ -987,11 +991,14 @@ const WASI_API = {
 
 // Entry
 
-async function MTY_Start(bin, userEnv) {
+async function MTY_Start(bin, userEnv, endFunc) {
 	ARG0 = bin;
 
 	if (!userEnv)
 		userEnv = {};
+
+	if (endFunc)
+		END_FUNC = endFunc;
 
 	// Set up full window canvas and webgl context
 	const html = document.querySelector('html');
