@@ -1003,8 +1003,32 @@ const WASI_API = {
 
 // Entry
 
+function supportsWASM() {
+	try {
+		if (typeof WebAssembly == 'object' && typeof WebAssembly.instantiate == 'function') {
+			const module = new WebAssembly.Module(Uint8Array.of(0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00));
+
+			if (module instanceof WebAssembly.Module)
+				return new WebAssembly.Instance(module) instanceof WebAssembly.Instance;
+		}
+	} catch (e) {}
+
+	return false;
+}
+
+function supportsWebGL() {
+	try {
+		return document.createElement('canvas').getContext('webgl');
+	} catch (e) {}
+
+	return false;
+}
+
 async function MTY_Start(bin, userEnv, endFunc) {
 	ARG0 = bin;
+
+	if (!supportsWASM() || !supportsWebGL())
+		return false;
 
 	if (!userEnv)
 		userEnv = {};
@@ -1057,5 +1081,20 @@ async function MTY_Start(bin, userEnv, endFunc) {
 	});
 
 	// Execute the '_start' entry point, this will fetch args and execute the 'main' function
-	MODULE.instance.exports._start();
+	try {
+		MODULE.instance.exports._start();
+
+	// We expect to catch the 'MTY_AppRun halted execution' exception
+	// Otherwise look for an indication of unsupported WASM features
+	} catch (e) {
+		estr = e.toString();
+
+		if (estr.search('MTY_AppRun') == -1)
+			console.error(e);
+
+		// This probably means the browser does not support WASM 64
+		return estr.search('i64 not allowed') == -1;
+	}
+
+	return true;
 }
