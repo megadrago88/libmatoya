@@ -776,8 +776,10 @@ const MTY_WEB_API = {
 			if (document.hasFocus())
 				poll_gamepads(app, controller);
 
-			GL.canvas.width = scaled(visualViewport.width);
-			GL.canvas.height = scaled(visualViewport.height);
+			const rect = GL.canvas.getBoundingClientRect();
+
+			GL.canvas.width = scaled(rect.width);
+			GL.canvas.height = scaled(rect.height);
 
 			if (MTY_CFunc(func)(opaque)) {
 				window.requestAnimationFrame(step);
