@@ -63,7 +63,7 @@ static void window_mouse_button(MTY_App *ctx, bool pressed, int32_t button, int3
 		MTY_MOUSE_BUTTON_NONE;
 
 	// Simulate movement to where the click occurs
-	if (pressed && !web_get_pointer_lock()) {
+	if (pressed && !web_get_relative()) {
 		MTY_Msg mmsg = {0};
 		mmsg.type = MTY_MSG_MOUSE_MOTION;
 		mmsg.mouseMotion.relative = false;
@@ -397,7 +397,7 @@ void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 
 bool MTY_AppGetRelativeMouse(MTY_App *app)
 {
-	return web_get_pointer_lock();
+	return web_get_relative();
 }
 
 bool MTY_AppIsActive(MTY_App *ctx)

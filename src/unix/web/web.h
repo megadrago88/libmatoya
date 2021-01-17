@@ -18,7 +18,7 @@ void web_show_cursor(bool show);
 void web_use_default_cursor(bool use_default);
 void web_set_png_cursor(const void *image, size_t size, uint32_t hotX, uint32_t hotY);
 void web_set_pointer_lock(bool enable);
-bool web_get_pointer_lock(void);
+bool web_get_relative(void);
 void web_update_clipboard(MTY_App *app, void (*update)(MTY_App *ctx));
 char *web_get_clipboard(void);
 void web_set_clipboard(const char *text);

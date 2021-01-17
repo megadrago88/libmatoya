@@ -616,8 +616,8 @@ const MTY_WEB_API = {
 
 		_MTY.relative = enable;
 	},
-	web_get_pointer_lock: function () {
-		return document.pointerLockElement ? true : false;
+	web_get_relative: function () {
+		return _MTY.relative;
 	},
 	web_has_focus: function () {
 		return document.hasFocus();
@@ -690,16 +690,15 @@ const MTY_WEB_API = {
 	},
 	web_attach_events: function (app, mouse_motion, mouse_button, mouse_wheel, keyboard, focus, drop) {
 		GL.canvas.addEventListener('mousemove', (ev) => {
-			let relative = document.pointerLockElement ? true : false;
 			let x = scaled(ev.clientX);
 			let y = scaled(ev.clientY);
 
-			if (relative) {
+			if (_MTY.relative) {
 				x = ev.movementX;
 				y = ev.movementY;
 			}
 
-			MTY_CFunc(mouse_motion)(app, relative, x, y);
+			MTY_CFunc(mouse_motion)(app, _MTY.relative, x, y);
 		});
 
 		document.addEventListener('pointerlockchange', (ev) => {
