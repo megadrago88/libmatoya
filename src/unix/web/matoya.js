@@ -421,21 +421,22 @@ const MTY_AUDIO_API = {
 
 
 // Matoya web API
+const _MTY = {
+	cbuf: null,
+	wakeLock: null,
+	endFunc: () => {},
+	cursorId: 0,
+	cursorCache: {},
+	cursorClass: '',
+	defaultCursor: false,
+	synthesizeEsc: true,
+	relative: false,
+};
+
 let KB_MAP;
-let CBUF0;
-let CBUF1;
-let WAKE_LOCK;
-let END_FUNC = () => {};
-let CURSOR_ID = 0;
-let CURSOR_CACHE = {};
-let CURSOR_STYLES = [];
 let KEYS = {};
 let KEYS_REV = {};
 let CLIPBOARD = '';
-let CURSOR_CLASS = '';
-let RELATIVE = false;
-let SYNTHESIZE_ESC = true;
-let USE_DEFAULT_CURSOR = false;
 let GPS = [false, false, false, false];
 
 function get_mods(ev) {
@@ -457,7 +458,7 @@ function scaled(num) {
 }
 
 function correct_relative() {
-	if (!document.pointerLockElement && RELATIVE)
+	if (!document.pointerLockElement && _MTY.relative)
 		GL.canvas.requestPointerLock();
 }
 
@@ -532,8 +533,7 @@ const MTY_WEB_API = {
 		MTY_FREE = free;
 
 		// Global buffers for scratch heap space
-		CBUF0 = MTY_Alloc(1024);
-		CBUF1 = MTY_Alloc(16);
+		_MTY.cbuf = MTY_Alloc(1024);
 	},
 	web_set_key: function (reverse, code, key) {
 		const str = MTY_StrToJS(code);
@@ -559,15 +559,15 @@ const MTY_WEB_API = {
 	},
 	web_wake_lock: async function (enable) {
 		try {
-			if (!enable && !WAKE_LOCK) {
-				WAKE_LOCK = await navigator.wakeLock.request('screen');
+			if (!enable && !_MTY.wakeLock) {
+				_MTY.wakeLock = await navigator.wakeLock.request('screen');
 
-			} else if (enable && WAKE_LOCK) {
-				WAKE_LOCK.release();
-				WAKE_LOCK = undefined;
+			} else if (enable && _MTY.wakeLock) {
+				_MTY.wakeLock.release();
+				_MTY.wakeLock = undefined;
 			}
 		} catch (e) {
-			WAKE_LOCK = undefined;
+			_MTY.wakeLock = undefined;
 		}
 	},
 	web_rumble_gamepad: function (id, low, high) {
@@ -610,11 +610,11 @@ const MTY_WEB_API = {
 			GL.canvas.requestPointerLock();
 
 		} else if (!enable && document.pointerLockElement) {
-			SYNTHESIZE_ESC = false;
+			_MTY.synthesizeEsc = false;
 			document.exitPointerLock();
 		}
 
-		RELATIVE = enable;
+		_MTY.relative = enable;
 	},
 	web_get_pointer_lock: function () {
 		return document.pointerLockElement ? true : false;
@@ -644,47 +644,45 @@ const MTY_WEB_API = {
 		document.title = MTY_StrToJS(title);
 	},
 	web_use_default_cursor: function (use_default) {
-		if (CURSOR_CLASS.length > 0) {
+		if (_MTY.cursorClass.length > 0) {
 			if (use_default) {
-				GL.canvas.classList.remove(CURSOR_CLASS);
+				GL.canvas.classList.remove(_MTY.cursorClass);
 
 			} else {
-				GL.canvas.classList.add(CURSOR_CLASS);
+				GL.canvas.classList.add(_MTY.cursorClass);
 			}
 		}
 
-		USE_DEFAULT_CURSOR = use_default;
+		_MTY.defaultCursor = use_default;
 	},
 	web_set_png_cursor: function (buffer, size, hot_x, hot_y) {
 		if (buffer) {
 			const buf = new Uint8Array(mem(), buffer, size);
 			const b64_png = buf_to_b64(buf);
 
-			if (!CURSOR_CACHE[b64_png]) {
-				CURSOR_CACHE[b64_png] = `cursor-x-${CURSOR_ID}`;
+			if (!_MTY.cursorCache[b64_png]) {
+				_MTY.cursorCache[b64_png] = `cursor-x-${_MTY.cursorId}`;
 
 				const style = document.createElement('style');
 				style.type = 'text/css';
-				style.innerHTML = `.cursor-x-${CURSOR_ID++} ` +
+				style.innerHTML = `.cursor-x-${_MTY.cursorId++} ` +
 					`{cursor: url(data:image/png;base64,${b64_png}) ${hot_x} ${hot_y}, auto;}`;
 				document.querySelector('head').appendChild(style);
-
-				CURSOR_STYLES.push(style);
 			}
 
-			if (CURSOR_CLASS.length > 0)
-				GL.canvas.classList.remove(CURSOR_CLASS);
+			if (_MTY.cursorClass.length > 0)
+				GL.canvas.classList.remove(_MTY.cursorClass);
 
-			CURSOR_CLASS = CURSOR_CACHE[b64_png];
+			_MTY.cursorClass = _MTY.cursorCache[b64_png];
 
-			if (!USE_DEFAULT_CURSOR)
-				GL.canvas.classList.add(CURSOR_CLASS);
+			if (!_MTY.defaultCursor)
+				GL.canvas.classList.add(_MTY.cursorClass);
 
 		} else {
-			if (!USE_DEFAULT_CURSOR && CURSOR_CLASS.length > 0)
-				GL.canvas.classList.remove(CURSOR_CLASS);
+			if (!_MTY.defaultCursor && _MTY.cursorClass.length > 0)
+				GL.canvas.classList.remove(_MTY.cursorClass);
 
-			CURSOR_CLASS = '';
+			_MTY.cursorClass = '';
 		}
 	},
 	web_get_pixel_ratio: function () {
@@ -706,12 +704,12 @@ const MTY_WEB_API = {
 
 		document.addEventListener('pointerlockchange', (ev) => {
 			// Left relative via the ESC key, which swallows a natural ESC keypress
-			if (!document.pointerLockElement && SYNTHESIZE_ESC) {
+			if (!document.pointerLockElement && _MTY.synthesizeEsc) {
 				MTY_CFunc(keyboard)(app, true, KEYS['Escape'], 0, 0);
 				MTY_CFunc(keyboard)(app, false, KEYS['Escape'], 0, 0);
 			}
 
-			SYNTHESIZE_ESC = true;
+			_MTY.synthesizeEsc = true;
 		});
 
 		window.addEventListener('mousedown', (ev) => {
@@ -740,7 +738,7 @@ const MTY_WEB_API = {
 			const key = KEYS[ev.code];
 
 			if (key != undefined) {
-				const text = ev.key.length == 1 ? MTY_StrToC(ev.key, CBUF1) : 0;
+				const text = ev.key.length == 1 ? MTY_StrToC(ev.key, _MTY.cbuf) : 0;
 
 				if (MTY_CFunc(keyboard)(app, true, key, text, get_mods(ev)))
 					ev.preventDefault();
@@ -783,7 +781,7 @@ const MTY_WEB_API = {
 							let buf = new Uint8Array(reader.result);
 							let cmem = MTY_Alloc(buf.length);
 							MTY_Memcpy(cmem, buf);
-							MTY_CFunc(drop)(app, MTY_StrToC(file.name, CBUF0), cmem, buf.length);
+							MTY_CFunc(drop)(app, MTY_StrToC(file.name, _MTY.cbuf), cmem, buf.length);
 							MTY_Free(cmem);
 						}
 					});
@@ -807,7 +805,7 @@ const MTY_WEB_API = {
 				window.requestAnimationFrame(step);
 
 			} else {
-				END_FUNC();
+				_MTY.endFunc();
 			}
 		};
 
@@ -1056,7 +1054,7 @@ async function MTY_Start(bin, userEnv, endFunc) {
 		userEnv = {};
 
 	if (endFunc)
-		END_FUNC = endFunc;
+		_MTY.endFunc = endFunc;
 
 	// Set up full window canvas and webgl context
 	const html = document.querySelector('html');
