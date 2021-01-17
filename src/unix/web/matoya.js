@@ -433,6 +433,8 @@ let KEYS = {};
 let KEYS_REV = {};
 let CLIPBOARD = '';
 let CURSOR_CLASS = '';
+let RELATIVE = false;
+let SYNTHESIZE_ESC = true;
 let USE_DEFAULT_CURSOR = false;
 let GPS = [false, false, false, false];
 
@@ -452,6 +454,11 @@ function get_mods(ev) {
 
 function scaled(num) {
 	return Math.round(num * window.devicePixelRatio);
+}
+
+function correct_relative() {
+	if (!document.pointerLockElement && RELATIVE)
+		GL.canvas.requestPointerLock();
 }
 
 function poll_gamepads(app, controller) {
@@ -603,8 +610,11 @@ const MTY_WEB_API = {
 			GL.canvas.requestPointerLock();
 
 		} else if (!enable && document.pointerLockElement) {
+			SYNTHESIZE_ESC = false;
 			document.exitPointerLock();
 		}
+
+		RELATIVE = enable;
 	},
 	web_get_pointer_lock: function () {
 		return document.pointerLockElement ? true : false;
@@ -694,7 +704,18 @@ const MTY_WEB_API = {
 			MTY_CFunc(mouse_motion)(app, relative, x, y);
 		});
 
+		document.addEventListener('pointerlockchange', (ev) => {
+			// Left relative via the ESC key, which swallows a natural ESC keypress
+			if (!document.pointerLockElement && SYNTHESIZE_ESC) {
+				MTY_CFunc(keyboard)(app, true, KEYS['Escape'], 0, 0);
+				MTY_CFunc(keyboard)(app, false, KEYS['Escape'], 0, 0);
+			}
+
+			SYNTHESIZE_ESC = true;
+		});
+
 		window.addEventListener('mousedown', (ev) => {
+			correct_relative();
 			ev.preventDefault();
 			MTY_CFunc(mouse_button)(app, true, ev.button, scaled(ev.clientX), scaled(ev.clientY));
 		});
@@ -715,6 +736,7 @@ const MTY_WEB_API = {
 		}, {passive: true});
 
 		window.addEventListener('keydown', (ev) => {
+			correct_relative();
 			const key = KEYS[ev.code];
 
 			if (key != undefined) {
