@@ -437,6 +437,7 @@ let KB_MAP;
 let KEYS = {};
 let KEYS_REV = {};
 let CLIPBOARD = '';
+let URL_OPEN = '';
 let GPS = [false, false, false, false];
 
 function get_mods(ev) {
@@ -451,6 +452,10 @@ function get_mods(ev) {
 	if (ev.getModifierState("NumLock") ) mods |= 0x20;
 
 	return mods;
+}
+
+function MTY_URLOpen(url) {
+	URL_OPEN = url;
 }
 
 function scaled(num) {
@@ -709,6 +714,17 @@ const MTY_WEB_API = {
 			}
 
 			_MTY.synthesizeEsc = true;
+		});
+
+		window.addEventListener('click', (ev) => {
+			// Popup blockers can interfere with window.open if not called from within the 'click' listener
+			setTimeout(() => {
+				if (URL_OPEN) {
+					window.open(URL_OPEN, '_blank');
+					URL_OPEN = '';
+				}
+			}, 100);
+			ev.preventDefault();
 		});
 
 		window.addEventListener('mousedown', (ev) => {
