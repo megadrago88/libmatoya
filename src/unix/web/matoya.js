@@ -423,6 +423,8 @@ const MTY_AUDIO_API = {
 // Matoya web API
 const _MTY = {
 	cbuf: null,
+	kbMap: null,
+	keysRev: {},
 	wakeLock: null,
 	endFunc: () => {},
 	cursorId: 0,
@@ -431,13 +433,11 @@ const _MTY = {
 	defaultCursor: false,
 	synthesizeEsc: true,
 	relative: false,
+	urlOpen: '',
 };
 
-let KB_MAP;
 let KEYS = {};
-let KEYS_REV = {};
 let CLIPBOARD = '';
-let URL_OPEN = '';
 let GPS = [false, false, false, false];
 
 function get_mods(ev) {
@@ -455,7 +455,7 @@ function get_mods(ev) {
 }
 
 function MTY_URLOpen(url) {
-	URL_OPEN = url;
+	_MTY.urlOpen = url;
 }
 
 function scaled(num) {
@@ -545,14 +545,14 @@ const MTY_WEB_API = {
 		KEYS[str] = key;
 
 		if (reverse)
-			KEYS_REV[key] = str;
+			_MTY.keysRev[key] = str;
 	},
 	web_get_key: function (key, cbuf, len) {
-		if (KB_MAP) {
-			const code = KEYS_REV[key];
+		if (_MTY.kbMap) {
+			const code = _MTY.keysRev[key];
 
 			if (code != undefined) {
-				const text = KB_MAP.get(code);
+				const text = _MTY.kbMap.get(code);
 				if (text) {
 					MTY_StrToC(text.toUpperCase(), cbuf);
 					return true;
@@ -719,9 +719,9 @@ const MTY_WEB_API = {
 		window.addEventListener('click', (ev) => {
 			// Popup blockers can interfere with window.open if not called from within the 'click' listener
 			setTimeout(() => {
-				if (URL_OPEN) {
-					window.open(URL_OPEN, '_blank');
-					URL_OPEN = '';
+				if (_MTY.urlOpen) {
+					window.open(_MTY.urlOpen, '_blank');
+					_MTY.urlOpen = '';
 				}
 			}, 100);
 			ev.preventDefault();
@@ -1025,7 +1025,7 @@ const WASI_API = {
 
 	// Misc
 	clock_time_get: function (id, precision, time_out) {
-		MTY_SetUint64(time_out, Math.trunc(performance.now() * 1000.0 * 1000.0));
+		MTY_SetUint64(time_out, Math.round(performance.now() * 1000.0 * 1000.0));
 		return 0;
 	},
 	poll_oneoff: function (sin, sout, nsubscriptions, nevents) {
@@ -1093,7 +1093,7 @@ async function MTY_Start(bin, userEnv, endFunc) {
 
 	// Load keyboard map
 	if (navigator.keyboard)
-		KB_MAP = await navigator.keyboard.getLayoutMap();
+		_MTY.kbMap = await navigator.keyboard.getLayoutMap();
 
 	// Fetch the wasm file as an ArrayBuffer
 	const res = await fetch(bin);
