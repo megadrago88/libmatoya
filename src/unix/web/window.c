@@ -105,9 +105,11 @@ static void app_kb_to_hotkey(MTY_App *app, MTY_Msg *msg)
 
 static bool window_allow_default(MTY_Mod mod, MTY_Key key)
 {
-	// The "allowed" browser hotkey list. Refresh, fullscreen, developer console, and tab switching
+	// The "allowed" browser hotkey list. Copy/Paste, Refresh, fullscreen, developer console, and tab switching
 
 	return
+		(((mod & MTY_MOD_CTRL) || (mod & MTY_MOD_WIN)) && key == MTY_KEY_V) ||
+		(((mod & MTY_MOD_CTRL) || (mod & MTY_MOD_WIN)) && key == MTY_KEY_C) ||
 		((mod & MTY_MOD_CTRL) && (mod & MTY_MOD_SHIFT) && key == MTY_KEY_I) ||
 		((mod & MTY_MOD_CTRL) && key == MTY_KEY_R) ||
 		((mod & MTY_MOD_CTRL) && key == MTY_KEY_F5) ||
@@ -162,14 +164,6 @@ static void window_focus(MTY_App *ctx, bool focus)
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_FOCUS;
 	msg.focus = focus;
-
-	ctx->msg_func(&msg, ctx->opaque);
-}
-
-static void window_clipboard(MTY_App *ctx)
-{
-	MTY_Msg msg = {0};
-	msg.type = MTY_MSG_CLIPBOARD;
 
 	ctx->msg_func(&msg, ctx->opaque);
 }
@@ -298,11 +292,6 @@ void MTY_AppRemoveHotkeys(MTY_App *ctx, MTY_Hotkey mode)
 {
 	MTY_HashDestroy(&ctx->hotkey, NULL);
 	ctx->hotkey = MTY_HashCreate(0);
-}
-
-void MTY_AppUpdateClipboard(MTY_App *ctx)
-{
-	web_update_clipboard(ctx, window_clipboard);
 }
 
 char *MTY_AppGetClipboard(MTY_App *app)

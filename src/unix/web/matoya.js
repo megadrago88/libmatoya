@@ -436,8 +436,8 @@ const _MTY = {
 	urlOpen: '',
 };
 
+let CLIPBOARD;
 let KEYS = {};
-let CLIPBOARD = '';
 let GPS = [false, false, false, false];
 
 function get_mods(ev) {
@@ -590,25 +590,21 @@ const MTY_WEB_API = {
 	web_show_cursor: function (show) {
 		GL.canvas.style.cursor = show ? '': 'none';
 	},
-	web_update_clipboard: function (app, update) {
-		CLIPBOARD = '';
-		navigator.clipboard.readText().then(text => {
-			CLIPBOARD = text;
-			MTY_CFunc(update)(app);
-		});
-	},
 	web_get_clipboard: function () {
-		if (CLIPBOARD.length > 0) {
-			const text_c = MTY_Alloc(CLIPBOARD.length * 4);
-			MTY_StrToC(CLIPBOARD, text_c);
+		CLIPBOARD.focus();
+		CLIPBOARD.select();
+		document.execCommand('paste');
 
-			return text_c;
-		}
+		const text_c = MTY_Alloc(CLIPBOARD.value.length * 4);
+		MTY_StrToC(CLIPBOARD.value, text_c);
 
-		return 0;
+		return text_c;
 	},
 	web_set_clipboard: function (text_c) {
-		navigator.clipboard.writeText(MTY_StrToJS(text_c));
+		CLIPBOARD.value = MTY_StrToJS(text_c);
+		CLIPBOARD.focus();
+		CLIPBOARD.select();
+		document.execCommand('copy');
 	},
 	web_set_pointer_lock: function (enable) {
 		if (enable && !document.pointerLockElement) {
@@ -1090,6 +1086,13 @@ async function MTY_Start(bin, userEnv, endFunc) {
 	document.body.appendChild(canvas);
 
 	GL = canvas.getContext('webgl', {depth: 0, antialias: 0, premultipliedAlpha: true});
+
+	// Set up the clipboard
+	CLIPBOARD = document.createElement('textarea');
+	CLIPBOARD.style.position = 'absolute';
+	CLIPBOARD.style.left = '-9999px';
+	CLIPBOARD.autofocus = true;
+	document.body.appendChild(CLIPBOARD);
 
 	// Load keyboard map
 	if (navigator.keyboard)
