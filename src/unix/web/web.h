@@ -9,8 +9,10 @@
 #include "matoya.h"
 
 bool web_has_focus(void);
-void web_set_key(bool reverse, const char *code, MTY_Key key);
+void web_set_fullscreen(bool fullscreen);
+bool web_get_fullscreen(void);
 bool web_get_key(MTY_Key key, char *str, size_t len);
+void web_set_key(bool reverse, const char *code, MTY_Key key);
 bool web_is_visible(void);
 void web_wake_lock(bool enable);
 void web_rumble_gamepad(uint32_t id, float low, float high);

@@ -18,7 +18,6 @@ struct MTY_App {
 	MTY_Hash *hotkey;
 	MTY_MsgFunc msg_func;
 	MTY_AppFunc app_func;
-	MTY_Detach detach;
 	void *opaque;
 
 	MTY_GFX api;
@@ -359,16 +358,6 @@ void MTY_AppRun(MTY_App *ctx)
 	web_raf(ctx, ctx->app_func, window_controller, ctx->opaque);
 }
 
-void MTY_AppDetach(MTY_App *app, MTY_Detach type)
-{
-	// TODO
-}
-
-MTY_Detach MTY_AppGetDetached(MTY_App *app)
-{
-	return app->detach;
-}
-
 void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 {
 	web_wake_lock(enable);
@@ -440,6 +429,17 @@ bool MTY_WindowIsActive(MTY_App *app, MTY_Window window)
 	return web_has_focus();
 }
 
+void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
+{
+	web_set_fullscreen(fullscreen);
+}
+
+bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
+{
+	return web_get_fullscreen();
+}
+
+
 
 // Window Private
 
@@ -465,13 +465,13 @@ void *window_get_native(MTY_App *app, MTY_Window window)
 
 // Unimplemented
 
-void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
+void MTY_AppDetach(MTY_App *app, MTY_Detach type)
 {
 }
 
-bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
+MTY_Detach MTY_AppGetDetached(MTY_App *app)
 {
-	return false;
+	return MTY_DETACH_NONE;
 }
 
 void MTY_AppActivate(MTY_App *app, bool active)

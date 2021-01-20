@@ -433,7 +433,7 @@ const _MTY = {
 	defaultCursor: false,
 	synthesizeEsc: true,
 	relative: false,
-	urlOpen: '',
+	action: null,
 };
 
 let CLIPBOARD;
@@ -454,8 +454,8 @@ function get_mods(ev) {
 	return mods;
 }
 
-function MTY_URLOpen(url) {
-	_MTY.urlOpen = url;
+function MTY_SetAction(action) {
+	_MTY.action = action;
 }
 
 function scaled(num) {
@@ -533,6 +533,23 @@ const MTY_WEB_API = {
 	},
 
 	// browser
+	web_set_fullscreen: function (fullscreen) {
+		if (fullscreen && !document.fullscreenElement) {
+			if (navigator.keyboard)
+				navigator.keyboard.lock(["Escape"]);
+
+			document.documentElement.requestFullscreen();
+
+		} else if (!fullscreen && document.fullscreenElement) {
+			document.exitFullscreen();
+
+			if (navigator.keyboard)
+				navigator.keyboard.unlock();
+		}
+	},
+	web_get_fullscreen: function () {
+		return document.fullscreenElement ? true : false;
+	},
 	web_set_mem_funcs: function (alloc, free) {
 		MTY_ALLOC = alloc;
 		MTY_FREE = free;
@@ -548,16 +565,18 @@ const MTY_WEB_API = {
 			_MTY.keysRev[key] = str;
 	},
 	web_get_key: function (key, cbuf, len) {
-		if (_MTY.kbMap) {
-			const code = _MTY.keysRev[key];
+		const code = _MTY.keysRev[key];
 
-			if (code != undefined) {
+		if (code != undefined) {
+			if (_MTY.kbMap) {
 				const text = _MTY.kbMap.get(code);
-				if (text) {
+				if (text)
 					MTY_StrToC(text.toUpperCase(), cbuf);
-					return true;
-				}
 			}
+
+			MTY_StrToC(code, cbuf);
+
+			return true;
 		}
 
 		return false;
@@ -715,9 +734,9 @@ const MTY_WEB_API = {
 		window.addEventListener('click', (ev) => {
 			// Popup blockers can interfere with window.open if not called from within the 'click' listener
 			setTimeout(() => {
-				if (_MTY.urlOpen) {
-					window.open(_MTY.urlOpen, '_blank');
-					_MTY.urlOpen = '';
+				if (_MTY.action) {
+					_MTY.action();
+					_MTY.action = null;
 				}
 			}, 100);
 			ev.preventDefault();
