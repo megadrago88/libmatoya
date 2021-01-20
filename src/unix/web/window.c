@@ -18,6 +18,7 @@ struct MTY_App {
 	MTY_Hash *hotkey;
 	MTY_MsgFunc msg_func;
 	MTY_AppFunc app_func;
+	MTY_Detach detach;
 	MTY_Controller cmsg[4];
 	void *opaque;
 
@@ -493,11 +494,12 @@ void *window_get_native(MTY_App *app, MTY_Window window)
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
 {
+	app->detach = type;
 }
 
 MTY_Detach MTY_AppGetDetached(MTY_App *app)
 {
-	return MTY_DETACH_NONE;
+	return app->detach;
 }
 
 void MTY_AppActivate(MTY_App *app, bool active)
