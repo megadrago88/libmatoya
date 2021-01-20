@@ -570,12 +570,13 @@ const MTY_WEB_API = {
 		if (code != undefined) {
 			if (_MTY.kbMap) {
 				const text = _MTY.kbMap.get(code);
-				if (text)
+				if (text) {
 					MTY_StrToC(text.toUpperCase(), cbuf);
+					return true;
+				}
 			}
 
 			MTY_StrToC(code, cbuf);
-
 			return true;
 		}
 
