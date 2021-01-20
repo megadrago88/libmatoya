@@ -18,7 +18,7 @@ struct MTY_App {
 	MTY_Hash *hotkey;
 	MTY_MsgFunc msg_func;
 	MTY_AppFunc app_func;
-	MTY_Controller cmsg;
+	MTY_Controller cmsg[4];
 	void *opaque;
 
 	MTY_GFX api;
@@ -30,7 +30,7 @@ static void __attribute__((constructor)) app_global_init(void)
 {
 	web_set_mem_funcs(MTY_Alloc, MTY_Free);
 
-	// WASI will buffer stdout and stderr by default
+	// WASI will buffer stdout and stderr by default, disable it
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
 }
@@ -179,6 +179,17 @@ static void window_drop(MTY_App *ctx, const char *name, const void *data, size_t
 	ctx->msg_func(&msg, ctx->opaque);
 }
 
+static void window_clean_value(int16_t *value)
+{
+	// Dead zone
+	if (abs(*value) < 2000)
+		*value = 0;
+
+	// Reduce precision
+	if (*value != INT16_MIN && *value != INT16_MAX)
+		*value &= 0xFFFE;
+}
+
 static void window_controller(MTY_App *ctx, uint32_t id, uint32_t state, uint32_t buttons,
 	float lx, float ly, float rx, float ry, float lt, float rt)
 {
@@ -189,6 +200,7 @@ static void window_controller(MTY_App *ctx, uint32_t id, uint32_t state, uint32_
 	msg.type = MTY_MSG_CONTROLLER;
 
 	MTY_Controller *c = &msg.controller;
+	MTY_Controller *prev = &ctx->cmsg[id];
 	c->driver = MTY_HID_DRIVER_DEFAULT;
 	c->numButtons = 16;
 	c->numValues = 7;
@@ -262,20 +274,20 @@ static void window_controller(MTY_App *ctx, uint32_t id, uint32_t state, uint32_
 		msg.type = MTY_MSG_DISCONNECT;
 	}
 
-	// Axis dead zone -- helps with deduplication
-	if (abs(c->values[MTY_CVALUE_THUMB_LX].data) < 2000) c->values[MTY_CVALUE_THUMB_LX].data = 0;
-	if (abs(c->values[MTY_CVALUE_THUMB_LY].data) < 2000) c->values[MTY_CVALUE_THUMB_LY].data = 0;
-	if (abs(c->values[MTY_CVALUE_THUMB_RX].data) < 2000) c->values[MTY_CVALUE_THUMB_RX].data = 0;
-	if (abs(c->values[MTY_CVALUE_THUMB_RY].data) < 2000) c->values[MTY_CVALUE_THUMB_RY].data = 0;
+	// Axis dead zone, precision reduction -- helps with deduplication
+	window_clean_value(&c->values[MTY_CVALUE_THUMB_LX].data);
+	window_clean_value(&c->values[MTY_CVALUE_THUMB_LY].data);
+	window_clean_value(&c->values[MTY_CVALUE_THUMB_RX].data);
+	window_clean_value(&c->values[MTY_CVALUE_THUMB_RY].data);
 
 	// Deduplication
-	bool button_diff = memcmp(c->buttons, ctx->cmsg.buttons, c->numButtons * sizeof(bool));
-	bool values_diff = memcmp(c->values, ctx->cmsg.values, c->numValues * sizeof(MTY_Value));
+	bool button_diff = memcmp(c->buttons, prev->buttons, c->numButtons * sizeof(bool));
+	bool values_diff = memcmp(c->values, prev->values, c->numValues * sizeof(MTY_Value));
 
 	if (button_diff || values_diff || msg.type != MTY_MSG_CONTROLLER)
 		ctx->msg_func(&msg, ctx->opaque);
 
-	ctx->cmsg = msg.controller;
+	*prev = msg.controller;
 }
 
 
