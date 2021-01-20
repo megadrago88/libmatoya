@@ -454,8 +454,20 @@ function get_mods(ev) {
 	return mods;
 }
 
+function run_action() {
+	setTimeout(() => {
+		if (_MTY.action) {
+			_MTY.action();
+			_MTY.action = null;
+		}
+	}, 100);
+}
+
 function MTY_SetAction(action) {
 	_MTY.action = action;
+
+	// In case click handler doesn't happen
+	run_action();
 }
 
 function scaled(num) {
@@ -734,12 +746,7 @@ const MTY_WEB_API = {
 
 		window.addEventListener('click', (ev) => {
 			// Popup blockers can interfere with window.open if not called from within the 'click' listener
-			setTimeout(() => {
-				if (_MTY.action) {
-					_MTY.action();
-					_MTY.action = null;
-				}
-			}, 100);
+			run_action();
 			ev.preventDefault();
 		});
 
