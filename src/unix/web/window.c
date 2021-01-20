@@ -18,6 +18,7 @@ struct MTY_App {
 	MTY_Hash *hotkey;
 	MTY_MsgFunc msg_func;
 	MTY_AppFunc app_func;
+	MTY_Controller cmsg;
 	void *opaque;
 
 	MTY_GFX api;
@@ -261,7 +262,20 @@ static void window_controller(MTY_App *ctx, uint32_t id, uint32_t state, uint32_
 		msg.type = MTY_MSG_DISCONNECT;
 	}
 
-	ctx->msg_func(&msg, ctx->opaque);
+	// Axis dead zone -- helps with deduplication
+	if (abs(c->values[MTY_CVALUE_THUMB_LX].data) < 2000) c->values[MTY_CVALUE_THUMB_LX].data = 0;
+	if (abs(c->values[MTY_CVALUE_THUMB_LY].data) < 2000) c->values[MTY_CVALUE_THUMB_LY].data = 0;
+	if (abs(c->values[MTY_CVALUE_THUMB_RX].data) < 2000) c->values[MTY_CVALUE_THUMB_RX].data = 0;
+	if (abs(c->values[MTY_CVALUE_THUMB_RY].data) < 2000) c->values[MTY_CVALUE_THUMB_RY].data = 0;
+
+	// Deduplication
+	bool button_diff = memcmp(c->buttons, ctx->cmsg.buttons, c->numButtons * sizeof(bool));
+	bool values_diff = memcmp(c->values, ctx->cmsg.values, c->numValues * sizeof(MTY_Value));
+
+	if (button_diff || values_diff || msg.type != MTY_MSG_CONTROLLER)
+		ctx->msg_func(&msg, ctx->opaque);
+
+	ctx->cmsg = msg.controller;
 }
 
 
