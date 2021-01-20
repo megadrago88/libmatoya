@@ -538,7 +538,7 @@ const MTY_WEB_API = {
 
 	// unistd
 	gethostname: function(cbuf, size) {
-		MTY_StrToC(cbuf, location.hostname);
+		MTY_StrToC(location.hostname, cbuf);
 	},
 	flock: function(fd, flags) {
 		return 0;
