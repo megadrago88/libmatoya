@@ -782,15 +782,20 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			if (XGetEventData(ctx->display, &event->xcookie)) {
 				if (event->xcookie.evtype == XI_RawMotion) {
 					const XIRawEvent *re = (const XIRawEvent *) event->xcookie.data;
-					const double *coords = (const double *) re->raw_values;
+					const double *input = (const double *) re->raw_values;
+					int32_t output[2] = {0};
+
+					for (int32_t i = 0; i < 2; i++)
+						if (XIMaskIsSet(re->valuators.mask, i))
+							output[i] = (int32_t) lrint(*input++);
 
 					struct window *win = app_get_active_window(ctx);
-					if (win) {
+					if (win && (output[0] != 0 || output[1] != 0)) {
 						msg.type = MTY_MSG_MOUSE_MOTION;
 						msg.window = win->index;
 						msg.mouseMotion.relative = true;
-						msg.mouseMotion.x = lrint(coords[0]);
-						msg.mouseMotion.y = lrint(coords[1]);
+						msg.mouseMotion.x = output[0];
+						msg.mouseMotion.y = output[1];
 					}
 				}
 			}
