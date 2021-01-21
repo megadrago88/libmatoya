@@ -732,16 +732,22 @@ static void app_fix_mouse_buttons(MTY_App *ctx)
 	if (ctx->buttons == 0)
 		return;
 
+	bool flipped = GetSystemMetrics(SM_SWAPBUTTON);
 	MTY_MouseButton buttons = ctx->buttons;
 
 	for (MTY_MouseButton x = 0; buttons > 0 && x < APP_MOUSE_MAX; x++) {
-		if ((buttons & 1) && !app_button_is_pressed(x)) {
-			MTY_Msg msg = {0};
-			msg.type = MTY_MSG_MOUSE_BUTTON;
-			msg.mouseButton.button = x;
+		if (buttons & 1) {
+			MTY_MouseButton b = flipped && x == MTY_MOUSE_BUTTON_LEFT ? MTY_MOUSE_BUTTON_RIGHT :
+				flipped && x == MTY_MOUSE_BUTTON_RIGHT ? MTY_MOUSE_BUTTON_LEFT : x;
 
-			ctx->msg_func(&msg, ctx->opaque);
-			ctx->buttons &= ~(1 << x);
+			if (!app_button_is_pressed(b)) {
+				MTY_Msg msg = {0};
+				msg.type = MTY_MSG_MOUSE_BUTTON;
+				msg.mouseButton.button = x;
+
+				ctx->msg_func(&msg, ctx->opaque);
+				ctx->buttons &= ~(1 << x);
+			}
 		}
 
 		buttons >>= 1;
