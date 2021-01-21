@@ -19,7 +19,7 @@ static void audio_error(AAudioStream *stream, void *userData, aaudio_result_t er
 	MTY_Log("'AAudioStream' error %d", error);
 }
 
-MTY_Audio *MTY_AudioCreate(uint32_t sampleRate)
+MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer)
 {
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
 
@@ -36,27 +36,18 @@ MTY_Audio *MTY_AudioCreate(uint32_t sampleRate)
 	return ctx;
 }
 
-uint32_t MTY_AudioGetQueuedFrames(MTY_Audio *ctx)
+uint32_t MTY_AudioGetQueuedMs(MTY_Audio *ctx)
 {
 	return 0;
-}
-
-bool MTY_AudioIsPlaying(MTY_Audio *ctx)
-{
-	return true;
-}
-
-void MTY_AudioPlay(MTY_Audio *ctx)
-{
 }
 
 void MTY_AudioStop(MTY_Audio *ctx)
 {
 }
 
-void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *samples, uint32_t count)
+void MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count)
 {
-	AAudioStream_write(ctx->stream, samples, count, 40000000); // 40ms
+	AAudioStream_write(ctx->stream, frames, count, 40000000); // 40ms
 
 	int32_t underruns = AAudioStream_getXRunCount(ctx->stream);
 	int32_t state = AAudioStream_getState(ctx->stream);

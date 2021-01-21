@@ -218,7 +218,7 @@ objs-test: $(OBJS) src/test.o
 
 ANDROID_NDK = $(HOME)/android-ndk-r21d
 
-android: clear $(SHADERS)
+android: clean clear $(SHADERS)
 	@$(ANDROID_NDK)/ndk-build -j4 \
 		NDK_PROJECT_PATH=. \
 		APP_BUILD_SCRIPT=Android.mk \

@@ -61,10 +61,8 @@ LOCAL_SRC_FILES := \
 	src/unix/time.c \
 	src/unix/crypto.c \
 	src/unix/aes-gcm-openssl.c \
-	src/unix/linux/android/window.c
-
-#	src/unix/linux/generic/gfx/gl-ctx.o
-#	src/unix/linux/generic/hid.o
-#	src/unix/linux/generic/audio.o
+	src/unix/linux/android/gfx/gl-ctx.c \
+	src/unix/linux/android/window.c \
+	src/unix/linux/android/audio.c
 
 include $(BUILD_STATIC_LIBRARY)
