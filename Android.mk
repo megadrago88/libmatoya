@@ -52,15 +52,19 @@ LOCAL_SRC_FILES := \
 	src/thread.c \
 	src/gfx/gl.c \
 	src/gfx/gl-ui.c \
-	src/render.c \
-	src/unix/crypto.c \
+	src/gfx/render.c \
+	src/gfx/window-ctx.c \
 	src/unix/fs.c \
 	src/unix/memory.c \
 	src/unix/proc.c \
 	src/unix/thread.c \
 	src/unix/time.c \
+	src/unix/crypto.c \
 	src/unix/aes-gcm-openssl.c \
-	src/unix/linux/android/window.c \
-	src/unix/linux/android/audio.c
+	src/unix/linux/android/window.c
+
+#	src/unix/linux/generic/gfx/gl-ctx.o
+#	src/unix/linux/generic/hid.o
+#	src/unix/linux/generic/audio.o
 
 include $(BUILD_STATIC_LIBRARY)
