@@ -514,6 +514,9 @@ static Bool (*XkbSetDetectableAutoRepeat)(Display *dpy, Bool detectable, Bool *s
 #define XISetMask(ptr, event) \
 	(((unsigned char *) (ptr))[(event) >> 3] |= (1 << ((event) & 7)))
 
+#define XIMaskIsSet(ptr, event) \
+	(((unsigned char *) (ptr))[(event) >> 3] & (1 << ((event) & 7)))
+
 typedef struct {
 	int deviceid;
 	int mask_len;
