@@ -243,8 +243,10 @@ bool gfx_gl_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 
 	// Viewport
 	float vpx, vpy, vpw, vph;
-	mty_viewport(desc->cropWidth, desc->cropHeight, desc->viewWidth, desc->viewHeight,
-		desc->aspectRatio, desc->scale, &vpx, &vpy, &vpw, &vph);
+	mty_viewport(desc->rotation, desc->cropWidth, desc->cropHeight,
+		desc->viewWidth, desc->viewHeight, desc->aspectRatio, desc->scale,
+		&vpx, &vpy, &vpw, &vph);
+
 	glViewport(lrint(vpx), lrint(vpy), lrint(vpw), lrint(vph));
 
 	// Begin render pass (set destination texture if available)
@@ -287,7 +289,7 @@ bool gfx_gl_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 
 	// Uniforms
 	glUniform4f(ctx->loc_fcb, ctx->scale, (GLfloat) desc->cropWidth, (GLfloat) desc->cropHeight, vph);
-	glUniform3i(ctx->loc_icb, desc->filter, desc->effect, ctx->format);
+	glUniform4i(ctx->loc_icb, desc->filter, desc->effect, ctx->format, desc->rotation);
 
 	// Draw
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);

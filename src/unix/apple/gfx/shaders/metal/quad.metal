@@ -25,6 +25,7 @@ struct cb {
 	uint filter;
 	uint effect;
 	uint format;
+	uint rotation;
 };
 
 vertex struct vs_out vs(struct vtx v [[stage_in]])
@@ -90,6 +91,21 @@ fragment float4 fs(
 ) {
 	float4 rgba = 0.0;
 	float2 uv = in.texcoord;
+
+	// Rotation
+	if (cb.rotation == 1 || cb.rotation == 3) {
+		float tmp = uv[0];
+		uv[0] = uv[1];
+		uv[1] = tmp;
+	}
+
+	// Flipped vertically
+	if (cb.rotation == 1 || cb.rotation == 2)
+		uv[1] = 1.0 - uv[1];
+
+	// Flipped horizontally
+	if (cb.rotation == 2 || cb.rotation == 3)
+		uv[0] = 1.0 - uv[0];
 
 	// Gaussian
 	if (cb.filter == 3 || cb.filter == 4)

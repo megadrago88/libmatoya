@@ -16,7 +16,8 @@ cbuffer VS_CONSTANT_BUFFER : register(b0) {
 	uint filter;
 	uint effect;
 	uint format;
-	uint __pad[2];
+	uint rotation;
+	uint __pad[1];
 };
 
 SamplerState ss {
@@ -74,6 +75,21 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 {
 	float4 rgba = 0.0;
 	float2 uv = input.texcoord;
+
+	// Rotation
+	if (rotation == 1 || rotation == 3) {
+		float tmp = uv[0];
+		uv[0] = uv[1];
+		uv[1] = tmp;
+	}
+
+	// Flipped vertically
+	if (rotation == 1 || rotation == 2)
+		uv[1] = 1.0 - uv[1];
+
+	// Flipped horizontally
+	if (rotation == 2 || rotation == 3)
+		uv[0] = 1.0 - uv[0];
 
 	// Gaussian
 	if (filter == 3 || filter == 4)

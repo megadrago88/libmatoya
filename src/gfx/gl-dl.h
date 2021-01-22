@@ -54,7 +54,7 @@ static PFNGLVERTEXATTRIBPOINTERPROC     glVertexAttribPointer;
 static PFNGLCREATEPROGRAMPROC           glCreateProgram;
 static PFNGLUNIFORM1IPROC               glUniform1i;
 static PFNGLUNIFORM1FPROC               glUniform1f;
-static PFNGLUNIFORM3IPROC               glUniform3i;
+static PFNGLUNIFORM4IPROC               glUniform4i;
 static PFNGLUNIFORM4FPROC               glUniform4f;
 static PFNGLACTIVETEXTUREPROC           glActiveTexture;
 static PFNGLDELETEBUFFERSPROC           glDeleteBuffers;
@@ -126,7 +126,7 @@ static bool gl_dl_global_init(void)
 		GL_DL_LOAD_SYM(glCreateProgram);
 		GL_DL_LOAD_SYM(glUniform1i);
 		GL_DL_LOAD_SYM(glUniform1f);
-		GL_DL_LOAD_SYM(glUniform3i);
+		GL_DL_LOAD_SYM(glUniform4i);
 		GL_DL_LOAD_SYM(glUniform4f);
 		GL_DL_LOAD_SYM(glActiveTexture);
 		GL_DL_LOAD_SYM(glDeleteBuffers);

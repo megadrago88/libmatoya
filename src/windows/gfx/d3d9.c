@@ -308,8 +308,9 @@ bool gfx_d3d9_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 
 	// Viewport
 	float vpx, vpy, vpw, vph;
-	mty_viewport(desc->cropWidth, desc->cropHeight, desc->viewWidth, desc->viewHeight,
-		desc->aspectRatio, desc->scale, &vpx, &vpy, &vpw, &vph);
+	mty_viewport(desc->rotation, desc->cropWidth, desc->cropHeight,
+		desc->viewWidth, desc->viewHeight, desc->aspectRatio, desc->scale,
+		&vpx, &vpy, &vpw, &vph);
 
 	D3DVIEWPORT9 vp = {0};
 	vp.X = lrint(vpx);
@@ -393,6 +394,7 @@ bool gfx_d3d9_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	cb[4] = desc->filter;
 	cb[5] = desc->effect;
 	cb[6] = ctx->format;
+	cb[7] = desc->rotation;
 	e = IDirect3DDevice9_SetPixelShaderConstantF(_device, 0, cb, 2);
 	if (e != D3D_OK) {
 		MTY_Log("'IDirect3DDevice9_SetPixelShaderConstantF' failed with HRESULT 0x%X", e);

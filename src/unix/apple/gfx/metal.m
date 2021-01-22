@@ -21,6 +21,7 @@ struct gfx_metal_cb {
 	uint32_t filter;
 	uint32_t effect;
 	uint32_t format;
+	uint32_t rotation;
 };
 
 struct gfx_metal_res {
@@ -238,8 +239,9 @@ bool gfx_metal_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 
 	// Viewport
 	float vpx, vpy, vpw, vph;
-	mty_viewport(desc->cropWidth, desc->cropHeight, desc->viewWidth, desc->viewHeight,
-		desc->aspectRatio, desc->scale, &vpx, &vpy, &vpw, &vph);
+	mty_viewport(desc->rotation, desc->cropWidth, desc->cropHeight,
+		desc->viewWidth, desc->viewHeight, desc->aspectRatio, desc->scale,
+		&vpx, &vpy, &vpw, &vph);
 
 	MTLViewport vp = {0};
 	vp.originX = vpx;
@@ -266,6 +268,7 @@ bool gfx_metal_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	ctx->fcb.filter = desc->filter;
 	ctx->fcb.width = desc->cropWidth;
 	ctx->fcb.height = desc->cropHeight;
+	ctx->fcb.rotation = desc->rotation;
 	ctx->fcb.vp_height = vph;
 	[re setFragmentBytes:&ctx->fcb length:sizeof(struct gfx_metal_cb) atIndex:0];
 

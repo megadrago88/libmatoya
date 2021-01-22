@@ -69,9 +69,25 @@ float4 main(VS_OUTPUT input) : SV_TARGET
 	float filter = cb1[0];
 	float effect = cb1[1];
 	float format = cb1[2];
+	float rotation = cb1[3];
 
 	float4 rgba = 0.0;
 	float2 uv = input.texcoord;
+
+	// Rotation
+	if (rotation == 1.0 || rotation == 3.0) {
+		float tmp = uv[0];
+		uv[0] = uv[1];
+		uv[1] = tmp;
+	}
+
+	// Flipped vertically
+	if (rotation == 1.0 || rotation == 2.0)
+		uv[1] = 1.0 - uv[1];
+
+	// Flipped horizontally
+	if (rotation == 2.0 || rotation == 3.0)
+		uv[0] = 1.0 - uv[0];
 
 	// Gaussian
 	if (filter == 3.0 || filter == 4.0)

@@ -7,9 +7,18 @@
 #include <stdint.h>
 #include <math.h>
 
-static void mty_viewport(uint32_t w, uint32_t h, uint32_t view_w, uint32_t view_h,
-	float ar, float scale, float *vp_x, float *vp_y, float *vp_w, float *vp_h)
+static void mty_viewport(MTY_Rotation rotation, uint32_t w, uint32_t h,
+	uint32_t view_w, uint32_t view_h, float ar, float scale, float *vp_x,
+	float *vp_y, float *vp_w, float *vp_h)
 {
+	if (rotation == MTY_ROTATION_90 || rotation == MTY_ROTATION_270) {
+		uint32_t tmp = h;
+		h = w;
+		w = tmp;
+
+		ar = 1.0f / ar;
+	}
+
 	uint32_t scaled_w = lrint(scale * (float) w);
 	uint32_t scaled_h = lrint(scale * (float) h);
 

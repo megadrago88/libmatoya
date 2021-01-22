@@ -256,8 +256,8 @@ const GL_API = {
 	glUniform1f: function (loc, v0) {
 		GL.uniform1f(gl_obj(loc), v0);
 	},
-	glUniform3i: function (loc, v0, v1, v2) {
-		GL.uniform3i(gl_obj(loc), v0, v1, v2);
+	glUniform4i: function (loc, v0, v1, v2, v3) {
+		GL.uniform4i(gl_obj(loc), v0, v1, v2, v3);
 	},
 	glUniform4f: function (loc, v0, v1, v2, v3) {
 		GL.uniform4f(gl_obj(loc), v0, v1, v2, v3);

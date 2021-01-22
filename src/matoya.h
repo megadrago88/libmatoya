@@ -566,8 +566,17 @@ typedef enum {
 	MTY_EFFECT_MAKE_32      = 0x7FFFFFFF,
 } MTY_Effect;
 
+typedef enum {
+	MTY_ROTATION_NONE    = 0,
+	MTY_ROTATION_90      = 1,
+	MTY_ROTATION_180     = 2,
+	MTY_ROTATION_270     = 3,
+	MTY_ROTATION_MAKE_32 = 0x7FFFFFFF,
+} MTY_Rotation;
+
 typedef struct MTY_RenderDesc {
 	MTY_ColorFormat format;
+	MTY_Rotation rotation;
 	MTY_Filter filter;
 	MTY_Effect effect;
 	uint32_t imageWidth;

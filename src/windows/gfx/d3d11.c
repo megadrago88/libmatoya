@@ -27,7 +27,8 @@ struct psvars {
 	uint32_t filter;
 	uint32_t effect;
 	uint32_t format;
-	uint32_t __pad[2]; // Constant buffers must be in increments of 16 bytes
+	uint32_t rotation;
+	uint32_t __pad[1]; // Constant buffers must be in increments of 16 bytes
 };
 
 struct gfx_d3d11_res {
@@ -365,8 +366,9 @@ bool gfx_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 
 	// Viewport
 	D3D11_VIEWPORT vp = {0};
-	mty_viewport(desc->cropWidth, desc->cropHeight, desc->viewWidth, desc->viewHeight,
-		desc->aspectRatio, desc->scale, &vp.TopLeftX, &vp.TopLeftY, &vp.Width, &vp.Height);
+	mty_viewport(desc->rotation, desc->cropWidth, desc->cropHeight,
+		desc->viewWidth, desc->viewHeight, desc->aspectRatio, desc->scale,
+		&vp.TopLeftX, &vp.TopLeftY, &vp.Width, &vp.Height);
 
 	ID3D11DeviceContext_RSSetViewports(_context, 1, &vp);
 
@@ -421,6 +423,7 @@ bool gfx_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	cb.filter = desc->filter;
 	cb.effect = desc->effect;
 	cb.format = ctx->format;
+	cb.rotation = desc->rotation;
 
 	D3D11_MAPPED_SUBRESOURCE res = {0};
 	e = ID3D11DeviceContext_Map(_context, ctx->psbres, 0, D3D11_MAP_WRITE_DISCARD, 0, &res);

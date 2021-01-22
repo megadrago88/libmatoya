@@ -18,7 +18,7 @@ uniform sampler2D tex2;
 uniform vec4 fcb;
 
 // filter, effect, format
-uniform ivec3 icb;
+uniform ivec4 icb;
 
 void yuv_to_rgba(float y, float u, float v, out vec4 rgba)
 {
@@ -74,11 +74,27 @@ void main(void)
 	int filter = icb[0];
 	int effect = icb[1];
 	int format = icb[2];
+	int rotation = icb[3];
 
 	vec2 uv = vec2(
 		vs_texcoord[0] * scale,
 		vs_texcoord[1]
 	);
+
+	// Rotation
+	if (rotation == 1 || rotation == 3) {
+		float tmp = uv[0];
+		uv[0] = uv[1];
+		uv[1] = tmp;
+	}
+
+	// Flipped vertically
+	if (rotation == 1 || rotation == 2)
+		uv[1] = 1.0 - uv[1];
+
+	// Flipped horizontally
+	if (rotation == 2 || rotation == 3)
+		uv[0] = 1.0 - uv[0];
 
 	// Gaussian
 	if (filter == 3 || filter == 4)
