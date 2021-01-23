@@ -29,13 +29,13 @@ int main(int argc, char **argv);
 static uint32_t APP_WIDTH = 1920;
 static uint32_t APP_HEIGHT = 1080;
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MainSurface_mty_1window_1dims(JNIEnv *env, jobject instance, jint w, jint h)
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1dims(JNIEnv *env, jobject instance, jint w, jint h)
 {
 	APP_WIDTH = w;
 	APP_HEIGHT = h;
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_AppThread_mty_1start(JNIEnv *env, jobject instance, jstring jname)
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTYAppThread_app_1start(JNIEnv *env, jobject instance, jstring jname)
 {
 	const char *cname = (*env)->GetStringUTFChars(env, jname, 0);
 	char *name = MTY_Strdup(cname);
@@ -87,6 +87,7 @@ void MTY_AppDestroy(MTY_App **app)
 void MTY_AppRun(MTY_App *ctx)
 {
 	// TODO
+	while (ctx->app_func(ctx->opaque));
 }
 
 void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
@@ -116,7 +117,7 @@ bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, u
 float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
 {
 	// TODO
-	return 1.0f;
+	return 2.0f;
 }
 
 
