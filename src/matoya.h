@@ -957,6 +957,7 @@ typedef enum {
 typedef enum {
 	MTY_ORIENTATION_USER      = 0,
 	MTY_ORIENTATION_LANDSCAPE = 1,
+	MTY_ORIENTATION_PORTRAIT  = 2,
 } MTY_Orientation;
 
 typedef enum {
@@ -1461,11 +1462,20 @@ MTY_WindowGetGFX(MTY_App *app, MTY_Window window);
 MTY_EXPORT bool
 MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync);
 
+MTY_EXPORT bool
+MTY_WindowGFXNewContext(MTY_App *app, MTY_Window window, bool reset);
+
 
 // @module gl
 
 MTY_EXPORT void *
 MTY_GLGetProcAddress(const char *name);
+
+
+// @module platform
+
+MTY_EXPORT void *
+MTY_JNIEnv(void);
 
 
 #ifdef __cplusplus

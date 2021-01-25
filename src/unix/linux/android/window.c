@@ -7,6 +7,8 @@
 #include "matoya.h"
 
 #include <string.h>
+#include <math.h>
+#include <unistd.h>
 
 #include <jni.h>
 #include <android/log.h>
@@ -15,19 +17,48 @@ struct MTY_App {
 	MTY_MsgFunc msg_func;
 	MTY_AppFunc app_func;
 	MTY_Detach detach;
+	uint32_t timeout;
 	void *opaque;
+
 
 	MTY_GFX api;
 	struct gfx_ctx *gfx_ctx;
 };
 
 
+// From GFX module
+
+bool gfx_is_ready(void);
+bool gfx_was_reinit(bool reset);
+
+
 // JNI
 
 int main(int argc, char **argv);
 
+MTY_Queue *APP_EVENTS;
+static JavaVM *APP_JVM;
+static jobject APP_MTY_OBJ;
 static uint32_t APP_WIDTH = 1920;
 static uint32_t APP_HEIGHT = 1080;
+
+void *MTY_JNIEnv(void)
+{
+	JNIEnv *env = NULL;
+
+	if ((*APP_JVM)->GetEnv(APP_JVM, (void **) &env, JNI_VERSION_1_4) < 0)
+		(*APP_JVM)->AttachCurrentThread(APP_JVM, &env, NULL);
+
+	return env;
+}
+
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
+{
+	// This is safe to store globally at any point
+	APP_JVM = vm;
+
+	return JNI_VERSION_1_4;
+}
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1dims(JNIEnv *env, jobject instance, jint w, jint h)
 {
@@ -35,18 +66,105 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1dims(JNIEnv *env, j
 	APP_HEIGHT = h;
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYAppThread_app_1start(JNIEnv *env, jobject instance, jstring jname)
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1start(JNIEnv *env, jobject instance, jstring jname)
 {
+	APP_EVENTS = MTY_QueueCreate(500, sizeof(MTY_Msg));
+
 	const char *cname = (*env)->GetStringUTFChars(env, jname, 0);
 	char *name = MTY_Strdup(cname);
 
 	(*env)->ReleaseStringUTFChars(env, jname, cname);
 
+	APP_MTY_OBJ = (*env)->NewGlobalRef(env, instance);
+
 	// __android_log_print(ANDROID_LOG_INFO, "MTY", "START");
 
-	main(1, &name);
+	chdir("/data/data/tv.parsec.client/");
+
+	char *argv[2] = {name, NULL};
+	main(1, argv);
 
 	MTY_Free(name);
+}
+
+
+// JNI events
+
+static void app_push_msg(MTY_Msg *msg)
+{
+	MTY_Msg *qmsg = MTY_QueueAcquireBuffer(APP_EVENTS);
+	*qmsg = *msg;
+
+	MTY_QueuePush(APP_EVENTS, sizeof(MTY_Msg));
+}
+
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1key(JNIEnv *env, jobject obj,
+	jboolean pressed, jint code, jint itext, jint mods)
+{
+	if (pressed && itext != 0) {
+		MTY_Msg msg = {0};
+		msg.type = MTY_MSG_TEXT;
+		memcpy(msg.text, &itext, sizeof(jint));
+
+		app_push_msg(&msg);
+	}
+}
+
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1single_1tap_1up(JNIEnv *env, jobject obj,
+	jfloat x, jfloat y)
+{
+	// Currently treat single tap up gesture as a motion event and a full left click
+
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_MOUSE_MOTION;
+	msg.mouseMotion.x = lrint(x);
+	msg.mouseMotion.y = lrint(y);
+	app_push_msg(&msg);
+
+	msg.type = MTY_MSG_MOUSE_BUTTON;
+	msg.mouseButton.pressed = true;
+	msg.mouseButton.button = MTY_MOUSE_BUTTON_LEFT;
+	app_push_msg(&msg);
+
+	msg.mouseButton.pressed = false;
+	app_push_msg(&msg);
+}
+
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1long_1press(JNIEnv *env, jobject obj,
+	jfloat x, jfloat y)
+{
+	// Currently treat long press gesture as a motion event and a full right click
+
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_MOUSE_MOTION;
+	msg.mouseMotion.x = lrint(x);
+	msg.mouseMotion.y = lrint(y);
+	app_push_msg(&msg);
+
+	msg.type = MTY_MSG_MOUSE_BUTTON;
+	msg.mouseButton.pressed = true;
+	msg.mouseButton.button = MTY_MOUSE_BUTTON_RIGHT;
+	app_push_msg(&msg);
+
+	msg.mouseButton.pressed = false;
+	app_push_msg(&msg);
+}
+
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1scroll(JNIEnv *env, jobject obj,
+	jfloat init_x, jfloat init_y, jfloat x, jfloat y)
+{
+	// Move the cursor to the initial location of the scroll, then send mouse wheel event
+
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_MOUSE_MOTION;
+	msg.mouseMotion.x = lrint(init_x);
+	msg.mouseMotion.y = lrint(init_y);
+	app_push_msg(&msg);
+
+	msg.type = MTY_MSG_MOUSE_WHEEL;
+	msg.mouseWheel.y = -lrint(y);
+	msg.mouseWheel.x = 0;
+	app_push_msg(&msg);
 }
 
 
@@ -86,24 +204,82 @@ void MTY_AppDestroy(MTY_App **app)
 
 void MTY_AppRun(MTY_App *ctx)
 {
-	// TODO
-	while (ctx->app_func(ctx->opaque));
+	for (bool cont = true; cont;) {
+		for (MTY_Msg *msg; MTY_QueuePop(APP_EVENTS, 0, (void **) &msg, NULL);) {
+			ctx->msg_func(msg, ctx->opaque);
+			MTY_QueueReleaseBuffer(APP_EVENTS);
+		}
+
+		cont = ctx->app_func(ctx->opaque);
+
+		if (ctx->timeout > 0)
+			MTY_Sleep(ctx->timeout);
+	}
+}
+
+void MTY_AppSetTimeout(MTY_App *ctx, uint32_t timeout)
+{
+	ctx->timeout = timeout;
 }
 
 void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 {
-	// TODO
+	JNIEnv *env = MTY_JNIEnv();
+
+	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+	jmethodID mid = (*env)->GetMethodID(env, cls, "enableScreenSaver", "(Z)V");
+
+	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, enable);
 }
 
 bool MTY_AppIsActive(MTY_App *ctx)
 {
-	// TODO
-	return true;
+	return gfx_is_ready();
 }
 
 void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {
 	// TODO
+}
+
+void MTY_AppSetOnscreenKeyboard(MTY_App *app, bool enable)
+{
+	JNIEnv *env = MTY_JNIEnv();
+
+	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+	jmethodID mid = (*env)->GetMethodID(env, cls, "showKeyboard", "(Z)V");
+
+	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, enable);
+}
+
+void MTY_AppSetOrientation(MTY_App *app, MTY_Orientation orientation)
+{
+	JNIEnv *env = MTY_JNIEnv();
+
+	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+	jmethodID mid = (*env)->GetMethodID(env, cls, "setOrientation", "(I)V");
+
+	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, orientation);
+}
+
+void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
+{
+	JNIEnv *env = MTY_JNIEnv();
+
+	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+	jmethodID mid = (*env)->GetMethodID(env, cls, "enableFullscreen", "(Z)V");
+
+	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, fullscreen);
+}
+
+bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
+{
+	JNIEnv *env = MTY_JNIEnv();
+
+	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+	jmethodID mid = (*env)->GetMethodID(env, cls, "isFullscreen", "()Z");
+
+	return (*env)->CallBooleanMethod(env, APP_MTY_OBJ, mid);
 }
 
 bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
@@ -117,7 +293,12 @@ bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, u
 float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
 {
 	// TODO
-	return 2.0f;
+	return 2.5f;
+}
+
+bool MTY_WindowGFXNewContext(MTY_App *app, MTY_Window window, bool reset)
+{
+	return gfx_was_reinit(reset);
 }
 
 
@@ -190,12 +371,12 @@ bool MTY_AppGetRelativeMouse(MTY_App *app)
 
 bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
 {
-	return MTY_AppIsActive(app);
+	return gfx_is_ready();
 }
 
 bool MTY_WindowIsActive(MTY_App *app, MTY_Window window)
 {
-	return MTY_AppIsActive(app);
+	return gfx_is_ready();
 }
 
 MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
@@ -210,15 +391,6 @@ void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)
 bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
 {
 	return MTY_WindowGetScreenSize(app, window, width, height);
-}
-
-void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
-{
-}
-
-bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
-{
-	return false;
 }
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
@@ -247,10 +419,6 @@ void MTY_AppGrabMouse(MTY_App *app, bool grab)
 {
 }
 
-void MTY_AppSetTimeout(MTY_App *ctx, uint32_t timeout)
-{
-}
-
 void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 {
 }
@@ -274,14 +442,6 @@ void MTY_AppRemoveTray(MTY_App *app)
 }
 
 void MTY_AppNotification(MTY_App *app, const char *title, const char *msg)
-{
-}
-
-void MTY_AppSetOnscreenKeyboard(MTY_App *app, bool enable)
-{
-}
-
-void MTY_AppSetOrientation(MTY_App *app, MTY_Orientation orientation)
 {
 }
 

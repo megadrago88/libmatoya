@@ -24,6 +24,7 @@ static struct gfx_gl_ctx {
 	MTY_Renderer *renderer;
 	bool ready;
 	bool init;
+	bool reinit;
 	uint32_t width;
 	uint32_t height;
 	uint32_t fb0;
@@ -49,8 +50,10 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_gfx_1set_1surface(JNIEnv
 
 	CTX.window = ANativeWindow_fromSurface(env, surface);
 
-	if (CTX.window)
+	if (CTX.window) {
 		CTX.ready = true;
+		CTX.reinit = true;
+	}
 
 	MTY_MutexUnlock(CTX.mutex);
 }
@@ -72,6 +75,25 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_gfx_1unset_1surface(JNIE
 	CTX.init = false;
 
 	MTY_MutexUnlock(CTX.mutex);
+}
+
+bool gfx_is_ready(void)
+{
+	return CTX.ready;
+}
+
+bool gfx_was_reinit(bool reset)
+{
+	MTY_MutexLock(CTX.mutex);
+
+	bool reinit = CTX.reinit;
+
+	if (reset)
+		CTX.reinit = false;
+
+	MTY_MutexUnlock(CTX.mutex);
+
+	return reinit;
 }
 
 
@@ -127,7 +149,7 @@ static bool gfx_gl_ctx_check(struct gfx_gl_ctx *ctx)
 
 	ctx->surface = eglCreateWindowSurface(ctx->display, config, ctx->window, NULL);
 
-	const EGLint attrib[] = {EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE};
+	const EGLint attrib[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
 	ctx->context = eglCreateContext(ctx->display, config, 0, attrib);
 
 	eglMakeCurrent(ctx->display, ctx->surface, ctx->surface, ctx->context);
@@ -149,7 +171,6 @@ struct gfx_ctx *gfx_gl_ctx_create(void *native_window, bool vsync)
 	bool r = true;
 
 	struct gfx_gl_ctx *ctx = &CTX;
-	ctx->renderer = MTY_RendererCreate();
 
 	if (!r)
 		gfx_gl_ctx_destroy((struct gfx_ctx **) &ctx);
