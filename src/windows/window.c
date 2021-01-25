@@ -1797,6 +1797,11 @@ bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 	return app_get_window(app, window) ? true : false;
 }
 
+bool MTY_WindowGFXNewContext(MTY_App *app, MTY_Window window, bool reset)
+{
+	return false;
+}
+
 
 // Window Private
 

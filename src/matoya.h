@@ -980,6 +980,7 @@ typedef enum {
 	MTY_MSG_CLIPBOARD    = 16,
 	MTY_MSG_TRAY         = 17,
 	MTY_MSG_REOPEN       = 18,
+	MTY_MSG_BACK         = 19,
 	MTY_MSG_MAKE_32      = 0x7FFFFFFF,
 } MTY_MsgType;
 

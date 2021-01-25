@@ -5,6 +5,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "matoya.h"
+#include "keymap.h"
 
 #include <string.h>
 #include <math.h>
@@ -41,6 +42,7 @@ static JavaVM *APP_JVM;
 static jobject APP_MTY_OBJ;
 static uint32_t APP_WIDTH = 1920;
 static uint32_t APP_HEIGHT = 1080;
+static bool APP_CHECK_SCROLLER;
 
 void *MTY_JNIEnv(void)
 {
@@ -98,6 +100,12 @@ static void app_push_msg(MTY_Msg *msg)
 	MTY_QueuePush(APP_EVENTS, sizeof(MTY_Msg));
 }
 
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1check_1scroller(JNIEnv *env, jobject obj,
+	jboolean check)
+{
+	APP_CHECK_SCROLLER = check;
+}
+
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1key(JNIEnv *env, jobject obj,
 	jboolean pressed, jint code, jint itext, jint mods)
 {
@@ -107,6 +115,23 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1key(JNIEnv *env, jo
 		memcpy(msg.text, &itext, sizeof(jint));
 
 		app_push_msg(&msg);
+	}
+
+	if (pressed && code == AKEYCODE_BACK) {
+		MTY_Msg msg = {0};
+		msg.type = MTY_MSG_BACK;
+		app_push_msg(&msg);
+	}
+
+	if (code < (jint) APP_KEYS_MAX) {
+		MTY_Key key = APP_KEYS[code];
+		if (key != MTY_KEY_NONE) {
+			MTY_Msg msg = {0};
+			msg.type = MTY_MSG_KEYBOARD;
+			msg.keyboard.key = key;
+			msg.keyboard.pressed = pressed;
+			app_push_msg(&msg);
+		}
 	}
 }
 
@@ -154,12 +179,15 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1scroll(JNIEnv *env,
 	jfloat init_x, jfloat init_y, jfloat x, jfloat y)
 {
 	// Move the cursor to the initial location of the scroll, then send mouse wheel event
-
 	MTY_Msg msg = {0};
-	msg.type = MTY_MSG_MOUSE_MOTION;
-	msg.mouseMotion.x = lrint(init_x);
-	msg.mouseMotion.y = lrint(init_y);
-	app_push_msg(&msg);
+
+	// Negative init values mean "don't move the cursor"
+	if (init_x > 0.0f || init_y > 0.0f) {
+		msg.type = MTY_MSG_MOUSE_MOTION;
+		msg.mouseMotion.x = lrint(init_x);
+		msg.mouseMotion.y = lrint(init_y);
+		app_push_msg(&msg);
+	}
 
 	msg.type = MTY_MSG_MOUSE_WHEEL;
 	msg.mouseWheel.y = -lrint(y);
@@ -202,6 +230,16 @@ void MTY_AppDestroy(MTY_App **app)
 	*app = NULL;
 }
 
+static void app_check_scroller(void)
+{
+	JNIEnv *env = MTY_JNIEnv();
+
+	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+	jmethodID mid = (*env)->GetMethodID(env, cls, "checkScroller", "()V");
+
+	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid);
+}
+
 void MTY_AppRun(MTY_App *ctx)
 {
 	for (bool cont = true; cont;) {
@@ -209,6 +247,11 @@ void MTY_AppRun(MTY_App *ctx)
 			ctx->msg_func(msg, ctx->opaque);
 			MTY_QueueReleaseBuffer(APP_EVENTS);
 		}
+
+		// Generates scroll events after a fling has taken place
+		// Prevent JNI calls if there's no fling in progress
+		if (APP_CHECK_SCROLLER)
+			app_check_scroller();
 
 		cont = ctx->app_func(ctx->opaque);
 
@@ -329,22 +372,38 @@ void *window_get_native(MTY_App *app, MTY_Window window)
 void MTY_AppHotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
 {
 	memset(str, 0, len);
+
+	// TODO
 }
 
 void MTY_AppSetHotkey(MTY_App *ctx, MTY_Hotkey mode, MTY_Mod mod, MTY_Key key, uint32_t id)
 {
+	// TODO
 }
 
 void MTY_AppRemoveHotkeys(MTY_App *ctx, MTY_Hotkey mode)
 {
+	// TODO
 }
 
 void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
+	// TODO
 }
 
 void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 {
+	// TODO
+}
+
+void MTY_AppShowCursor(MTY_App *ctx, bool show)
+{
+	// TODO
+}
+
+void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
+{
+	// TODO
 }
 
 bool MTY_AppCanWarpCursor(MTY_App *ctx)
@@ -352,15 +411,7 @@ bool MTY_AppCanWarpCursor(MTY_App *ctx)
 	return false;
 }
 
-void MTY_AppShowCursor(MTY_App *ctx, bool show)
-{
-}
-
 void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
-{
-}
-
-void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 {
 }
 
