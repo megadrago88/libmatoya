@@ -1,6 +1,6 @@
 package group.matoya.lib;
 
-import androidx.appcompat.app.AppCompatActivity;
+import android.app.Activity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Surface;
@@ -30,6 +30,13 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	ScaleGestureDetector sdetector;
 	Scroller scroller;
 
+	// Surface
+
+	native void app_dims(int w, int h);
+	native void gfx_dims(int w, int h);
+	native void gfx_set_surface(Surface surface);
+	native void gfx_unset_surface();
+
 	public MTYSurface(Context context) {
 		super(context);
 		this.getHolder().addCallback(this);
@@ -45,13 +52,6 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 		this.scroller = new Scroller(context);
 	}
-
-
-	// Surface
-	native void app_dims(int w, int h);
-	native void gfx_dims(int w, int h);
-	native void gfx_set_surface(Surface surface);
-	native void gfx_unset_surface();
 
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
@@ -76,6 +76,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 
 	// InputConnection (for IME keyboard)
+
 	@Override
 	public boolean onCheckIsTextEditor() {
 		return true;
@@ -91,6 +92,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 
 	// Events
+
 	native void app_key(boolean pressed, int code, int text, int mods);
 	native void app_single_tap_up(float x, float y);
 	native void app_scroll(float initX, float initY, float x, float y);
@@ -200,13 +202,14 @@ public class MTY extends Thread {
 
 	static String NAME;
 	static MTYSurface SURFACE;
-	static AppCompatActivity ACTIVITY;
+	static Activity ACTIVITY;
 	static boolean IS_FULLSCREEN;
 
 	int scrollY;
 
 
-	// Base
+	// Called from Java
+
 	public MTY(String name) {
 		if (NAME != "") {
 			NAME = name;
@@ -223,8 +226,19 @@ public class MTY extends Thread {
 		ACTIVITY.finishAndRemoveTask();
 	}
 
+	public void setActivity(Activity activity) {
+		ACTIVITY = activity;
+		SURFACE = new MTYSurface(activity.getApplicationContext());
 
-	// Helpers
+		ViewGroup vg = activity.findViewById(android.R.id.content);
+		activity.addContentView(SURFACE, vg.getLayoutParams());
+
+		SURFACE.requestFocus();
+	}
+
+
+	// Called from C
+
 	private static int fullscreenFlags() {
 		return
 			View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |  // Prevents hidden stuff from coming back spontaneously
@@ -239,18 +253,6 @@ public class MTY extends Thread {
 
 	private static void setUiFlags(int flags) {
 		ACTIVITY.getWindow().getDecorView().setSystemUiVisibility(flags);
-	}
-
-
-	// Public
-	public void setActivity(AppCompatActivity activity) {
-		ACTIVITY = activity;
-		SURFACE = new MTYSurface(activity.getApplicationContext());
-
-		ViewGroup vg = activity.findViewById(android.R.id.content);
-		activity.addContentView(SURFACE, vg.getLayoutParams());
-
-		SURFACE.requestFocus();
 	}
 
 	public void checkScroller() {
@@ -310,9 +312,15 @@ public class MTY extends Thread {
 			@Override
 			public void run() {
 				switch (orienation) {
-					case 1:  ACTIVITY.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE); break;
-					case 2:  ACTIVITY.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);  break;
-					default: ACTIVITY.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);             break;
+					case 1:
+						ACTIVITY.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+						break;
+					case 2:
+						ACTIVITY.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
+						break;
+					default:
+						ACTIVITY.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
+						break;
 				}
 			}
 		});
