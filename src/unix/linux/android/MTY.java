@@ -19,6 +19,7 @@ import android.text.InputType;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.util.Log;
+import android.util.DisplayMetrics;
 import android.widget.Scroller;
 
 class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
@@ -198,6 +199,7 @@ public class MTY extends Thread {
 	static MTYSurface SURFACE;
 	static Activity ACTIVITY;
 	static boolean IS_FULLSCREEN;
+	static int DISPLAY_DENSITY;
 
 	int scrollY;
 
@@ -212,6 +214,10 @@ public class MTY extends Thread {
 
 		ACTIVITY = activity;
 		SURFACE = new MTYSurface(activity.getApplicationContext());
+
+		DisplayMetrics dm = new DisplayMetrics();
+		ACTIVITY.getWindowManager().getDefaultDisplay().getMetrics(dm);
+		DISPLAY_DENSITY = dm.densityDpi;
 
 		ViewGroup vg = activity.findViewById(android.R.id.content);
 		activity.addContentView(SURFACE, vg.getLayoutParams());
@@ -323,6 +329,10 @@ public class MTY extends Thread {
 				}
 			}
 		});
+	}
+
+	public int getDisplayDensity() {
+		return DISPLAY_DENSITY;
 	}
 
 	public void enableFullscreen(boolean _enable) {

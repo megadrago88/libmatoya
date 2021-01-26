@@ -19,6 +19,7 @@ struct MTY_App {
 	MTY_AppFunc app_func;
 	MTY_Detach detach;
 	uint32_t timeout;
+	float scale;
 	void *opaque;
 
 
@@ -212,12 +213,26 @@ void MTY_AppSetClipboard(MTY_App *app, const char *text)
 	// TODO
 }
 
+static float app_get_scale(void)
+{
+	JNIEnv *env = MTY_JNIEnv();
+
+	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+	jmethodID mid = (*env)->GetMethodID(env, cls, "getDisplayDensity", "()I");
+
+	jint density = (*env)->CallIntMethod(env, APP_MTY_OBJ, mid);
+
+	return (float) density / 176.0f;
+}
+
 MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 {
 	MTY_App *ctx = MTY_Alloc(1, sizeof(MTY_App));
 	ctx->app_func = appFunc;
 	ctx->msg_func = msgFunc;
 	ctx->opaque = opaque;
+
+	ctx->scale = app_get_scale();
 
 	return ctx;
 }
@@ -338,8 +353,7 @@ bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, u
 
 float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
 {
-	// TODO
-	return 2.5f;
+	return app->scale;
 }
 
 bool MTY_WindowGFXNewContext(MTY_App *app, MTY_Window window, bool reset)
