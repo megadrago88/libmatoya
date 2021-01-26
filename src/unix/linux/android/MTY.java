@@ -18,7 +18,6 @@ import android.view.inputmethod.InputMethodManager;
 import android.text.InputType;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
-import android.graphics.Canvas;
 import android.util.Log;
 import android.widget.Scroller;
 
@@ -67,11 +66,6 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	@Override
 	public void surfaceDestroyed(SurfaceHolder holder) {
 		gfx_unset_surface();
-	}
-
-	@Override
-	public void onDraw(Canvas canvas) {
-		super.onDraw(canvas);
 	}
 
 
@@ -200,6 +194,7 @@ public class MTY extends Thread {
 	native void app_start(String name);
 	native void gfx_global_init();
 
+	static boolean runOnce;
 	static String NAME;
 	static MTYSurface SURFACE;
 	static Activity ACTIVITY;
@@ -210,23 +205,14 @@ public class MTY extends Thread {
 
 	// Called from Java
 
-	public MTY(String name) {
-		if (NAME != "") {
+	public MTY(String name, Activity activity) {
+		if (!runOnce) {
 			NAME = name;
 
 			System.loadLibrary(name);
 			gfx_global_init();
-			this.start();
 		}
-	}
 
-	@Override
-	public void run() {
-		app_start(NAME);
-		ACTIVITY.finishAndRemoveTask();
-	}
-
-	public void setActivity(Activity activity) {
 		ACTIVITY = activity;
 		SURFACE = new MTYSurface(activity.getApplicationContext());
 
@@ -234,6 +220,17 @@ public class MTY extends Thread {
 		activity.addContentView(SURFACE, vg.getLayoutParams());
 
 		SURFACE.requestFocus();
+
+		if (!runOnce)
+			this.start();
+
+		runOnce = true;
+	}
+
+	@Override
+	public void run() {
+		app_start(NAME);
+		ACTIVITY.finishAndRemoveTask();
 	}
 
 
