@@ -62,31 +62,34 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
 	return JNI_VERSION_1_4;
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1dims(JNIEnv *env, jobject instance, jint w, jint h)
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1dims(JNIEnv *env, jobject obj,
+	jint w, jint h)
 {
 	APP_WIDTH = w;
 	APP_HEIGHT = h;
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1start(JNIEnv *env, jobject instance, jstring jname)
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1start(JNIEnv *env, jobject obj,
+	jstring jname)
 {
 	APP_EVENTS = MTY_QueueCreate(500, sizeof(MTY_Msg));
 
 	const char *cname = (*env)->GetStringUTFChars(env, jname, 0);
 	char *name = MTY_Strdup(cname);
-
 	(*env)->ReleaseStringUTFChars(env, jname, cname);
 
-	APP_MTY_OBJ = (*env)->NewGlobalRef(env, instance);
+	APP_MTY_OBJ = (*env)->NewGlobalRef(env, obj);
 
-	// __android_log_print(ANDROID_LOG_INFO, "MTY", "START");
-
-	chdir("/data/data/tv.parsec.client/");
+	// Make current working directory the package's writable area
+	chdir(MTY_Path("/data/data", name));
 
 	char *argv[2] = {name, NULL};
 	main(1, argv);
 
 	MTY_Free(name);
+
+	// __android_log_print(ANDROID_LOG_INFO, "MTY", "START");
+
 }
 
 

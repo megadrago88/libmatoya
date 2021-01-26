@@ -195,7 +195,6 @@ public class MTY extends Thread {
 	native void gfx_global_init();
 
 	static boolean runOnce;
-	static String NAME;
 	static MTYSurface SURFACE;
 	static Activity ACTIVITY;
 	static boolean IS_FULLSCREEN;
@@ -207,8 +206,6 @@ public class MTY extends Thread {
 
 	public MTY(String name, Activity activity) {
 		if (!runOnce) {
-			NAME = name;
-
 			System.loadLibrary(name);
 			gfx_global_init();
 		}
@@ -229,16 +226,21 @@ public class MTY extends Thread {
 
 	@Override
 	public void run() {
-		app_start(NAME);
+		app_start(ACTIVITY.getApplicationContext().getPackageName());
 		ACTIVITY.finishAndRemoveTask();
 	}
 
 
 	// Called from C
 
-	private static int fullscreenFlags() {
+	private static int normalFlags() {
 		return
 			View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |  // Prevents hidden stuff from coming back spontaneously
+			View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
+	}
+
+	private static int fullscreenFlags() {
+		return
 			View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | // Removes space at the top for menu bar
 			View.SYSTEM_UI_FLAG_FULLSCREEN |        // Removes menu bar
 			View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;    // Hides navigation buttons at the bottom
@@ -333,10 +335,10 @@ public class MTY extends Thread {
 				IS_FULLSCREEN = flagsFullscreen();
 
 				if (enable && !IS_FULLSCREEN) {
-					setUiFlags(fullscreenFlags());
+					setUiFlags(normalFlags() | fullscreenFlags());
 
 				} else if (!enable && IS_FULLSCREEN) {
-					setUiFlags(0);
+					setUiFlags(normalFlags());
 				}
 
 				// Update static after set
