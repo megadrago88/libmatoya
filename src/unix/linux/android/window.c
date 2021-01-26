@@ -9,6 +9,7 @@
 
 #include <string.h>
 #include <math.h>
+#include <stdio.h>
 #include <unistd.h>
 
 #include <jni.h>
@@ -44,6 +45,36 @@ static jobject APP_MTY_OBJ;
 static uint32_t APP_WIDTH = 1920;
 static uint32_t APP_HEIGHT = 1080;
 static bool APP_CHECK_SCROLLER;
+static bool LOG_THREAD;
+
+static void *app_log_thread(void *opaque)
+{
+	// stdout & stderr redirection
+	setvbuf(stdout, 0, _IOLBF, 0);
+	setvbuf(stderr, 0, _IONBF, 0);
+
+	int32_t pfd[2] = {0};
+	pipe(pfd);
+	dup2(pfd[1], 1);
+	dup2(pfd[1], 2);
+
+	while (LOG_THREAD) {
+		char buf[512];
+		ssize_t size = read(pfd[0], buf, 511);
+
+		if (size <= 0)
+			break;
+
+		if (buf[size - 1] == '\n')
+			size--;
+
+		buf[size] = '\0';
+
+		__android_log_write(ANDROID_LOG_DEBUG, "MTY", buf);
+	}
+
+	return NULL;
+}
 
 void *MTY_JNIEnv(void)
 {
@@ -75,6 +106,9 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1start(JNIEnv *env, jobject
 {
 	APP_EVENTS = MTY_QueueCreate(500, sizeof(MTY_Msg));
 
+	LOG_THREAD = true;
+	MTY_Thread *log_thread = MTY_ThreadCreate(app_log_thread, NULL);
+
 	const char *cname = (*env)->GetStringUTFChars(env, jname, 0);
 	char *name = MTY_Strdup(cname);
 	(*env)->ReleaseStringUTFChars(env, jname, cname);
@@ -87,10 +121,12 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1start(JNIEnv *env, jobject
 	char *argv[2] = {name, NULL};
 	main(1, argv);
 
+	LOG_THREAD = false;
+	printf("\n");
+
 	MTY_Free(name);
-
-	// __android_log_print(ANDROID_LOG_INFO, "MTY", "START");
-
+	MTY_ThreadDestroy(&log_thread);
+	MTY_QueueDestroy(&APP_EVENTS);
 }
 
 
@@ -386,6 +422,18 @@ void *window_get_native(MTY_App *app, MTY_Window window)
 
 // Unimplemented / stubs
 
+void MTY_AppDetach(MTY_App *app, MTY_Detach type)
+{
+	// TODO - This may need behavior dependent on device
+	app->detach = type;
+}
+
+MTY_Detach MTY_AppGetDetached(MTY_App *app)
+{
+	// TODO - This may need behavior dependent on device
+	return app->detach;
+}
+
 void MTY_AppHotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
 {
 	memset(str, 0, len);
@@ -423,6 +471,12 @@ void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 	// TODO
 }
 
+bool MTY_AppGetRelativeMouse(MTY_App *app)
+{
+	// TODO
+	return false;
+}
+
 bool MTY_AppCanWarpCursor(MTY_App *ctx)
 {
 	return false;
@@ -430,11 +484,6 @@ bool MTY_AppCanWarpCursor(MTY_App *ctx)
 
 void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
 {
-}
-
-bool MTY_AppGetRelativeMouse(MTY_App *app)
-{
-	return false;
 }
 
 bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
@@ -459,16 +508,6 @@ void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)
 bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
 {
 	return MTY_WindowGetScreenSize(app, window, width, height);
-}
-
-void MTY_AppDetach(MTY_App *app, MTY_Detach type)
-{
-	app->detach = type;
-}
-
-MTY_Detach MTY_AppGetDetached(MTY_App *app)
-{
-	return app->detach;
 }
 
 void MTY_AppActivate(MTY_App *app, bool active)
