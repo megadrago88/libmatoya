@@ -17,6 +17,8 @@ import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
 import android.text.InputType;
 import android.content.Context;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.pm.ActivityInfo;
 import android.util.Log;
 import android.util.DisplayMetrics;
@@ -191,7 +193,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	}
 }
 
-public class MTY extends Thread {
+public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChangedListener {
 	native void app_start(String name);
 	native void gfx_global_init();
 
@@ -223,6 +225,9 @@ public class MTY extends Thread {
 		activity.addContentView(SURFACE, vg.getLayoutParams());
 
 		SURFACE.requestFocus();
+
+		ClipboardManager clipboard = (ClipboardManager) ACTIVITY.getSystemService(Context.CLIPBOARD_SERVICE);
+		clipboard.addPrimaryClipChangedListener(this);
 
 		if (!runOnce)
 			this.start();
@@ -355,5 +360,33 @@ public class MTY extends Thread {
 				IS_FULLSCREEN = flagsFullscreen();
 			}
 		});
+	}
+
+
+	// Clipboard
+
+	public void setClipboard(String str) {
+		ClipboardManager clipboard = (ClipboardManager) ACTIVITY.getSystemService(Context.CLIPBOARD_SERVICE);
+		clipboard.setPrimaryClip(ClipData.newPlainText("MTY", str));
+	}
+
+	public String getClipboard() {
+		ClipboardManager clipboard = (ClipboardManager) ACTIVITY.getSystemService(Context.CLIPBOARD_SERVICE);
+		ClipData primary = clipboard.getPrimaryClip();
+
+		if (primary != null) {
+			ClipData.Item item = primary.getItemAt(0);
+			CharSequence chars = item.getText();
+
+			if (chars != null)
+				return chars.toString();
+		}
+
+		return null;
+	}
+
+	@Override
+	public void onPrimaryClipChanged() {
+		// Send native notification
 	}
 }

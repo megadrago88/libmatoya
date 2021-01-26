@@ -240,13 +240,34 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1scroll(JNIEnv *env,
 
 char *MTY_AppGetClipboard(MTY_App *app)
 {
-	// TODO
+	JNIEnv *env = MTY_JNIEnv();
+
+	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+	jmethodID mid = (*env)->GetMethodID(env, cls, "getClipboard", "()Ljava/lang/String;");
+
+	jstring jtext = (*env)->CallObjectMethod(env, APP_MTY_OBJ, mid);
+	if (jtext) {
+		const char *ctext = (*env)->GetStringUTFChars(env, jtext, 0);
+		char *text = MTY_Strdup(ctext);
+
+		(*env)->ReleaseStringUTFChars(env, jtext, ctext);
+
+		return text;
+	}
+
 	return NULL;
 }
 
 void MTY_AppSetClipboard(MTY_App *app, const char *text)
 {
-	// TODO
+	JNIEnv *env = MTY_JNIEnv();
+
+	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+	jmethodID mid = (*env)->GetMethodID(env, cls, "setClipboard", "(Ljava/lang/String;)V");
+
+	jstring jtext = (*env)->NewStringUTF(env, text);
+
+	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, jtext);
 }
 
 static float app_get_scale(void)
