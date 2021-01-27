@@ -40,6 +40,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	ScaleGestureDetector sdetector;
 	Scroller scroller;
 	boolean hiddenCursor;
+	boolean defaultCursor;
 
 
 	// Surface
@@ -88,6 +89,14 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 	// Cursor
 
+	public PointerIcon getCursor() {
+		return this.defaultCursor ? null : this.hiddenCursor ? this.iCursor : this.cursor;
+	}
+
+	public void setCursor() {
+		this.setPointerIcon(this.getCursor());
+	}
+
 	public void setCursor(byte[] data, float hotX, float hotY) {
 		if (data != null) {
 			Bitmap bm = BitmapFactory.decodeByteArray(data, 0, data.length, null);
@@ -102,7 +111,16 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 	@Override
 	public PointerIcon onResolvePointerIcon(MotionEvent event, int pointerIndex) {
-		return this.hiddenCursor ? this.iCursor : this.cursor;
+		return this.getCursor();
+	}
+
+	public void setRelativeMouse(boolean relative) {
+		if (relative) {
+			this.requestPointerCapture();
+
+		} else {
+			this.releasePointerCapture();
+		}
 	}
 
 
@@ -129,7 +147,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	native void app_scroll(float initX, float initY, float x, float y);
 	native void app_long_press(float x, float y);
 	native void app_check_scroller(boolean check);
-	native void app_mouse_motion(float x, float y);
+	native void app_mouse_motion(boolean relative, float x, float y);
 	native void app_mouse_button(boolean pressed, int button, float x, float y);
 	native void app_mouse_wheel(float x, float y);
 
@@ -151,7 +169,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	public boolean onTouchEvent(MotionEvent event) {
 		if (isMouseMotionEvent(event)) {
 			if (event.getActionMasked() == MotionEvent.ACTION_MOVE)
-				app_mouse_motion(event.getX(0), event.getY(0));
+				app_mouse_motion(false, event.getX(0), event.getY(0));
 
 		} else {
 			this.detector.onTouchEvent(event);
@@ -238,7 +256,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	public boolean onGenericMotionEvent(MotionEvent event) {
 		switch (event.getActionMasked()) {
 			case MotionEvent.ACTION_HOVER_MOVE:
-				app_mouse_motion(event.getX(0), event.getY(0));
+				app_mouse_motion(false, event.getX(0), event.getY(0));
 				return true;
 			case MotionEvent.ACTION_SCROLL:
 				app_mouse_wheel(event.getAxisValue(MotionEvent.AXIS_HSCROLL), event.getAxisValue(MotionEvent.AXIS_VSCROLL));
@@ -253,6 +271,13 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 				break;
 		}
 
+		return true;
+	}
+
+	@Override
+	public boolean onCapturedPointerEvent(MotionEvent event) {
+		app_mouse_motion(true, event.getX(0), event.getY(0));
+		this.onGenericMotionEvent(event);
 		return true;
 	}
 
@@ -491,8 +516,35 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 			@Override
 			public void run() {
 				SURFACE.hiddenCursor = !show;
-				SURFACE.setPointerIcon(SURFACE.hiddenCursor ? SURFACE.iCursor : SURFACE.cursor);
+				SURFACE.setCursor();
 			}
 		});
+	}
+
+	public void useDefaultCursor(boolean _useDefault) {
+		final boolean useDefault = _useDefault;
+
+		ACTIVITY.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				SURFACE.defaultCursor = useDefault;
+				SURFACE.setCursor();
+			}
+		});
+	}
+
+	public void setRelativeMouse(boolean _relative) {
+		final boolean relative = _relative;
+
+		ACTIVITY.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				SURFACE.setRelativeMouse(relative);
+			}
+		});
+	}
+
+	public boolean getRelativeMouse() {
+		return SURFACE.hasPointerCapture();
 	}
 }

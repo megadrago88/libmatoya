@@ -245,10 +245,11 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1scroll(JNIEnv *env,
 }
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1motion(JNIEnv *env, jobject obj,
-	jfloat x, jfloat y)
+	jboolean relative, jfloat x, jfloat y)
 {
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_MOUSE_MOTION;
+	msg.mouseMotion.relative = relative;
 	msg.mouseMotion.x = lrint(x);
 	msg.mouseMotion.y = lrint(y);
 	app_push_msg(&msg);
@@ -557,18 +558,32 @@ void MTY_AppShowCursor(MTY_App *ctx, bool show)
 
 void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 {
-	// TODO
+	JNIEnv *env = MTY_JNIEnv();
+
+	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+	jmethodID mid = (*env)->GetMethodID(env, cls, "useDefaultCursor", "(Z)V");
+
+	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, useDefault);
 }
 
 void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 {
-	// TODO
+	JNIEnv *env = MTY_JNIEnv();
+
+	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+	jmethodID mid = (*env)->GetMethodID(env, cls, "setRelativeMouse", "(Z)V");
+
+	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, relative);
 }
 
 bool MTY_AppGetRelativeMouse(MTY_App *app)
 {
-	// TODO
-	return false;
+	JNIEnv *env = MTY_JNIEnv();
+
+	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+	jmethodID mid = (*env)->GetMethodID(env, cls, "getRelativeMouse", "()Z");
+
+	return (*env)->CallBooleanMethod(env, APP_MTY_OBJ, mid);
 }
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
