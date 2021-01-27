@@ -317,21 +317,14 @@ static void app_check_scroller(void)
 
 static bool app_check_focus(MTY_App *ctx, bool was_ready)
 {
-	bool ready = gfx_is_ready();
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_FOCUS;
+	msg.focus = gfx_is_ready();
 
-	if (!was_ready && ready) {
-		MTY_Msg msg = {0};
-		msg.type = MTY_MSG_FOCUS;
-		msg.focus = true;
+	if ((!was_ready && msg.focus) || (was_ready && !msg.focus))
 		ctx->msg_func(&msg, ctx->opaque);
 
-	} else if (was_ready && !ready) {
-		MTY_Msg msg = {0};
-		msg.type = MTY_MSG_FOCUS;
-		ctx->msg_func(&msg, ctx->opaque);
-	}
-
-	return ready;
+	return msg.focus;
 }
 
 void MTY_AppRun(MTY_App *ctx)
