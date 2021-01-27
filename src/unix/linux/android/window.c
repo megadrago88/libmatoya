@@ -315,13 +315,35 @@ static void app_check_scroller(void)
 	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid);
 }
 
+static bool app_check_focus(MTY_App *ctx, bool was_ready)
+{
+	bool ready = gfx_is_ready();
+
+	if (!was_ready && ready) {
+		MTY_Msg msg = {0};
+		msg.type = MTY_MSG_FOCUS;
+		msg.focus = true;
+		ctx->msg_func(&msg, ctx->opaque);
+
+	} else if (was_ready && !ready) {
+		MTY_Msg msg = {0};
+		msg.type = MTY_MSG_FOCUS;
+		ctx->msg_func(&msg, ctx->opaque);
+	}
+
+	return ready;
+}
+
 void MTY_AppRun(MTY_App *ctx)
 {
-	for (bool cont = true; cont;) {
+	for (bool cont = true, was_ready = false; cont;) {
 		for (MTY_Msg *msg; MTY_QueuePop(APP_EVENTS, 0, (void **) &msg, NULL);) {
 			ctx->msg_func(msg, ctx->opaque);
 			MTY_QueueReleaseBuffer(APP_EVENTS);
 		}
+
+		// Generate MTY_MSG_FOCUS events
+		was_ready = app_check_focus(ctx, was_ready);
 
 		// Generates scroll events after a fling has taken place
 		// Prevent JNI calls if there's no fling in progress
