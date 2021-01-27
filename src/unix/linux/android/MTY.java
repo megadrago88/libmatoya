@@ -90,54 +90,78 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 	// Events
 
-	native void app_key(boolean pressed, int code, int text, int mods);
+	native boolean app_key(boolean pressed, int code, int text, int mods);
 	native void app_single_tap_up(float x, float y);
 	native void app_scroll(float initX, float initY, float x, float y);
 	native void app_long_press(float x, float y);
 	native void app_check_scroller(boolean check);
+	native void app_mouse_motion(float x, float y);
+	native void app_mouse_button(boolean pressed, int button, float x, float y);
+	native void app_mouse_wheel(float x, float y);
+
+	private static boolean isMouseMotionEvent(MotionEvent event) {
+		return event.getToolType(0) == MotionEvent.TOOL_TYPE_MOUSE;
+	}
 
 	@Override
 	public boolean onKeyDown(int keyCode, KeyEvent event) {
-		app_key(true, keyCode, event.getUnicodeChar(), event.getMetaState());
-		return true;
+		return app_key(true, keyCode, event.getUnicodeChar(), event.getMetaState());
 	}
 
 	@Override
 	public boolean onKeyUp(int keyCode, KeyEvent event) {
-		app_key(false, keyCode, event.getUnicodeChar(), event.getMetaState());
-		return true;
+		return app_key(false, keyCode, event.getUnicodeChar(), event.getMetaState());
 	}
 
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
-		this.detector.onTouchEvent(event);
-		this.sdetector.onTouchEvent(event);
+		if (isMouseMotionEvent(event)) {
+			if (event.getActionMasked() == MotionEvent.ACTION_MOVE)
+				app_mouse_motion(event.getX(0), event.getY(0));
+
+		} else {
+			this.detector.onTouchEvent(event);
+			this.sdetector.onTouchEvent(event);
+		}
 
 		return true;
 	}
 
 	@Override
 	public boolean onDown(MotionEvent event) {
+		if (isMouseMotionEvent(event))
+			return false;
+
 		this.scroller.forceFinished(true);
 		return true;
 	}
 
 	@Override
 	public boolean onFling(MotionEvent event1, MotionEvent event2, float velocityX, float velocityY) {
+		if (isMouseMotionEvent(event1) || isMouseMotionEvent(event2))
+			return false;
+
 		this.scroller.forceFinished(true);
 		this.scroller.fling(0, 0, Math.round(velocityX), Math.round(velocityY),
 			Integer.MIN_VALUE, Integer.MAX_VALUE, Integer.MIN_VALUE, Integer.MAX_VALUE);
 		app_check_scroller(true);
+
 		return true;
 	}
 
 	@Override
 	public void onLongPress(MotionEvent event) {
+		if (isMouseMotionEvent(event))
+			return;
+
 		app_long_press(event.getX(0), event.getY(0));
 	}
 
 	@Override
 	public boolean onScroll(MotionEvent event1, MotionEvent event2, float distanceX, float distanceY) {
+		if (isMouseMotionEvent(event1) || isMouseMotionEvent(event2))
+			return false;
+
 		this.scroller.forceFinished(true);
 		app_scroll(event1.getX(0), event1.getY(0), distanceX, distanceY);
 		return true;
@@ -149,6 +173,9 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 	@Override
 	public boolean onSingleTapUp(MotionEvent event) {
+		if (isMouseMotionEvent(event))
+			return false;
+
 		app_single_tap_up(event.getX(0), event.getY(0));
 		return true;
 	}
@@ -175,6 +202,23 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 	@Override
 	public boolean onGenericMotionEvent(MotionEvent event) {
+		switch (event.getActionMasked()) {
+			case MotionEvent.ACTION_HOVER_MOVE:
+				app_mouse_motion(event.getX(0), event.getY(0));
+				return true;
+			case MotionEvent.ACTION_SCROLL:
+				app_mouse_wheel(event.getAxisValue(MotionEvent.AXIS_HSCROLL), event.getAxisValue(MotionEvent.AXIS_VSCROLL));
+				return true;
+			case MotionEvent.ACTION_BUTTON_PRESS:
+				app_mouse_button(true, event.getActionButton(), event.getX(0), event.getY(0));
+				return true;
+			case MotionEvent.ACTION_BUTTON_RELEASE:
+				app_mouse_button(false, event.getActionButton(), event.getX(0), event.getY(0));
+				return true;
+			default:
+				break;
+		}
+
 		return true;
 	}
 

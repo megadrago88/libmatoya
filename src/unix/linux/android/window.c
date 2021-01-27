@@ -14,6 +14,7 @@
 
 #include <jni.h>
 #include <android/log.h>
+#include <android/input.h>
 
 struct MTY_App {
 	MTY_MsgFunc msg_func;
@@ -146,21 +147,26 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1check_1scroller(JNI
 	APP_CHECK_SCROLLER = check;
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1key(JNIEnv *env, jobject obj,
+JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTYSurface_app_1key(JNIEnv *env, jobject obj,
 	jboolean pressed, jint code, jint itext, jint mods)
 {
+	// If trap is false, android will handle the key
+	bool trap = false;
+
 	if (pressed && itext != 0) {
 		MTY_Msg msg = {0};
 		msg.type = MTY_MSG_TEXT;
 		memcpy(msg.text, &itext, sizeof(jint));
 
 		app_push_msg(&msg);
+		trap = true;
 	}
 
 	if (pressed && code == AKEYCODE_BACK) {
 		MTY_Msg msg = {0};
 		msg.type = MTY_MSG_BACK;
 		app_push_msg(&msg);
+		trap = true;
 	}
 
 	if (code < (jint) APP_KEYS_MAX) {
@@ -171,8 +177,11 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1key(JNIEnv *env, jo
 			msg.keyboard.key = key;
 			msg.keyboard.pressed = pressed;
 			app_push_msg(&msg);
+			trap = true;
 		}
 	}
+
+	return trap;
 }
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1single_1tap_1up(JNIEnv *env, jobject obj,
@@ -233,6 +242,55 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1scroll(JNIEnv *env,
 	msg.mouseWheel.y = -lrint(y);
 	msg.mouseWheel.x = 0;
 	app_push_msg(&msg);
+}
+
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1motion(JNIEnv *env, jobject obj,
+	jfloat x, jfloat y)
+{
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_MOUSE_MOTION;
+	msg.mouseMotion.x = lrint(x);
+	msg.mouseMotion.y = lrint(y);
+	app_push_msg(&msg);
+}
+
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1wheel(JNIEnv *env, jobject obj,
+	jfloat x, jfloat y)
+{
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_MOUSE_WHEEL;
+	msg.mouseWheel.x = x > 0.0f ? 120 : x < 0.0f ? -120 : 0;
+	msg.mouseWheel.y = y > 0.0f ? 120 : y < 0.0f ? -120 : 0;
+	app_push_msg(&msg);
+}
+
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1button(JNIEnv *env, jobject obj,
+	jboolean pressed, jint button, jfloat x, jfloat y)
+{
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_MOUSE_BUTTON;
+	msg.mouseButton.pressed = pressed;
+
+	switch (button) {
+		case AMOTION_EVENT_BUTTON_PRIMARY:
+			msg.mouseButton.button = MTY_MOUSE_BUTTON_LEFT;
+			break;
+		case AMOTION_EVENT_BUTTON_SECONDARY:
+			msg.mouseButton.button = MTY_MOUSE_BUTTON_RIGHT;
+			break;
+		case AMOTION_EVENT_BUTTON_TERTIARY:
+			msg.mouseButton.button = MTY_MOUSE_BUTTON_MIDDLE;
+			break;
+		case AMOTION_EVENT_BUTTON_BACK:
+			msg.mouseButton.button = MTY_MOUSE_BUTTON_X1;
+			break;
+		case AMOTION_EVENT_BUTTON_FORWARD:
+			msg.mouseButton.button = MTY_MOUSE_BUTTON_X2;
+			break;
+	}
+
+	if (msg.mouseButton.button != MTY_MOUSE_BUTTON_NONE)
+		app_push_msg(&msg);
 }
 
 
