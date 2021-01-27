@@ -15,7 +15,10 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
+import android.view.PointerIcon;
 import android.text.InputType;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.content.Context;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -23,14 +26,21 @@ import android.content.pm.ActivityInfo;
 import android.util.Log;
 import android.util.DisplayMetrics;
 import android.widget.Scroller;
+import java.util.Base64;
 
 class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener,
 	GestureDetector.OnContextClickListener, ScaleGestureDetector.OnScaleGestureListener
 {
+	String iCursorB64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAQAAADZc7J/AAAAH0lEQVR42mNkoBAwjhowasCoAaMGjBowasCoAcPNAACOMAAhOO/A7wAAAABJRU5ErkJggg==";
+
+	PointerIcon cursor;
+	PointerIcon iCursor;
 	GestureDetector detector;
 	ScaleGestureDetector sdetector;
 	Scroller scroller;
+	boolean hiddenCursor;
+
 
 	// Surface
 
@@ -53,6 +63,10 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 		this.sdetector = new ScaleGestureDetector(context, this);
 
 		this.scroller = new Scroller(context);
+
+		byte[] iCursorData = Base64.getDecoder().decode(this.iCursorB64);
+		Bitmap bm = BitmapFactory.decodeByteArray(iCursorData, 0, iCursorData.length, null);
+		this.iCursor = PointerIcon.create(bm, 0, 0);
 	}
 
 	@Override
@@ -69,6 +83,26 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	@Override
 	public void surfaceDestroyed(SurfaceHolder holder) {
 		gfx_unset_surface();
+	}
+
+
+	// Cursor
+
+	public void setCursor(byte[] data, float hotX, float hotY) {
+		if (data != null) {
+			Bitmap bm = BitmapFactory.decodeByteArray(data, 0, data.length, null);
+			this.cursor = PointerIcon.create(bm, hotX, hotY);
+
+		} else {
+			this.cursor = null;
+		}
+
+		this.setPointerIcon(this.cursor);
+	}
+
+	@Override
+	public PointerIcon onResolvePointerIcon(MotionEvent event, int pointerIndex) {
+		return this.hiddenCursor ? this.iCursor : this.cursor;
 	}
 
 
@@ -432,5 +466,33 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 	@Override
 	public void onPrimaryClipChanged() {
 		// Send native notification
+	}
+
+
+	// Cursor
+
+	public void setCursor(byte[] _data, float _hotX, float _hotY) {
+		final byte[] data = _data;
+		final float hotX = _hotX;
+		final float hotY = _hotY;
+
+		ACTIVITY.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				SURFACE.setCursor(data, hotX, hotY);
+			}
+		});
+	}
+
+	public void showCursor(boolean _show) {
+		final boolean show = _show;
+
+		ACTIVITY.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				SURFACE.hiddenCursor = !show;
+				SURFACE.setPointerIcon(SURFACE.hiddenCursor ? SURFACE.iCursor : SURFACE.cursor);
+			}
+		});
 	}
 }

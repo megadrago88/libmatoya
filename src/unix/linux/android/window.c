@@ -289,8 +289,16 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1button(JNIEn
 			break;
 	}
 
-	if (msg.mouseButton.button != MTY_MOUSE_BUTTON_NONE)
+	if (msg.mouseButton.button != MTY_MOUSE_BUTTON_NONE) {
+		MTY_Msg mv = {0};
+		mv.type = MTY_MSG_MOUSE_MOTION;
+		mv.mouseMotion.x = lrint(x);
+		mv.mouseMotion.y = lrint(y);
+		mv.mouseMotion.click = true;
+
+		app_push_msg(&mv);
 		app_push_msg(&msg);
+	}
 }
 
 
@@ -491,30 +499,77 @@ bool MTY_WindowGFXNewContext(MTY_App *app, MTY_Window window, bool reset)
 	return gfx_was_reinit(reset);
 }
 
-
-// Window Private
-
-void window_set_gfx(MTY_App *app, MTY_Window window, MTY_GFX api, struct gfx_ctx *gfx_ctx)
+void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
-	app->api = api;
-	app->gfx_ctx = gfx_ctx;
+	JNIEnv *env = MTY_JNIEnv();
+
+	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+	jmethodID mid = (*env)->GetMethodID(env, cls, "setCursor", "([BFF)V");
+
+	jbyteArray jimage = 0;
+
+	if (image && size > 0) {
+		jimage = (*env)->NewByteArray(env, size);
+		(*env)->SetByteArrayRegion(env, jimage, 0, size, image);
+	}
+
+	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, jimage, (jfloat) hotX, (jfloat) hotY);
 }
 
-MTY_GFX window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx_ctx)
+bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
 {
-	if (gfx_ctx)
-		*gfx_ctx = app->gfx_ctx;
-
-	return app->api;
+	return gfx_is_ready();
 }
 
-void *window_get_native(MTY_App *app, MTY_Window window)
+bool MTY_WindowIsActive(MTY_App *app, MTY_Window window)
 {
-	return (void *) (uintptr_t) 0xCDD;
+	return gfx_is_ready();
 }
 
+MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
+{
+	return 0;
+}
+bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
+{
+	return MTY_WindowGetScreenSize(app, window, width, height);
+}
 
-// Unimplemented / stubs
+bool MTY_WindowExists(MTY_App *app, MTY_Window window)
+{
+	return true;
+}
+
+bool MTY_AppCanWarpCursor(MTY_App *ctx)
+{
+	return false;
+}
+
+void MTY_AppShowCursor(MTY_App *ctx, bool show)
+{
+	JNIEnv *env = MTY_JNIEnv();
+
+	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+	jmethodID mid = (*env)->GetMethodID(env, cls, "showCursor", "(Z)V");
+
+	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, show);
+}
+
+void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
+{
+	// TODO
+}
+
+void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
+{
+	// TODO
+}
+
+bool MTY_AppGetRelativeMouse(MTY_App *app)
+{
+	// TODO
+	return false;
+}
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
 {
@@ -545,63 +600,38 @@ void MTY_AppRemoveHotkeys(MTY_App *ctx, MTY_Hotkey mode)
 	// TODO
 }
 
-void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
+
+
+// Window Private
+
+void window_set_gfx(MTY_App *app, MTY_Window window, MTY_GFX api, struct gfx_ctx *gfx_ctx)
 {
-	// TODO
+	app->api = api;
+	app->gfx_ctx = gfx_ctx;
 }
 
-void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
+MTY_GFX window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx_ctx)
 {
-	// TODO
+	if (gfx_ctx)
+		*gfx_ctx = app->gfx_ctx;
+
+	return app->api;
 }
 
-void MTY_AppShowCursor(MTY_App *ctx, bool show)
+void *window_get_native(MTY_App *app, MTY_Window window)
 {
-	// TODO
+	return (void *) (uintptr_t) 0xCDD;
 }
 
-void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
-{
-	// TODO
-}
 
-bool MTY_AppGetRelativeMouse(MTY_App *app)
-{
-	// TODO
-	return false;
-}
-
-bool MTY_AppCanWarpCursor(MTY_App *ctx)
-{
-	return false;
-}
+// Unimplemented / stubs
 
 void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
 {
 }
 
-bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
-{
-	return gfx_is_ready();
-}
-
-bool MTY_WindowIsActive(MTY_App *app, MTY_Window window)
-{
-	return gfx_is_ready();
-}
-
-MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
-{
-	return 0;
-}
-
 void MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title)
 {
-}
-
-bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
-{
-	return MTY_WindowGetScreenSize(app, window, width, height);
 }
 
 void MTY_AppActivate(MTY_App *app, bool active)
@@ -622,11 +652,6 @@ void MTY_AppGrabMouse(MTY_App *app, bool grab)
 
 void MTY_WindowDestroy(MTY_App *app, MTY_Window window)
 {
-}
-
-bool MTY_WindowExists(MTY_App *app, MTY_Window window)
-{
-	return true;
 }
 
 void *MTY_GLGetProcAddress(const char *name)
