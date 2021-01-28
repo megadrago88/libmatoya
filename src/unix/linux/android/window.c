@@ -180,7 +180,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1start(JNIEnv *env, jobject
 }
 
 
-// JNI events
+// JNI Helpers
 
 static void app_push_msg(MTY_Msg *msg)
 {
@@ -195,6 +195,9 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1check_1scroller(JNI
 {
 	APP_CHECK_SCROLLER = check;
 }
+
+
+// JNI keyboard events
 
 JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTYSurface_app_1key(JNIEnv *env, jobject obj,
 	jboolean pressed, jint code, jint itext, jint mods)
@@ -232,6 +235,9 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTYSurface_app_1key(JNIEnv *env
 
 	return trap;
 }
+
+
+// JNI touch events -- These are subject to "touch mode"
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1single_1tap_1up(JNIEnv *env, jobject obj,
 	jfloat x, jfloat y)
@@ -294,6 +300,9 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1scroll(JNIEnv *env,
 	app_push_msg(&msg);
 }
 
+
+// JNI mouse events
+
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1motion(JNIEnv *env, jobject obj,
 	jboolean relative, jfloat x, jfloat y)
 {
@@ -353,6 +362,9 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1button(JNIEn
 		app_push_msg(&msg);
 	}
 }
+
+
+// JNI controller events
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1button(JNIEnv *env, jobject obj,
 	jboolean pressed, jint button)
@@ -440,7 +452,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1axis(JNIEnv *env, j
 }
 
 
-// App / window
+// App
 
 char *MTY_AppGetClipboard(MTY_App *app)
 {
@@ -599,44 +611,6 @@ void MTY_AppSetOrientation(MTY_App *app, MTY_Orientation orientation)
 	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, orientation);
 }
 
-void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
-{
-	JNIEnv *env = MTY_JNIEnv();
-
-	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "enableFullscreen", "(Z)V");
-
-	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, fullscreen);
-}
-
-bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
-{
-	JNIEnv *env = MTY_JNIEnv();
-
-	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "isFullscreen", "()Z");
-
-	return (*env)->CallBooleanMethod(env, APP_MTY_OBJ, mid);
-}
-
-bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
-{
-	*width = APP_WIDTH;
-	*height = APP_HEIGHT;
-
-	return true;
-}
-
-float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
-{
-	return app->scale;
-}
-
-bool MTY_WindowGFXNewContext(MTY_App *app, MTY_Window window, bool reset)
-{
-	return gfx_was_reinit(reset);
-}
-
 void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
 	JNIEnv *env = MTY_JNIEnv();
@@ -652,30 +626,6 @@ void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t 
 	}
 
 	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, jimage, (jfloat) hotX, (jfloat) hotY);
-}
-
-bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
-{
-	return gfx_is_ready();
-}
-
-bool MTY_WindowIsActive(MTY_App *app, MTY_Window window)
-{
-	return gfx_is_ready();
-}
-
-MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
-{
-	return 0;
-}
-bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
-{
-	return MTY_WindowGetScreenSize(app, window, width, height);
-}
-
-bool MTY_WindowExists(MTY_App *app, MTY_Window window)
-{
-	return true;
 }
 
 bool MTY_AppCanWarpCursor(MTY_App *ctx)
@@ -752,6 +702,71 @@ void MTY_AppRemoveHotkeys(MTY_App *ctx, MTY_Hotkey mode)
 	// TODO
 }
 
+
+// Window
+
+MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
+{
+	return 0;
+}
+
+void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
+{
+	JNIEnv *env = MTY_JNIEnv();
+
+	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+	jmethodID mid = (*env)->GetMethodID(env, cls, "enableFullscreen", "(Z)V");
+
+	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, fullscreen);
+}
+
+bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
+{
+	JNIEnv *env = MTY_JNIEnv();
+
+	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+	jmethodID mid = (*env)->GetMethodID(env, cls, "isFullscreen", "()Z");
+
+	return (*env)->CallBooleanMethod(env, APP_MTY_OBJ, mid);
+}
+
+bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
+{
+	*width = APP_WIDTH;
+	*height = APP_HEIGHT;
+
+	return true;
+}
+
+float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
+{
+	return app->scale;
+}
+
+bool MTY_WindowGFXNewContext(MTY_App *app, MTY_Window window, bool reset)
+{
+	return gfx_was_reinit(reset);
+}
+
+bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
+{
+	return gfx_is_ready();
+}
+
+bool MTY_WindowIsActive(MTY_App *app, MTY_Window window)
+{
+	return gfx_is_ready();
+}
+
+bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
+{
+	return MTY_WindowGetScreenSize(app, window, width, height);
+}
+
+bool MTY_WindowExists(MTY_App *app, MTY_Window window)
+{
+	return true;
+}
 
 
 // Window Private
