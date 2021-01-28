@@ -368,6 +368,8 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 		ACTIVITY = activity;
 		SURFACE = new MTYSurface(activity.getApplicationContext());
 
+		ACTIVITY.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
+
 		DisplayMetrics dm = new DisplayMetrics();
 		ACTIVITY.getWindowManager().getDefaultDisplay().getMetrics(dm);
 		DISPLAY_DENSITY = dm.xdpi;
