@@ -288,6 +288,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1scroll(JNIEnv *env,
 	}
 
 	msg.type = MTY_MSG_MOUSE_WHEEL;
+	msg.mouseWheel.pixels = true;
 	msg.mouseWheel.y = -lrint(y);
 	msg.mouseWheel.x = 0;
 	app_push_msg(&msg);
@@ -478,11 +479,11 @@ static float app_get_scale(void)
 	JNIEnv *env = MTY_JNIEnv();
 
 	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "getDisplayDensity", "()I");
+	jmethodID mid = (*env)->GetMethodID(env, cls, "getDisplayDensity", "()F");
 
-	jint density = (*env)->CallIntMethod(env, APP_MTY_OBJ, mid);
+	jfloat density = (*env)->CallFloatMethod(env, APP_MTY_OBJ, mid);
 
-	return (float) density / 176.0f;
+	return density / 185.0f;
 }
 
 MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)

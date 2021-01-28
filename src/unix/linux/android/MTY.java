@@ -352,7 +352,7 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 	static MTYSurface SURFACE;
 	static Activity ACTIVITY;
 	static boolean IS_FULLSCREEN;
-	static int DISPLAY_DENSITY;
+	static float DISPLAY_DENSITY;
 
 	int scrollY;
 
@@ -370,7 +370,7 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 
 		DisplayMetrics dm = new DisplayMetrics();
 		ACTIVITY.getWindowManager().getDefaultDisplay().getMetrics(dm);
-		DISPLAY_DENSITY = dm.densityDpi;
+		DISPLAY_DENSITY = dm.xdpi;
 
 		ViewGroup vg = activity.findViewById(android.R.id.content);
 		activity.addContentView(SURFACE, vg.getLayoutParams());
@@ -487,7 +487,7 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 		});
 	}
 
-	public int getDisplayDensity() {
+	public float getDisplayDensity() {
 		return DISPLAY_DENSITY;
 	}
 

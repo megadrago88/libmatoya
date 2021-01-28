@@ -1245,6 +1245,7 @@ typedef struct {
 		struct {
 			int32_t x;
 			int32_t y;
+			bool pixels;
 		} mouseWheel;
 
 		struct {
