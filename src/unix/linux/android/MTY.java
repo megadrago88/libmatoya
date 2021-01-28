@@ -32,7 +32,9 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener,
 	GestureDetector.OnContextClickListener, ScaleGestureDetector.OnScaleGestureListener
 {
-	String iCursorB64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAQAAADZc7J/AAAAH0lEQVR42mNkoBAwjhowasCoAaMGjBowasCoAcPNAACOMAAhOO/A7wAAAABJRU5ErkJggg==";
+	String iCursorB64 =
+		"iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAQAAADZc7J/AAAAH0lEQVR42mNk" +
+		"oBAwjhowasCoAaMGjBowasCoAcPNAACOMAAhOO/A7wAAAABJRU5ErkJggg==";
 
 	PointerIcon cursor;
 	PointerIcon iCursor;
@@ -277,8 +279,8 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	@Override
 	public boolean onCapturedPointerEvent(MotionEvent event) {
 		app_mouse_motion(true, event.getX(0), event.getY(0));
-		this.onGenericMotionEvent(event);
-		return true;
+
+		return this.onGenericMotionEvent(event);
 	}
 
 	@Override

@@ -291,13 +291,15 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1button(JNIEn
 	}
 
 	if (msg.mouseButton.button != MTY_MOUSE_BUTTON_NONE) {
-		MTY_Msg mv = {0};
-		mv.type = MTY_MSG_MOUSE_MOTION;
-		mv.mouseMotion.x = lrint(x);
-		mv.mouseMotion.y = lrint(y);
-		mv.mouseMotion.click = true;
+		if (!MTY_AppGetRelativeMouse(NULL)) {
+			MTY_Msg mv = {0};
+			mv.type = MTY_MSG_MOUSE_MOTION;
+			mv.mouseMotion.x = lrint(x);
+			mv.mouseMotion.y = lrint(y);
+			mv.mouseMotion.click = true;
+			app_push_msg(&mv);
+		}
 
-		app_push_msg(&mv);
 		app_push_msg(&msg);
 	}
 }
