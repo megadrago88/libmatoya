@@ -16,6 +16,8 @@ import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
 import android.view.PointerIcon;
+import android.view.InputDevice;
+import android.view.InputEvent;
 import android.text.InputType;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -152,24 +154,54 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	native void app_mouse_motion(boolean relative, float x, float y);
 	native void app_mouse_button(boolean pressed, int button, float x, float y);
 	native void app_mouse_wheel(float x, float y);
+	native void app_button(boolean pressed, int code);
+	native void app_axis(float hatX, float hatY, float lX, float lY, float rX, float rY, float lT, float rT);
 
-	private static boolean isMouseMotionEvent(MotionEvent event) {
-		return event.getToolType(0) == MotionEvent.TOOL_TYPE_MOUSE;
+	private static boolean isMouseEvent(InputEvent event) {
+		return
+			(event.getSource() & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE ||
+			(event.getSource() & InputDevice.SOURCE_MOUSE_RELATIVE) == InputDevice.SOURCE_MOUSE_RELATIVE;
+	}
+
+	private static boolean isGamepadEvent(InputEvent event) {
+		return
+			(event.getSource() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
+			(event.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
+			(event.getSource() & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD;
 	}
 
 	@Override
 	public boolean onKeyDown(int keyCode, KeyEvent event) {
-		return app_key(true, keyCode, event.getUnicodeChar(), event.getMetaState());
+		// Button events fire here (sometimes dpad)
+		if (isGamepadEvent(event)) {
+			app_button(true, keyCode);
+
+		// Prevents back buttons etc. from being generated from mice
+		} else if (!isMouseEvent(event)) {
+			return app_key(true, keyCode, event.getUnicodeChar(), event.getMetaState());
+		}
+
+		return true;
 	}
 
 	@Override
 	public boolean onKeyUp(int keyCode, KeyEvent event) {
-		return app_key(false, keyCode, event.getUnicodeChar(), event.getMetaState());
+		// Button events fire here (sometimes dpad)
+		if (isGamepadEvent(event)) {
+			app_button(false, keyCode);
+
+		// Prevents back buttons etc. from being generated from mice
+		} else if (!isMouseEvent(event)) {
+			return app_key(false, keyCode, event.getUnicodeChar(), event.getMetaState());
+		}
+
+		return true;
 	}
 
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
-		if (isMouseMotionEvent(event)) {
+		// Mouse motion while buttons are held down fire here
+		if (isMouseEvent(event)) {
 			if (event.getActionMasked() == MotionEvent.ACTION_MOVE)
 				app_mouse_motion(false, event.getX(0), event.getY(0));
 
@@ -183,7 +215,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 	@Override
 	public boolean onDown(MotionEvent event) {
-		if (isMouseMotionEvent(event))
+		if (isMouseEvent(event))
 			return false;
 
 		this.scroller.forceFinished(true);
@@ -192,7 +224,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 	@Override
 	public boolean onFling(MotionEvent event1, MotionEvent event2, float velocityX, float velocityY) {
-		if (isMouseMotionEvent(event1) || isMouseMotionEvent(event2))
+		if (isMouseEvent(event1) || isMouseEvent(event2))
 			return false;
 
 		this.scroller.forceFinished(true);
@@ -205,7 +237,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 	@Override
 	public void onLongPress(MotionEvent event) {
-		if (isMouseMotionEvent(event))
+		if (isMouseEvent(event))
 			return;
 
 		app_long_press(event.getX(0), event.getY(0));
@@ -213,7 +245,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 	@Override
 	public boolean onScroll(MotionEvent event1, MotionEvent event2, float distanceX, float distanceY) {
-		if (isMouseMotionEvent(event1) || isMouseMotionEvent(event2))
+		if (isMouseEvent(event1) || isMouseEvent(event2))
 			return false;
 
 		this.scroller.forceFinished(true);
@@ -227,7 +259,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 	@Override
 	public boolean onSingleTapUp(MotionEvent event) {
-		if (isMouseMotionEvent(event))
+		if (isMouseEvent(event))
 			return false;
 
 		app_single_tap_up(event.getX(0), event.getY(0));
@@ -256,21 +288,35 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 	@Override
 	public boolean onGenericMotionEvent(MotionEvent event) {
-		switch (event.getActionMasked()) {
-			case MotionEvent.ACTION_HOVER_MOVE:
-				app_mouse_motion(false, event.getX(0), event.getY(0));
-				return true;
-			case MotionEvent.ACTION_SCROLL:
-				app_mouse_wheel(event.getAxisValue(MotionEvent.AXIS_HSCROLL), event.getAxisValue(MotionEvent.AXIS_VSCROLL));
-				return true;
-			case MotionEvent.ACTION_BUTTON_PRESS:
-				app_mouse_button(true, event.getActionButton(), event.getX(0), event.getY(0));
-				return true;
-			case MotionEvent.ACTION_BUTTON_RELEASE:
-				app_mouse_button(false, event.getActionButton(), event.getX(0), event.getY(0));
-				return true;
-			default:
-				break;
+		if (isMouseEvent(event)) {
+			switch (event.getActionMasked()) {
+				case MotionEvent.ACTION_HOVER_MOVE:
+					app_mouse_motion(false, event.getX(0), event.getY(0));
+					return true;
+				case MotionEvent.ACTION_SCROLL:
+					app_mouse_wheel(event.getAxisValue(MotionEvent.AXIS_HSCROLL), event.getAxisValue(MotionEvent.AXIS_VSCROLL));
+					return true;
+				case MotionEvent.ACTION_BUTTON_PRESS:
+					app_mouse_button(true, event.getActionButton(), event.getX(0), event.getY(0));
+					return true;
+				case MotionEvent.ACTION_BUTTON_RELEASE:
+					app_mouse_button(false, event.getActionButton(), event.getX(0), event.getY(0));
+					return true;
+				default:
+					break;
+			}
+
+		// DPAD and axis events fire here
+		} else if (isGamepadEvent(event)) {
+			app_axis(
+				event.getAxisValue(MotionEvent.AXIS_HAT_X),
+				event.getAxisValue(MotionEvent.AXIS_HAT_Y),
+				event.getAxisValue(MotionEvent.AXIS_X),
+				event.getAxisValue(MotionEvent.AXIS_Y),
+				event.getAxisValue(MotionEvent.AXIS_Z),
+				event.getAxisValue(MotionEvent.AXIS_RZ),
+				event.getAxisValue(MotionEvent.AXIS_LTRIGGER),
+				event.getAxisValue(MotionEvent.AXIS_RTRIGGER));
 		}
 
 		return true;

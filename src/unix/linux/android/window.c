@@ -10,6 +10,7 @@
 #include <string.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include <jni.h>
@@ -47,6 +48,54 @@ static uint32_t APP_WIDTH = 1920;
 static uint32_t APP_HEIGHT = 1080;
 static bool APP_CHECK_SCROLLER;
 static bool LOG_THREAD;
+
+static bool APP_CTRLR_FIRST = true;
+static MTY_Controller APP_CTRLR = {
+	.id = 1,
+	.pid = 0xCDD,
+	.vid = 0xCDD,
+	.numButtons = 13,
+	.numValues = 7,
+	.driver = MTY_HID_DRIVER_DEFAULT,
+	.values = {
+		[MTY_CVALUE_THUMB_LX] = {
+			.usage = 0x30,
+			.min = INT16_MIN,
+			.max = INT16_MAX,
+		},
+		[MTY_CVALUE_THUMB_LY] = {
+			.usage = 0x31,
+			.min = INT16_MIN,
+			.max = INT16_MAX,
+		},
+		[MTY_CVALUE_THUMB_RX] = {
+			.usage = 0x32,
+			.min = INT16_MIN,
+			.max = INT16_MAX,
+		},
+		[MTY_CVALUE_THUMB_RY] = {
+			.usage = 0x35,
+			.min = INT16_MIN,
+			.max = INT16_MAX,
+		},
+		[MTY_CVALUE_TRIGGER_L] = {
+			.usage = 0x33,
+			.min = 0,
+			.max = UINT8_MAX,
+		},
+		[MTY_CVALUE_TRIGGER_R] = {
+			.usage = 0x34,
+			.min = 0,
+			.max = UINT8_MAX,
+		},
+		[MTY_CVALUE_DPAD] = {
+			.usage = 0x39,
+			.data = 8,
+			.min = 0,
+			.max = 7,
+		},
+	},
+};
 
 static void *app_log_thread(void *opaque)
 {
@@ -302,6 +351,91 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1button(JNIEn
 
 		app_push_msg(&msg);
 	}
+}
+
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1button(JNIEnv *env, jobject obj,
+	jboolean pressed, jint button)
+{
+	switch (button) {
+		case AKEYCODE_BUTTON_A: APP_CTRLR.buttons[MTY_CBUTTON_A] = pressed; break;
+		case AKEYCODE_BUTTON_B: APP_CTRLR.buttons[MTY_CBUTTON_B] = pressed; break;
+		case AKEYCODE_BUTTON_X: APP_CTRLR.buttons[MTY_CBUTTON_X] = pressed; break;
+		case AKEYCODE_BUTTON_Y: APP_CTRLR.buttons[MTY_CBUTTON_Y] = pressed; break;
+		case AKEYCODE_BUTTON_L1: APP_CTRLR.buttons[MTY_CBUTTON_LEFT_SHOULDER] = pressed; break;
+		case AKEYCODE_BUTTON_R1: APP_CTRLR.buttons[MTY_CBUTTON_RIGHT_SHOULDER] = pressed; break;
+		case AKEYCODE_BUTTON_L2: APP_CTRLR.buttons[MTY_CBUTTON_LEFT_TRIGGER] = pressed; break;
+		case AKEYCODE_BUTTON_R2: APP_CTRLR.buttons[MTY_CBUTTON_RIGHT_TRIGGER] = pressed; break;
+		case AKEYCODE_BUTTON_THUMBL: APP_CTRLR.buttons[MTY_CBUTTON_LEFT_THUMB] = pressed; break;
+		case AKEYCODE_BUTTON_THUMBR: APP_CTRLR.buttons[MTY_CBUTTON_RIGHT_THUMB] = pressed; break;
+		case AKEYCODE_BUTTON_START: APP_CTRLR.buttons[MTY_CBUTTON_START] = pressed; break;
+		case AKEYCODE_BUTTON_SELECT: APP_CTRLR.buttons[MTY_CBUTTON_BACK] = pressed; break;
+		case AKEYCODE_BUTTON_MODE: APP_CTRLR.buttons[MTY_CBUTTON_GUIDE] = pressed; break;
+	}
+
+	if (button == AKEYCODE_DPAD_UP ||
+		button == AKEYCODE_DPAD_RIGHT ||
+		button == AKEYCODE_DPAD_DOWN ||
+		button == AKEYCODE_DPAD_LEFT ||
+		button == AKEYCODE_DPAD_CENTER ||
+		button == AKEYCODE_DPAD_UP_LEFT ||
+		button == AKEYCODE_DPAD_DOWN_LEFT ||
+		button == AKEYCODE_DPAD_UP_RIGHT ||
+		button == AKEYCODE_DPAD_DOWN_RIGHT)
+	{
+		bool up = button == AKEYCODE_DPAD_UP || button == AKEYCODE_DPAD_UP_LEFT || button == AKEYCODE_DPAD_UP_RIGHT;
+		bool down = button == AKEYCODE_DPAD_DOWN || button == AKEYCODE_DPAD_DOWN_LEFT || button == AKEYCODE_DPAD_DOWN_RIGHT;
+		bool left = button == AKEYCODE_DPAD_LEFT || button == AKEYCODE_DPAD_UP_LEFT || button == AKEYCODE_DPAD_DOWN_LEFT;
+		bool right = button == AKEYCODE_DPAD_RIGHT || button == AKEYCODE_DPAD_UP_RIGHT || button == AKEYCODE_DPAD_DOWN_RIGHT;
+
+		APP_CTRLR.values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
+			(down && left) ? 5 : (left && up) ? 7 : up ? 0 : right ? 2 : down ? 4 : left ? 6 : 8;
+	}
+
+	MTY_Msg msg = {0};
+	msg.controller = APP_CTRLR;
+
+	if (APP_CTRLR_FIRST) {
+		APP_CTRLR_FIRST = false;
+
+		msg.type = MTY_MSG_CONNECT;
+		app_push_msg(&msg);
+	}
+
+	msg.type = MTY_MSG_CONTROLLER;
+	app_push_msg(&msg);
+}
+
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1axis(JNIEnv *env, jobject obj,
+	jfloat hatX, jfloat hatY, jfloat lX, jfloat lY, jfloat rX, jfloat rY, jfloat lT, jfloat rT)
+{
+	APP_CTRLR.values[MTY_CVALUE_THUMB_LX].data = lrint(lX * (float) (lX < 0.0f ? abs(INT16_MIN) : INT16_MAX));
+	APP_CTRLR.values[MTY_CVALUE_THUMB_LY].data = lrint(-lY * (float) (-lY < 0.0f ? abs(INT16_MIN) : INT16_MAX));
+	APP_CTRLR.values[MTY_CVALUE_THUMB_RX].data = lrint(rX * (float) (rX < 0.0f ? abs(INT16_MIN) : INT16_MAX));
+	APP_CTRLR.values[MTY_CVALUE_THUMB_RY].data = lrint(-rY * (float) (-rY < 0.0f ? abs(INT16_MIN) : INT16_MAX));
+
+	APP_CTRLR.values[MTY_CVALUE_TRIGGER_L].data = lrint(lT * (float) UINT8_MAX);
+	APP_CTRLR.values[MTY_CVALUE_TRIGGER_R].data = lrint(rT * (float) UINT8_MAX);
+
+	bool up = hatY == -1.0f;
+	bool down = hatY == 1.0f;
+	bool left = hatX == -1.0f;
+	bool right = hatX == 1.0f;
+
+	APP_CTRLR.values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
+		(down && left) ? 5 : (left && up) ? 7 : up ? 0 : right ? 2 : down ? 4 : left ? 6 : 8;
+
+	MTY_Msg msg = {0};
+	msg.controller = APP_CTRLR;
+
+	if (APP_CTRLR_FIRST) {
+		APP_CTRLR_FIRST = false;
+
+		msg.type = MTY_MSG_CONNECT;
+		app_push_msg(&msg);
+	}
+
+	msg.type = MTY_MSG_CONTROLLER;
+	app_push_msg(&msg);
 }
 
 
