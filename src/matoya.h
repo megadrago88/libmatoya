@@ -1476,6 +1476,9 @@ MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync);
 MTY_EXPORT bool
 MTY_WindowGFXNewContext(MTY_App *app, MTY_Window window, bool reset);
 
+MTY_EXPORT bool
+MTY_WindowGFXShouldPresent(MTY_App *app, MTY_Window window);
+
 
 // @module gl
 

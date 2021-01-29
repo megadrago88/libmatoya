@@ -35,6 +35,9 @@ struct MTY_App {
 
 bool gfx_is_ready(void);
 bool gfx_was_reinit(bool reset);
+uint32_t gfx_width(void);
+uint32_t gfx_height(void);
+uint32_t gfx_should_present(void);
 
 
 // JNI
@@ -49,8 +52,6 @@ static MTY_Input APP_INPUT = MTY_INPUT_TOUCHSCREEN;
 static MTY_MouseButton APP_LONG_BUTTON;
 static JavaVM *APP_JVM;
 static jobject APP_MTY_OBJ;
-static uint32_t APP_WIDTH = 1920;
-static uint32_t APP_HEIGHT = 1080;
 static bool APP_CHECK_SCROLLER;
 static bool LOG_THREAD;
 
@@ -146,13 +147,6 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
 	APP_JVM = vm;
 
 	return JNI_VERSION_1_4;
-}
-
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1dims(JNIEnv *env, jobject obj,
-	jint w, jint h)
-{
-	APP_WIDTH = w;
-	APP_HEIGHT = h;
 }
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1start(JNIEnv *env, jobject obj,
@@ -877,8 +871,8 @@ bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 
 bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
 {
-	*width = APP_WIDTH;
-	*height = APP_HEIGHT;
+	*width = gfx_width();
+	*height = gfx_height();
 
 	return true;
 }
@@ -911,6 +905,11 @@ bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_
 bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 {
 	return true;
+}
+
+bool MTY_WindowGFXShouldPresent(MTY_App *app, MTY_Window window)
+{
+	return gfx_should_present();
 }
 
 

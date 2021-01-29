@@ -28,7 +28,12 @@ static struct gfx_gl_ctx {
 	uint32_t width;
 	uint32_t height;
 	uint32_t fb0;
-} CTX;
+	MTY_Atomic32 should_present;
+
+} CTX = {
+	.width = 1920,
+	.height = 1080,
+};
 
 
 // JNI
@@ -43,6 +48,8 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_gfx_1dims(JNIEnv *env, j
 {
 	CTX.width = w;
 	CTX.height = h;
+
+	MTY_Atomic32Set(&CTX.should_present, 2);
 }
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_gfx_1set_1surface(JNIEnv *env, jobject obj,
@@ -96,6 +103,26 @@ bool gfx_was_reinit(bool reset)
 	MTY_MutexUnlock(CTX.mutex);
 
 	return reinit;
+}
+
+uint32_t gfx_width(void)
+{
+	return CTX.width;
+}
+
+uint32_t gfx_height(void)
+{
+	return CTX.height;
+}
+
+uint32_t gfx_should_present(void)
+{
+	if (MTY_Atomic32Get(&CTX.should_present) > 0) {
+		MTY_Atomic32Add(&CTX.should_present, -1);
+		return true;
+	}
+
+	return false;
 }
 
 

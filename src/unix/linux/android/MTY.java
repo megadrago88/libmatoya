@@ -53,7 +53,6 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 	// Surface
 
-	native void app_dims(int w, int h);
 	native void gfx_dims(int w, int h);
 	native void gfx_set_surface(Surface surface);
 	native void gfx_unset_surface();
@@ -85,7 +84,6 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
-		app_dims(w, h);
 		gfx_dims(w, h);
 	}
 
