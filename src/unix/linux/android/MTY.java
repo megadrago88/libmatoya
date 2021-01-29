@@ -25,6 +25,7 @@ import android.content.Context;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.pm.ActivityInfo;
+import android.hardware.input.InputManager;
 import android.util.Log;
 import android.util.DisplayMetrics;
 import android.widget.Scroller;
@@ -33,7 +34,8 @@ import java.util.Base64;
 
 class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener,
-	GestureDetector.OnContextClickListener, ScaleGestureDetector.OnScaleGestureListener
+	GestureDetector.OnContextClickListener, ScaleGestureDetector.OnScaleGestureListener,
+	InputManager.InputDeviceListener
 {
 	String iCursorB64 =
 		"iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAQAAADZc7J/AAAAH0lEQVR42mNk" +
@@ -68,6 +70,9 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 		this.detector = new GestureDetector(context, this);
 		this.detector.setOnDoubleTapListener(this);
 		this.detector.setContextClickListener(this);
+
+		InputManager manager = (InputManager) context.getSystemService(Context.INPUT_SERVICE);
+		manager.registerInputDeviceListener(this, null);
 
 		this.sdetector = new ScaleGestureDetector(context, this);
 
@@ -132,6 +137,24 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	}
 
 
+	// InputDevice listener
+
+	native void app_unplug(int deviceId);
+
+	@Override
+	public void onInputDeviceRemoved(int deviceId) {
+		app_unplug(deviceId);
+	}
+
+	@Override
+	public void onInputDeviceChanged(int deviceId) {
+	}
+
+	@Override
+	public void onInputDeviceAdded(int deviceId) {
+	}
+
+
 	// InputConnection (for IME keyboard)
 
 	@Override
@@ -158,8 +181,8 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	native void app_mouse_motion(boolean relative, float x, float y);
 	native void app_mouse_button(boolean pressed, int button, float x, float y);
 	native void app_mouse_wheel(float x, float y);
-	native void app_button(boolean pressed, int code);
-	native void app_axis(float hatX, float hatY, float lX, float lY, float rX, float rY, float lT, float rT);
+	native void app_button(int deviceId, boolean pressed, int code);
+	native void app_axis(int deviceId, float hatX, float hatY, float lX, float lY, float rX, float rY, float lT, float rT);
 	native void app_unhandled_touch(int action, float x, float y, int fingers);
 
 	private static boolean isMouseEvent(InputEvent event) {
@@ -179,7 +202,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	public boolean onKeyDown(int keyCode, KeyEvent event) {
 		// Button events fire here (sometimes dpad)
 		if (isGamepadEvent(event)) {
-			app_button(true, keyCode);
+			app_button(event.getDeviceId(), true, keyCode);
 
 		// Prevents back buttons etc. from being generated from mice
 		} else if (!isMouseEvent(event)) {
@@ -193,7 +216,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	public boolean onKeyUp(int keyCode, KeyEvent event) {
 		// Button events fire here (sometimes dpad)
 		if (isGamepadEvent(event)) {
-			app_button(false, keyCode);
+			app_button(event.getDeviceId(), false, keyCode);
 
 		// Prevents back buttons etc. from being generated from mice
 		} else if (!isMouseEvent(event)) {
@@ -321,6 +344,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 		// DPAD and axis events fire here
 		} else if (isGamepadEvent(event)) {
 			app_axis(
+				event.getDeviceId(),
 				event.getAxisValue(MotionEvent.AXIS_HAT_X),
 				event.getAxisValue(MotionEvent.AXIS_HAT_Y),
 				event.getAxisValue(MotionEvent.AXIS_X),

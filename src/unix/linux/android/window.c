@@ -42,6 +42,8 @@ bool gfx_was_reinit(bool reset);
 int main(int argc, char **argv);
 
 static MTY_Queue *APP_EVENTS;
+static MTY_Hash *APP_CTRLRS;
+static MTY_Mutex *APP_CTRLR_MUTEX;
 static int32_t APP_DOUBLE_TAP;
 static MTY_Input APP_INPUT = MTY_INPUT_TOUCHSCREEN;
 static MTY_MouseButton APP_LONG_BUTTON;
@@ -52,9 +54,8 @@ static uint32_t APP_HEIGHT = 1080;
 static bool APP_CHECK_SCROLLER;
 static bool LOG_THREAD;
 
-static bool APP_CTRLR_FIRST = true;
-static MTY_Controller APP_CTRLR = {
-	.id = 1,
+static const MTY_Controller APP_ZEROED_CTRLR = {
+	.id = 0,
 	.pid = 0xCDD,
 	.vid = 0xCDD,
 	.numButtons = 13,
@@ -158,6 +159,8 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1start(JNIEnv *env, jobject
 	jstring jname)
 {
 	APP_EVENTS = MTY_QueueCreate(500, sizeof(MTY_Msg));
+	APP_CTRLRS = MTY_HashCreate(0);
+	APP_CTRLR_MUTEX = MTY_MutexCreate();
 
 	LOG_THREAD = true;
 	MTY_Thread *log_thread = MTY_ThreadCreate(app_log_thread, NULL);
@@ -179,6 +182,8 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1start(JNIEnv *env, jobject
 
 	MTY_Free(name);
 	MTY_ThreadDestroy(&log_thread);
+	MTY_MutexDestroy(&APP_CTRLR_MUTEX);
+	MTY_HashDestroy(&APP_CTRLRS, MTY_Free);
 	MTY_QueueDestroy(&APP_EVENTS);
 }
 
@@ -265,6 +270,7 @@ static void app_touch_mouse_button(int32_t x, int32_t y, MTY_MouseButton button)
 	msg.type = MTY_MSG_MOUSE_MOTION;
 	msg.mouseMotion.x = lrint(x);
 	msg.mouseMotion.y = lrint(y);
+	msg.mouseMotion.click = true;
 	app_push_msg(&msg);
 
 	msg.type = MTY_MSG_MOUSE_BUTTON;
@@ -461,23 +467,71 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1button(JNIEn
 
 // JNI controller events
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1button(JNIEnv *env, jobject obj,
-	jboolean pressed, jint button)
+static MTY_Controller *app_get_controller(int32_t deviceId)
 {
+	MTY_Controller *c = MTY_HashGetInt(APP_CTRLRS, deviceId);
+	if (!c) {
+		c = MTY_Alloc(1, sizeof(MTY_Controller));
+		*c = APP_ZEROED_CTRLR;
+
+		c->id = deviceId;
+		MTY_HashSetInt(APP_CTRLRS, deviceId, c);
+
+		MTY_Msg msg = {0};
+		msg.type = MTY_MSG_CONNECT;
+		msg.controller = *c;
+		app_push_msg(&msg);
+	}
+
+	return c;
+}
+
+static void app_remove_controller(int32_t deviceId)
+{
+	MTY_Controller *c = MTY_HashGetInt(APP_CTRLRS, deviceId);
+	if (c) {
+		*c = APP_ZEROED_CTRLR;
+
+		c->id = deviceId;
+
+		MTY_Msg msg = {0};
+		msg.type = MTY_MSG_DISCONNECT;
+		msg.controller = *c;
+		app_push_msg(&msg);
+
+		MTY_Free(MTY_HashPopInt(APP_CTRLRS, deviceId));
+	}
+}
+
+static void app_push_cmsg(const MTY_Controller *c)
+{
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_CONTROLLER;
+	msg.controller = *c;
+	app_push_msg(&msg);
+}
+
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1button(JNIEnv *env, jobject obj,
+	jint deviceId, jboolean pressed, jint button)
+{
+	MTY_MutexLock(APP_CTRLR_MUTEX);
+
+	MTY_Controller *c = app_get_controller(deviceId);
+
 	switch (button) {
-		case AKEYCODE_BUTTON_A: APP_CTRLR.buttons[MTY_CBUTTON_A] = pressed; break;
-		case AKEYCODE_BUTTON_B: APP_CTRLR.buttons[MTY_CBUTTON_B] = pressed; break;
-		case AKEYCODE_BUTTON_X: APP_CTRLR.buttons[MTY_CBUTTON_X] = pressed; break;
-		case AKEYCODE_BUTTON_Y: APP_CTRLR.buttons[MTY_CBUTTON_Y] = pressed; break;
-		case AKEYCODE_BUTTON_L1: APP_CTRLR.buttons[MTY_CBUTTON_LEFT_SHOULDER] = pressed; break;
-		case AKEYCODE_BUTTON_R1: APP_CTRLR.buttons[MTY_CBUTTON_RIGHT_SHOULDER] = pressed; break;
-		case AKEYCODE_BUTTON_L2: APP_CTRLR.buttons[MTY_CBUTTON_LEFT_TRIGGER] = pressed; break;
-		case AKEYCODE_BUTTON_R2: APP_CTRLR.buttons[MTY_CBUTTON_RIGHT_TRIGGER] = pressed; break;
-		case AKEYCODE_BUTTON_THUMBL: APP_CTRLR.buttons[MTY_CBUTTON_LEFT_THUMB] = pressed; break;
-		case AKEYCODE_BUTTON_THUMBR: APP_CTRLR.buttons[MTY_CBUTTON_RIGHT_THUMB] = pressed; break;
-		case AKEYCODE_BUTTON_START: APP_CTRLR.buttons[MTY_CBUTTON_START] = pressed; break;
-		case AKEYCODE_BUTTON_SELECT: APP_CTRLR.buttons[MTY_CBUTTON_BACK] = pressed; break;
-		case AKEYCODE_BUTTON_MODE: APP_CTRLR.buttons[MTY_CBUTTON_GUIDE] = pressed; break;
+		case AKEYCODE_BUTTON_A: c->buttons[MTY_CBUTTON_A] = pressed; break;
+		case AKEYCODE_BUTTON_B: c->buttons[MTY_CBUTTON_B] = pressed; break;
+		case AKEYCODE_BUTTON_X: c->buttons[MTY_CBUTTON_X] = pressed; break;
+		case AKEYCODE_BUTTON_Y: c->buttons[MTY_CBUTTON_Y] = pressed; break;
+		case AKEYCODE_BUTTON_L1: c->buttons[MTY_CBUTTON_LEFT_SHOULDER] = pressed; break;
+		case AKEYCODE_BUTTON_R1: c->buttons[MTY_CBUTTON_RIGHT_SHOULDER] = pressed; break;
+		case AKEYCODE_BUTTON_L2: c->buttons[MTY_CBUTTON_LEFT_TRIGGER] = pressed; break;
+		case AKEYCODE_BUTTON_R2: c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] = pressed; break;
+		case AKEYCODE_BUTTON_THUMBL: c->buttons[MTY_CBUTTON_LEFT_THUMB] = pressed; break;
+		case AKEYCODE_BUTTON_THUMBR: c->buttons[MTY_CBUTTON_RIGHT_THUMB] = pressed; break;
+		case AKEYCODE_BUTTON_START: c->buttons[MTY_CBUTTON_START] = pressed; break;
+		case AKEYCODE_BUTTON_SELECT: c->buttons[MTY_CBUTTON_BACK] = pressed; break;
+		case AKEYCODE_BUTTON_MODE: c->buttons[MTY_CBUTTON_GUIDE] = pressed; break;
 	}
 
 	if (button == AKEYCODE_DPAD_UP ||
@@ -495,55 +549,51 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1button(JNIEnv *env,
 		bool left = button == AKEYCODE_DPAD_LEFT || button == AKEYCODE_DPAD_UP_LEFT || button == AKEYCODE_DPAD_DOWN_LEFT;
 		bool right = button == AKEYCODE_DPAD_RIGHT || button == AKEYCODE_DPAD_UP_RIGHT || button == AKEYCODE_DPAD_DOWN_RIGHT;
 
-		APP_CTRLR.values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
+		c->values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
 			(down && left) ? 5 : (left && up) ? 7 : up ? 0 : right ? 2 : down ? 4 : left ? 6 : 8;
 	}
 
-	MTY_Msg msg = {0};
-	msg.controller = APP_CTRLR;
+	app_push_cmsg(c);
 
-	if (APP_CTRLR_FIRST) {
-		APP_CTRLR_FIRST = false;
-
-		msg.type = MTY_MSG_CONNECT;
-		app_push_msg(&msg);
-	}
-
-	msg.type = MTY_MSG_CONTROLLER;
-	app_push_msg(&msg);
+	MTY_MutexUnlock(APP_CTRLR_MUTEX);
 }
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1axis(JNIEnv *env, jobject obj,
-	jfloat hatX, jfloat hatY, jfloat lX, jfloat lY, jfloat rX, jfloat rY, jfloat lT, jfloat rT)
+	jint deviceId, jfloat hatX, jfloat hatY, jfloat lX, jfloat lY, jfloat rX, jfloat rY, jfloat lT, jfloat rT)
 {
-	APP_CTRLR.values[MTY_CVALUE_THUMB_LX].data = lrint(lX * (float) (lX < 0.0f ? abs(INT16_MIN) : INT16_MAX));
-	APP_CTRLR.values[MTY_CVALUE_THUMB_LY].data = lrint(-lY * (float) (-lY < 0.0f ? abs(INT16_MIN) : INT16_MAX));
-	APP_CTRLR.values[MTY_CVALUE_THUMB_RX].data = lrint(rX * (float) (rX < 0.0f ? abs(INT16_MIN) : INT16_MAX));
-	APP_CTRLR.values[MTY_CVALUE_THUMB_RY].data = lrint(-rY * (float) (-rY < 0.0f ? abs(INT16_MIN) : INT16_MAX));
+	MTY_MutexLock(APP_CTRLR_MUTEX);
 
-	APP_CTRLR.values[MTY_CVALUE_TRIGGER_L].data = lrint(lT * (float) UINT8_MAX);
-	APP_CTRLR.values[MTY_CVALUE_TRIGGER_R].data = lrint(rT * (float) UINT8_MAX);
+	MTY_Controller *c = app_get_controller(deviceId);
+
+	c->values[MTY_CVALUE_THUMB_LX].data = lrint(lX * (float) (lX < 0.0f ? abs(INT16_MIN) : INT16_MAX));
+	c->values[MTY_CVALUE_THUMB_LY].data = lrint(-lY * (float) (-lY < 0.0f ? abs(INT16_MIN) : INT16_MAX));
+	c->values[MTY_CVALUE_THUMB_RX].data = lrint(rX * (float) (rX < 0.0f ? abs(INT16_MIN) : INT16_MAX));
+	c->values[MTY_CVALUE_THUMB_RY].data = lrint(-rY * (float) (-rY < 0.0f ? abs(INT16_MIN) : INT16_MAX));
+
+	c->values[MTY_CVALUE_TRIGGER_L].data = lrint(lT * (float) UINT8_MAX);
+	c->values[MTY_CVALUE_TRIGGER_R].data = lrint(rT * (float) UINT8_MAX);
 
 	bool up = hatY == -1.0f;
 	bool down = hatY == 1.0f;
 	bool left = hatX == -1.0f;
 	bool right = hatX == 1.0f;
 
-	APP_CTRLR.values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
+	c->values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
 		(down && left) ? 5 : (left && up) ? 7 : up ? 0 : right ? 2 : down ? 4 : left ? 6 : 8;
 
-	MTY_Msg msg = {0};
-	msg.controller = APP_CTRLR;
+	app_push_cmsg(c);
 
-	if (APP_CTRLR_FIRST) {
-		APP_CTRLR_FIRST = false;
+	MTY_MutexUnlock(APP_CTRLR_MUTEX);
+}
 
-		msg.type = MTY_MSG_CONNECT;
-		app_push_msg(&msg);
-	}
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1unplug(JNIEnv *env, jobject obj,
+	jint deviceId)
+{
+	MTY_MutexLock(APP_CTRLR_MUTEX);
 
-	msg.type = MTY_MSG_CONTROLLER;
-	app_push_msg(&msg);
+	app_remove_controller(deviceId);
+
+	MTY_MutexUnlock(APP_CTRLR_MUTEX);
 }
 
 
