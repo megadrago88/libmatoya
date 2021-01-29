@@ -28,6 +28,7 @@ import android.content.pm.ActivityInfo;
 import android.util.Log;
 import android.util.DisplayMetrics;
 import android.widget.Scroller;
+import android.os.Vibrator;
 import java.util.Base64;
 
 class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
@@ -43,6 +44,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	GestureDetector detector;
 	ScaleGestureDetector sdetector;
 	Scroller scroller;
+	Vibrator vibrator;
 	boolean hiddenCursor;
 	boolean defaultCursor;
 
@@ -60,6 +62,8 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 		this.setFocusableInTouchMode(true);
 		this.setFocusable(true);
+
+		this.vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
 
 		this.detector = new GestureDetector(context, this);
 		this.detector.setOnDoubleTapListener(this);
@@ -240,6 +244,8 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 		if (isMouseEvent(event))
 			return;
 
+		this.vibrator.vibrate(10);
+
 		app_long_press(event.getX(0), event.getY(0));
 	}
 
@@ -368,8 +374,6 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 		ACTIVITY = activity;
 		SURFACE = new MTYSurface(activity.getApplicationContext());
 
-		ACTIVITY.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
-
 		DisplayMetrics dm = new DisplayMetrics();
 		ACTIVITY.getWindowManager().getDefaultDisplay().getMetrics(dm);
 		DISPLAY_DENSITY = dm.xdpi;
@@ -482,7 +486,7 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 						ACTIVITY.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
 						break;
 					default:
-						ACTIVITY.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
+						ACTIVITY.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
 						break;
 				}
 			}
