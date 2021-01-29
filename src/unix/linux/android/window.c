@@ -41,7 +41,10 @@ bool gfx_was_reinit(bool reset);
 
 int main(int argc, char **argv);
 
-MTY_Queue *APP_EVENTS;
+static MTY_Queue *APP_EVENTS;
+static int32_t APP_DOUBLE_TAP;
+static MTY_Input APP_INPUT = MTY_INPUT_TOUCHSCREEN;
+static MTY_MouseButton APP_LONG_BUTTON;
 static JavaVM *APP_JVM;
 static jobject APP_MTY_OBJ;
 static uint32_t APP_WIDTH = 1920;
@@ -237,67 +240,155 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTYSurface_app_1key(JNIEnv *env
 }
 
 
-// JNI touch events -- These are subject to "touch mode"
+// JNI touch events -- These are subject to "MTY_AppSetInputMode"
+
+static void app_cancel_long_button(void)
+{
+	APP_DOUBLE_TAP = false;
+
+	if (APP_LONG_BUTTON != MTY_MOUSE_BUTTON_NONE) {
+		MTY_Msg msg = {0};
+		msg.type = MTY_MSG_MOUSE_BUTTON;
+		msg.mouseButton.pressed = false;
+		msg.mouseButton.button = APP_LONG_BUTTON;
+		app_push_msg(&msg);
+
+		APP_LONG_BUTTON = MTY_MOUSE_BUTTON_NONE;
+	}
+}
+
+static void app_touch_mouse_button(int32_t x, int32_t y, MTY_MouseButton button)
+{
+	app_cancel_long_button();
+
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_MOUSE_MOTION;
+	msg.mouseMotion.x = lrint(x);
+	msg.mouseMotion.y = lrint(y);
+	app_push_msg(&msg);
+
+	msg.type = MTY_MSG_MOUSE_BUTTON;
+	msg.mouseButton.pressed = true;
+	msg.mouseButton.button = button;
+	app_push_msg(&msg);
+
+	msg.mouseButton.pressed = false;
+	app_push_msg(&msg);
+}
+
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1unhandled_1touch(JNIEnv *env, jobject obj,
+	jint action, jfloat x, jfloat y, jint fingers)
+{
+	// Any time fingers come off of the screen we cancel the LONG BUTTON
+	if (action == AMOTION_EVENT_ACTION_UP)
+		app_cancel_long_button();
+
+	if (APP_INPUT != MTY_INPUT_TOUCHSCREEN) {
+		switch (action) {
+			case AMOTION_EVENT_ACTION_MOVE:
+				// While a long press is in effect, move events get reported here
+				// They do NOT come through in the onScroll gesture handler
+				if (APP_LONG_BUTTON != MTY_MOUSE_BUTTON_NONE) {
+					MTY_Msg msg = {0};
+					msg.type = MTY_MSG_MOUSE_MOTION;
+					msg.mouseMotion.x = lrint(x);
+					msg.mouseMotion.y = lrint(y);
+					app_push_msg(&msg);
+				}
+				break;
+			case AMOTION_EVENT_ACTION_POINTER_DOWN:
+				// Taps with two fingers need to be handled manually
+				// They are not detected by the gesture recognizer
+				APP_DOUBLE_TAP = fingers > 1;
+				break;
+			case AMOTION_EVENT_ACTION_POINTER_UP:
+				if (APP_DOUBLE_TAP)
+					app_touch_mouse_button(x, y, MTY_MOUSE_BUTTON_RIGHT);
+
+				APP_DOUBLE_TAP = false;
+				break;
+		}
+	}
+}
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1single_1tap_1up(JNIEnv *env, jobject obj,
 	jfloat x, jfloat y)
 {
-	// Currently treat single tap up gesture as a motion event and a full left click
-
-	MTY_Msg msg = {0};
-	msg.type = MTY_MSG_MOUSE_MOTION;
-	msg.mouseMotion.x = lrint(x);
-	msg.mouseMotion.y = lrint(y);
-	app_push_msg(&msg);
-
-	msg.type = MTY_MSG_MOUSE_BUTTON;
-	msg.mouseButton.pressed = true;
-	msg.mouseButton.button = MTY_MOUSE_BUTTON_LEFT;
-	app_push_msg(&msg);
-
-	msg.mouseButton.pressed = false;
-	app_push_msg(&msg);
+	app_touch_mouse_button(x, y, MTY_MOUSE_BUTTON_LEFT);
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1long_1press(JNIEnv *env, jobject obj,
+JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTYSurface_app_1long_1press(JNIEnv *env, jobject obj,
 	jfloat x, jfloat y)
 {
-	// Currently treat long press gesture as a motion event and a full right click
+	app_cancel_long_button();
 
+	// Long press always begins by moving to the event location
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_MOUSE_MOTION;
 	msg.mouseMotion.x = lrint(x);
 	msg.mouseMotion.y = lrint(y);
+	msg.mouseMotion.click = true;
 	app_push_msg(&msg);
 
-	msg.type = MTY_MSG_MOUSE_BUTTON;
-	msg.mouseButton.pressed = true;
-	msg.mouseButton.button = MTY_MOUSE_BUTTON_RIGHT;
-	app_push_msg(&msg);
+	// Long press in touchscreen mode is a simple right click
+	if (APP_INPUT == MTY_INPUT_TOUCHSCREEN) {
+		msg.type = MTY_MSG_MOUSE_BUTTON;
+		msg.mouseButton.pressed = true;
+		msg.mouseButton.button = MTY_MOUSE_BUTTON_RIGHT;
+		app_push_msg(&msg);
 
-	msg.mouseButton.pressed = false;
-	app_push_msg(&msg);
+		msg.mouseButton.pressed = false;
+		app_push_msg(&msg);
+
+	// In trackpad mode, begin a mouse down and set the LONG_BUTTON state
+	} else {
+		APP_LONG_BUTTON = MTY_MOUSE_BUTTON_LEFT;
+
+		msg.type = MTY_MSG_MOUSE_BUTTON;
+		msg.mouseButton.pressed = true;
+		msg.mouseButton.button = APP_LONG_BUTTON;
+		app_push_msg(&msg);
+
+		return true;
+	}
+
+	return false;
 }
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1scroll(JNIEnv *env, jobject obj,
-	jfloat init_x, jfloat init_y, jfloat x, jfloat y)
+	jfloat abs_x, jfloat abs_y, jfloat x, jfloat y, jint fingers)
 {
-	// Move the cursor to the initial location of the scroll, then send mouse wheel event
-	MTY_Msg msg = {0};
+	app_cancel_long_button();
 
-	// Negative init values mean "don't move the cursor"
-	if (init_x > 0.0f || init_y > 0.0f) {
+	// Single finger scrolling in touchscreen mode OR two finger scrolling in
+	// trackpad mode moves to the touch location and produces a wheel event
+	if (APP_INPUT == MTY_INPUT_TOUCHSCREEN ||
+		(APP_LONG_BUTTON == MTY_MOUSE_BUTTON_NONE && fingers > 1))
+	{
+		MTY_Msg msg = {0};
+
+		// Negative init values mean "don't move the cursor"
+		if (abs_x > 0.0f || abs_y > 0.0f) {
+			msg.type = MTY_MSG_MOUSE_MOTION;
+			msg.mouseMotion.x = lrint(abs_x);
+			msg.mouseMotion.y = lrint(abs_y);
+			app_push_msg(&msg);
+		}
+
+		msg.type = MTY_MSG_MOUSE_WHEEL;
+		msg.mouseWheel.pixels = true;
+		msg.mouseWheel.y = -lrint(y);
+		msg.mouseWheel.x = 0;
+		app_push_msg(&msg);
+
+	// While single finger scrolling in trackpad mode, convert to mouse motion
+	} else {
+		MTY_Msg msg = {0};
 		msg.type = MTY_MSG_MOUSE_MOTION;
-		msg.mouseMotion.x = lrint(init_x);
-		msg.mouseMotion.y = lrint(init_y);
+		msg.mouseMotion.x = lrint(abs_x);
+		msg.mouseMotion.y = lrint(abs_y);
 		app_push_msg(&msg);
 	}
-
-	msg.type = MTY_MSG_MOUSE_WHEEL;
-	msg.mouseWheel.pixels = true;
-	msg.mouseWheel.y = -lrint(y);
-	msg.mouseWheel.x = 0;
-	app_push_msg(&msg);
 }
 
 
@@ -306,6 +397,8 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1scroll(JNIEnv *env,
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1motion(JNIEnv *env, jobject obj,
 	jboolean relative, jfloat x, jfloat y)
 {
+	app_cancel_long_button();
+
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_MOUSE_MOTION;
 	msg.mouseMotion.relative = relative;
@@ -327,6 +420,8 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1wheel(JNIEnv
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1button(JNIEnv *env, jobject obj,
 	jboolean pressed, jint button, jfloat x, jfloat y)
 {
+	app_cancel_long_button();
+
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_MOUSE_BUTTON;
 	msg.mouseButton.pressed = pressed;
@@ -586,11 +681,6 @@ bool MTY_AppIsActive(MTY_App *ctx)
 	return gfx_is_ready();
 }
 
-void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
-{
-	// TODO
-}
-
 void MTY_AppSetOnscreenKeyboard(MTY_App *app, bool enable)
 {
 	JNIEnv *env = MTY_JNIEnv();
@@ -702,6 +792,11 @@ void MTY_AppRemoveHotkeys(MTY_App *ctx, MTY_Hotkey mode)
 	// TODO
 }
 
+void MTY_AppSetInputMode(MTY_App *ctx, MTY_Input mode)
+{
+	APP_INPUT = mode;
+}
+
 
 // Window
 
@@ -792,6 +887,10 @@ void *window_get_native(MTY_App *app, MTY_Window window)
 
 
 // Unimplemented / stubs
+
+void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
+{
+}
 
 void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
 {

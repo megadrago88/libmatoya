@@ -152,14 +152,15 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 	native boolean app_key(boolean pressed, int code, int text, int mods);
 	native void app_single_tap_up(float x, float y);
-	native void app_scroll(float initX, float initY, float x, float y);
-	native void app_long_press(float x, float y);
+	native void app_scroll(float absX, float absY, float x, float y, int fingers);
+	native boolean app_long_press(float x, float y);
 	native void app_check_scroller(boolean check);
 	native void app_mouse_motion(boolean relative, float x, float y);
 	native void app_mouse_button(boolean pressed, int button, float x, float y);
 	native void app_mouse_wheel(float x, float y);
 	native void app_button(boolean pressed, int code);
 	native void app_axis(float hatX, float hatY, float lX, float lY, float rX, float rY, float lT, float rT);
+	native void app_unhandled_touch(int action, float x, float y, int fingers);
 
 	private static boolean isMouseEvent(InputEvent event) {
 		return
@@ -212,6 +213,8 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 		} else {
 			this.detector.onTouchEvent(event);
 			this.sdetector.onTouchEvent(event);
+
+			app_unhandled_touch(event.getActionMasked(), event.getX(0), event.getY(0), event.getPointerCount());
 		}
 
 		return true;
@@ -244,9 +247,8 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 		if (isMouseEvent(event))
 			return;
 
-		this.vibrator.vibrate(10);
-
-		app_long_press(event.getX(0), event.getY(0));
+		if (app_long_press(event.getX(0), event.getY(0)))
+			this.vibrator.vibrate(10);
 	}
 
 	@Override
@@ -255,7 +257,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 			return false;
 
 		this.scroller.forceFinished(true);
-		app_scroll(event1.getX(0), event1.getY(0), distanceX, distanceY);
+		app_scroll(event2.getX(0), event2.getY(0), distanceX, distanceY, event2.getPointerCount());
 		return true;
 	}
 
@@ -274,6 +276,10 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 	@Override
 	public boolean onDoubleTap(MotionEvent event) {
+		if (isMouseEvent(event))
+			return false;
+
+		app_single_tap_up(event.getX(0), event.getY(0));
 		return true;
 	}
 
@@ -430,7 +436,7 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 			int diff = this.scrollY - currY;
 
 			if (diff != 0)
-				SURFACE.app_scroll(-1.0f, -1.0f, 0.0f, diff);
+				SURFACE.app_scroll(-1.0f, -1.0f, 0.0f, diff, 1);
 
 			this.scrollY = currY;
 

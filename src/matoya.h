@@ -1206,6 +1206,12 @@ typedef enum {
 	MTY_POSITION_ABSOLUTE = 1,
 } MTY_Position;
 
+typedef enum {
+	MTY_INPUT_UNSPECIFIED = 0,
+	MTY_INPUT_TOUCHSCREEN = 1,
+	MTY_INPUT_TRACKPAD    = 2,
+} MTY_Input;
+
 typedef struct {
 	uint16_t usage;
 	int16_t data;
@@ -1394,6 +1400,9 @@ MTY_AppControllerRumble(MTY_App *ctx, uint32_t id, uint16_t low, uint16_t high);
 
 MTY_EXPORT void
 MTY_AppEnablePen(MTY_App *ctx, bool enable);
+
+MTY_EXPORT void
+MTY_AppSetInputMode(MTY_App *ctx, MTY_Input mode);
 
 MTY_EXPORT MTY_Window
 MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc);
