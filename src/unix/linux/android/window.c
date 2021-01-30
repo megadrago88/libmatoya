@@ -54,6 +54,7 @@ static JavaVM *APP_JVM;
 static jobject APP_MTY_OBJ;
 static bool APP_CHECK_SCROLLER;
 static bool LOG_THREAD;
+static bool APP_DETACH;
 
 static const MTY_Controller APP_ZEROED_CTRLR = {
 	.id = 0,
@@ -279,6 +280,8 @@ static void app_touch_mouse_button(int32_t x, int32_t y, MTY_MouseButton button)
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1unhandled_1touch(JNIEnv *env, jobject obj,
 	jint action, jfloat x, jfloat y, jint fingers)
 {
+	APP_DETACH = false;
+
 	// Any time fingers come off of the screen we cancel the LONG BUTTON
 	if (action == AMOTION_EVENT_ACTION_UP)
 		app_cancel_long_button();
@@ -314,12 +317,16 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1unhandled_1touch(JN
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1single_1tap_1up(JNIEnv *env, jobject obj,
 	jfloat x, jfloat y)
 {
+	APP_DETACH = false;
+
 	app_touch_mouse_button(x, y, MTY_MOUSE_BUTTON_LEFT);
 }
 
 JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTYSurface_app_1long_1press(JNIEnv *env, jobject obj,
 	jfloat x, jfloat y)
 {
+	APP_DETACH = false;
+
 	app_cancel_long_button();
 
 	// Long press always begins by moving to the event location
@@ -358,6 +365,8 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTYSurface_app_1long_1press(JNI
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1scroll(JNIEnv *env, jobject obj,
 	jfloat abs_x, jfloat abs_y, jfloat x, jfloat y, jint fingers)
 {
+	APP_DETACH = false;
+
 	app_cancel_long_button();
 
 	// Single finger scrolling in touchscreen mode OR two finger scrolling in
@@ -397,6 +406,8 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1scroll(JNIEnv *env,
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1motion(JNIEnv *env, jobject obj,
 	jboolean relative, jfloat x, jfloat y)
 {
+	APP_DETACH = true;
+
 	app_cancel_long_button();
 
 	MTY_Msg msg = {0};
@@ -410,6 +421,8 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1motion(JNIEn
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1wheel(JNIEnv *env, jobject obj,
 	jfloat x, jfloat y)
 {
+	APP_DETACH = true;
+
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_MOUSE_WHEEL;
 	msg.mouseWheel.x = x > 0.0f ? 120 : x < 0.0f ? -120 : 0;
@@ -420,6 +433,8 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1wheel(JNIEnv
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1button(JNIEnv *env, jobject obj,
 	jboolean pressed, jint button, jfloat x, jfloat y)
 {
+	APP_DETACH = true;
+
 	app_cancel_long_button();
 
 	MTY_Msg msg = {0};
@@ -809,14 +824,14 @@ bool MTY_AppGetRelativeMouse(MTY_App *app)
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
 {
-	// TODO - This may need behavior dependent on device
 	app->detach = type;
 }
 
 MTY_Detach MTY_AppGetDetached(MTY_App *app)
 {
-	// TODO - This may need behavior dependent on device
-	return app->detach;
+	// When touch events are receved, don't respect detach
+
+	return APP_DETACH ? app->detach : MTY_DETACH_NONE;
 }
 
 void MTY_AppHotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
