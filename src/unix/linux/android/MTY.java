@@ -28,9 +28,10 @@ import android.content.pm.ActivityInfo;
 import android.hardware.input.InputManager;
 import android.util.Log;
 import android.util.DisplayMetrics;
+import android.util.Base64;
 import android.widget.Scroller;
 import android.os.Vibrator;
-import java.util.Base64;
+import android.os.Build;
 
 class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener,
@@ -77,7 +78,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 		this.scroller = new Scroller(context);
 
-		byte[] iCursorData = Base64.getDecoder().decode(this.iCursorB64);
+		byte[] iCursorData = Base64.decode(this.iCursorB64, Base64.DEFAULT);
 		Bitmap bm = BitmapFactory.decodeByteArray(iCursorData, 0, iCursorData.length, null);
 		this.iCursor = PointerIcon.create(bm, 0, 0);
 	}
@@ -126,6 +127,9 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	}
 
 	public void setRelativeMouse(boolean relative) {
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O)
+			return;
+
 		if (relative) {
 			this.requestPointerCapture();
 
@@ -185,8 +189,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 	private static boolean isMouseEvent(InputEvent event) {
 		return
-			(event.getSource() & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE ||
-			(event.getSource() & InputDevice.SOURCE_MOUSE_RELATIVE) == InputDevice.SOURCE_MOUSE_RELATIVE;
+			(event.getSource() & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE;
 	}
 
 	private static boolean isGamepadEvent(InputEvent event) {
@@ -383,12 +386,12 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 	native void gfx_global_init();
 
 	static boolean runOnce;
-	static MTYSurface SURFACE;
-	static Activity ACTIVITY;
-	static boolean IS_FULLSCREEN;
-	static float DISPLAY_DENSITY;
 
 	int scrollY;
+	boolean isFullscreen;
+	float displayDensity;
+	MTYSurface surface;
+	Activity activity;
 
 
 	// Called from Java
@@ -399,19 +402,19 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 			gfx_global_init();
 		}
 
-		ACTIVITY = activity;
-		SURFACE = new MTYSurface(activity.getApplicationContext());
+		this.activity = activity;
+		this.surface = new MTYSurface(activity.getApplicationContext());
 
 		DisplayMetrics dm = new DisplayMetrics();
-		ACTIVITY.getWindowManager().getDefaultDisplay().getMetrics(dm);
-		DISPLAY_DENSITY = dm.xdpi;
+		this.activity.getWindowManager().getDefaultDisplay().getMetrics(dm);
+		this.displayDensity = dm.xdpi;
 
 		ViewGroup vg = activity.findViewById(android.R.id.content);
-		activity.addContentView(SURFACE, vg.getLayoutParams());
+		activity.addContentView(this.surface, vg.getLayoutParams());
 
-		SURFACE.requestFocus();
+		this.surface.requestFocus();
 
-		ClipboardManager clipboard = (ClipboardManager) ACTIVITY.getSystemService(Context.CLIPBOARD_SERVICE);
+		ClipboardManager clipboard = (ClipboardManager) this.activity.getSystemService(Context.CLIPBOARD_SERVICE);
 		clipboard.addPrimaryClipChangedListener(this);
 
 		if (!runOnce)
@@ -422,8 +425,8 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 
 	@Override
 	public void run() {
-		app_start(ACTIVITY.getApplicationContext().getPackageName());
-		ACTIVITY.finishAndRemoveTask();
+		app_start(this.activity.getApplicationContext().getPackageName());
+		this.activity.finishAndRemoveTask();
 	}
 
 
@@ -442,79 +445,81 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 			View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;    // Hides navigation buttons at the bottom
 	}
 
-	private static boolean flagsFullscreen() {
-		return (ACTIVITY.getWindow().getDecorView().getSystemUiVisibility() & MTY.fullscreenFlags()) == MTY.fullscreenFlags();
+	private boolean flagsFullscreen() {
+		return (this.activity.getWindow().getDecorView().getSystemUiVisibility() & MTY.fullscreenFlags()) == MTY.fullscreenFlags();
 	}
 
-	private static void setUiFlags(int flags) {
-		ACTIVITY.getWindow().getDecorView().setSystemUiVisibility(flags);
+	private void setUiFlags(int flags) {
+		this.activity.getWindow().getDecorView().setSystemUiVisibility(flags);
 	}
 
 	public void checkScroller() {
-		SURFACE.scroller.computeScrollOffset();
+		this.surface.scroller.computeScrollOffset();
 
-		if (!SURFACE.scroller.isFinished()) {
-			int currY = SURFACE.scroller.getCurrY();
+		if (!this.surface.scroller.isFinished()) {
+			int currY = this.surface.scroller.getCurrY();
 			int diff = this.scrollY - currY;
 
 			if (diff != 0)
-				SURFACE.app_scroll(-1.0f, -1.0f, 0.0f, diff, 1);
+				this.surface.app_scroll(-1.0f, -1.0f, 0.0f, diff, 1);
 
 			this.scrollY = currY;
 
 		} else {
-			SURFACE.app_check_scroller(false);
+			this.surface.app_check_scroller(false);
 			this.scrollY = 0;
 		}
 	}
 
 	public void enableScreenSaver(boolean _enable) {
+		final MTY self = this;
 		final boolean enable = _enable;
 
-		ACTIVITY.runOnUiThread(new Runnable() {
+		this.activity.runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
 				if (enable) {
-					ACTIVITY.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+					self.activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
 				} else {
-					ACTIVITY.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+					self.activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 				}
 			}
 		});
 	}
 
 	public void showKeyboard(boolean show) {
-		Context context = SURFACE.getContext();
+		Context context = this.surface.getContext();
 		InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
 
 		if (show) {
-			imm.showSoftInput(SURFACE, 0, null);
+			imm.showSoftInput(this.surface, 0, null);
 
 		} else {
-			imm.hideSoftInputFromWindow(SURFACE.getWindowToken(), 0, null);
+			imm.hideSoftInputFromWindow(this.surface.getWindowToken(), 0, null);
 		}
 	}
 
 	public boolean isFullscreen() {
-		return IS_FULLSCREEN;
+		return this.isFullscreen;
 	}
 
 	public void setOrientation(int _orientation) {
+		final MTY self = this;
 		final int orienation = _orientation;
 
-		ACTIVITY.runOnUiThread(new Runnable() {
+		this.activity.runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
 				switch (orienation) {
 					case 1:
-						ACTIVITY.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+						self.activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
 						break;
 					case 2:
-						ACTIVITY.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
+						self.activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
 						break;
 					default:
-						ACTIVITY.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+						self.activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
 						break;
 				}
 			}
@@ -522,27 +527,32 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 	}
 
 	public float getDisplayDensity() {
-		return DISPLAY_DENSITY;
+		return this.displayDensity;
+	}
+
+	public void handleFullscreen(boolean enable) {
+		// Static variable update only on main thread
+		this.isFullscreen = this.flagsFullscreen();
+
+		if (enable && !this.isFullscreen) {
+			this.setUiFlags(this.normalFlags() | this.fullscreenFlags());
+
+		} else if (!enable && this.isFullscreen) {
+			this.setUiFlags(this.normalFlags());
+		}
+
+		// Update static after set
+		this.isFullscreen = this.flagsFullscreen();
 	}
 
 	public void enableFullscreen(boolean _enable) {
+		final MTY self = this;
 		final boolean enable = _enable;
 
-		ACTIVITY.runOnUiThread(new Runnable() {
+		this.activity.runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				// Static variable update only on main thread
-				IS_FULLSCREEN = flagsFullscreen();
-
-				if (enable && !IS_FULLSCREEN) {
-					setUiFlags(normalFlags() | fullscreenFlags());
-
-				} else if (!enable && IS_FULLSCREEN) {
-					setUiFlags(normalFlags());
-				}
-
-				// Update static after set
-				IS_FULLSCREEN = flagsFullscreen();
+				self.handleFullscreen(enable);
 			}
 		});
 	}
@@ -551,12 +561,12 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 	// Clipboard
 
 	public void setClipboard(String str) {
-		ClipboardManager clipboard = (ClipboardManager) ACTIVITY.getSystemService(Context.CLIPBOARD_SERVICE);
+		ClipboardManager clipboard = (ClipboardManager) this.activity.getSystemService(Context.CLIPBOARD_SERVICE);
 		clipboard.setPrimaryClip(ClipData.newPlainText("MTY", str));
 	}
 
 	public String getClipboard() {
-		ClipboardManager clipboard = (ClipboardManager) ACTIVITY.getSystemService(Context.CLIPBOARD_SERVICE);
+		ClipboardManager clipboard = (ClipboardManager) this.activity.getSystemService(Context.CLIPBOARD_SERVICE);
 		ClipData primary = clipboard.getPrimaryClip();
 
 		if (primary != null) {
@@ -579,54 +589,61 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 	// Cursor
 
 	public void setCursor(byte[] _data, float _hotX, float _hotY) {
+		final MTY self = this;
 		final byte[] data = _data;
 		final float hotX = _hotX;
 		final float hotY = _hotY;
 
-		ACTIVITY.runOnUiThread(new Runnable() {
+		this.activity.runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				SURFACE.setCursor(data, hotX, hotY);
+				self.surface.setCursor(data, hotX, hotY);
 			}
 		});
 	}
 
 	public void showCursor(boolean _show) {
+		final MTY self = this;
 		final boolean show = _show;
 
-		ACTIVITY.runOnUiThread(new Runnable() {
+		this.activity.runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				SURFACE.hiddenCursor = !show;
-				SURFACE.setCursor();
+				self.surface.hiddenCursor = !show;
+				self.surface.setCursor();
 			}
 		});
 	}
 
 	public void useDefaultCursor(boolean _useDefault) {
+		final MTY self = this;
 		final boolean useDefault = _useDefault;
 
-		ACTIVITY.runOnUiThread(new Runnable() {
+		this.activity.runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				SURFACE.defaultCursor = useDefault;
-				SURFACE.setCursor();
+				self.surface.defaultCursor = useDefault;
+				self.surface.setCursor();
 			}
 		});
 	}
 
 	public void setRelativeMouse(boolean _relative) {
+		final MTY self = this;
 		final boolean relative = _relative;
 
-		ACTIVITY.runOnUiThread(new Runnable() {
+		this.activity.runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				SURFACE.setRelativeMouse(relative);
+				self.surface.setRelativeMouse(relative);
 			}
 		});
 	}
 
 	public boolean getRelativeMouse() {
-		return SURFACE.hasPointerCapture();
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O)
+			return false;
+
+		return this.surface.hasPointerCapture();
 	}
 }
