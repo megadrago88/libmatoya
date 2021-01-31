@@ -1797,11 +1797,6 @@ bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 	return app_get_window(app, window) ? true : false;
 }
 
-bool MTY_WindowGFXNewContext(MTY_App *app, MTY_Window window, bool reset)
-{
-	return false;
-}
-
 
 // Window Private
 
@@ -1858,4 +1853,18 @@ void MTY_AppSetOnscreenKeyboard(MTY_App *app, bool enable)
 
 void MTY_AppSetOrientation(MTY_App *app, MTY_Orientation orientation)
 {
+}
+
+bool MTY_WindowGFXShouldPresent(MTY_App *app, MTY_Window window)
+{
+	return false;
+}
+
+void MTY_AppSetInputMode(MTY_App *ctx, MTY_Input mode)
+{
+}
+
+bool MTY_WindowGFXNewContext(MTY_App *app, MTY_Window window, bool reset)
+{
+	return false;
 }
