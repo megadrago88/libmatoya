@@ -9,6 +9,7 @@
 #include <string.h>
 #include <math.h>
 
+#include <android/api-level.h>
 #include <aaudio/AAudio.h>
 
 #define AUDIO_CHANNELS 2
@@ -63,6 +64,9 @@ static aaudio_data_callback_result_t audio_callback(AAudioStream *stream, void *
 
 MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer)
 {
+	if (android_get_device_api_level() < __ANDROID_API_O__)
+		return NULL;
+
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
 
 	ctx->sample_rate = sampleRate;
