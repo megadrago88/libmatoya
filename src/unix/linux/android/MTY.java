@@ -176,7 +176,7 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 	// Events
 
-	native boolean app_key(boolean pressed, int code, int text, int mods);
+	native boolean app_key(boolean pressed, int code, String text, int mods);
 	native void app_single_tap_up(float x, float y);
 	native void app_scroll(float absX, float absY, float x, float y, int fingers);
 	native boolean app_long_press(float x, float y);
@@ -208,7 +208,9 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 		// Prevents back buttons etc. from being generated from mice
 		} else if (!isMouseEvent(event)) {
-			return app_key(true, keyCode, event.getUnicodeChar(), event.getMetaState());
+			int uc = event.getUnicodeChar();
+
+			return app_key(true, keyCode, uc != 0 ? String.format("%c", uc) : null, event.getMetaState());
 		}
 
 		return true;
@@ -222,7 +224,9 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 		// Prevents back buttons etc. from being generated from mice
 		} else if (!isMouseEvent(event)) {
-			return app_key(false, keyCode, event.getUnicodeChar(), event.getMetaState());
+			int uc = event.getUnicodeChar();
+
+			return app_key(false, keyCode, uc != 0 ? String.format("%c", uc) : null, event.getMetaState());
 		}
 
 		return true;
@@ -653,7 +657,15 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 
 	// Hotkeys
 
-	public int getKey(int keyCode) {
-		return (int) this.kbmap.getDisplayLabel(keyCode);
+	public String getKey(int keyCode) {
+		char label = this.kbmap.getDisplayLabel(keyCode);
+
+		if (label != 0) {
+			return String.format("%c", label);
+
+		} else {
+			return KeyEvent.keyCodeToString(keyCode).replaceAll("KEYCODE_", "")
+				.replaceAll("MOVE_", "");
+		}
 	}
 }

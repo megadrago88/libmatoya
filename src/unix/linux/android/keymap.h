@@ -7,6 +7,7 @@
 #include "matoya.h"
 
 #include <android/keycodes.h>
+#include <android/input.h>
 
 static const MTY_Key APP_KEYS[] = {
 	[AKEYCODE_ESCAPE] = MTY_KEY_ESCAPE,
@@ -138,3 +139,21 @@ static const MTY_Key APP_KEYS[] = {
 };
 
 #define APP_KEYS_MAX (sizeof(APP_KEYS) / sizeof(MTY_Key))
+
+static MTY_Mod app_keymods(int32_t mods)
+{
+	MTY_Mod mty = MTY_MOD_NONE;
+
+	if (mods & AMETA_SHIFT_LEFT_ON)  mty |= MTY_MOD_LSHIFT;
+	if (mods & AMETA_SHIFT_RIGHT_ON) mty |= MTY_MOD_RSHIFT;
+	if (mods & AMETA_CTRL_LEFT_ON)   mty |= MTY_MOD_LCTRL;
+	if (mods & AMETA_CTRL_RIGHT_ON)  mty |= MTY_MOD_RCTRL;
+	if (mods & AMETA_ALT_LEFT_ON)    mty |= MTY_MOD_LALT;
+	if (mods & AMETA_ALT_RIGHT_ON)   mty |= MTY_MOD_RALT;
+	if (mods & AMETA_META_LEFT_ON)   mty |= MTY_MOD_LWIN;
+	if (mods & AMETA_META_RIGHT_ON)  mty |= MTY_MOD_RWIN;
+	if (mods & AMETA_CAPS_LOCK_ON)   mty |= MTY_MOD_CAPS;
+	if (mods & AMETA_NUM_LOCK_ON)    mty |= MTY_MOD_NUM;
+
+	return mty;
+}

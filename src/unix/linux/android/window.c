@@ -204,15 +204,19 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1check_1scroller(JNI
 // JNI keyboard events
 
 JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTYSurface_app_1key(JNIEnv *env, jobject obj,
-	jboolean pressed, jint code, jint itext, jint mods)
+	jboolean pressed, jint code, jstring jtext, jint mods)
 {
 	// If trap is false, android will handle the key
 	bool trap = false;
 
-	if (pressed && itext != 0) {
+	if (pressed && jtext) {
+		const char *ctext = (*env)->GetStringUTFChars(env, jtext, 0);
+
 		MTY_Msg msg = {0};
 		msg.type = MTY_MSG_TEXT;
-		memcpy(msg.text, &itext, sizeof(jint));
+		snprintf(msg.text, 8, "%s", ctext);
+
+		(*env)->ReleaseStringUTFChars(env, jtext, ctext);
 
 		app_push_msg(&msg);
 		trap = true;
@@ -228,9 +232,11 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTYSurface_app_1key(JNIEnv *env
 	if (code < (jint) APP_KEYS_MAX) {
 		MTY_Key key = APP_KEYS[code];
 		if (key != MTY_KEY_NONE) {
+
 			MTY_Msg msg = {0};
 			msg.type = MTY_MSG_KEYBOARD;
 			msg.keyboard.key = key;
+			msg.keyboard.mod = app_keymods(mods);
 			msg.keyboard.pressed = pressed;
 			app_push_msg(&msg);
 			trap = true;
@@ -618,19 +624,24 @@ void MTY_AppHotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
 	MTY_Strcat(str, len, (mod & MTY_MOD_ALT) ? "Alt+" : "");
 	MTY_Strcat(str, len, (mod & MTY_MOD_SHIFT) ? "Shift+" : "");
 
-	for (int32_t x = 0; x < (int32_t) APP_KEYS_MAX; x++) {
-		if (key == APP_KEYS[x]) {
-			JNIEnv *env = MTY_JNIEnv();
+	if (key != MTY_KEY_NONE) {
+		for (int32_t x = 0; x < (int32_t) APP_KEYS_MAX; x++) {
+			if (key == APP_KEYS[x]) {
+				JNIEnv *env = MTY_JNIEnv();
 
-			jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-			jmethodID mid = (*env)->GetMethodID(env, cls, "getKey", "(I)I");
+				jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+				jmethodID mid = (*env)->GetMethodID(env, cls, "getKey", "(I)Ljava/lang/String;");
 
-			jint jcode = (*env)->CallIntMethod(env, APP_MTY_OBJ, mid, x);
+				jstring jtext = (*env)->CallObjectMethod(env, APP_MTY_OBJ, mid, x);
+				if (jtext) {
+					const char *ctext = (*env)->GetStringUTFChars(env, jtext, 0);
+					MTY_Strcat(str, len, ctext);
 
-			char key_str[32] = {0};
-			memcpy(key_str, &jcode, sizeof(jint));
-			MTY_Strcat(str, len, key_str);
-			break;
+					(*env)->ReleaseStringUTFChars(env, jtext, ctext);
+				}
+
+				break;
+			}
 		}
 	}
 }
@@ -739,10 +750,29 @@ static bool app_check_focus(MTY_App *ctx, bool was_ready)
 	return msg.focus;
 }
 
+static void app_kb_to_hotkey(MTY_App *app, MTY_Msg *msg)
+{
+	MTY_Mod mod = msg->keyboard.mod & 0xFF;
+	uint32_t hotkey = (uint32_t) (uintptr_t) MTY_HashGetInt(app->hotkey, (mod << 16) | msg->keyboard.key);
+
+	if (hotkey != 0) {
+		if (msg->keyboard.pressed) {
+			msg->type = MTY_MSG_HOTKEY;
+			msg->hotkey = hotkey;
+
+		} else {
+			msg->type = MTY_MSG_NONE;
+		}
+	}
+}
+
 void MTY_AppRun(MTY_App *ctx)
 {
 	for (bool cont = true, was_ready = false; cont;) {
 		for (MTY_Msg *msg; MTY_QueuePop(APP_EVENTS, 0, (void **) &msg, NULL);) {
+			if (msg->type == MTY_MSG_KEYBOARD)
+				app_kb_to_hotkey(ctx, msg);
+
 			ctx->msg_func(msg, ctx->opaque);
 			MTY_QueueReleaseBuffer(APP_EVENTS);
 		}
