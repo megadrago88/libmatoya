@@ -19,6 +19,7 @@ import android.view.PointerIcon;
 import android.view.InputDevice;
 import android.view.InputEvent;
 import android.text.InputType;
+import android.view.KeyCharacterMap;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.content.Context;
@@ -392,6 +393,7 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 	float displayDensity;
 	MTYSurface surface;
 	Activity activity;
+	KeyCharacterMap kbmap;
 
 
 	// Called from Java
@@ -404,6 +406,7 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 
 		this.activity = activity;
 		this.surface = new MTYSurface(activity.getApplicationContext());
+		this.kbmap = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
 
 		DisplayMetrics dm = new DisplayMetrics();
 		this.activity.getWindowManager().getDefaultDisplay().getMetrics(dm);
@@ -645,5 +648,12 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 			return false;
 
 		return this.surface.hasPointerCapture();
+	}
+
+
+	// Hotkeys
+
+	public int getKey(int keyCode) {
+		return (int) this.kbmap.getDisplayLabel(keyCode);
 	}
 }

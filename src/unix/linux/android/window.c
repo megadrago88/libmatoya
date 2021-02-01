@@ -20,6 +20,7 @@
 struct MTY_App {
 	MTY_MsgFunc msg_func;
 	MTY_AppFunc app_func;
+	MTY_Hash *hotkey;
 	MTY_Detach detach;
 	uint32_t timeout;
 	float scale;
@@ -391,7 +392,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1scroll(JNIEnv *env,
 		app_push_msg(&msg);
 
 	// While single finger scrolling in trackpad mode, convert to mouse motion
-	} else {
+	} else if (abs_x > 0.0f || abs_y > 0.0f) {
 		MTY_Msg msg = {0};
 		msg.type = MTY_MSG_MOUSE_MOTION;
 		msg.mouseMotion.x = lrint(abs_x);
@@ -528,6 +529,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1button(JNIEnv *env,
 	MTY_Controller *c = app_get_controller(deviceId);
 
 	switch (button) {
+		case AKEYCODE_DPAD_CENTER: c->buttons[MTY_CBUTTON_A] = pressed; break;
 		case AKEYCODE_BUTTON_A: c->buttons[MTY_CBUTTON_A] = pressed; break;
 		case AKEYCODE_BUTTON_B: c->buttons[MTY_CBUTTON_B] = pressed; break;
 		case AKEYCODE_BUTTON_X: c->buttons[MTY_CBUTTON_X] = pressed; break;
@@ -541,25 +543,24 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1button(JNIEnv *env,
 		case AKEYCODE_BUTTON_START: c->buttons[MTY_CBUTTON_START] = pressed; break;
 		case AKEYCODE_BUTTON_SELECT: c->buttons[MTY_CBUTTON_BACK] = pressed; break;
 		case AKEYCODE_BUTTON_MODE: c->buttons[MTY_CBUTTON_GUIDE] = pressed; break;
-	}
 
-	if (button == AKEYCODE_DPAD_UP ||
-		button == AKEYCODE_DPAD_RIGHT ||
-		button == AKEYCODE_DPAD_DOWN ||
-		button == AKEYCODE_DPAD_LEFT ||
-		button == AKEYCODE_DPAD_CENTER ||
-		button == AKEYCODE_DPAD_UP_LEFT ||
-		button == AKEYCODE_DPAD_DOWN_LEFT ||
-		button == AKEYCODE_DPAD_UP_RIGHT ||
-		button == AKEYCODE_DPAD_DOWN_RIGHT)
-	{
-		bool up = button == AKEYCODE_DPAD_UP || button == AKEYCODE_DPAD_UP_LEFT || button == AKEYCODE_DPAD_UP_RIGHT;
-		bool down = button == AKEYCODE_DPAD_DOWN || button == AKEYCODE_DPAD_DOWN_LEFT || button == AKEYCODE_DPAD_DOWN_RIGHT;
-		bool left = button == AKEYCODE_DPAD_LEFT || button == AKEYCODE_DPAD_UP_LEFT || button == AKEYCODE_DPAD_DOWN_LEFT;
-		bool right = button == AKEYCODE_DPAD_RIGHT || button == AKEYCODE_DPAD_UP_RIGHT || button == AKEYCODE_DPAD_DOWN_RIGHT;
+		case AKEYCODE_DPAD_UP:
+		case AKEYCODE_DPAD_RIGHT:
+		case AKEYCODE_DPAD_DOWN:
+		case AKEYCODE_DPAD_LEFT:
+		case AKEYCODE_DPAD_UP_LEFT:
+		case AKEYCODE_DPAD_DOWN_LEFT:
+		case AKEYCODE_DPAD_UP_RIGHT:
+		case AKEYCODE_DPAD_DOWN_RIGHT: {
+			bool up = pressed && (button == AKEYCODE_DPAD_UP || button == AKEYCODE_DPAD_UP_LEFT || button == AKEYCODE_DPAD_UP_RIGHT);
+			bool down = pressed && (button == AKEYCODE_DPAD_DOWN || button == AKEYCODE_DPAD_DOWN_LEFT || button == AKEYCODE_DPAD_DOWN_RIGHT);
+			bool left = pressed && (button == AKEYCODE_DPAD_LEFT || button == AKEYCODE_DPAD_UP_LEFT || button == AKEYCODE_DPAD_DOWN_LEFT);
+			bool right = pressed && (button == AKEYCODE_DPAD_RIGHT || button == AKEYCODE_DPAD_UP_RIGHT || button == AKEYCODE_DPAD_DOWN_RIGHT);
 
-		c->values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
-			(down && left) ? 5 : (left && up) ? 7 : up ? 0 : right ? 2 : down ? 4 : left ? 6 : 8;
+			c->values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
+				(down && left) ? 5 : (left && up) ? 7 : up ? 0 : right ? 2 : down ? 4 : left ? 6 : 8;
+			break;
+		}
 	}
 
 	app_push_cmsg(c);
@@ -607,6 +608,44 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1unplug(JNIEnv *env,
 
 
 // App
+
+void MTY_AppHotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
+{
+	memset(str, 0, len);
+
+	MTY_Strcat(str, len, (mod & MTY_MOD_WIN) ? "Super+" : "");
+	MTY_Strcat(str, len, (mod & MTY_MOD_CTRL) ? "Ctrl+" : "");
+	MTY_Strcat(str, len, (mod & MTY_MOD_ALT) ? "Alt+" : "");
+	MTY_Strcat(str, len, (mod & MTY_MOD_SHIFT) ? "Shift+" : "");
+
+	for (int32_t x = 0; x < (int32_t) APP_KEYS_MAX; x++) {
+		if (key == APP_KEYS[x]) {
+			JNIEnv *env = MTY_JNIEnv();
+
+			jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+			jmethodID mid = (*env)->GetMethodID(env, cls, "getKey", "(I)I");
+
+			jint jcode = (*env)->CallIntMethod(env, APP_MTY_OBJ, mid, x);
+
+			char key_str[32] = {0};
+			memcpy(key_str, &jcode, sizeof(jint));
+			MTY_Strcat(str, len, key_str);
+			break;
+		}
+	}
+}
+
+void MTY_AppSetHotkey(MTY_App *ctx, MTY_Hotkey mode, MTY_Mod mod, MTY_Key key, uint32_t id)
+{
+	mod &= 0xFF;
+	MTY_HashSetInt(ctx->hotkey, (mod << 16) | key, (void *) (uintptr_t) id);
+}
+
+void MTY_AppRemoveHotkeys(MTY_App *ctx, MTY_Hotkey mode)
+{
+	MTY_HashDestroy(&ctx->hotkey, NULL);
+	ctx->hotkey = MTY_HashCreate(0);
+}
 
 char *MTY_AppGetClipboard(MTY_App *app)
 {
@@ -658,6 +697,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	ctx->app_func = appFunc;
 	ctx->msg_func = msgFunc;
 	ctx->opaque = opaque;
+	ctx->hotkey = MTY_HashCreate(0);
 
 	ctx->scale = app_get_scale();
 
@@ -670,6 +710,8 @@ void MTY_AppDestroy(MTY_App **app)
 		return;
 
 	MTY_App *ctx = *app;
+
+	MTY_HashDestroy(&ctx->hotkey, NULL);
 
 	MTY_Free(ctx);
 	*app = NULL;
@@ -832,23 +874,6 @@ MTY_Detach MTY_AppGetDetached(MTY_App *app)
 	// When touch events are receved, don't respect detach
 
 	return APP_DETACH ? app->detach : MTY_DETACH_NONE;
-}
-
-void MTY_AppHotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
-{
-	memset(str, 0, len);
-
-	// TODO
-}
-
-void MTY_AppSetHotkey(MTY_App *ctx, MTY_Hotkey mode, MTY_Mod mod, MTY_Key key, uint32_t id)
-{
-	// TODO
-}
-
-void MTY_AppRemoveHotkeys(MTY_App *ctx, MTY_Hotkey mode)
-{
-	// TODO
 }
 
 void MTY_AppSetInputMode(MTY_App *ctx, MTY_Input mode)
