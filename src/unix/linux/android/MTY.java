@@ -387,20 +387,15 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 }
 
 public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChangedListener {
-	native void app_start(String name);
-	native void gfx_global_init();
-
 	static boolean runOnce;
 
-	int scrollY;
-	boolean isFullscreen;
 	float displayDensity;
 	MTYSurface surface;
 	Activity activity;
 	KeyCharacterMap kbmap;
 
-
-	// Called from Java
+	native void app_start(String name);
+	native void gfx_global_init();
 
 	public MTY(String name, Activity activity) {
 		if (!runOnce) {
@@ -439,26 +434,7 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 
 	// Called from C
 
-	private static int normalFlags() {
-		return
-			View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |  // Prevents hidden stuff from coming back spontaneously
-			View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
-	}
-
-	private static int fullscreenFlags() {
-		return
-			View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | // Removes space at the top for menu bar
-			View.SYSTEM_UI_FLAG_FULLSCREEN |        // Removes menu bar
-			View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;    // Hides navigation buttons at the bottom
-	}
-
-	private boolean flagsFullscreen() {
-		return (this.activity.getWindow().getDecorView().getSystemUiVisibility() & MTY.fullscreenFlags()) == MTY.fullscreenFlags();
-	}
-
-	private void setUiFlags(int flags) {
-		this.activity.getWindow().getDecorView().setSystemUiVisibility(flags);
-	}
+	int scrollY;
 
 	public void checkScroller() {
 		this.surface.scroller.computeScrollOffset();
@@ -478,23 +454,6 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 		}
 	}
 
-	public void enableScreenSaver(boolean _enable) {
-		final MTY self = this;
-		final boolean enable = _enable;
-
-		this.activity.runOnUiThread(new Runnable() {
-			@Override
-			public void run() {
-				if (enable) {
-					self.activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-
-				} else {
-					self.activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-				}
-			}
-		});
-	}
-
 	public void showKeyboard(boolean show) {
 		Context context = this.surface.getContext();
 		InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -505,10 +464,6 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 		} else {
 			imm.hideSoftInputFromWindow(this.surface.getWindowToken(), 0, null);
 		}
-	}
-
-	public boolean isFullscreen() {
-		return this.isFullscreen;
 	}
 
 	public void setOrientation(int _orientation) {
@@ -535,6 +490,54 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 
 	public float getDisplayDensity() {
 		return this.displayDensity;
+	}
+
+	public void enableScreenSaver(boolean _enable) {
+		final MTY self = this;
+		final boolean enable = _enable;
+
+		this.activity.runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				if (enable) {
+					self.activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+				} else {
+					self.activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+				}
+			}
+		});
+	}
+
+
+
+	// Fullscreen
+
+	boolean isFullscreen;
+
+	private static int normalFlags() {
+		return
+			View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |  // Prevents hidden stuff from coming back spontaneously
+			View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
+	}
+
+	private static int fullscreenFlags() {
+		return
+			View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | // Removes space at the top for menu bar
+			View.SYSTEM_UI_FLAG_FULLSCREEN |        // Removes menu bar
+			View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;    // Hides navigation buttons at the bottom
+	}
+
+	private boolean flagsFullscreen() {
+		return (this.activity.getWindow().getDecorView().getSystemUiVisibility() & MTY.fullscreenFlags()) == MTY.fullscreenFlags();
+	}
+
+	private void setUiFlags(int flags) {
+		this.activity.getWindow().getDecorView().setSystemUiVisibility(flags);
+	}
+
+	public boolean isFullscreen() {
+		return this.isFullscreen;
 	}
 
 	public void handleFullscreen(boolean enable) {
