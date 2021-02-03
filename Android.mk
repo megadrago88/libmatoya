@@ -58,6 +58,7 @@ LOCAL_SRC_FILES := \
 	src/gfx/gl-ui.c \
 	src/gfx/render.c \
 	src/gfx/window-ctx.c \
+	src/unix/compress.c \
 	src/unix/fs.c \
 	src/unix/memory.c \
 	src/unix/proc.c \

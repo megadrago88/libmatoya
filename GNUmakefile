@@ -224,7 +224,7 @@ android: clean clear $(SHADERS)
 		NDK_PROJECT_PATH=. \
 		APP_BUILD_SCRIPT=Android.mk \
 		APP_OPTIM=release \
-		APP_PLATFORM=android-23 \
+		APP_PLATFORM=android-24 \
 		--no-print-directory \
 		| grep -v 'fcntl(): Operation not supported'
 
