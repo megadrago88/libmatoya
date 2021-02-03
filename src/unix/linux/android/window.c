@@ -34,6 +34,8 @@ struct MTY_App {
 
 // From GFX module
 
+void gfx_global_init(void);
+void gfx_global_destroy(void);
 bool gfx_is_ready(void);
 bool gfx_was_reinit(bool reset);
 uint32_t gfx_width(void);
@@ -48,13 +50,16 @@ int main(int argc, char **argv);
 static MTY_Queue *APP_EVENTS;
 static MTY_Hash *APP_CTRLRS;
 static MTY_Mutex *APP_CTRLR_MUTEX;
+static MTY_Thread *APP_LOG_THREAD;
+static MTY_Thread *APP_THREAD;
 static int32_t APP_DOUBLE_TAP;
 static MTY_Input APP_INPUT = MTY_INPUT_TOUCHSCREEN;
 static MTY_MouseButton APP_LONG_BUTTON;
 static JavaVM *APP_JVM;
 static jobject APP_MTY_OBJ;
+static jclass APP_MTY_CLS;
 static bool APP_CHECK_SCROLLER;
-static bool LOG_THREAD;
+static bool APP_LOG_THREAD_RUNNING;
 static bool APP_DETACH;
 
 static const MTY_Controller APP_ZEROED_CTRLR = {
@@ -104,6 +109,54 @@ static const MTY_Controller APP_ZEROED_CTRLR = {
 	},
 };
 
+
+// JNI wrappers
+
+static void app_void_method(const char *name, const char *sig, ...)
+{
+	JNIEnv *env = MTY_JNIEnv();
+
+	va_list args;
+	va_start(args, sig);
+
+	jmethodID mid = (*env)->GetMethodID(env, APP_MTY_CLS, name, sig);
+	(*env)->CallVoidMethodV(env, APP_MTY_OBJ, mid, args);
+
+	va_end(args);
+}
+
+static bool app_bool_method(const char *name, const char *sig, ...)
+{
+	JNIEnv *env = MTY_JNIEnv();
+
+	va_list args;
+	va_start(args, sig);
+
+	jmethodID mid = (*env)->GetMethodID(env, APP_MTY_CLS, name, sig);
+	bool r = (*env)->CallBooleanMethodV(env, APP_MTY_OBJ, mid, args);
+
+	va_end(args);
+
+	return r;
+}
+
+
+// JNI
+
+static void app_push_msg(MTY_Msg *msg)
+{
+	MTY_Msg *qmsg = MTY_QueueAcquireBuffer(APP_EVENTS);
+	*qmsg = *msg;
+
+	MTY_QueuePush(APP_EVENTS, sizeof(MTY_Msg));
+}
+
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1check_1scroller(JNIEnv *env, jobject obj,
+	jboolean check)
+{
+	APP_CHECK_SCROLLER = check;
+}
+
 static void *app_log_thread(void *opaque)
 {
 	// stdout & stderr redirection
@@ -115,7 +168,7 @@ static void *app_log_thread(void *opaque)
 	dup2(pfd[1], 1);
 	dup2(pfd[1], 2);
 
-	while (LOG_THREAD) {
+	while (APP_LOG_THREAD_RUNNING) {
 		char buf[512];
 		ssize_t size = read(pfd[0], buf, 511);
 
@@ -133,11 +186,21 @@ static void *app_log_thread(void *opaque)
 	return NULL;
 }
 
+static void *app_thread(void *opaque)
+{
+	char *argv[2] = {(char *) opaque, NULL};
+	main(1, argv);
+
+	app_void_method("finish", "()V");
+
+	return NULL;
+}
+
 void *MTY_JNIEnv(void)
 {
 	JNIEnv *env = NULL;
 
-	if ((*APP_JVM)->GetEnv(APP_JVM, (void **) &env, JNI_VERSION_1_4) < 0)
+	if ((*APP_JVM)->GetEnv(APP_JVM, (void **) &env, JNI_VERSION_1_6) < 0)
 		(*APP_JVM)->AttachCurrentThread(APP_JVM, &env, NULL);
 
 	return env;
@@ -153,56 +216,58 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
 	// This is safe to store globally at any point
 	APP_JVM = vm;
 
-	return JNI_VERSION_1_4;
+	return JNI_VERSION_1_6;
 }
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1start(JNIEnv *env, jobject obj,
 	jstring jname)
 {
+	APP_MTY_OBJ = (*env)->NewGlobalRef(env, obj);
+
+	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
+	APP_MTY_CLS = (*env)->NewGlobalRef(env, cls);
+
+	gfx_global_init();
+
 	APP_EVENTS = MTY_QueueCreate(500, sizeof(MTY_Msg));
 	APP_CTRLRS = MTY_HashCreate(0);
 	APP_CTRLR_MUTEX = MTY_MutexCreate();
 
-	LOG_THREAD = true;
-	MTY_Thread *log_thread = MTY_ThreadCreate(app_log_thread, NULL);
+	APP_LOG_THREAD_RUNNING = true;
+	APP_LOG_THREAD = MTY_ThreadCreate(app_log_thread, NULL);
 
 	const char *cname = (*env)->GetStringUTFChars(env, jname, 0);
 	char *name = MTY_Strdup(cname);
 	(*env)->ReleaseStringUTFChars(env, jname, cname);
 
-	APP_MTY_OBJ = (*env)->NewGlobalRef(env, obj);
-
 	// Make current working directory the package's writable area
 	chdir(MTY_Path("/data/data", name));
 
-	char *argv[2] = {name, NULL};
-	main(1, argv);
+	APP_THREAD = MTY_ThreadCreate(app_thread, name);
+}
 
-	LOG_THREAD = false;
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1stop(JNIEnv *env, jobject obj)
+{
+	MTY_Msg msg = {0};
+	msg.type = MTY_MSG_SHUTDOWN;
+	app_push_msg(&msg);
+
+	MTY_ThreadDestroy(&APP_THREAD);
+
+	APP_LOG_THREAD = false;
 	printf("\n");
 
-	MTY_Free(name);
-	MTY_ThreadDestroy(&log_thread);
+	MTY_ThreadDestroy(&APP_LOG_THREAD);
 	MTY_MutexDestroy(&APP_CTRLR_MUTEX);
 	MTY_HashDestroy(&APP_CTRLRS, MTY_Free);
 	MTY_QueueDestroy(&APP_EVENTS);
-}
 
+	gfx_global_destroy();
 
-// JNI Helpers
-
-static void app_push_msg(MTY_Msg *msg)
-{
-	MTY_Msg *qmsg = MTY_QueueAcquireBuffer(APP_EVENTS);
-	*qmsg = *msg;
-
-	MTY_QueuePush(APP_EVENTS, sizeof(MTY_Msg));
-}
-
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1check_1scroller(JNIEnv *env, jobject obj,
-	jboolean check)
-{
-	APP_CHECK_SCROLLER = check;
+	(*env)->DeleteGlobalRef(env, APP_MTY_OBJ);
+	(*env)->DeleteGlobalRef(env, APP_MTY_CLS);
+	APP_MTY_OBJ = NULL;
+	APP_MTY_CLS = NULL;
 }
 
 
@@ -634,9 +699,7 @@ void MTY_AppHotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
 			if (key == APP_KEYS[x]) {
 				JNIEnv *env = MTY_JNIEnv();
 
-				jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-				jmethodID mid = (*env)->GetMethodID(env, cls, "getKey", "(I)Ljava/lang/String;");
-
+				jmethodID mid = (*env)->GetMethodID(env, APP_MTY_CLS, "getKey", "(I)Ljava/lang/String;");
 				jstring jtext = (*env)->CallObjectMethod(env, APP_MTY_OBJ, mid, x);
 				if (jtext) {
 					const char *ctext = (*env)->GetStringUTFChars(env, jtext, 0);
@@ -667,9 +730,7 @@ char *MTY_AppGetClipboard(MTY_App *app)
 {
 	JNIEnv *env = MTY_JNIEnv();
 
-	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "getClipboard", "()Ljava/lang/String;");
-
+	jmethodID mid = (*env)->GetMethodID(env, APP_MTY_CLS, "getClipboard", "()Ljava/lang/String;");
 	jstring jtext = (*env)->CallObjectMethod(env, APP_MTY_OBJ, mid);
 	if (jtext) {
 		const char *ctext = (*env)->GetStringUTFChars(env, jtext, 0);
@@ -686,22 +747,16 @@ char *MTY_AppGetClipboard(MTY_App *app)
 void MTY_AppSetClipboard(MTY_App *app, const char *text)
 {
 	JNIEnv *env = MTY_JNIEnv();
-
-	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "setClipboard", "(Ljava/lang/String;)V");
-
 	jstring jtext = (*env)->NewStringUTF(env, text);
 
-	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, jtext);
+	app_void_method("setClipboard", "(Ljava/lang/String;)V", jtext);
 }
 
 static float app_get_scale(void)
 {
 	JNIEnv *env = MTY_JNIEnv();
 
-	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "getDisplayDensity", "()F");
-
+	jmethodID mid = (*env)->GetMethodID(env, APP_MTY_CLS, "getDisplayDensity", "()F");
 	jfloat density = (*env)->CallFloatMethod(env, APP_MTY_OBJ, mid);
 
 	return density / 185.0f;
@@ -735,12 +790,7 @@ void MTY_AppDestroy(MTY_App **app)
 
 static void app_check_scroller(void)
 {
-	JNIEnv *env = MTY_JNIEnv();
-
-	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "checkScroller", "()V");
-
-	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid);
+	app_void_method("checkScroller", "()V");
 }
 
 static bool app_check_focus(MTY_App *ctx, bool was_ready)
@@ -804,12 +854,7 @@ void MTY_AppSetTimeout(MTY_App *ctx, uint32_t timeout)
 
 void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 {
-	JNIEnv *env = MTY_JNIEnv();
-
-	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "enableScreenSaver", "(Z)V");
-
-	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, enable);
+	app_void_method("enableScreenSaver", "(Z)V", enable);
 }
 
 bool MTY_AppIsActive(MTY_App *ctx)
@@ -819,39 +864,26 @@ bool MTY_AppIsActive(MTY_App *ctx)
 
 void MTY_AppSetOnscreenKeyboard(MTY_App *app, bool enable)
 {
-	JNIEnv *env = MTY_JNIEnv();
-
-	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "showKeyboard", "(Z)V");
-
-	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, enable);
+	app_void_method("showKeyboard", "(Z)V", enable);
 }
 
 void MTY_AppSetOrientation(MTY_App *app, MTY_Orientation orientation)
 {
-	JNIEnv *env = MTY_JNIEnv();
-
-	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "setOrientation", "(I)V");
-
-	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, orientation);
+	app_void_method("setOrientation", "(I)V", orientation);
 }
 
 void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
-	JNIEnv *env = MTY_JNIEnv();
-
-	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "setCursor", "([BFF)V");
-
 	jbyteArray jimage = 0;
 
 	if (image && size > 0) {
+		JNIEnv *env = MTY_JNIEnv();
+
 		jimage = (*env)->NewByteArray(env, size);
 		(*env)->SetByteArrayRegion(env, jimage, 0, size, image);
 	}
 
-	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, jimage, (jfloat) hotX, (jfloat) hotY);
+	app_void_method("setCursor", "([BFF)V", jimage, (jfloat) hotX, (jfloat) hotY);
 }
 
 bool MTY_AppCanWarpCursor(MTY_App *ctx)
@@ -861,42 +893,22 @@ bool MTY_AppCanWarpCursor(MTY_App *ctx)
 
 void MTY_AppShowCursor(MTY_App *ctx, bool show)
 {
-	JNIEnv *env = MTY_JNIEnv();
-
-	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "showCursor", "(Z)V");
-
-	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, show);
+	app_void_method("showCursor", "(Z)V", show);
 }
 
 void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 {
-	JNIEnv *env = MTY_JNIEnv();
-
-	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "useDefaultCursor", "(Z)V");
-
-	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, useDefault);
+	app_void_method("useDefaultCursor", "(Z)V", useDefault);
 }
 
 void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 {
-	JNIEnv *env = MTY_JNIEnv();
-
-	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "setRelativeMouse", "(Z)V");
-
-	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, relative);
+	app_void_method("setRelativeMouse", "(Z)V", relative);
 }
 
 bool MTY_AppGetRelativeMouse(MTY_App *app)
 {
-	JNIEnv *env = MTY_JNIEnv();
-
-	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "getRelativeMouse", "()Z");
-
-	return (*env)->CallBooleanMethod(env, APP_MTY_OBJ, mid);
+	return app_boolean_method("getRelativeMouse", "()Z");
 }
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
@@ -926,22 +938,12 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
 {
-	JNIEnv *env = MTY_JNIEnv();
-
-	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "enableFullscreen", "(Z)V");
-
-	(*env)->CallVoidMethod(env, APP_MTY_OBJ, mid, fullscreen);
+	app_void_method("enableFullscreen", "(Z)V", fullscreen);
 }
 
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 {
-	JNIEnv *env = MTY_JNIEnv();
-
-	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "isFullscreen", "()Z");
-
-	return (*env)->CallBooleanMethod(env, APP_MTY_OBJ, mid);
+	return app_boolean_method("isFullscreen", "()Z");
 }
 
 bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)

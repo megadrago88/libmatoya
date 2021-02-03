@@ -38,11 +38,6 @@ static struct gfx_gl_ctx {
 
 // JNI
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_gfx_1global_1init(JNIEnv *env, jobject obj)
-{
-	CTX.mutex = MTY_MutexCreate();
-}
-
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_gfx_1dims(JNIEnv *env, jobject obj,
 	jint w, jint h)
 {
@@ -84,6 +79,16 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_gfx_1unset_1surface(JNIEnv *env
 	CTX.init = false;
 
 	MTY_MutexUnlock(CTX.mutex);
+}
+
+void gfx_global_init(void)
+{
+	CTX.mutex = MTY_MutexCreate();
+}
+
+void gfx_global_destroy(void)
+{
+	MTY_MutexDestroy(&CTX.mutex);
 }
 
 bool gfx_is_ready(void)

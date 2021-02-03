@@ -43,7 +43,6 @@ public class MTY extends SurfaceView implements
 	ScaleGestureDetector.OnScaleGestureListener,
 	ClipboardManager.OnPrimaryClipChangedListener
 {
-	static boolean runOnce;
 	PointerIcon cursor;
 	PointerIcon iCursor;
 	GestureDetector detector;
@@ -58,14 +57,15 @@ public class MTY extends SurfaceView implements
 	Activity activity;
 	KeyCharacterMap kbmap;
 
-	native void gfx_global_init();
 	native void gfx_dims(int w, int h);
 	native void gfx_set_surface(Surface surface);
 	native void gfx_unset_surface();
 
+	native void app_start(String name);
+	native void app_stop();
+
 	native boolean app_key(boolean pressed, int code, String text, int mods);
 	native boolean app_long_press(float x, float y);
-	native void app_start(String name);
 	native void app_unplug(int deviceId);
 	native void app_single_tap_up(float x, float y);
 	native void app_scroll(float absX, float absY, float x, float y, int fingers);
@@ -82,11 +82,6 @@ public class MTY extends SurfaceView implements
 		super(activity);
 
 		this.activity = activity;
-
-		if (!runOnce) {
-			System.loadLibrary(name);
-			gfx_global_init();
-		}
 
 		this.kbmap = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
 		this.vibrator = (Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE);
@@ -121,18 +116,12 @@ public class MTY extends SurfaceView implements
 		this.setFocusable(true);
 		this.requestFocus();
 
-		if (!runOnce) {
-			final MTY self = this;
+		System.loadLibrary(name);
+		app_start(activity.getApplicationContext().getPackageName());
+	}
 
-			(new Thread() {
-				public void run() {
-					app_start(self.activity.getApplicationContext().getPackageName());
-					self.activity.finishAndRemoveTask();
-				}
-			}).start();
-		}
-
-		runOnce = true;
+	public void destroy() {
+		app_stop();
 	}
 
 
@@ -642,5 +631,9 @@ public class MTY extends SurfaceView implements
 				}
 			}
 		});
+	}
+
+	public void finish() {
+		this.activity.finishAndRemoveTask();
 	}
 }

@@ -24,12 +24,12 @@
 #define STBI_MALLOC(size)        MTY_Alloc(size, 1)
 #define STBI_REALLOC(ptr, size)  MTY_Realloc(ptr, size, 1)
 #define STBI_FREE(ptr)           MTY_Free(ptr)
-#define STBI_ASSERT(x)           MTY_Log(#x)
+#define STBI_ASSERT(x)
 
 #define STBIW_MALLOC(size)       MTY_Alloc(size, 1)
 #define STBIW_REALLOC(ptr, size) MTY_Realloc(ptr, size, 1)
 #define STBIW_FREE(ptr)          MTY_Free(ptr)
-#define STBIW_ASSERT(x)          MTY_Log(#x)
+#define STBIW_ASSERT(x)
 
 #include "stb/stb_image.h"
 #include "stb/stb_image_write.h"
