@@ -33,6 +33,7 @@ OBJS = \
 	src/gfx/window-ctx.o
 
 OBJS := $(OBJS) \
+	src/unix/compress.o \
 	src/unix/fs.o \
 	src/unix/memory.o \
 	src/unix/proc.o \

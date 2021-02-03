@@ -43,6 +43,7 @@ OBJS = \
 
 OBJS = $(OBJS) \
 	src\windows\audio.obj \
+	src\windows\compressw.obj \
 	src\windows\cryptow.obj \
 	src\windows\fsw.obj \
 	src\windows\memoryw.obj \

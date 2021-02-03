@@ -54,7 +54,6 @@ MTY_AudioDestroy(MTY_Audio **audio);
 typedef enum {
 	MTY_IMAGE_PNG     = 1,
 	MTY_IMAGE_JPG     = 2,
-	MTY_IMAGE_BMP     = 3,
 	MTY_IMAGE_MAKE_32 = 0x7FFFFFFF,
 } MTY_Image;
 
@@ -68,12 +67,6 @@ MTY_DecompressImage(const void *input, size_t size, uint32_t *width, uint32_t *h
 MTY_EXPORT void *
 MTY_CropImage(const void *image, uint32_t cropWidth, uint32_t cropHeight, uint32_t *width,
 	uint32_t *height);
-
-MTY_EXPORT void *
-MTY_Compress(const void *input, size_t inputSize, size_t *outputSize);
-
-MTY_EXPORT void *
-MTY_Decompress(const void *input, size_t inputSize, size_t *outputSize);
 
 
 /// @module crypto
