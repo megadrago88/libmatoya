@@ -34,15 +34,16 @@ import android.widget.Scroller;
 import android.os.Vibrator;
 import android.os.Build;
 
-class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
-	GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener,
-	GestureDetector.OnContextClickListener, ScaleGestureDetector.OnScaleGestureListener,
-	InputManager.InputDeviceListener
+public class MTY extends SurfaceView implements
+	SurfaceHolder.Callback,
+	InputManager.InputDeviceListener,
+	GestureDetector.OnGestureListener,
+	GestureDetector.OnDoubleTapListener,
+	GestureDetector.OnContextClickListener,
+	ScaleGestureDetector.OnScaleGestureListener,
+	ClipboardManager.OnPrimaryClipChangedListener
 {
-	String iCursorB64 =
-		"iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAQAAADZc7J/AAAAH0lEQVR42mNk" +
-		"oBAwjhowasCoAaMGjBowasCoAcPNAACOMAAhOO/A7wAAAABJRU5ErkJggg==";
-
+	static boolean runOnce;
 	PointerIcon cursor;
 	PointerIcon iCursor;
 	GestureDetector detector;
@@ -51,38 +52,92 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	Vibrator vibrator;
 	boolean hiddenCursor;
 	boolean defaultCursor;
+	boolean isFullscreen;
+	float displayDensity;
+	int scrollY;
+	Activity activity;
+	KeyCharacterMap kbmap;
 
-
-	// Surface
-
+	native void gfx_global_init();
 	native void gfx_dims(int w, int h);
 	native void gfx_set_surface(Surface surface);
 	native void gfx_unset_surface();
 
-	public MTYSurface(Context context) {
-		super(context);
-		this.getHolder().addCallback(this);
+	native boolean app_key(boolean pressed, int code, String text, int mods);
+	native boolean app_long_press(float x, float y);
+	native void app_start(String name);
+	native void app_unplug(int deviceId);
+	native void app_single_tap_up(float x, float y);
+	native void app_scroll(float absX, float absY, float x, float y, int fingers);
+	native void app_check_scroller(boolean check);
+	native void app_mouse_motion(boolean relative, float x, float y);
+	native void app_mouse_button(boolean pressed, int button, float x, float y);
+	native void app_mouse_wheel(float x, float y);
+	native void app_button(int deviceId, boolean pressed, int code);
+	native void app_axis(int deviceId, float hatX, float hatY, float lX, float lY, float rX, float rY, float lT, float rT);
+	native void app_unhandled_touch(int action, float x, float y, int fingers);
 
-		this.setFocusableInTouchMode(true);
-		this.setFocusable(true);
 
-		this.vibrator = (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+	public MTY(String name, Activity activity) {
+		super(activity);
 
-		this.detector = new GestureDetector(context, this);
-		this.detector.setOnDoubleTapListener(this);
-		this.detector.setContextClickListener(this);
+		this.activity = activity;
 
-		InputManager manager = (InputManager) context.getSystemService(Context.INPUT_SERVICE);
-		manager.registerInputDeviceListener(this, null);
+		if (!runOnce) {
+			System.loadLibrary(name);
+			gfx_global_init();
+		}
 
-		this.sdetector = new ScaleGestureDetector(context, this);
+		this.kbmap = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
+		this.vibrator = (Vibrator) activity.getSystemService(Context.VIBRATOR_SERVICE);
+		this.detector = new GestureDetector(activity, this);
+		this.sdetector = new ScaleGestureDetector(activity, this);
+		this.scroller = new Scroller(activity);
 
-		this.scroller = new Scroller(context);
+		DisplayMetrics dm = new DisplayMetrics();
+		this.activity.getWindowManager().getDefaultDisplay().getMetrics(dm);
+		this.displayDensity = dm.xdpi;
 
-		byte[] iCursorData = Base64.decode(this.iCursorB64, Base64.DEFAULT);
+		String b64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAQAAADZc7J/AAAAH0lEQVR42mNk" +
+			"oBAwjhowasCoAaMGjBowasCoAcPNAACOMAAhOO/A7wAAAABJRU5ErkJggg==";
+
+		byte[] iCursorData = Base64.decode(b64, Base64.DEFAULT);
 		Bitmap bm = BitmapFactory.decodeByteArray(iCursorData, 0, iCursorData.length, null);
 		this.iCursor = PointerIcon.create(bm, 0, 0);
+
+		ViewGroup vg = activity.findViewById(android.R.id.content);
+		activity.addContentView(this, vg.getLayoutParams());
+
+		ClipboardManager clipboard = (ClipboardManager) this.activity.getSystemService(Context.CLIPBOARD_SERVICE);
+		clipboard.addPrimaryClipChangedListener(this);
+
+		InputManager manager = (InputManager) activity.getSystemService(Context.INPUT_SERVICE);
+		manager.registerInputDeviceListener(this, null);
+
+		this.getHolder().addCallback(this);
+		this.detector.setOnDoubleTapListener(this);
+		this.detector.setContextClickListener(this);
+		this.setFocusableInTouchMode(true);
+		this.setFocusable(true);
+		this.requestFocus();
+
+		if (!runOnce) {
+			final MTY self = this;
+
+			(new Thread() {
+				public void run() {
+					app_start(self.activity.getApplicationContext().getPackageName());
+					self.activity.finishAndRemoveTask();
+				}
+			}).start();
+		}
+
+		runOnce = true;
 	}
+
+
+	/** SurfaceView */
+
 
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
@@ -102,24 +157,8 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 	// Cursor
 
-	public PointerIcon getCursor() {
+	private PointerIcon getCursor() {
 		return this.defaultCursor ? null : this.hiddenCursor ? this.iCursor : this.cursor;
-	}
-
-	public void setCursor() {
-		this.setPointerIcon(this.getCursor());
-	}
-
-	public void setCursor(byte[] data, float hotX, float hotY) {
-		if (data != null) {
-			Bitmap bm = BitmapFactory.decodeByteArray(data, 0, data.length, null);
-			this.cursor = PointerIcon.create(bm, hotX, hotY);
-
-		} else {
-			this.cursor = null;
-		}
-
-		this.setPointerIcon(this.cursor);
 	}
 
 	@Override
@@ -127,22 +166,8 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 		return this.getCursor();
 	}
 
-	public void setRelativeMouse(boolean relative) {
-		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O)
-			return;
-
-		if (relative) {
-			this.requestPointerCapture();
-
-		} else {
-			this.releasePointerCapture();
-		}
-	}
-
 
 	// InputDevice listener
-
-	native void app_unplug(int deviceId);
 
 	@Override
 	public void onInputDeviceRemoved(int deviceId) {
@@ -175,18 +200,6 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 
 
 	// Events
-
-	native boolean app_key(boolean pressed, int code, String text, int mods);
-	native void app_single_tap_up(float x, float y);
-	native void app_scroll(float absX, float absY, float x, float y, int fingers);
-	native boolean app_long_press(float x, float y);
-	native void app_check_scroller(boolean check);
-	native void app_mouse_motion(boolean relative, float x, float y);
-	native void app_mouse_button(boolean pressed, int button, float x, float y);
-	native void app_mouse_wheel(float x, float y);
-	native void app_button(int deviceId, boolean pressed, int code);
-	native void app_axis(int deviceId, float hatX, float hatY, float lX, float lY, float rX, float rY, float lT, float rT);
-	native void app_unhandled_touch(int action, float x, float y, int fingers);
 
 	private static boolean isMouseEvent(InputEvent event) {
 		return
@@ -384,136 +397,12 @@ class MTYSurface extends SurfaceView implements SurfaceHolder.Callback,
 	@Override
 	public void onScaleEnd(ScaleGestureDetector sdetector) {
 	}
-}
-
-public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChangedListener {
-	static boolean runOnce;
-
-	float displayDensity;
-	MTYSurface surface;
-	Activity activity;
-	KeyCharacterMap kbmap;
-
-	native void app_start(String name);
-	native void gfx_global_init();
-
-	public MTY(String name, Activity activity) {
-		if (!runOnce) {
-			System.loadLibrary(name);
-			gfx_global_init();
-		}
-
-		this.activity = activity;
-		this.surface = new MTYSurface(activity.getApplicationContext());
-		this.kbmap = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
-
-		DisplayMetrics dm = new DisplayMetrics();
-		this.activity.getWindowManager().getDefaultDisplay().getMetrics(dm);
-		this.displayDensity = dm.xdpi;
-
-		ViewGroup vg = activity.findViewById(android.R.id.content);
-		activity.addContentView(this.surface, vg.getLayoutParams());
-
-		this.surface.requestFocus();
-
-		ClipboardManager clipboard = (ClipboardManager) this.activity.getSystemService(Context.CLIPBOARD_SERVICE);
-		clipboard.addPrimaryClipChangedListener(this);
-
-		if (!runOnce)
-			this.start();
-
-		runOnce = true;
-	}
-
-	@Override
-	public void run() {
-		app_start(this.activity.getApplicationContext().getPackageName());
-		this.activity.finishAndRemoveTask();
-	}
 
 
-	// Called from C
-
-	int scrollY;
-
-	public void checkScroller() {
-		this.surface.scroller.computeScrollOffset();
-
-		if (!this.surface.scroller.isFinished()) {
-			int currY = this.surface.scroller.getCurrY();
-			int diff = this.scrollY - currY;
-
-			if (diff != 0)
-				this.surface.app_scroll(-1.0f, -1.0f, 0.0f, diff, 1);
-
-			this.scrollY = currY;
-
-		} else {
-			this.surface.app_check_scroller(false);
-			this.scrollY = 0;
-		}
-	}
-
-	public void showKeyboard(boolean show) {
-		Context context = this.surface.getContext();
-		InputMethodManager imm = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
-
-		if (show) {
-			imm.showSoftInput(this.surface, 0, null);
-
-		} else {
-			imm.hideSoftInputFromWindow(this.surface.getWindowToken(), 0, null);
-		}
-	}
-
-	public void setOrientation(int _orientation) {
-		final MTY self = this;
-		final int orienation = _orientation;
-
-		this.activity.runOnUiThread(new Runnable() {
-			@Override
-			public void run() {
-				switch (orienation) {
-					case 1:
-						self.activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
-						break;
-					case 2:
-						self.activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
-						break;
-					default:
-						self.activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
-						break;
-				}
-			}
-		});
-	}
-
-	public float getDisplayDensity() {
-		return this.displayDensity;
-	}
-
-	public void enableScreenSaver(boolean _enable) {
-		final MTY self = this;
-		final boolean enable = _enable;
-
-		this.activity.runOnUiThread(new Runnable() {
-			@Override
-			public void run() {
-				if (enable) {
-					self.activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-
-				} else {
-					self.activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-				}
-			}
-		});
-	}
-
+	/** NDK */
 
 
 	// Fullscreen
-
-	boolean isFullscreen;
 
 	private static int normalFlags() {
 		return
@@ -529,7 +418,9 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 	}
 
 	private boolean flagsFullscreen() {
-		return (this.activity.getWindow().getDecorView().getSystemUiVisibility() & MTY.fullscreenFlags()) == MTY.fullscreenFlags();
+		int flags = this.activity.getWindow().getDecorView().getSystemUiVisibility();
+
+		return (flags & MTY.fullscreenFlags()) == MTY.fullscreenFlags();
 	}
 
 	private void setUiFlags(int flags) {
@@ -540,35 +431,35 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 		return this.isFullscreen;
 	}
 
-	public void handleFullscreen(boolean enable) {
-		// Static variable update only on main thread
-		this.isFullscreen = this.flagsFullscreen();
-
-		if (enable && !this.isFullscreen) {
-			this.setUiFlags(this.normalFlags() | this.fullscreenFlags());
-
-		} else if (!enable && this.isFullscreen) {
-			this.setUiFlags(this.normalFlags());
-		}
-
-		// Update static after set
-		this.isFullscreen = this.flagsFullscreen();
-	}
-
 	public void enableFullscreen(boolean _enable) {
 		final MTY self = this;
 		final boolean enable = _enable;
 
 		this.activity.runOnUiThread(new Runnable() {
-			@Override
 			public void run() {
-				self.handleFullscreen(enable);
+				// Static variable update only on main thread
+				self.isFullscreen = self.flagsFullscreen();
+
+				if (enable && !self.isFullscreen) {
+					self.setUiFlags(self.normalFlags() | self.fullscreenFlags());
+
+				} else if (!enable && self.isFullscreen) {
+					self.setUiFlags(self.normalFlags());
+				}
+
+				// Update static after set
+				self.isFullscreen = self.flagsFullscreen();
 			}
 		});
 	}
 
 
 	// Clipboard
+
+	@Override
+	public void onPrimaryClipChanged() {
+		// TODO Send native notification
+	}
 
 	public void setClipboard(String str) {
 		ClipboardManager clipboard = (ClipboardManager) this.activity.getSystemService(Context.CLIPBOARD_SERVICE);
@@ -590,13 +481,12 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 		return null;
 	}
 
-	@Override
-	public void onPrimaryClipChanged() {
-		// Send native notification
-	}
-
 
 	// Cursor
+
+	private void setCursor() {
+		this.setPointerIcon(this.getCursor());
+	}
 
 	public void setCursor(byte[] _data, float _hotX, float _hotY) {
 		final MTY self = this;
@@ -605,9 +495,16 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 		final float hotY = _hotY;
 
 		this.activity.runOnUiThread(new Runnable() {
-			@Override
 			public void run() {
-				self.surface.setCursor(data, hotX, hotY);
+				if (data != null) {
+					Bitmap bm = BitmapFactory.decodeByteArray(data, 0, data.length, null);
+					self.cursor = PointerIcon.create(bm, hotX, hotY);
+
+				} else {
+					self.cursor = null;
+				}
+
+				self.setPointerIcon(self.cursor);
 			}
 		});
 	}
@@ -617,10 +514,9 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 		final boolean show = _show;
 
 		this.activity.runOnUiThread(new Runnable() {
-			@Override
 			public void run() {
-				self.surface.hiddenCursor = !show;
-				self.surface.setCursor();
+				self.hiddenCursor = !show;
+				self.setCursor();
 			}
 		});
 	}
@@ -630,10 +526,9 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 		final boolean useDefault = _useDefault;
 
 		this.activity.runOnUiThread(new Runnable() {
-			@Override
 			public void run() {
-				self.surface.defaultCursor = useDefault;
-				self.surface.setCursor();
+				self.defaultCursor = useDefault;
+				self.setCursor();
 			}
 		});
 	}
@@ -643,9 +538,16 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 		final boolean relative = _relative;
 
 		this.activity.runOnUiThread(new Runnable() {
-			@Override
 			public void run() {
-				self.surface.setRelativeMouse(relative);
+				if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O)
+					return;
+
+				if (relative) {
+					self.requestPointerCapture();
+
+				} else {
+					self.releasePointerCapture();
+				}
 			}
 		});
 	}
@@ -654,11 +556,15 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O)
 			return false;
 
-		return this.surface.hasPointerCapture();
+		return this.hasPointerCapture();
 	}
 
 
-	// Hotkeys
+	// Misc
+
+	public float getDisplayDensity() {
+		return this.displayDensity;
+	}
 
 	public String getKey(int keyCode) {
 		char label = this.kbmap.getDisplayLabel(keyCode);
@@ -670,5 +576,71 @@ public class MTY extends Thread implements ClipboardManager.OnPrimaryClipChanged
 			return KeyEvent.keyCodeToString(keyCode).replaceAll("KEYCODE_", "")
 				.replaceAll("MOVE_", "");
 		}
+	}
+
+	public void checkScroller() {
+		this.scroller.computeScrollOffset();
+
+		if (!this.scroller.isFinished()) {
+			int currY = this.scroller.getCurrY();
+			int diff = this.scrollY - currY;
+
+			if (diff != 0)
+				app_scroll(-1.0f, -1.0f, 0.0f, diff, 1);
+
+			this.scrollY = currY;
+
+		} else {
+			app_check_scroller(false);
+			this.scrollY = 0;
+		}
+	}
+
+	public void showKeyboard(boolean show) {
+		InputMethodManager imm = (InputMethodManager) this.activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+
+		if (show) {
+			imm.showSoftInput(this, 0, null);
+
+		} else {
+			imm.hideSoftInputFromWindow(this.getWindowToken(), 0, null);
+		}
+	}
+
+	public void setOrientation(int _orientation) {
+		final MTY self = this;
+		final int orienation = _orientation;
+
+		this.activity.runOnUiThread(new Runnable() {
+			public void run() {
+				switch (orienation) {
+					case 1:
+						self.activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+						break;
+					case 2:
+						self.activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
+						break;
+					default:
+						self.activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+						break;
+				}
+			}
+		});
+	}
+
+	public void enableScreenSaver(boolean _enable) {
+		final MTY self = this;
+		final boolean enable = _enable;
+
+		this.activity.runOnUiThread(new Runnable() {
+			public void run() {
+				if (enable) {
+					self.activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+				} else {
+					self.activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+				}
+			}
+		});
 	}
 }

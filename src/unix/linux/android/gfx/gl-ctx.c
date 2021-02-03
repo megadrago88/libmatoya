@@ -43,7 +43,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_gfx_1global_1init(JNIEnv *env, 
 	CTX.mutex = MTY_MutexCreate();
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_gfx_1dims(JNIEnv *env, jobject obj,
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_gfx_1dims(JNIEnv *env, jobject obj,
 	jint w, jint h)
 {
 	CTX.width = w;
@@ -52,7 +52,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_gfx_1dims(JNIEnv *env, j
 	MTY_Atomic32Set(&CTX.should_present, 2);
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_gfx_1set_1surface(JNIEnv *env, jobject obj,
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_gfx_1set_1surface(JNIEnv *env, jobject obj,
 	jobject surface)
 {
 	MTY_MutexLock(CTX.mutex);
@@ -67,7 +67,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_gfx_1set_1surface(JNIEnv
 	MTY_MutexUnlock(CTX.mutex);
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_gfx_1unset_1surface(JNIEnv *env, jobject obj)
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_gfx_1unset_1surface(JNIEnv *env, jobject obj)
 {
 	MTY_MutexLock(CTX.mutex);
 

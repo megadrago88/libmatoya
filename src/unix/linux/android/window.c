@@ -143,6 +143,11 @@ void *MTY_JNIEnv(void)
 	return env;
 }
 
+void *MTY_JNIView(void)
+{
+	return APP_MTY_OBJ;
+}
+
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
 {
 	// This is safe to store globally at any point
@@ -194,7 +199,7 @@ static void app_push_msg(MTY_Msg *msg)
 	MTY_QueuePush(APP_EVENTS, sizeof(MTY_Msg));
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1check_1scroller(JNIEnv *env, jobject obj,
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1check_1scroller(JNIEnv *env, jobject obj,
 	jboolean check)
 {
 	APP_CHECK_SCROLLER = check;
@@ -203,7 +208,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1check_1scroller(JNI
 
 // JNI keyboard events
 
-JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTYSurface_app_1key(JNIEnv *env, jobject obj,
+JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTY_app_1key(JNIEnv *env, jobject obj,
 	jboolean pressed, jint code, jstring jtext, jint mods)
 {
 	// If trap is false, android will handle the key
@@ -284,7 +289,7 @@ static void app_touch_mouse_button(int32_t x, int32_t y, MTY_MouseButton button)
 	app_push_msg(&msg);
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1unhandled_1touch(JNIEnv *env, jobject obj,
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1unhandled_1touch(JNIEnv *env, jobject obj,
 	jint action, jfloat x, jfloat y, jint fingers)
 {
 	APP_DETACH = false;
@@ -321,7 +326,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1unhandled_1touch(JN
 	}
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1single_1tap_1up(JNIEnv *env, jobject obj,
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1single_1tap_1up(JNIEnv *env, jobject obj,
 	jfloat x, jfloat y)
 {
 	APP_DETACH = false;
@@ -329,7 +334,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1single_1tap_1up(JNI
 	app_touch_mouse_button(x, y, MTY_MOUSE_BUTTON_LEFT);
 }
 
-JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTYSurface_app_1long_1press(JNIEnv *env, jobject obj,
+JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTY_app_1long_1press(JNIEnv *env, jobject obj,
 	jfloat x, jfloat y)
 {
 	APP_DETACH = false;
@@ -369,7 +374,7 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTYSurface_app_1long_1press(JNI
 	return false;
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1scroll(JNIEnv *env, jobject obj,
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1scroll(JNIEnv *env, jobject obj,
 	jfloat abs_x, jfloat abs_y, jfloat x, jfloat y, jint fingers)
 {
 	APP_DETACH = false;
@@ -410,7 +415,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1scroll(JNIEnv *env,
 
 // JNI mouse events
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1motion(JNIEnv *env, jobject obj,
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1mouse_1motion(JNIEnv *env, jobject obj,
 	jboolean relative, jfloat x, jfloat y)
 {
 	APP_DETACH = true;
@@ -425,7 +430,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1motion(JNIEn
 	app_push_msg(&msg);
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1wheel(JNIEnv *env, jobject obj,
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1mouse_1wheel(JNIEnv *env, jobject obj,
 	jfloat x, jfloat y)
 {
 	APP_DETACH = true;
@@ -437,7 +442,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1wheel(JNIEnv
 	app_push_msg(&msg);
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1mouse_1button(JNIEnv *env, jobject obj,
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1mouse_1button(JNIEnv *env, jobject obj,
 	jboolean pressed, jint button, jfloat x, jfloat y)
 {
 	APP_DETACH = true;
@@ -527,7 +532,7 @@ static void app_push_cmsg(const MTY_Controller *c)
 	app_push_msg(&msg);
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1button(JNIEnv *env, jobject obj,
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1button(JNIEnv *env, jobject obj,
 	jint deviceId, jboolean pressed, jint button)
 {
 	MTY_MutexLock(APP_CTRLR_MUTEX);
@@ -574,7 +579,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1button(JNIEnv *env,
 	MTY_MutexUnlock(APP_CTRLR_MUTEX);
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1axis(JNIEnv *env, jobject obj,
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1axis(JNIEnv *env, jobject obj,
 	jint deviceId, jfloat hatX, jfloat hatY, jfloat lX, jfloat lY, jfloat rX, jfloat rY, jfloat lT, jfloat rT)
 {
 	MTY_MutexLock(APP_CTRLR_MUTEX);
@@ -602,7 +607,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1axis(JNIEnv *env, j
 	MTY_MutexUnlock(APP_CTRLR_MUTEX);
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTYSurface_app_1unplug(JNIEnv *env, jobject obj,
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1unplug(JNIEnv *env, jobject obj,
 	jint deviceId)
 {
 	MTY_MutexLock(APP_CTRLR_MUTEX);
