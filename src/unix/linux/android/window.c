@@ -110,7 +110,22 @@ static const MTY_Controller APP_ZEROED_CTRLR = {
 };
 
 
-// JNI wrappers
+// JNI helpers
+
+void *MTY_JNIEnv(void)
+{
+	JNIEnv *env = NULL;
+
+	if ((*APP_JVM)->GetEnv(APP_JVM, (void **) &env, JNI_VERSION_1_6) < 0)
+		(*APP_JVM)->AttachCurrentThread(APP_JVM, &env, NULL);
+
+	return env;
+}
+
+void *MTY_JNIView(void)
+{
+	return APP_MTY_OBJ;
+}
 
 static void app_void_method(const char *name, const char *sig, ...)
 {
@@ -151,12 +166,6 @@ static void app_push_msg(MTY_Msg *msg)
 	MTY_QueuePush(APP_EVENTS, sizeof(MTY_Msg));
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1check_1scroller(JNIEnv *env, jobject obj,
-	jboolean check)
-{
-	APP_CHECK_SCROLLER = check;
-}
-
 static void *app_log_thread(void *opaque)
 {
 	// stdout & stderr redirection
@@ -194,21 +203,6 @@ static void *app_thread(void *opaque)
 	app_void_method("finish", "()V");
 
 	return NULL;
-}
-
-void *MTY_JNIEnv(void)
-{
-	JNIEnv *env = NULL;
-
-	if ((*APP_JVM)->GetEnv(APP_JVM, (void **) &env, JNI_VERSION_1_6) < 0)
-		(*APP_JVM)->AttachCurrentThread(APP_JVM, &env, NULL);
-
-	return env;
-}
-
-void *MTY_JNIView(void)
-{
-	return APP_MTY_OBJ;
 }
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
@@ -268,6 +262,12 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1stop(JNIEnv *env, jobject 
 	(*env)->DeleteGlobalRef(env, APP_MTY_CLS);
 	APP_MTY_OBJ = NULL;
 	APP_MTY_CLS = NULL;
+}
+
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1check_1scroller(JNIEnv *env, jobject obj,
+	jboolean check)
+{
+	APP_CHECK_SCROLLER = check;
 }
 
 
@@ -788,11 +788,6 @@ void MTY_AppDestroy(MTY_App **app)
 	*app = NULL;
 }
 
-static void app_check_scroller(void)
-{
-	app_void_method("checkScroller", "()V");
-}
-
 static bool app_check_focus(MTY_App *ctx, bool was_ready)
 {
 	MTY_Msg msg = {0};
@@ -838,7 +833,7 @@ void MTY_AppRun(MTY_App *ctx)
 		// Generates scroll events after a fling has taken place
 		// Prevent JNI calls if there's no fling in progress
 		if (APP_CHECK_SCROLLER)
-			app_check_scroller();
+			app_void_method("checkScroller", "()V");
 
 		cont = ctx->app_func(ctx->opaque);
 
@@ -908,7 +903,7 @@ void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 
 bool MTY_AppGetRelativeMouse(MTY_App *app)
 {
-	return app_boolean_method("getRelativeMouse", "()Z");
+	return app_bool_method("getRelativeMouse", "()Z");
 }
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
@@ -943,7 +938,7 @@ void MTY_WindowEnableFullscreen(MTY_App *app, MTY_Window window, bool fullscreen
 
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 {
-	return app_boolean_method("isFullscreen", "()Z");
+	return app_bool_method("isFullscreen", "()Z");
 }
 
 bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
