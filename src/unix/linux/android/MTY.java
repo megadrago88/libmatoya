@@ -61,7 +61,7 @@ public class MTY extends SurfaceView implements
 	native void gfx_set_surface(Surface surface);
 	native void gfx_unset_surface();
 
-	native void app_start(String name);
+	native void app_start();
 	native void app_stop();
 
 	native boolean app_key(boolean pressed, int code, String text, int mods);
@@ -77,8 +77,11 @@ public class MTY extends SurfaceView implements
 	native void app_axis(int deviceId, float hatX, float hatY, float lX, float lY, float rX, float rY, float lT, float rT);
 	native void app_unhandled_touch(int action, float x, float y, int fingers);
 
+	static {
+		System.loadLibrary("main");
+	}
 
-	public MTY(String name, Activity activity) {
+	public MTY(Activity activity) {
 		super(activity);
 
 		this.activity = activity;
@@ -116,8 +119,7 @@ public class MTY extends SurfaceView implements
 		this.setFocusable(true);
 		this.requestFocus();
 
-		System.loadLibrary(name);
-		app_start(activity.getApplicationContext().getPackageName());
+		app_start();
 	}
 
 	public void destroy() {
@@ -388,7 +390,7 @@ public class MTY extends SurfaceView implements
 	}
 
 
-	/** NDK */
+	/** NDK (Called from C) */
 
 
 	// Fullscreen
@@ -635,5 +637,9 @@ public class MTY extends SurfaceView implements
 
 	public void finish() {
 		this.activity.finishAndRemoveTask();
+	}
+
+	public String getExternalFilesDir() {
+		return this.activity.getExternalFilesDir(null).getAbsolutePath();
 	}
 }

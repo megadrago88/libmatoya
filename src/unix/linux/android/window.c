@@ -150,6 +150,30 @@ static bool app_bool_method(const char *name, const char *sig, ...)
 	return r;
 }
 
+static char *app_string_method(const char *name, const char *sig, ...)
+{
+	JNIEnv *env = MTY_JNIEnv();
+
+	char *str = NULL;
+
+	va_list args;
+	va_start(args, sig);
+
+	jmethodID mid = (*env)->GetMethodID(env, APP_MTY_CLS, name, sig);
+	jstring jstr = (*env)->CallObjectMethodV(env, APP_MTY_OBJ, mid, args);
+
+	if (jstr) {
+		const char *cstr = (*env)->GetStringUTFChars(env, jstr, NULL);
+		str = MTY_Strdup(cstr);
+
+		(*env)->ReleaseStringUTFChars(env, jstr, cstr);
+	}
+
+	va_end(args);
+
+	return str;
+}
+
 
 // JNI
 
@@ -192,16 +216,15 @@ static void *app_log_thread(void *opaque)
 
 static void *app_thread(void *opaque)
 {
-	char *argv[2] = {(char *) opaque, NULL};
-	main(1, argv);
+	char *arg = "main";
+	main(1, &arg);
 
 	app_void_method("finish", "()V");
 
 	return NULL;
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1start(JNIEnv *env, jobject obj,
-	jstring jname)
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1start(JNIEnv *env, jobject obj)
 {
 	(*env)->GetJavaVM(env, &APP_JVM);
 
@@ -219,14 +242,11 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1start(JNIEnv *env, jobject
 	APP_LOG_THREAD_RUNNING = true;
 	APP_LOG_THREAD = MTY_ThreadCreate(app_log_thread, NULL);
 
-	const char *cname = (*env)->GetStringUTFChars(env, jname, 0);
-	char *name = MTY_Strdup(cname);
-	(*env)->ReleaseStringUTFChars(env, jname, cname);
+	char *external = app_string_method("getExternalFilesDir", "()Ljava/lang/String;");
+	chdir(external);
+	MTY_Free(external);
 
-	// Make current working directory the package's writable area
-	chdir(MTY_Path("/data/data", name));
-
-	APP_THREAD = MTY_ThreadCreate(app_thread, name);
+	APP_THREAD = MTY_ThreadCreate(app_thread, NULL);
 }
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1stop(JNIEnv *env, jobject obj)
@@ -238,7 +258,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1stop(JNIEnv *env, jobject 
 	MTY_ThreadDestroy(&APP_THREAD);
 
 	APP_LOG_THREAD = false;
-	printf("\n");
+	printf("\n"); // Poke the pipe
 
 	MTY_ThreadDestroy(&APP_LOG_THREAD);
 	MTY_MutexDestroy(&APP_CTRLR_MUTEX);
@@ -270,7 +290,7 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTY_app_1key(JNIEnv *env, jobje
 	bool trap = false;
 
 	if (pressed && jtext) {
-		const char *ctext = (*env)->GetStringUTFChars(env, jtext, 0);
+		const char *ctext = (*env)->GetStringUTFChars(env, jtext, NULL);
 
 		MTY_Msg msg = {0};
 		msg.type = MTY_MSG_TEXT;
@@ -687,15 +707,10 @@ void MTY_AppHotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
 	if (key != MTY_KEY_NONE) {
 		for (int32_t x = 0; x < (int32_t) APP_KEYS_MAX; x++) {
 			if (key == APP_KEYS[x]) {
-				JNIEnv *env = MTY_JNIEnv();
-
-				jmethodID mid = (*env)->GetMethodID(env, APP_MTY_CLS, "getKey", "(I)Ljava/lang/String;");
-				jstring jtext = (*env)->CallObjectMethod(env, APP_MTY_OBJ, mid, x);
-				if (jtext) {
-					const char *ctext = (*env)->GetStringUTFChars(env, jtext, 0);
+				char *ctext = app_string_method("getKey", "(I)Ljava/lang/String;", x);
+				if (str) {
 					MTY_Strcat(str, len, ctext);
-
-					(*env)->ReleaseStringUTFChars(env, jtext, ctext);
+					MTY_Free(ctext);
 				}
 
 				break;
@@ -718,20 +733,7 @@ void MTY_AppRemoveHotkeys(MTY_App *ctx, MTY_Hotkey mode)
 
 char *MTY_AppGetClipboard(MTY_App *app)
 {
-	JNIEnv *env = MTY_JNIEnv();
-
-	jmethodID mid = (*env)->GetMethodID(env, APP_MTY_CLS, "getClipboard", "()Ljava/lang/String;");
-	jstring jtext = (*env)->CallObjectMethod(env, APP_MTY_OBJ, mid);
-	if (jtext) {
-		const char *ctext = (*env)->GetStringUTFChars(env, jtext, 0);
-		char *text = MTY_Strdup(ctext);
-
-		(*env)->ReleaseStringUTFChars(env, jtext, ctext);
-
-		return text;
-	}
-
-	return NULL;
+	return app_string_method("getClipboard", "()Ljava/lang/String;");
 }
 
 void MTY_AppSetClipboard(MTY_App *app, const char *text)
