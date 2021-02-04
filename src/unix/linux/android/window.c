@@ -116,15 +116,10 @@ void *MTY_JNIEnv(void)
 {
 	JNIEnv *env = NULL;
 
-	if ((*APP_JVM)->GetEnv(APP_JVM, (void **) &env, JNI_VERSION_1_6) < 0)
+	if ((*APP_JVM)->GetEnv(APP_JVM, (void **) &env, JNI_VERSION_1_6) != JNI_OK)
 		(*APP_JVM)->AttachCurrentThread(APP_JVM, &env, NULL);
 
 	return env;
-}
-
-void *MTY_JNIView(void)
-{
-	return APP_MTY_OBJ;
 }
 
 static void app_void_method(const char *name, const char *sig, ...)
@@ -205,17 +200,11 @@ static void *app_thread(void *opaque)
 	return NULL;
 }
 
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
-{
-	// This is safe to store globally at any point
-	APP_JVM = vm;
-
-	return JNI_VERSION_1_6;
-}
-
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1start(JNIEnv *env, jobject obj,
 	jstring jname)
 {
+	(*env)->GetJavaVM(env, &APP_JVM);
+
 	APP_MTY_OBJ = (*env)->NewGlobalRef(env, obj);
 
 	jclass cls = (*env)->GetObjectClass(env, APP_MTY_OBJ);
@@ -262,6 +251,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1stop(JNIEnv *env, jobject 
 	(*env)->DeleteGlobalRef(env, APP_MTY_CLS);
 	APP_MTY_OBJ = NULL;
 	APP_MTY_CLS = NULL;
+	APP_JVM = NULL;
 }
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1check_1scroller(JNIEnv *env, jobject obj,

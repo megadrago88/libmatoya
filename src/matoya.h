@@ -1484,9 +1484,6 @@ MTY_GLGetProcAddress(const char *name);
 MTY_EXPORT void *
 MTY_JNIEnv(void);
 
-MTY_EXPORT void *
-MTY_JNIView(void);
-
 
 #ifdef __cplusplus
 }
