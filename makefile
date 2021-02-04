@@ -52,14 +52,14 @@ OBJS = $(OBJS) \
 	src\windows\time.obj \
 	src\windows\window.obj \
 	src\windows\hid.obj \
+	src\windows\aes-gcm.obj \
 	src\windows\gfx\gl-ctx.obj \
 	src\windows\gfx\d3d9.obj \
 	src\windows\gfx\d3d9-ui.obj \
 	src\windows\gfx\d3d9-ctx.obj \
 	src\windows\gfx\d3d11.obj \
 	src\windows\gfx\d3d11-ui.obj \
-	src\windows\gfx\d3d11-ctx.obj \
-	src\windows\aes-gcm-bcrypt.obj
+	src\windows\gfx\d3d11-ctx.obj
 
 SHADERS = \
 	src\gfx\shaders\gl\vs.h \

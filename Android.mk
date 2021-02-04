@@ -64,8 +64,8 @@ LOCAL_SRC_FILES := \
 	src/unix/proc.c \
 	src/unix/thread.c \
 	src/unix/time.c \
-	src/unix/crypto.c \
-	src/unix/aes-gcm-openssl.c \
+	src/unix/linux/crypto.c \
+	src/unix/linux/aes-gcm.c \
 	src/unix/linux/android/gfx/gl-ctx.c \
 	src/unix/linux/android/window.c \
 	src/unix/linux/android/audio.c

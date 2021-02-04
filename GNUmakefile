@@ -102,8 +102,8 @@ else
 ifeq ($(UNAME_S), Linux)
 
 OBJS := $(OBJS) \
-	src/unix/crypto.o \
-	src/unix/aes-gcm-openssl.o \
+	src/unix/linux/crypto.o \
+	src/unix/linux/aes-gcm.o \
 	src/unix/linux/generic/gfx/gl-ctx.o \
 	src/unix/linux/generic/hid.o \
 	src/unix/linux/generic/audio.o \
@@ -156,8 +156,10 @@ FLAGS := $(FLAGS) -fembed-bitcode
 DEFS := $(DEFS) -DMTY_GL_ES
 endif
 
+# FIXME iOS / tvOS have to use CryptoKit or rejection from app store
+
 OBJS := $(OBJS) \
-	src/unix/aes-gcm-openssl.o \
+	src/unix/apple/macosx/aes-gcm.o \
 	src/unix/apple/gfx/metal.o \
 	src/unix/apple/gfx/metal-ui.o \
 	src/unix/apple/audio.o \
@@ -170,11 +172,6 @@ SHADERS := $(SHADERS) \
 
 DEFS := $(DEFS) \
 	-DMTY_GL_EXTERNAL
-
-ifdef CRYPTO_EXTERNAL
-DEFS := $(DEFS) \
-	-DMTY_CRYPTO_EXTERNAL
-endif
 
 TEST_LIBS = \
 	-lc \
