@@ -20,6 +20,7 @@
 #if defined(MTY_GL_INCLUDE)
 	#include MTY_GL_INCLUDE
 #else
+	#define GL_GLEXT_PROTOTYPES
 	#include "glcorearb30.h"
 #endif
 
