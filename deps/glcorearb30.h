@@ -1,11 +1,6 @@
 #ifndef __gl_glcorearb_h_
 #define __gl_glcorearb_h_ 1
 
-// Matoya definition to signal linked GL, as opposed to MTY_GLGetProcAddress
-#if defined MTY_GL_EXTERNAL
-#define GL_GLEXT_PROTOTYPES
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif

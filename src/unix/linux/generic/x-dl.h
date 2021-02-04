@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "GL/glcorearb30.h"
+#include "glcorearb30.h"
 
 
 // X interface

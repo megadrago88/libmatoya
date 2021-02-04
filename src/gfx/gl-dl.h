@@ -20,14 +20,14 @@
 #if defined(MTY_GL_INCLUDE)
 	#include MTY_GL_INCLUDE
 #else
-	#include "GL/glcorearb30.h"
+	#include "glcorearb30.h"
 #endif
 
 #define gl_dl_global_init() true
 
 #else
 
-#include "GL/glcorearb30.h"
+#include "glcorearb30.h"
 
 static PFNGLGENFRAMEBUFFERSPROC         glGenFramebuffers;
 static PFNGLDELETEFRAMEBUFFERSPROC      glDeleteFramebuffers;
