@@ -52,6 +52,7 @@ public class MTY extends SurfaceView implements
 	boolean hiddenCursor;
 	boolean defaultCursor;
 	boolean isFullscreen;
+	boolean kbShowing;
 	float displayDensity;
 	int scrollY;
 	Activity activity;
@@ -587,6 +588,19 @@ public class MTY extends SurfaceView implements
 		}
 	}
 
+	public boolean keyboardIsShowing() {
+		InputMethodManager imm = (InputMethodManager) this.activity.getSystemService(Context.INPUT_METHOD_SERVICE);
+
+		try {
+			java.lang.reflect.Method method = imm.getClass().getMethod("getInputMethodWindowVisibleHeight");
+			return (int) method.invoke(imm) > 0;
+
+		} catch (Exception e) {
+		}
+
+		return this.kbShowing;
+	}
+
 	public void showKeyboard(boolean show) {
 		InputMethodManager imm = (InputMethodManager) this.activity.getSystemService(Context.INPUT_METHOD_SERVICE);
 
@@ -596,6 +610,8 @@ public class MTY extends SurfaceView implements
 		} else {
 			imm.hideSoftInputFromWindow(this.getWindowToken(), 0, null);
 		}
+
+		this.kbShowing = show;
 	}
 
 	public void setOrientation(int _orientation) {

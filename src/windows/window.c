@@ -1847,8 +1847,13 @@ void *MTY_GLGetProcAddress(const char *name)
 
 // Unimplemented
 
-void MTY_AppSetOnscreenKeyboard(MTY_App *app, bool enable)
+void MTY_AppShowSoftKeyboard(MTY_App *app, bool show)
 {
+}
+
+bool MTY_AppSoftKeyboardIsShowing(MTY_App *app)
+{
+	return false;
 }
 
 void MTY_AppSetOrientation(MTY_App *app, MTY_Orientation orientation)

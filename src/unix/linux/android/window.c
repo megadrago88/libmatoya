@@ -849,9 +849,14 @@ bool MTY_AppIsActive(MTY_App *ctx)
 	return gfx_is_ready();
 }
 
-void MTY_AppSetOnscreenKeyboard(MTY_App *app, bool enable)
+void MTY_AppShowSoftKeyboard(MTY_App *app, bool show)
 {
-	app_void_method("showKeyboard", "(Z)V", enable);
+	app_void_method("showKeyboard", "(Z)V", show);
+}
+
+bool MTY_AppSoftKeyboardIsShowing(MTY_App *app)
+{
+	return app_bool_method("keyboardIsShowing", "()Z");
 }
 
 void MTY_AppSetOrientation(MTY_App *app, MTY_Orientation orientation)
