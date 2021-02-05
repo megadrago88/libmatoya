@@ -396,29 +396,6 @@ public class MTY extends SurfaceView implements
 
 	// Fullscreen
 
-	private static int normalFlags() {
-		return
-			View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |  // Prevents hidden stuff from coming back spontaneously
-			View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
-	}
-
-	private static int fullscreenFlags() {
-		return
-			View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | // Removes space at the top for menu bar
-			View.SYSTEM_UI_FLAG_FULLSCREEN |        // Removes menu bar
-			View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;    // Hides navigation buttons at the bottom
-	}
-
-	private boolean flagsFullscreen() {
-		int flags = this.activity.getWindow().getDecorView().getSystemUiVisibility();
-
-		return (flags & MTY.fullscreenFlags()) == MTY.fullscreenFlags();
-	}
-
-	private void setUiFlags(int flags) {
-		this.activity.getWindow().getDecorView().setSystemUiVisibility(flags);
-	}
-
 	public boolean isFullscreen() {
 		return this.isFullscreen;
 	}
@@ -429,18 +406,17 @@ public class MTY extends SurfaceView implements
 
 		this.activity.runOnUiThread(new Runnable() {
 			public void run() {
-				// Static variable update only on main thread
-				self.isFullscreen = self.flagsFullscreen();
+				if (enable) {
+					self.activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+					self.activity.getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
 
-				if (enable && !self.isFullscreen) {
-					self.setUiFlags(self.normalFlags() | self.fullscreenFlags());
-
-				} else if (!enable && self.isFullscreen) {
-					self.setUiFlags(self.normalFlags());
+				} else {
+					self.activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+					self.activity.getWindow().getDecorView().setSystemUiVisibility(0);
 				}
 
-				// Update static after set
-				self.isFullscreen = self.flagsFullscreen();
+				self.isFullscreen =
+					(self.activity.getWindow().getAttributes().flags & WindowManager.LayoutParams.FLAG_FULLSCREEN) != 0;
 			}
 		});
 	}
