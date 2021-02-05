@@ -1248,8 +1248,10 @@ typedef struct {
 		} mouseWheel;
 
 		struct {
-			MTY_MouseButton button;
+			int32_t x;
+			int32_t y;
 			bool pressed;
+			MTY_MouseButton button;
 		} mouseButton;
 
 		struct {

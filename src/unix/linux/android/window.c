@@ -329,13 +329,15 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTY_app_1key(JNIEnv *env, jobje
 
 // JNI touch events -- These are subject to "MTY_AppSetInputMode"
 
-static void app_cancel_long_button(void)
+static void app_cancel_long_button(int32_t x, int32_t y)
 {
 	APP_DOUBLE_TAP = false;
 
 	if (APP_LONG_BUTTON != MTY_MOUSE_BUTTON_NONE) {
 		MTY_Msg msg = {0};
 		msg.type = MTY_MSG_MOUSE_BUTTON;
+		msg.mouseButton.x = x;
+		msg.mouseButton.y = y;
 		msg.mouseButton.pressed = false;
 		msg.mouseButton.button = APP_LONG_BUTTON;
 		app_push_msg(&msg);
@@ -346,7 +348,7 @@ static void app_cancel_long_button(void)
 
 static void app_touch_mouse_button(int32_t x, int32_t y, MTY_MouseButton button)
 {
-	app_cancel_long_button();
+	app_cancel_long_button(x, y);
 
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_MOUSE_MOTION;
@@ -356,6 +358,8 @@ static void app_touch_mouse_button(int32_t x, int32_t y, MTY_MouseButton button)
 	app_push_msg(&msg);
 
 	msg.type = MTY_MSG_MOUSE_BUTTON;
+	msg.mouseButton.x = lrint(x);
+	msg.mouseButton.y = lrint(y);
 	msg.mouseButton.pressed = true;
 	msg.mouseButton.button = button;
 	app_push_msg(&msg);
@@ -371,7 +375,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1unhandled_1touch(JNIEnv *e
 
 	// Any time fingers come off of the screen we cancel the LONG BUTTON
 	if (action == AMOTION_EVENT_ACTION_UP)
-		app_cancel_long_button();
+		app_cancel_long_button(lrint(x), lrint(y));
 
 	if (APP_INPUT != MTY_INPUT_TOUCHSCREEN) {
 		switch (action) {
@@ -414,7 +418,7 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTY_app_1long_1press(JNIEnv *en
 {
 	APP_DETACH = false;
 
-	app_cancel_long_button();
+	app_cancel_long_button(lrint(x), lrint(y));
 
 	// Long press always begins by moving to the event location
 	MTY_Msg msg = {0};
@@ -427,6 +431,8 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTY_app_1long_1press(JNIEnv *en
 	// Long press in touchscreen mode is a simple right click
 	if (APP_INPUT == MTY_INPUT_TOUCHSCREEN) {
 		msg.type = MTY_MSG_MOUSE_BUTTON;
+		msg.mouseButton.x = lrint(x);
+		msg.mouseButton.y = lrint(y);
 		msg.mouseButton.pressed = true;
 		msg.mouseButton.button = MTY_MOUSE_BUTTON_RIGHT;
 		app_push_msg(&msg);
@@ -439,6 +445,8 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTY_app_1long_1press(JNIEnv *en
 		APP_LONG_BUTTON = MTY_MOUSE_BUTTON_LEFT;
 
 		msg.type = MTY_MSG_MOUSE_BUTTON;
+		msg.mouseButton.x = lrint(x);
+		msg.mouseButton.y = lrint(y);
 		msg.mouseButton.pressed = true;
 		msg.mouseButton.button = APP_LONG_BUTTON;
 		app_push_msg(&msg);
@@ -454,7 +462,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1scroll(JNIEnv *env, jobjec
 {
 	APP_DETACH = false;
 
-	app_cancel_long_button();
+	app_cancel_long_button(lrint(abs_x), lrint(abs_y));
 
 	// Single finger scrolling in touchscreen mode OR two finger scrolling in
 	// trackpad mode moves to the touch location and produces a wheel event
@@ -495,7 +503,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1mouse_1motion(JNIEnv *env,
 {
 	APP_DETACH = true;
 
-	app_cancel_long_button();
+	app_cancel_long_button(lrint(x), lrint(y));
 
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_MOUSE_MOTION;
@@ -522,10 +530,12 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1mouse_1button(JNIEnv *env,
 {
 	APP_DETACH = true;
 
-	app_cancel_long_button();
+	app_cancel_long_button(lrint(x), lrint(y));
 
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_MOUSE_BUTTON;
+	msg.mouseButton.x = lrint(x);
+	msg.mouseButton.y = lrint(y);
 	msg.mouseButton.pressed = pressed;
 
 	switch (button) {

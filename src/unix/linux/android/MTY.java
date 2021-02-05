@@ -11,15 +11,15 @@ import android.view.KeyEvent;
 import android.view.GestureDetector;
 import android.view.ScaleGestureDetector;
 import android.view.WindowManager;
+import android.view.PointerIcon;
+import android.view.InputDevice;
+import android.view.InputEvent;
+import android.view.KeyCharacterMap;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
-import android.view.PointerIcon;
-import android.view.InputDevice;
-import android.view.InputEvent;
 import android.text.InputType;
-import android.view.KeyCharacterMap;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.content.Context;
@@ -405,14 +405,16 @@ public class MTY extends SurfaceView implements
 		final boolean enable = _enable;
 
 		this.activity.runOnUiThread(new Runnable() {
+			// FIXME Should this hide navigation?
+
 			public void run() {
 				if (enable) {
 					self.activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-					self.activity.getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
+					// self.activity.getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
 
 				} else {
 					self.activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-					self.activity.getWindow().getDecorView().setSystemUiVisibility(0);
+					// self.activity.getWindow().getDecorView().setSystemUiVisibility(0);
 				}
 
 				self.isFullscreen =
