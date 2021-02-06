@@ -28,7 +28,7 @@ static struct gfx_gl_ctx {
 	uint32_t width;
 	uint32_t height;
 	uint32_t fb0;
-	MTY_Atomic32 should_present;
+	MTY_Atomic32 state_ctr;
 
 } CTX = {
 	.width = 1920,
@@ -44,7 +44,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_gfx_1dims(JNIEnv *env, jobject 
 	CTX.width = w;
 	CTX.height = h;
 
-	MTY_Atomic32Set(&CTX.should_present, 2);
+	MTY_Atomic32Set(&CTX.state_ctr, 2);
 }
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_gfx_1set_1surface(JNIEnv *env, jobject obj,
@@ -120,14 +120,14 @@ uint32_t gfx_height(void)
 	return CTX.height;
 }
 
-uint32_t gfx_should_present(void)
+MTY_GFXState gfx_state(void)
 {
-	if (MTY_Atomic32Get(&CTX.should_present) > 0) {
-		MTY_Atomic32Add(&CTX.should_present, -1);
-		return true;
+	if (MTY_Atomic32Get(&CTX.state_ctr) > 0) {
+		MTY_Atomic32Add(&CTX.state_ctr, -1);
+		return MTY_GFX_STATE_REFRESH;
 	}
 
-	return false;
+	return MTY_GFX_STATE_NORMAL;
 }
 
 

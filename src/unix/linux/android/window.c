@@ -40,7 +40,7 @@ bool gfx_is_ready(void);
 bool gfx_was_reinit(bool reset);
 uint32_t gfx_width(void);
 uint32_t gfx_height(void);
-uint32_t gfx_should_present(void);
+MTY_GFXState gfx_state(void);
 
 
 // JNI
@@ -986,9 +986,9 @@ bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 	return true;
 }
 
-bool MTY_WindowGFXShouldPresent(MTY_App *app, MTY_Window window)
+MTY_GFXState MTY_WindowGFXState(MTY_App *app, MTY_Window window)
 {
-	return gfx_should_present();
+	return gfx_state();
 }
 
 

@@ -1532,9 +1532,9 @@ void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
 {
 }
 
-bool MTY_WindowGFXShouldPresent(MTY_App *app, MTY_Window window)
+MTY_GFXState MTY_WindowGFXState(MTY_App *app, MTY_Window window)
 {
-	return false;
+	return MTY_GFX_STATE_NORMAL;
 }
 
 void MTY_AppSetInputMode(MTY_App *ctx, MTY_Input mode)

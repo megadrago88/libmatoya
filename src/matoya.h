@@ -1205,6 +1205,11 @@ typedef enum {
 	MTY_INPUT_TRACKPAD    = 2,
 } MTY_Input;
 
+typedef enum {
+	MTY_GFX_STATE_NORMAL   = 0,
+	MTY_GFX_STATE_REFRESH  = 1,
+} MTY_GFXState;
+
 typedef struct {
 	uint16_t usage;
 	int16_t data;
@@ -1474,8 +1479,8 @@ MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync);
 MTY_EXPORT bool
 MTY_WindowGFXNewContext(MTY_App *app, MTY_Window window, bool reset);
 
-MTY_EXPORT bool
-MTY_WindowGFXShouldPresent(MTY_App *app, MTY_Window window);
+MTY_EXPORT MTY_GFXState
+MTY_WindowGFXState(MTY_App *app, MTY_Window window);
 
 
 // @module gl
