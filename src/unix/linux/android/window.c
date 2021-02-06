@@ -140,6 +140,21 @@ static void app_void_method(MTY_App *ctx, const char *name, const char *sig, ...
 	va_end(args);
 }
 
+static int32_t app_int_method(MTY_App *ctx, const char *name, const char *sig, ...)
+{
+	JNIEnv *env = app_jni_env(ctx);
+
+	va_list args;
+	va_start(args, sig);
+
+	jmethodID mid = (*env)->GetMethodID(env, ctx->cls, name, sig);
+	int32_t r = (*env)->CallIntMethodV(env, ctx->obj, mid, args);
+
+	va_end(args);
+
+	return r;
+}
+
 static bool app_bool_method(MTY_App *ctx, const char *name, const char *sig, ...)
 {
 	JNIEnv *env = app_jni_env(ctx);
@@ -586,10 +601,15 @@ static MTY_Controller *app_get_controller(MTY_App *ctx, int32_t deviceId)
 {
 	MTY_Controller *c = MTY_HashGetInt(ctx->ctrls, deviceId);
 	if (!c) {
+		int32_t ids = app_int_method(ctx, "getHardwareIds", "(I)I", deviceId);
+
 		c = MTY_Alloc(1, sizeof(MTY_Controller));
 		*c = APP_ZEROED_CTRL;
 
 		c->id = deviceId;
+		c->vid = ids >> 16;
+		c->pid = ids & 0xFFFF;
+
 		MTY_HashSetInt(ctx->ctrls, deviceId, c);
 
 		MTY_Msg msg = {0};

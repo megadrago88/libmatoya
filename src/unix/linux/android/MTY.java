@@ -636,4 +636,17 @@ public class MTY extends SurfaceView implements
 	public String getExternalFilesDir() {
 		return this.activity.getExternalFilesDir(null).getAbsolutePath();
 	}
+
+	public int getHardwareIds(int id) {
+		int pid = 0;
+		int vid = 0;
+
+		InputDevice device = InputDevice.getDevice(id);
+		if (device != null) {
+			pid = device.getProductId();
+			vid = device.getVendorId();
+		}
+
+		return (vid << 16) | (pid & 0xFFFF);
+	}
 }
