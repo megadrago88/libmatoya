@@ -29,11 +29,7 @@ static struct gfx_gl_ctx {
 	uint32_t height;
 	uint32_t fb0;
 	MTY_Atomic32 state_ctr;
-
-} CTX = {
-	.width = 1920,
-	.height = 1080,
-};
+} CTX;
 
 
 // JNI
@@ -84,6 +80,9 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_gfx_1unset_1surface(JNIEnv *env
 void gfx_global_init(void)
 {
 	CTX.mutex = MTY_MutexCreate();
+
+	CTX.width = 1920;
+	CTX.height = 1080;
 }
 
 void gfx_global_destroy(void)
