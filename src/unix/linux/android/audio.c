@@ -29,6 +29,11 @@ struct MTY_Audio {
 	size_t size;
 };
 
+static void __attribute__((destructor)) audio_global_destroy(void)
+{
+	aaudio_dl_global_destroy();
+}
+
 static void audio_error(AAudioStream *stream, void *userData, aaudio_result_t error)
 {
 	MTY_Log("'AAudioStream' error %d", error);

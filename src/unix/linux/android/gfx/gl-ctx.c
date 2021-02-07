@@ -88,6 +88,8 @@ void gfx_global_init(void)
 void gfx_global_destroy(void)
 {
 	MTY_MutexDestroy(&CTX.mutex);
+
+	memset(&CTX, 0, sizeof(struct gfx_gl_ctx));
 }
 
 bool gfx_is_ready(void)
@@ -132,40 +134,9 @@ MTY_GFXState gfx_state(void)
 
 // EGL CTX
 
-static void gfx_gl_ctx_destroy_members(struct gfx_gl_ctx *ctx)
+static void gfx_gl_ctx_create_context(struct gfx_gl_ctx *ctx)
 {
-	MTY_RendererDestroy(&ctx->renderer);
-
-	if (ctx->display) {
-		if (ctx->context) {
-			eglMakeCurrent(ctx->display, 0, 0, 0);
-			eglDestroyContext(ctx->display, ctx->context);
-		}
-
-		if (ctx->surface)
-			eglDestroySurface(ctx->display, ctx->surface);
-
-		eglTerminate(ctx->display);
-	}
-
-	ctx->display = 0;
-	ctx->surface = 0;
-	ctx->context = 0;
-}
-
-static bool gfx_gl_ctx_check(struct gfx_gl_ctx *ctx)
-{
-	bool r = true;
-
-	if (!ctx->ready)
-		return false;
-
-	if (ctx->ready && ctx->init)
-		goto except;
-
-	gfx_gl_ctx_destroy_members(ctx);
-
-	ctx->display = eglGetDisplay(0);
+	ctx->display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
 	eglInitialize(ctx->display, NULL, NULL);
 
 	const EGLint attribs[] = {
@@ -176,39 +147,62 @@ static bool gfx_gl_ctx_check(struct gfx_gl_ctx *ctx)
 		EGL_NONE
 	};
 
-	EGLint n;
-	EGLConfig config;
+	EGLint n = 0;
+	EGLConfig config = NULL;
 	eglChooseConfig(ctx->display, attribs, &config, 1, &n);
 
 	ctx->surface = eglCreateWindowSurface(ctx->display, config, ctx->window, NULL);
 
 	const EGLint attrib[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
-	ctx->context = eglCreateContext(ctx->display, config, 0, attrib);
+	ctx->context = eglCreateContext(ctx->display, config, EGL_NO_CONTEXT, attrib);
 
 	eglMakeCurrent(ctx->display, ctx->surface, ctx->surface, ctx->context);
+}
 
+static void gfx_gl_ctx_destroy_context(struct gfx_gl_ctx *ctx)
+{
+	if (ctx->display) {
+		if (ctx->context) {
+			eglMakeCurrent(ctx->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+			eglDestroyContext(ctx->display, ctx->context);
+		}
+
+		if (ctx->surface)
+			eglDestroySurface(ctx->display, ctx->surface);
+
+		eglTerminate(ctx->display);
+	}
+
+	ctx->display = EGL_NO_DISPLAY;
+	ctx->surface = EGL_NO_SURFACE;
+	ctx->context = EGL_NO_CONTEXT;
+}
+
+
+// GFX
+
+static bool gfx_gl_ctx_check(struct gfx_gl_ctx *ctx)
+{
+	if (!ctx->ready)
+		return false;
+
+	if (ctx->init)
+		return true;
+
+	MTY_RendererDestroy(&ctx->renderer);
+	gfx_gl_ctx_destroy_context(ctx);
+
+	gfx_gl_ctx_create_context(ctx);
 	ctx->renderer = MTY_RendererCreate();
 
 	ctx->init = true;
 
-	except:
-
-	if (!r)
-		gfx_gl_ctx_destroy_members(ctx);
-
-	return r;
+	return true;
 }
 
 struct gfx_ctx *gfx_gl_ctx_create(void *native_window, bool vsync)
 {
-	bool r = true;
-
-	struct gfx_gl_ctx *ctx = &CTX;
-
-	if (!r)
-		gfx_gl_ctx_destroy((struct gfx_ctx **) &ctx);
-
-	return (struct gfx_ctx *) ctx;
+	return (struct gfx_ctx *) &CTX;
 }
 
 void gfx_gl_ctx_destroy(struct gfx_ctx **gfx_ctx)
@@ -221,13 +215,10 @@ void gfx_gl_ctx_destroy(struct gfx_ctx **gfx_ctx)
 	MTY_MutexLock(ctx->mutex);
 
 	MTY_RendererDestroy(&ctx->renderer);
-	gfx_gl_ctx_destroy_members(ctx);
+	gfx_gl_ctx_destroy_context(ctx);
 
 	MTY_MutexUnlock(ctx->mutex);
 
-	MTY_MutexDestroy(&ctx->mutex);
-
-	memset(&CTX, 0, sizeof(struct gfx_gl_ctx));
 	*gfx_ctx = NULL;
 }
 
@@ -242,7 +233,7 @@ MTY_Context *gfx_gl_ctx_get_context(struct gfx_ctx *gfx_ctx)
 
 	MTY_MutexLock(ctx->mutex);
 
-	if (ctx->init && ctx->ready)
+	if (gfx_gl_ctx_check(ctx))
 		eglMakeCurrent(ctx->display, ctx->surface, ctx->surface, ctx->context);
 
 	MTY_MutexUnlock(ctx->mutex);
@@ -277,7 +268,7 @@ void gfx_gl_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const MTY_
 
 	MTY_MutexLock(ctx->mutex);
 
-	if (ctx->init && ctx->ready) {
+	if (gfx_gl_ctx_check(ctx)) {
 		MTY_RenderDesc mutated = *desc;
 		mutated.viewWidth = ctx->width;
 		mutated.viewHeight = ctx->height;
@@ -294,7 +285,7 @@ void gfx_gl_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 
 	MTY_MutexLock(ctx->mutex);
 
-	if (ctx->init && ctx->ready)
+	if (gfx_gl_ctx_check(ctx))
 		MTY_RendererDrawUI(ctx->renderer, MTY_GFX_GL, NULL, NULL, dd, (MTY_Texture *) &ctx->fb0);
 
 	MTY_MutexUnlock(ctx->mutex);
@@ -307,7 +298,7 @@ void gfx_gl_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void 
 
 	MTY_MutexLock(ctx->mutex);
 
-	if (ctx->init && ctx->ready)
+	if (gfx_gl_ctx_check(ctx))
 		MTY_RendererSetUITexture(ctx->renderer, MTY_GFX_GL, NULL, NULL, id, rgba, width, height);
 
 	MTY_MutexUnlock(ctx->mutex);
@@ -321,7 +312,7 @@ void *gfx_gl_ctx_get_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
 
 	MTY_MutexLock(ctx->mutex);
 
-	if (ctx->init && ctx->ready)
+	if (gfx_gl_ctx_check(ctx))
 		tex = MTY_RendererGetUITexture(ctx->renderer, id);
 
 	MTY_MutexUnlock(ctx->mutex);

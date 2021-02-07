@@ -46,22 +46,6 @@ static struct MTY_App {
 	struct gfx_ctx *gfx_ctx;
 } CTX;
 
-
-// From GFX module
-
-void gfx_global_init(void);
-void gfx_global_destroy(void);
-bool gfx_is_ready(void);
-bool gfx_was_reinit(bool reset);
-uint32_t gfx_width(void);
-uint32_t gfx_height(void);
-MTY_GFXState gfx_state(void);
-
-
-// JNI
-
-int main(int argc, char **argv);
-
 static const MTY_Controller APP_ZEROED_CTRL = {
 	.id = 0,
 	.pid = 0xCDD,
@@ -110,6 +94,22 @@ static const MTY_Controller APP_ZEROED_CTRL = {
 };
 
 
+// MTY android assumes a main entrypoint is defined
+
+int main(int argc, char **argv);
+
+
+// From GFX module
+
+void gfx_global_init(void);
+void gfx_global_destroy(void);
+bool gfx_is_ready(void);
+bool gfx_was_reinit(bool reset);
+uint32_t gfx_width(void);
+uint32_t gfx_height(void);
+MTY_GFXState gfx_state(void);
+
+
 // JNI helpers
 
 static JNIEnv *app_jni_env(MTY_App *ctx)
@@ -155,6 +155,21 @@ static int32_t app_int_method(MTY_App *ctx, const char *name, const char *sig, .
 	return r;
 }
 
+static float app_float_method(MTY_App *ctx, const char *name, const char *sig, ...)
+{
+	JNIEnv *env = app_jni_env(ctx);
+
+	va_list args;
+	va_start(args, sig);
+
+	jmethodID mid = (*env)->GetMethodID(env, ctx->cls, name, sig);
+	float r = (*env)->CallFloatMethodV(env, ctx->obj, mid, args);
+
+	va_end(args);
+
+	return r;
+}
+
 static bool app_bool_method(MTY_App *ctx, const char *name, const char *sig, ...)
 {
 	JNIEnv *env = app_jni_env(ctx);
@@ -194,8 +209,28 @@ static char *app_string_method(MTY_App *ctx, const char *name, const char *sig, 
 	return str;
 }
 
+static jbyteArray app_jni_dup(MTY_App *ctx, const void *buf, size_t size)
+{
+	if (!buf || size == 0)
+		return 0;
 
-// JNI
+	JNIEnv *env = app_jni_env(ctx);
+
+	jbyteArray ba = (*env)->NewByteArray(env, size);
+	(*env)->SetByteArrayRegion(env, ba, 0, size, buf);
+
+	return ba;
+}
+
+static jstring app_jni_strdup(MTY_App *ctx, const char *str)
+{
+	JNIEnv *env = app_jni_env(ctx);
+
+	return (*env)->NewStringUTF(env, str);
+}
+
+
+// JNI entry
 
 static void app_push_msg(MTY_App *ctx, MTY_Msg *msg)
 {
@@ -298,12 +333,6 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1stop(JNIEnv *env, jobject 
 	memset(&CTX, 0, sizeof(MTY_App));
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1check_1scroller(JNIEnv *env, jobject obj,
-	jboolean check)
-{
-	CTX.check_scroller = check;
-}
-
 
 // JNI keyboard events
 
@@ -390,6 +419,12 @@ static void app_touch_mouse_button(MTY_App *ctx, int32_t x, int32_t y, MTY_Mouse
 
 	msg.mouseButton.pressed = false;
 	app_push_msg(ctx, &msg);
+}
+
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1check_1scroller(JNIEnv *env, jobject obj,
+	jboolean check)
+{
+	CTX.check_scroller = check;
 }
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1unhandled_1touch(JNIEnv *env, jobject obj,
@@ -747,7 +782,7 @@ void MTY_AppHotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
 		for (int32_t x = 0; x < (int32_t) APP_KEYS_MAX; x++) {
 			if (key == APP_KEYS[x]) {
 				char *ctext = app_string_method(&CTX, "getKey", "(I)Ljava/lang/String;", x);
-				if (str) {
+				if (ctext) {
 					MTY_Strcat(str, len, ctext);
 					MTY_Free(ctext);
 				}
@@ -777,20 +812,12 @@ char *MTY_AppGetClipboard(MTY_App *app)
 
 void MTY_AppSetClipboard(MTY_App *app, const char *text)
 {
-	JNIEnv *env = app_jni_env(app);
-	jstring jtext = (*env)->NewStringUTF(env, text);
-
-	app_void_method(app, "setClipboard", "(Ljava/lang/String;)V", jtext);
+	app_void_method(app, "setClipboard", "(Ljava/lang/String;)V", app_jni_strdup(app, text));
 }
 
 static float app_get_scale(MTY_App *ctx)
 {
-	JNIEnv *env = app_jni_env(ctx);
-
-	jmethodID mid = (*env)->GetMethodID(env, ctx->cls, "getDisplayDensity", "()F");
-	jfloat density = (*env)->CallFloatMethod(env, ctx->obj, mid);
-
-	return density / 185.0f;
+	return app_float_method(ctx, "getDisplayDensity", "()F") / 185.0f;
 }
 
 MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
@@ -904,16 +931,7 @@ void MTY_AppSetOrientation(MTY_App *app, MTY_Orientation orientation)
 
 void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
-	jbyteArray jimage = 0;
-
-	if (image && size > 0) {
-		JNIEnv *env = app_jni_env(app);
-
-		jimage = (*env)->NewByteArray(env, size);
-		(*env)->SetByteArrayRegion(env, jimage, 0, size, image);
-	}
-
-	app_void_method(app, "setCursor", "([BFF)V", jimage, (jfloat) hotX, (jfloat) hotY);
+	app_void_method(app, "setCursor", "([BFF)V", app_jni_dup(app, image, size), (jfloat) hotX, (jfloat) hotY);
 }
 
 bool MTY_AppCanWarpCursor(MTY_App *ctx)
