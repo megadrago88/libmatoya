@@ -43,8 +43,10 @@ public class MTY extends SurfaceView implements
 	ScaleGestureDetector.OnScaleGestureListener,
 	ClipboardManager.OnPrimaryClipChangedListener
 {
+	Activity activity;
+	KeyCharacterMap kbmap;
 	PointerIcon cursor;
-	PointerIcon iCursor;
+	PointerIcon invisCursor;
 	GestureDetector detector;
 	ScaleGestureDetector sdetector;
 	Scroller scroller;
@@ -55,8 +57,6 @@ public class MTY extends SurfaceView implements
 	boolean kbShowing;
 	float displayDensity;
 	int scrollY;
-	Activity activity;
-	KeyCharacterMap kbmap;
 
 	native void gfx_dims(int w, int h);
 	native void gfx_set_surface(Surface surface);
@@ -102,7 +102,7 @@ public class MTY extends SurfaceView implements
 
 		byte[] iCursorData = Base64.decode(b64, Base64.DEFAULT);
 		Bitmap bm = BitmapFactory.decodeByteArray(iCursorData, 0, iCursorData.length, null);
-		this.iCursor = PointerIcon.create(bm, 0, 0);
+		this.invisCursor = PointerIcon.create(bm, 0, 0);
 
 		ViewGroup vg = activity.findViewById(android.R.id.content);
 		activity.addContentView(this, vg.getLayoutParams());
@@ -149,8 +149,8 @@ public class MTY extends SurfaceView implements
 
 	// Cursor
 
-	private PointerIcon getCursor() {
-		return this.defaultCursor ? null : this.hiddenCursor ? this.iCursor : this.cursor;
+	PointerIcon getCursor() {
+		return this.defaultCursor ? null : this.hiddenCursor ? this.invisCursor : this.cursor;
 	}
 
 	@Override
@@ -193,16 +193,16 @@ public class MTY extends SurfaceView implements
 
 	// Events
 
-	private static boolean isMouseEvent(InputEvent event) {
+	static boolean isMouseEvent(InputEvent event) {
 		return
-			(event.getSource() & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE;
+			(event.getSource() & InputDevice.SOURCE_MOUSE) != 0;
 	}
 
-	private static boolean isGamepadEvent(InputEvent event) {
+	static boolean isGamepadEvent(InputEvent event) {
 		return
-			(event.getSource() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
-			(event.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
-			(event.getSource() & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD;
+			(event.getSource() & InputDevice.SOURCE_GAMEPAD) != 0 ||
+			(event.getSource() & InputDevice.SOURCE_JOYSTICK) != 0 ||
+			(event.getSource() & InputDevice.SOURCE_DPAD) != 0;
 	}
 
 	@Override
@@ -405,9 +405,10 @@ public class MTY extends SurfaceView implements
 		final boolean enable = _enable;
 
 		this.activity.runOnUiThread(new Runnable() {
-			// FIXME Should this hide navigation?
-
+			@Override
 			public void run() {
+				// FIXME Should this hide navigation?
+
 				if (enable) {
 					self.activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
 					// self.activity.getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
@@ -454,7 +455,7 @@ public class MTY extends SurfaceView implements
 
 	// Cursor
 
-	private void setCursor() {
+	void setCursor() {
 		this.setPointerIcon(this.getCursor());
 	}
 
@@ -465,6 +466,7 @@ public class MTY extends SurfaceView implements
 		final float hotY = _hotY;
 
 		this.activity.runOnUiThread(new Runnable() {
+			@Override
 			public void run() {
 				if (data != null) {
 					Bitmap bm = BitmapFactory.decodeByteArray(data, 0, data.length, null);
@@ -484,6 +486,7 @@ public class MTY extends SurfaceView implements
 		final boolean show = _show;
 
 		this.activity.runOnUiThread(new Runnable() {
+			@Override
 			public void run() {
 				self.hiddenCursor = !show;
 				self.setCursor();
@@ -496,6 +499,7 @@ public class MTY extends SurfaceView implements
 		final boolean useDefault = _useDefault;
 
 		this.activity.runOnUiThread(new Runnable() {
+			@Override
 			public void run() {
 				self.defaultCursor = useDefault;
 				self.setCursor();
@@ -508,6 +512,7 @@ public class MTY extends SurfaceView implements
 		final boolean relative = _relative;
 
 		this.activity.runOnUiThread(new Runnable() {
+			@Override
 			public void run() {
 				if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O)
 					return;
@@ -597,6 +602,7 @@ public class MTY extends SurfaceView implements
 		final int orienation = _orientation;
 
 		this.activity.runOnUiThread(new Runnable() {
+			@Override
 			public void run() {
 				switch (orienation) {
 					case 1:
@@ -618,6 +624,7 @@ public class MTY extends SurfaceView implements
 		final boolean enable = _enable;
 
 		this.activity.runOnUiThread(new Runnable() {
+			@Override
 			public void run() {
 				if (enable) {
 					self.activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
