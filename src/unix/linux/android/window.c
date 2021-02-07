@@ -104,7 +104,6 @@ int main(int argc, char **argv);
 void gfx_global_init(void);
 void gfx_global_destroy(void);
 bool gfx_is_ready(void);
-bool gfx_was_reinit(bool reset);
 uint32_t gfx_width(void);
 uint32_t gfx_height(void);
 MTY_GFXState gfx_state(void);
@@ -1005,11 +1004,6 @@ bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, u
 float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
 {
 	return app->scale;
-}
-
-bool MTY_WindowGFXNewContext(MTY_App *app, MTY_Window window, bool reset)
-{
-	return gfx_was_reinit(reset);
 }
 
 bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)

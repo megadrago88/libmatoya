@@ -577,8 +577,3 @@ MTY_GFXState MTY_WindowGFXState(MTY_App *app, MTY_Window window)
 void MTY_AppSetInputMode(MTY_App *ctx, MTY_Input mode)
 {
 }
-
-bool MTY_WindowGFXNewContext(MTY_App *app, MTY_Window window, bool reset)
-{
-	return false;
-}

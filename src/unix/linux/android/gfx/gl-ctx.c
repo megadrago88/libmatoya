@@ -97,20 +97,6 @@ bool gfx_is_ready(void)
 	return CTX.ready;
 }
 
-bool gfx_was_reinit(bool reset)
-{
-	MTY_MutexLock(CTX.mutex);
-
-	bool reinit = CTX.reinit;
-
-	if (reset)
-		CTX.reinit = false;
-
-	MTY_MutexUnlock(CTX.mutex);
-
-	return reinit;
-}
-
 uint32_t gfx_width(void)
 {
 	return CTX.width;
@@ -123,12 +109,22 @@ uint32_t gfx_height(void)
 
 MTY_GFXState gfx_state(void)
 {
-	if (MTY_Atomic32Get(&CTX.state_ctr) > 0) {
+	MTY_GFXState state = MTY_GFX_STATE_NORMAL;
+
+	MTY_MutexLock(CTX.mutex);
+
+	if (CTX.reinit) {
+		state = MTY_GFX_STATE_NEW_CONTEXT;
+		CTX.reinit = false;
+
+	} else if (MTY_Atomic32Get(&CTX.state_ctr) > 0) {
 		MTY_Atomic32Add(&CTX.state_ctr, -1);
-		return MTY_GFX_STATE_REFRESH;
+		state = MTY_GFX_STATE_REFRESH;
 	}
 
-	return MTY_GFX_STATE_NORMAL;
+	MTY_MutexUnlock(CTX.mutex);
+
+	return state;
 }
 
 
