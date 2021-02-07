@@ -195,14 +195,14 @@ public class MTY extends SurfaceView implements
 
 	static boolean isMouseEvent(InputEvent event) {
 		return
-			(event.getSource() & InputDevice.SOURCE_MOUSE) != 0;
+			(event.getSource() & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE;
 	}
 
 	static boolean isGamepadEvent(InputEvent event) {
 		return
-			(event.getSource() & InputDevice.SOURCE_GAMEPAD) != 0 ||
-			(event.getSource() & InputDevice.SOURCE_JOYSTICK) != 0 ||
-			(event.getSource() & InputDevice.SOURCE_DPAD) != 0;
+			(event.getSource() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
+			(event.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
+			(event.getSource() & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD;
 	}
 
 	@Override
@@ -419,7 +419,8 @@ public class MTY extends SurfaceView implements
 				}
 
 				self.isFullscreen =
-					(self.activity.getWindow().getAttributes().flags & WindowManager.LayoutParams.FLAG_FULLSCREEN) != 0;
+					(self.activity.getWindow().getAttributes().flags & WindowManager.LayoutParams.FLAG_FULLSCREEN) ==
+					WindowManager.LayoutParams.FLAG_FULLSCREEN;
 			}
 		});
 	}
