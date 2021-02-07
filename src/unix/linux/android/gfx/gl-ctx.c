@@ -68,7 +68,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_gfx_1unset_1surface(JNIEnv *env
 	if (CTX.window)
 		ANativeWindow_release(CTX.window);
 
-	CTX.surface = 0;
+	CTX.surface = EGL_NO_SURFACE;
 	CTX.window = NULL;
 
 	CTX.ready = false;
