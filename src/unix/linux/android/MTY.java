@@ -2,7 +2,6 @@ package group.matoya.lib;
 
 import android.app.Activity;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.Surface;
 import android.view.SurfaceView;
 import android.view.SurfaceHolder;
@@ -32,7 +31,6 @@ import android.util.DisplayMetrics;
 import android.util.Base64;
 import android.widget.Scroller;
 import android.os.Vibrator;
-import android.os.Build;
 
 public class MTY extends SurfaceView implements
 	SurfaceHolder.Callback,
@@ -104,8 +102,7 @@ public class MTY extends SurfaceView implements
 		Bitmap bm = BitmapFactory.decodeByteArray(iCursorData, 0, iCursorData.length, null);
 		this.invisCursor = PointerIcon.create(bm, 0, 0);
 
-		ViewGroup vg = activity.findViewById(android.R.id.content);
-		activity.addContentView(this, vg.getLayoutParams());
+		activity.setContentView(this);
 
 		ClipboardManager clipboard = (ClipboardManager) this.activity.getSystemService(Context.CLIPBOARD_SERVICE);
 		clipboard.addPrimaryClipChangedListener(this);
@@ -515,9 +512,6 @@ public class MTY extends SurfaceView implements
 		this.activity.runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O)
-					return;
-
 				if (relative) {
 					self.requestPointerCapture();
 
@@ -529,9 +523,6 @@ public class MTY extends SurfaceView implements
 	}
 
 	public boolean getRelativeMouse() {
-		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O)
-			return false;
-
 		return this.hasPointerCapture();
 	}
 

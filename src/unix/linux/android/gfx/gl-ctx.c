@@ -80,9 +80,6 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_gfx_1unset_1surface(JNIEnv *env
 void gfx_global_init(void)
 {
 	CTX.mutex = MTY_MutexCreate();
-
-	CTX.width = 1920;
-	CTX.height = 1080;
 }
 
 void gfx_global_destroy(void)
