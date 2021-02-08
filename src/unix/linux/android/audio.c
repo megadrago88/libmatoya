@@ -9,7 +9,7 @@
 #include <string.h>
 #include <math.h>
 
-#include "aaudio-dl.h"
+#include <aaudio/AAudio.h>
 
 #define AUDIO_CHANNELS 2
 #define AUDIO_BUF_SIZE (48000 * AUDIO_CHANNELS * 2 * 1) // 1 second at 48khz
@@ -28,11 +28,6 @@ struct MTY_Audio {
 	uint8_t *buffer;
 	size_t size;
 };
-
-static void __attribute__((destructor)) audio_global_destroy(void)
-{
-	aaudio_dl_global_destroy();
-}
 
 static void audio_error(AAudioStream *stream, void *userData, aaudio_result_t error)
 {
@@ -68,9 +63,6 @@ static aaudio_data_callback_result_t audio_callback(AAudioStream *stream, void *
 
 MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer)
 {
-	if (!aaudio_dl_global_init())
-		return NULL;
-
 	MTY_Audio *ctx = MTY_Alloc(1, sizeof(MTY_Audio));
 
 	ctx->sample_rate = sampleRate;
