@@ -615,7 +615,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1mouse_1button(JNIEnv *env,
 	}
 
 	if (msg.mouseButton.button != MTY_MOUSE_BUTTON_NONE) {
-		if (!MTY_AppGetRelativeMouse(NULL)) {
+		if (!MTY_AppGetRelativeMouse(&CTX)) {
 			MTY_Msg mv = {0};
 			mv.type = MTY_MSG_MOUSE_MOTION;
 			mv.mouseMotion.x = lrint(x);
