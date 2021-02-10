@@ -1507,6 +1507,7 @@ enum mty_net_status {
 	MTY_NET_OK                    = 0,
 
 	MTY_NET_WRN_CONTINUE          = 10,
+	MTY_NET_WRN_TIMEOUT           = 2000,
 
 	MTY_NET_ERR_DEFAULT           = -50001,
 
@@ -1560,6 +1561,16 @@ enum mty_net_status {
 	MTY_NET_WS_ERR_STATUS         = -54000,
 	MTY_NET_WS_ERR_KEY            = -54001,
 	MTY_NET_WS_ERR_ORIGIN         = -54002,
+
+	MTY_NET_WS_ERR_CONNECT        = -6101,
+	MTY_NET_WS_ERR_CLOSE          = -6105,
+	MTY_NET_WS_ERR_GOING_AWAY     = -3009,
+	MTY_NET_WS_ERR_POLL           = -3001,
+	MTY_NET_WS_ERR_READ           = -3002,
+	MTY_NET_WS_ERR_WRITE          = -3003,
+	MTY_NET_WS_ERR_PING           = -3005,
+	MTY_NET_WS_ERR_PONG_TIMEOUT   = -3006,
+	MTY_NET_WS_ERR_PONG           = -3007,
 };
 
 enum mty_net_scheme {
@@ -1608,6 +1619,7 @@ struct mty_net_info {
 
 struct mty_net_tls_ctx;
 struct mty_net_conn;
+struct mty_ws;
 
 struct mty_dtls;
 struct mty_dtlsx;
@@ -1679,21 +1691,24 @@ MTY_EXPORT int32_t
 mty_net_get_header(struct mty_net_conn *ucc, const char *key, int32_t *val_int, char **val_str);
 
 MTY_EXPORT int32_t
-mty_net_ws_connect(struct mty_net_conn *ucc, const char *path, const char *origin,
-	int32_t timeout_ms, int32_t *upgrade_status);
+mty_ws_listen(struct mty_ws **mty_ws_out, const char *host, uint16_t port);
+
+MTY_EXPORT struct mty_ws *
+mty_ws_accept(struct mty_ws *ws, struct mty_net_tls_ctx *tls, const char * const *origins,
+	uint32_t num_origins, bool secure_origin, int32_t timeout_ms);
 
 MTY_EXPORT int32_t
-mty_net_ws_accept(struct mty_net_conn *ucc, const char * const *origins,
-	int32_t n_origins, bool secure, int32_t timeout_ms);
+mty_ws_connect(struct mty_ws **mty_ws_out, struct mty_net_tls_ctx *tls, char *host, uint16_t port,
+	char *proxy_url, char *path, const char *origin, int32_t timeout_ms, int32_t *upgrade_status);
+
+MTY_EXPORT void
+mty_ws_destroy(struct mty_ws **mty_ws_out);
 
 MTY_EXPORT int32_t
-mty_net_ws_write(struct mty_net_conn *ucc, const char *buf, uint32_t buf_len, uint8_t opcode);
+mty_ws_read_json(struct mty_ws *ws, char *buf, int32_t buf_len, int32_t timeout_ms);
 
 MTY_EXPORT int32_t
-mty_net_ws_read(struct mty_net_conn *ucc, char *buf, uint32_t buf_len, uint8_t *opcode, int32_t timeout_ms);
-
-MTY_EXPORT int32_t
-mty_net_ws_close(struct mty_net_conn *ucc, uint16_t status_code);
+mty_ws_write_json(struct mty_ws *ws, char *json);
 
 MTY_EXPORT int32_t
 mty_net_parse_url(char *url, struct mty_net_info *uci);
@@ -1738,12 +1753,6 @@ mty_dtls_is_handshake(uint8_t *packet, int32_t n);
 
 MTY_EXPORT int32_t
 mty_dtls_is_application_data(uint8_t *packet, int32_t n);
-
-#define mty_net_get_header_int(ucc, key, val_int) \
-	mty_net_get_header(ucc, key, val_int, NULL)
-
-#define mty_net_get_header_str(ucc, key, val_str) \
-	mty_net_get_header(ucc, key, NULL, val_str)
 
 
 #ifdef __cplusplus
