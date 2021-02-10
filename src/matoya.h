@@ -491,6 +491,9 @@ MTY_MultiToWide(const char *src, wchar_t *dst, uint32_t len);
 MTY_EXPORT wchar_t *
 MTY_MultiToWideD(const char *src);
 
+MTY_EXPORT char *
+MTY_Strtok(char *str, const char *delim, char **saveptr);
+
 #define MTY_Align16(v) \
 	((v) + 0xF & ~((uintptr_t) 0xF))
 
@@ -1491,6 +1494,256 @@ MTY_GLGetProcAddress(const char *name);
 
 MTY_EXPORT void *
 MTY_JNIEnv(void);
+
+
+// @module net
+
+#define MTY_NET_PORT    80
+#define MTY_NET_PORT_S  443
+
+#define MTY_NET_FINGERPRINT_SIZE 512
+
+enum mty_net_status {
+	MTY_NET_OK                    = 0,
+
+	MTY_NET_WRN_CONTINUE          = 10,
+
+	MTY_NET_ERR_DEFAULT           = -50001,
+
+	MTY_NET_DTLS_ERR_BIO_WRITE    = -33000,
+	MTY_NET_DTLS_ERR_BIO_READ     = -33001,
+	MTY_NET_DTLS_ERR_SSL          = -33002,
+	MTY_NET_DTLS_ERR_BUFFER       = -33003,
+	MTY_NET_DTLS_ERR_NO_DATA      = -33004,
+	MTY_NET_DTLS_ERR_CERT         = -33005,
+
+	MTY_NET_TCP_ERR_SOCKET        = -50010,
+	MTY_NET_TCP_ERR_BLOCKMODE     = -50011,
+	MTY_NET_TCP_ERR_CONNECT       = -50012,
+	MTY_NET_TCP_ERR_CONNECT_FINAL = -50013,
+	MTY_NET_TCP_ERR_WRITE         = -50014,
+	MTY_NET_TCP_ERR_READ          = -50015,
+	MTY_NET_TCP_ERR_CLOSED        = -50016,
+	MTY_NET_TCP_ERR_RESOLVE       = -50017,
+	MTY_NET_TCP_ERR_NTOP          = -50018,
+	MTY_NET_TCP_ERR_TIMEOUT       = -50019,
+	MTY_NET_TCP_ERR_POLL          = -50020,
+	MTY_NET_TCP_ERR_BIND          = -50021,
+	MTY_NET_TCP_ERR_LISTEN        = -50022,
+	MTY_NET_TCP_ERR_ACCEPT        = -50023,
+
+	MTY_NET_TLS_ERR_CONTEXT       = -51000,
+	MTY_NET_TLS_ERR_SSL           = -51001,
+	MTY_NET_TLS_ERR_FD            = -51002,
+	MTY_NET_TLS_ERR_HANDSHAKE     = -51003,
+	MTY_NET_TLS_ERR_WRITE         = -51004,
+	MTY_NET_TLS_ERR_READ          = -51005,
+	MTY_NET_TLS_ERR_CLOSED        = -51006,
+	MTY_NET_TLS_ERR_CACERT        = -51007,
+	MTY_NET_TLS_ERR_CIPHER        = -51008,
+	MTY_NET_TLS_ERR_CERT          = -51009,
+	MTY_NET_TLS_ERR_KEY           = -51010,
+
+	MTY_NET_HTTP_ERR_PARSE_STATUS = -52000,
+	MTY_NET_HTTP_ERR_PARSE_HEADER = -52001,
+	MTY_NET_HTTP_ERR_PARSE_SCHEME = -52002,
+	MTY_NET_HTTP_ERR_PARSE_HOST   = -52003,
+	MTY_NET_HTTP_ERR_NOT_FOUND    = -52004,
+
+	MTY_NET_ERR_NO_BODY           = -53000,
+	MTY_NET_ERR_MAX_CHUNK         = -53001,
+	MTY_NET_ERR_MAX_BODY          = -53002,
+	MTY_NET_ERR_MAX_HEADER        = -53003,
+	MTY_NET_ERR_BUFFER            = -53004,
+	MTY_NET_ERR_PROXY             = -53005,
+
+	MTY_NET_WS_ERR_STATUS         = -54000,
+	MTY_NET_WS_ERR_KEY            = -54001,
+	MTY_NET_WS_ERR_ORIGIN         = -54002,
+};
+
+enum mty_net_scheme {
+	MTY_NET_NONE  = 0,
+	MTY_NET_HTTP  = 1,
+	MTY_NET_HTTPS = 2,
+	MTY_NET_WS    = 3,
+	MTY_NET_WSS   = 4,
+};
+
+enum mty_net_header_type {
+	MTY_NET_REQUEST  = 0,
+	MTY_NET_RESPONSE = 1,
+};
+
+enum mty_net_ws_opcode {
+	MTY_NET_WSOP_CONTINUE = 0x0,
+	MTY_NET_WSOP_TEXT     = 0x1,
+	MTY_NET_WSOP_BINARY   = 0x2,
+	MTY_NET_WSOP_CLOSE    = 0x8,
+	MTY_NET_WSOP_PING     = 0x9,
+	MTY_NET_WSOP_PONG     = 0xa,
+};
+
+enum mty_net_ws_status_code {
+	MTY_NET_CLOSE_NORMAL           = 1000,
+	MTY_NET_CLOSE_GOING_AWAY       = 1001,
+	MTY_NET_CLOSE_PROTOCOL         = 1002,
+	MTY_NET_CLOSE_DATA_TYPE        = 1003,
+	MTY_NET_CLOSE_NO_STATUS_CODE   = 1005,
+	MTY_NET_CLOSE_ABNORMAL_CLOSE   = 1006,
+	MTY_NET_CLOSE_DATA_CONSISTENCY = 1007,
+	MTY_NET_CLOSE_POLICY           = 1008,
+	MTY_NET_CLOSE_TOO_BIG          = 1009,
+	MTY_NET_CLOSE_EXTENSION        = 1010,
+	MTY_NET_CLOSE_UNEXPECTED       = 1011,
+	MTY_NET_CLOSE_TLS_HANDSHAKE    = 1015,
+};
+
+struct mty_net_info {
+	int32_t scheme;
+	char *host;
+	uint16_t port;
+	char *path;
+};
+
+struct mty_net_tls_ctx;
+struct mty_net_conn;
+
+struct mty_dtls;
+struct mty_dtlsx;
+struct mty_dtls_creds;
+
+MTY_EXPORT void
+mty_net_free_tls_ctx(struct mty_net_tls_ctx *uc_tls);
+
+MTY_EXPORT int32_t
+mty_net_new_tls_ctx(struct mty_net_tls_ctx **uc_tls_in);
+
+MTY_EXPORT int32_t
+mty_net_set_cacert(struct mty_net_tls_ctx *uc_tls, const char *cacert, size_t size);
+
+MTY_EXPORT int32_t
+mty_net_set_cert_and_key(struct mty_net_tls_ctx *uc_tls, const char *cert,
+	size_t cert_size, const char *key, size_t key_size);
+
+MTY_EXPORT struct mty_net_conn *
+mty_net_new_conn(void);
+
+MTY_EXPORT int32_t
+mty_net_connect(struct mty_net_tls_ctx *uc_tls, struct mty_net_conn *ucc,
+	int32_t scheme, const char *host, uint16_t port, bool verify_host,
+	const char *proxy_host, uint16_t proxy_port, int32_t timeout_ms);
+
+MTY_EXPORT int32_t
+mty_net_listen(struct mty_net_conn *ucc, const char *bind_ip4, uint16_t port);
+
+MTY_EXPORT int32_t
+mty_net_accept(struct mty_net_tls_ctx *uc_tls, struct mty_net_conn *ucc,
+	struct mty_net_conn **ucc_new_in, int32_t scheme, int32_t timeout_ms);
+
+MTY_EXPORT void
+mty_net_close(struct mty_net_conn *ucc);
+
+MTY_EXPORT int32_t
+mty_net_poll(struct mty_net_conn *ucc, int32_t timeout_ms);
+
+MTY_EXPORT void
+mty_net_set_header_str(struct mty_net_conn *ucc, const char *name, const char *value);
+
+MTY_EXPORT void
+mty_net_set_header_int(struct mty_net_conn *ucc, const char *name, int32_t value);
+
+MTY_EXPORT void
+mty_net_free_header(struct mty_net_conn *ucc);
+
+MTY_EXPORT int32_t
+mty_net_write_header(struct mty_net_conn *ucc, const char *str0, const char *str1, int32_t type);
+
+MTY_EXPORT int32_t
+mty_net_write_body(struct mty_net_conn *ucc, const char *body, uint32_t body_len);
+
+MTY_EXPORT int32_t
+mty_net_read_header(struct mty_net_conn *ucc, int32_t timeout_ms);
+
+MTY_EXPORT int32_t
+mty_net_read_body_all(struct mty_net_conn *ucc, char **body, uint32_t *body_len,
+	int32_t timeout_ms, size_t max_body);
+
+MTY_EXPORT int32_t
+mty_net_get_status_code(struct mty_net_conn *ucc, int32_t *status_code);
+
+MTY_EXPORT int8_t
+mty_net_check_header(struct mty_net_conn *ucc, const char *name, const char *subval);
+
+MTY_EXPORT int32_t
+mty_net_get_header(struct mty_net_conn *ucc, const char *key, int32_t *val_int, char **val_str);
+
+MTY_EXPORT int32_t
+mty_net_ws_connect(struct mty_net_conn *ucc, const char *path, const char *origin,
+	int32_t timeout_ms, int32_t *upgrade_status);
+
+MTY_EXPORT int32_t
+mty_net_ws_accept(struct mty_net_conn *ucc, const char * const *origins,
+	int32_t n_origins, bool secure, int32_t timeout_ms);
+
+MTY_EXPORT int32_t
+mty_net_ws_write(struct mty_net_conn *ucc, const char *buf, uint32_t buf_len, uint8_t opcode);
+
+MTY_EXPORT int32_t
+mty_net_ws_read(struct mty_net_conn *ucc, char *buf, uint32_t buf_len, uint8_t *opcode, int32_t timeout_ms);
+
+MTY_EXPORT int32_t
+mty_net_ws_close(struct mty_net_conn *ucc, uint16_t status_code);
+
+MTY_EXPORT int32_t
+mty_net_parse_url(char *url, struct mty_net_info *uci);
+
+MTY_EXPORT void
+mty_net_free_info(struct mty_net_info *uci);
+
+MTY_EXPORT struct mty_dtlsx *
+mty_dtls_context_init(void);
+
+MTY_EXPORT void
+mty_dtls_context_destroy(struct mty_dtlsx **ctx_out);
+
+MTY_EXPORT struct mty_dtls_creds *
+mty_dtls_get_creds(void);
+
+MTY_EXPORT void
+mty_dtls_get_fingerprint(struct mty_dtls_creds *creds, char *fingerprint);
+
+MTY_EXPORT void
+mty_dtls_free_creds(struct mty_dtls_creds *creds);
+
+MTY_EXPORT int32_t
+mty_dtls_init(struct mty_dtls **mty_dtls_in, struct mty_dtlsx *ctx,
+	struct mty_dtls_creds *creds, bool should_accept, int32_t mtu);
+
+MTY_EXPORT void
+mty_dtls_close(struct mty_dtls *mty_dtls);
+
+MTY_EXPORT int32_t
+mty_dtls_handshake(struct mty_dtls *mty_dtls, char *buf, size_t buf_size, char *peer_fingerprint,
+	int32_t (*write_cb)(char *buf, size_t len, void *opaque), void *opaque);
+
+MTY_EXPORT int32_t
+mty_dtls_encrypt(struct mty_dtls *mty_dtls, char *buf_in, int32_t size_in, char *buf_out, int32_t size_out);
+
+MTY_EXPORT int32_t
+mty_dtls_decrypt(struct mty_dtls *mty_dtls, char *buf_in, int32_t size_in, char *buf_out, int32_t size_out);
+
+MTY_EXPORT int32_t
+mty_dtls_is_handshake(uint8_t *packet, int32_t n);
+
+MTY_EXPORT int32_t
+mty_dtls_is_application_data(uint8_t *packet, int32_t n);
+
+#define mty_net_get_header_int(ucc, key, val_int) \
+	mty_net_get_header(ucc, key, val_int, NULL)
+
+#define mty_net_get_header_str(ucc, key, val_str) \
+	mty_net_get_header(ucc, key, NULL, val_str)
 
 
 #ifdef __cplusplus

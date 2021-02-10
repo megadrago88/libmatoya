@@ -136,3 +136,8 @@ bool MTY_MultiToWide(const char *src, wchar_t *dst, uint32_t len)
 
 	return true;
 }
+
+char *MTY_Strtok(char *str, const char *delim, char **saveptr)
+{
+	return strtok_r(str, delim, saveptr);
+}

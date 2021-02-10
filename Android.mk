@@ -32,6 +32,7 @@ LOCAL_C_INCLUDES := \
 DEFS = \
 	-D_POSIX_C_SOURCE=200112L \
 	-DMTY_GL_ES \
+	-DMTY_SSL_EXTERNAL \
 	-DMTY_GL_EXTERNAL
 
 ifdef CRYPTO_EXTERNAL
@@ -58,6 +59,12 @@ LOCAL_SRC_FILES := \
 	src/gfx/gl-ui.c \
 	src/gfx/render.c \
 	src/gfx/window-ctx.c \
+	src/net/http.c \
+	src/net/net.c \
+	src/net/tcp.c \
+	src/net/tls.c \
+	src/net/dtls.c \
+	src/net/ws.c \
 	src/unix/compress.c \
 	src/unix/fs.c \
 	src/unix/memory.c \

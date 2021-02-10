@@ -39,7 +39,13 @@ OBJS = \
 	src\gfx\gl.obj \
 	src\gfx\gl-ui.obj \
 	src\gfx\render.obj \
-	src\gfx\window-ctx.obj
+	src\gfx\window-ctx.obj \
+	src\net\http.obj \
+	src\net\net.obj \
+	src\net\tcp.obj \
+	src\net\tls.obj \
+	src\net\dtls.obj \
+	src\net\ws.obj
 
 OBJS = $(OBJS) \
 	src\windows\audio.obj \
@@ -79,6 +85,7 @@ INCLUDES = \
 	-Ideps
 
 DEFS = \
+	-DMTY_SSL_EXTERNAL \
 	-DWIN32_LEAN_AND_MEAN \
 	-DUNICODE
 

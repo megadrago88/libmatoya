@@ -107,7 +107,13 @@ OBJS := $(OBJS) \
 	src/unix/linux/generic/gfx/gl-ctx.o \
 	src/unix/linux/generic/hid.o \
 	src/unix/linux/generic/audio.o \
-	src/unix/linux/generic/window.o
+	src/unix/linux/generic/window.o \
+	src/net/http.o \
+	src/net/net.o \
+	src/net/tcp.o \
+	src/net/tls.o \
+	src/net/dtls.o \
+	src/net/ws.o
 
 ifdef CRYPTO_EXTERNAL
 DEFS := $(DEFS) \
@@ -164,13 +170,20 @@ OBJS := $(OBJS) \
 	src/unix/apple/gfx/metal-ui.o \
 	src/unix/apple/audio.o \
 	src/unix/apple/crypto.o \
-	src/unix/apple/$(TARGET)/window.o
+	src/unix/apple/$(TARGET)/window.o \
+	src/net/http.o \
+	src/net/net.o \
+	src/net/tcp.o \
+	src/net/tls.o \
+	src/net/dtls.o \
+	src/net/ws.o
 
 SHADERS := $(SHADERS) \
 	src/unix/apple/gfx/shaders/metal/quad.h \
 	src/unix/apple/gfx/shaders/metal/ui.h
 
 DEFS := $(DEFS) \
+	-DMTY_SSL_EXTERNAL \
 	-DMTY_GL_EXTERNAL
 
 TEST_LIBS = \
