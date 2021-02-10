@@ -33,6 +33,9 @@ static int32_t mty_dtls_verify(int32_t ok, X509_STORE_CTX *ctx)
 
 struct mty_dtlsx *mty_dtls_context_init(void)
 {
+	if (!ssl_dl_global_init())
+		return NULL;
+
 	struct mty_dtlsx *ctx = calloc(1, sizeof(struct mty_dtlsx));
 
 	ctx->ctx = SSL_CTX_new(DTLS_method());
@@ -77,6 +80,9 @@ void mty_dtls_context_destroy(struct mty_dtlsx **ctx_out)
 
 struct mty_dtls_creds *mty_dtls_get_creds(void)
 {
+	if (!ssl_dl_global_init())
+		return NULL;
+
 	struct mty_dtls_creds *creds = calloc(1, sizeof(struct mty_dtls_creds));
 
 	BIGNUM *bne = BN_new();

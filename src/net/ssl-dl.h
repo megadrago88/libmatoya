@@ -123,12 +123,12 @@ STATIC unsigned long FP(SSL_set_options)(SSL *s, unsigned long op);
 STATIC X509 *FP(SSL_get_peer_certificate)(const SSL *s);
 STATIC int FP(SSL_use_RSAPrivateKey)(SSL *ssl, RSA *rsa);
 
-STATIC const FP(SSL_METHOD *DTLS_method)(void);
+STATIC const SSL_METHOD *FP(DTLS_method)(void);
 STATIC void FP(SSL_CTX_set_quiet_shutdown)(SSL_CTX *ctx, int mode);
 STATIC void FP(SSL_CTX_set_verify)(SSL_CTX *ctx, int mode, SSL_verify_cb callback);
 
 STATIC BIO *FP(BIO_new)(const BIO_METHOD *type);
-STATIC const FP(BIO_METHOD *BIO_s_mem)(void);
+STATIC const BIO_METHOD *FP(BIO_s_mem)(void);
 STATIC int FP(BIO_write)(BIO *b, const void *data, int len);
 STATIC size_t FP(BIO_ctrl_pending)(BIO *b);
 STATIC int FP(BIO_read)(BIO *b, void *data, int len);
@@ -152,7 +152,7 @@ STATIC void FP(BN_free)(BIGNUM *a);
 STATIC int FP(BN_set_word)(BIGNUM *a, unsigned long long w);
 
 STATIC EVP_PKEY *FP(EVP_PKEY_new)(void);
-STATIC const FP(EVP_MD *EVP_sha256)(void);
+STATIC const EVP_MD *FP(EVP_sha256)(void);
 STATIC int FP(EVP_PKEY_assign)(EVP_PKEY *pkey, int type, void *key);
 
 STATIC RSA *FP(RSA_new)(void);
@@ -270,15 +270,15 @@ static bool ssl_dl_global_init(void)
 		LOAD_SYM(SSL_DL_SO, X509_set_issuer_name);
 		LOAD_SYM(SSL_DL_SO, X509_get_subject_name);
 		LOAD_SYM(SSL_DL_SO, X509_get_serialNumber);
-		LOAD_SYM(SSL_DL_SO, 509_gmtime_adj);
-		LOAD_SYM(SSL_DL_SO, 509_NAME_add_entry_by_txt);
+		LOAD_SYM(SSL_DL_SO, X509_gmtime_adj);
+		LOAD_SYM(SSL_DL_SO, X509_NAME_add_entry_by_txt);
 
 		LOAD_SYM(SSL_DL_SO, BN_new);
 		LOAD_SYM(SSL_DL_SO, BN_free);
 		LOAD_SYM(SSL_DL_SO, BN_set_word);
 
 		LOAD_SYM(SSL_DL_SO, EVP_PKEY_new);
-		LOAD_SYM(SSL_DL_SO, EVP_MD *EVP_sha256);
+		LOAD_SYM(SSL_DL_SO, EVP_sha256);
 		LOAD_SYM(SSL_DL_SO, EVP_PKEY_assign);
 
 		LOAD_SYM(SSL_DL_SO, RSA_new);
