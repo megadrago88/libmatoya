@@ -28,8 +28,6 @@ struct mty_dtlsx {
 
 static int32_t mty_dtls_verify(int32_t ok, X509_STORE_CTX *ctx)
 {
-	ok, ctx;
-
 	return 1;
 }
 
