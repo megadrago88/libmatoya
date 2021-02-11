@@ -85,7 +85,7 @@ int32_t mty_net_set_cert_and_key(struct mty_net_tls_ctx *uc_tls,
 
 // Connection
 
-struct mty_net_conn *mty_net_new_conn(void)
+static struct mty_net_conn *mty_net_new_conn(void)
 {
 	return calloc(1, sizeof(struct mty_net_conn));
 }
@@ -125,7 +125,7 @@ static int32_t mty_net_read_header_(struct mty_net_conn *ucc, char **header, int
 	return r;
 }
 
-int32_t mty_net_read_header(struct mty_net_conn *ucc, int32_t timeout_ms)
+static int32_t mty_net_read_header(struct mty_net_conn *ucc, int32_t timeout_ms)
 {
 	//free any exiting response headers
 	if (ucc->hin) http_free_header(ucc->hin);
@@ -144,13 +144,13 @@ int32_t mty_net_read_header(struct mty_net_conn *ucc, int32_t timeout_ms)
 	return e;
 }
 
-int32_t mty_net_get_status_code(struct mty_net_conn *ucc, int32_t *status_code)
+static int32_t mty_net_get_status_code(struct mty_net_conn *ucc, int32_t *status_code)
 {
 	*status_code = 0;
 	return http_get_status_code(ucc->hin, status_code);
 }
 
-int32_t mty_net_connect(struct mty_net_tls_ctx *uc_tls, struct mty_net_conn *ucc,
+static int32_t mty_net_connect(struct mty_net_tls_ctx *uc_tls, struct mty_net_conn *ucc,
 	int32_t scheme, const char *host, uint16_t port, bool verify_host,
 	const char *proxy_host, uint16_t proxy_port, int32_t timeout_ms)
 {
@@ -208,7 +208,7 @@ int32_t mty_net_connect(struct mty_net_tls_ctx *uc_tls, struct mty_net_conn *ucc
 	return MTY_NET_OK;
 }
 
-int32_t mty_net_listen(struct mty_net_conn *ucc, const char *bind_ip4, uint16_t port)
+static int32_t mty_net_listen(struct mty_net_conn *ucc, const char *bind_ip4, uint16_t port)
 {
 	ucc->port = port;
 
@@ -218,7 +218,7 @@ int32_t mty_net_listen(struct mty_net_conn *ucc, const char *bind_ip4, uint16_t 
 	return MTY_NET_OK;
 }
 
-int32_t mty_net_accept(struct mty_net_tls_ctx *uc_tls, struct mty_net_conn *ucc,
+static int32_t mty_net_accept(struct mty_net_tls_ctx *uc_tls, struct mty_net_conn *ucc,
 	struct mty_net_conn **ucc_new_in, int32_t scheme, int32_t timeout_ms)
 {
 	struct mty_net_conn *ucc_new = *ucc_new_in = mty_net_new_conn();
@@ -252,12 +252,12 @@ int32_t mty_net_accept(struct mty_net_tls_ctx *uc_tls, struct mty_net_conn *ucc,
 	return r;
 }
 
-int32_t mty_net_poll(struct mty_net_conn *ucc, int32_t timeout_ms)
+static int32_t mty_net_poll(struct mty_net_conn *ucc, int32_t timeout_ms)
 {
 	return tcp_poll(ucc->net, TCP_POLLIN, timeout_ms);
 }
 
-void mty_net_close(struct mty_net_conn *ucc)
+static void mty_net_close(struct mty_net_conn *ucc)
 {
 	if (!ucc) return;
 
@@ -272,23 +272,17 @@ void mty_net_close(struct mty_net_conn *ucc)
 
 // Request
 
-void mty_net_set_header_str(struct mty_net_conn *ucc, const char *name, const char *value)
+static void mty_net_set_header_str(struct mty_net_conn *ucc, const char *name, const char *value)
 {
 	ucc->hout = http_set_header(ucc->hout, name, HTTP_STRING, value);
 }
 
-void mty_net_set_header_int(struct mty_net_conn *ucc, const char *name, int32_t value)
+static void mty_net_set_header_int(struct mty_net_conn *ucc, const char *name, int32_t value)
 {
 	ucc->hout = http_set_header(ucc->hout, name, HTTP_INT, &value);
 }
 
-void mty_net_free_header(struct mty_net_conn *ucc)
-{
-	free(ucc->hout);
-	ucc->hout = NULL;
-}
-
-int32_t mty_net_write_header(struct mty_net_conn *ucc, const char *str0, const char *str1, int32_t type)
+static int32_t mty_net_write_header(struct mty_net_conn *ucc, const char *str0, const char *str1, int32_t type)
 {
 	//generate the HTTP request/response header
 	char *h = (type == MTY_NET_REQUEST) ?
@@ -303,7 +297,7 @@ int32_t mty_net_write_header(struct mty_net_conn *ucc, const char *str0, const c
 	return e;
 }
 
-int32_t mty_net_write_body(struct mty_net_conn *ucc, const char *body, uint32_t body_len)
+static int32_t mty_net_write_body(struct mty_net_conn *ucc, const char *body, uint32_t body_len)
 {
 	return ucc->write(ucc->ctx, body, body_len);
 }
@@ -363,12 +357,12 @@ static int32_t mty_net_response_body_chunked(struct mty_net_conn *ucc, char **bo
 	return MTY_NET_OK;
 }
 
-int32_t mty_net_get_header(struct mty_net_conn *ucc, const char *key, int32_t *val_int, char **val_str)
+static int32_t mty_net_get_header(struct mty_net_conn *ucc, const char *key, int32_t *val_int, char **val_str)
 {
 	return http_get_header(ucc->hin, key, val_int, val_str);
 }
 
-int8_t mty_net_check_header(struct mty_net_conn *ucc, const char *name, const char *subval)
+static int8_t mty_net_check_header(struct mty_net_conn *ucc, const char *name, const char *subval)
 {
 	char *val = NULL;
 
@@ -377,7 +371,7 @@ int8_t mty_net_check_header(struct mty_net_conn *ucc, const char *name, const ch
 	return (e == MTY_NET_OK && strstr(http_lc(val), subval)) ? 1 : 0;
 }
 
-int32_t mty_net_read_body_all(struct mty_net_conn *ucc, char **body, uint32_t *body_len,
+static int32_t mty_net_read_body_all(struct mty_net_conn *ucc, char **body, uint32_t *body_len,
 	int32_t timeout_ms, size_t max_body)
 {
 	int32_t r = MTY_NET_OK;
@@ -800,4 +794,104 @@ int32_t mty_ws_write_json(struct mty_ws *ws, char *json)
 	int32_t e = mty_net_ws_write(ws, json, (uint32_t) strlen(json), MTY_NET_WSOP_TEXT);
 
 	return (e == MTY_NET_OK) ? MTY_NET_OK : MTY_NET_WS_ERR_WRITE;
+}
+
+
+// HTTP wrapper
+
+#include "gzip.h"
+
+static void mty_http_set_headers(struct mty_net_conn *ucc, char *header_str_orig)
+{
+	char *tok, *ptr = NULL;
+	char *header_str = MTY_Strdup(header_str_orig);
+
+	tok = MTY_Strtok(header_str, "\n", &ptr);
+	while (tok) {
+		char *key, *val = NULL, *ptr2 = NULL;
+
+		key = MTY_Strtok(tok, ":", &ptr2);
+		if (key) val = MTY_Strtok(NULL, ":", &ptr2);
+
+		if (key && val) {
+			mty_net_set_header_str(ucc, key, val);
+		} else break;
+
+		tok = MTY_Strtok(NULL, "\n", &ptr);
+	}
+
+	free(header_str);
+}
+
+int32_t mty_http_request(struct mty_net_tls_ctx *tls, char *method, enum mty_net_scheme uc_scheme,
+	char *host, char *path, char *headers, char *body, uint32_t body_len, int32_t timeout_ms,
+	char **response, uint32_t *response_len, bool proxy)
+{
+	*response_len = 0;
+	*response = NULL;
+
+	int32_t z_e = MTY_NET_OK;
+	int32_t r = MTY_NET_OK;
+	int32_t status_code = 0;
+	uint16_t port = (uc_scheme == MTY_NET_HTTPS) ? 443 : 80;
+
+	//make the socket/TLS connection
+	struct mty_net_conn *ucc = mty_net_new_conn();
+
+	//make the TCP connection
+	int32_t e = mty_net_connect(tls, ucc, uc_scheme, host, port, true, NULL, 0, timeout_ms);
+	if (e != MTY_NET_OK) goto except;
+
+	//set request headers
+	mty_net_set_header_str(ucc, "User-Agent", "mty_net/0.0");
+	mty_net_set_header_str(ucc, "Connection", "close");
+	if (headers) mty_http_set_headers(ucc, headers);
+	if (body_len) mty_net_set_header_int(ucc, "Content-Length", body_len);
+
+	//send the request header
+	e = mty_net_write_header(ucc, method, path, MTY_NET_REQUEST);
+	if (e != MTY_NET_OK) goto except;
+
+	//send the request body
+	e = mty_net_write_body(ucc, body, body_len);
+	if (e != MTY_NET_OK) goto except;
+
+	//read the response header
+	e = mty_net_read_header(ucc, timeout_ms);
+	if (e != MTY_NET_OK) goto except;
+
+	//get the status code
+	e = mty_net_get_status_code(ucc, &status_code);
+	if (e != MTY_NET_OK) goto except;
+
+	//read the response body if not HEAD request -- uncompress if necessary
+	if (strcmp(method, "HEAD")) {
+		e = mty_net_read_body_all(ucc, response, response_len, timeout_ms, 128 * 1024 * 1024);
+
+		if (e == MTY_NET_OK && mty_net_check_header(ucc, "Content-Encoding", "gzip")) {
+			char *response_z = NULL;
+			int32_t response_len_z = 0;
+
+			z_e = gzip_decompress(*response, *response_len, &response_z, &response_len_z);
+			if (z_e == MTY_NET_OK) {
+				free(*response);
+
+				*response = response_z;
+				*response_len = response_len_z;
+			}
+		}
+	}
+
+	except:
+
+	mty_net_close(ucc);
+
+	if ((e != MTY_NET_OK && e != MTY_NET_ERR_NO_BODY) || z_e != MTY_NET_OK) {
+		free(*response);
+		*response_len = 0;
+		*response = NULL;
+		r = MTY_NET_HTTP_ERR_REQUEST;
+	}
+
+	return (r == MTY_NET_OK) ? status_code : r;
 }

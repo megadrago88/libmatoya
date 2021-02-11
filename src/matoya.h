@@ -1509,6 +1509,8 @@ enum mty_net_status {
 	MTY_NET_WRN_CONTINUE          = 10,
 	MTY_NET_WRN_TIMEOUT           = 2000,
 
+	MTY_NET_HTTP_ERR_REQUEST      = -800,
+
 	MTY_NET_ERR_DEFAULT           = -50001,
 
 	MTY_NET_DTLS_ERR_BIO_WRITE    = -33000,
@@ -1571,6 +1573,9 @@ enum mty_net_status {
 	MTY_NET_WS_ERR_PING           = -3005,
 	MTY_NET_WS_ERR_PONG_TIMEOUT   = -3006,
 	MTY_NET_WS_ERR_PONG           = -3007,
+
+	MTY_NET_ERR_DEFLATE           = -5000,
+	MTY_NET_ERR_INFLATE           = -5001,
 };
 
 enum mty_net_scheme {
@@ -1618,7 +1623,6 @@ struct mty_net_info {
 };
 
 struct mty_net_tls_ctx;
-struct mty_net_conn;
 struct mty_ws;
 
 struct mty_dtls;
@@ -1638,57 +1642,10 @@ MTY_EXPORT int32_t
 mty_net_set_cert_and_key(struct mty_net_tls_ctx *uc_tls, const char *cert,
 	size_t cert_size, const char *key, size_t key_size);
 
-MTY_EXPORT struct mty_net_conn *
-mty_net_new_conn(void);
-
 MTY_EXPORT int32_t
-mty_net_connect(struct mty_net_tls_ctx *uc_tls, struct mty_net_conn *ucc,
-	int32_t scheme, const char *host, uint16_t port, bool verify_host,
-	const char *proxy_host, uint16_t proxy_port, int32_t timeout_ms);
-
-MTY_EXPORT int32_t
-mty_net_listen(struct mty_net_conn *ucc, const char *bind_ip4, uint16_t port);
-
-MTY_EXPORT int32_t
-mty_net_accept(struct mty_net_tls_ctx *uc_tls, struct mty_net_conn *ucc,
-	struct mty_net_conn **ucc_new_in, int32_t scheme, int32_t timeout_ms);
-
-MTY_EXPORT void
-mty_net_close(struct mty_net_conn *ucc);
-
-MTY_EXPORT int32_t
-mty_net_poll(struct mty_net_conn *ucc, int32_t timeout_ms);
-
-MTY_EXPORT void
-mty_net_set_header_str(struct mty_net_conn *ucc, const char *name, const char *value);
-
-MTY_EXPORT void
-mty_net_set_header_int(struct mty_net_conn *ucc, const char *name, int32_t value);
-
-MTY_EXPORT void
-mty_net_free_header(struct mty_net_conn *ucc);
-
-MTY_EXPORT int32_t
-mty_net_write_header(struct mty_net_conn *ucc, const char *str0, const char *str1, int32_t type);
-
-MTY_EXPORT int32_t
-mty_net_write_body(struct mty_net_conn *ucc, const char *body, uint32_t body_len);
-
-MTY_EXPORT int32_t
-mty_net_read_header(struct mty_net_conn *ucc, int32_t timeout_ms);
-
-MTY_EXPORT int32_t
-mty_net_read_body_all(struct mty_net_conn *ucc, char **body, uint32_t *body_len,
-	int32_t timeout_ms, size_t max_body);
-
-MTY_EXPORT int32_t
-mty_net_get_status_code(struct mty_net_conn *ucc, int32_t *status_code);
-
-MTY_EXPORT int8_t
-mty_net_check_header(struct mty_net_conn *ucc, const char *name, const char *subval);
-
-MTY_EXPORT int32_t
-mty_net_get_header(struct mty_net_conn *ucc, const char *key, int32_t *val_int, char **val_str);
+mty_http_request(struct mty_net_tls_ctx *tls, char *method, enum mty_net_scheme uc_scheme,
+	char *host, char *path, char *headers, char *body, uint32_t body_len, int32_t timeout_ms,
+	char **response, uint32_t *response_len, bool proxy);
 
 MTY_EXPORT int32_t
 mty_ws_listen(struct mty_ws **mty_ws_out, const char *host, uint16_t port);

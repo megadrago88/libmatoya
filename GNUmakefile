@@ -109,6 +109,7 @@ OBJS := $(OBJS) \
 	src/unix/linux/generic/audio.o \
 	src/unix/linux/generic/window.o \
 	src/net/http.o \
+	src/net/gzip.o \
 	src/net/net.o \
 	src/net/tcp.o \
 	src/net/tls.o \
@@ -172,6 +173,7 @@ OBJS := $(OBJS) \
 	src/unix/apple/crypto.o \
 	src/unix/apple/$(TARGET)/window.o \
 	src/net/http.o \
+	src/net/gzip.o \
 	src/net/net.o \
 	src/net/tcp.o \
 	src/net/tls.o \
