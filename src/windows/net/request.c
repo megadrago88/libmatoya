@@ -167,7 +167,7 @@ int32_t mty_http_request(struct mty_net_tls_ctx *tls, char *method, enum mty_net
 	success = WinHttpQueryHeaders(request, WINHTTP_QUERY_CONTENT_ENCODING, NULL,
 		header_wstr, &buf_len, NULL);
 
-	gzipped = (success && !wcscmp(header_wstr, L"gzip"));
+	gzipped = success && !wcscmp(header_wstr, L"gzip");
 
 	//response body
 	r = mty_http_recv_response(request, response, response_len);
