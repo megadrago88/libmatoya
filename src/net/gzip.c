@@ -7,9 +7,6 @@
 #include "matoya.h"
 #include "gzip.h"
 
-#include <string.h>
-#include <stdlib.h>
-
 #include "miniz/miniz.c"
 
 #define MTY_GZIP_CHUNK_SIZE (256 * 1024) // 256KB
@@ -29,7 +26,7 @@ void *mty_gzip_decompress(const void *in, size_t inSize, size_t *outSize)
 	strm.avail_in = (uint32_t) inSize;
 	strm.next_in = in;
 
-	do {
+	while (e == Z_OK) {
 		out = MTY_Realloc(out, *outSize + MTY_GZIP_CHUNK_SIZE, 1);
 
 		strm.avail_out = MTY_GZIP_CHUNK_SIZE;
@@ -38,8 +35,7 @@ void *mty_gzip_decompress(const void *in, size_t inSize, size_t *outSize)
 		e = inflate(&strm, Z_NO_FLUSH);
 
 		*outSize += MTY_GZIP_CHUNK_SIZE - strm.avail_out;
-
-	} while (e == Z_OK);
+	}
 
 	if (e != Z_STREAM_END) {
 		MTY_Log("'inflate' failed with error %d", e);
@@ -50,7 +46,9 @@ void *mty_gzip_decompress(const void *in, size_t inSize, size_t *outSize)
 		return NULL;
 	}
 
-	inflateEnd(&strm);
+	e = inflateEnd(&strm);
+	if (e != Z_OK)
+		MTY_Log("'inflateEnd' failed with error %d", e);
 
 	return out;
 }

@@ -26,16 +26,9 @@
  *
  **************************************************************************/
 
-/* miniz.c 2.1.0 - public domain deflate/inflate, zlib-subset, ZIP reading/writing/appending, PNG writing
-   See "unlicense" statement at the end of this file.
-   Rich Geldreich <richgel99@gmail.com>, last updated Oct. 13, 2013
-   Implements RFC 1950: http://www.ietf.org/rfc/rfc1950.txt and RFC 1951: http://www.ietf.org/rfc/rfc1951.txt
-*/
-
 #include <stddef.h>
 #include <assert.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
 
 #if defined(_M_IX86) || defined(_M_X64) || defined(__i386__) || defined(__i386) || defined(__i486__) || defined(__i486) || defined(i386) || defined(__ia64__) || defined(__x86_64__)
@@ -111,8 +104,6 @@ enum
 #define MZ_VER_REVISION 0
 #define MZ_VER_SUBREVISION 0
 
-#ifndef MINIZ_NO_ZLIB_APIS
-
 /* Flush values. For typical usage you only need MZ_NO_FLUSH and MZ_FINISH. The other values are for advanced use (refer to the zlib docs). */
 enum
 {
@@ -169,32 +160,6 @@ typedef struct mz_stream_s
 
 typedef mz_stream *mz_streamp;
 
-/* mz_inflateInit2() is like mz_inflateInit() with an additional option that controls the window size and whether or not the stream has been wrapped with a zlib header/footer: */
-/* window_bits must be MZ_DEFAULT_WINDOW_BITS (to parse zlib header/footer) or -MZ_DEFAULT_WINDOW_BITS (raw deflate). */
-static int mz_inflateInit2(mz_streamp pStream, int window_bits);
-
-/* Decompresses the input stream to the output, consuming only as much of the input as needed, and writing as much to the output as possible. */
-/* Parameters: */
-/*   pStream is the stream to read from and write to. You must initialize/update the next_in, avail_in, next_out, and avail_out members. */
-/*   flush may be MZ_NO_FLUSH, MZ_SYNC_FLUSH, or MZ_FINISH. */
-/*   On the first call, if flush is MZ_FINISH it's assumed the input and output buffers are both sized large enough to decompress the entire stream in a single call (this is slightly faster). */
-/*   MZ_FINISH implies that there are no more source bytes available beside what's already in the input buffer, and that the output buffer is large enough to hold the rest of the decompressed data. */
-/* Return values: */
-/*   MZ_OK on success. Either more input is needed but not available, and/or there's more output to be written but the output buffer is full. */
-/*   MZ_STREAM_END if all needed input has been consumed and all output bytes have been written. For zlib streams, the adler-32 of the decompressed data has also been verified. */
-/*   MZ_STREAM_ERROR if the stream is bogus. */
-/*   MZ_DATA_ERROR if the deflate stream is invalid. */
-/*   MZ_PARAM_ERROR if one of the parameters is invalid. */
-/*   MZ_BUF_ERROR if no forward progress is possible because the input buffer is empty but the inflater needs more input to continue, or if the output buffer is not large enough. Call mz_inflate() again */
-/*   with more input data, or with more room in the output buffer (except when using single call decompression, described above). */
-static int mz_inflate(mz_streamp pStream, int flush);
-
-/* Deinitializes a decompressor. */
-static int mz_inflateEnd(mz_streamp pStream);
-
-/* Redefine zlib-compatible names to miniz equivalents, so miniz.c can be used as a drop-in replacement for the subset of zlib that miniz.c supports. */
-/* Define MINIZ_NO_ZLIB_COMPATIBLE_NAMES to disable zlib-compatibility if you use zlib in the same project. */
-#ifndef MINIZ_NO_ZLIB_COMPATIBLE_NAMES
 typedef unsigned char Byte;
 typedef unsigned int uInt;
 typedef mz_ulong uLong;
@@ -249,11 +214,7 @@ typedef void *const voidpc;
 #define ZLIB_VER_MINOR MZ_VER_MINOR
 #define ZLIB_VER_REVISION MZ_VER_REVISION
 #define ZLIB_VER_SUBREVISION MZ_VER_SUBREVISION
-#endif /* #ifndef MINIZ_NO_ZLIB_COMPATIBLE_NAMES */
 
-#endif /* MINIZ_NO_ZLIB_APIS */
-
-/* ------------------- Types and macros */
 typedef unsigned char mz_uint8;
 typedef signed short mz_int16;
 typedef unsigned short mz_uint16;
@@ -261,29 +222,10 @@ typedef unsigned int mz_uint32;
 typedef unsigned int mz_uint;
 typedef int64_t mz_int64;
 typedef uint64_t mz_uint64;
-typedef int mz_bool;
 
-#define MZ_FALSE (0)
-#define MZ_TRUE (1)
-
-/* Works around MSVC's spammy "warning C4127: conditional expression is constant" message. */
-#ifdef _MSC_VER
-#define MZ_MACRO_END while (0, 0)
-#else
 #define MZ_MACRO_END while (0)
-#endif
 
 #define MZ_ASSERT(x) assert(x)
-
-#ifdef MINIZ_NO_MALLOC
-#define MZ_MALLOC(x) NULL
-#define MZ_FREE(x) (void)x, ((void)0)
-#define MZ_REALLOC(p, x) NULL
-#else
-#define MZ_MALLOC(x) malloc(x)
-#define MZ_FREE(x) free(x)
-#define MZ_REALLOC(p, x) realloc(p, x)
-#endif
 
 #define MZ_MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MZ_MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -298,142 +240,6 @@ typedef int mz_bool;
 #endif
 
 #define MZ_READ_LE64(p) (((mz_uint64)MZ_READ_LE32(p)) | (((mz_uint64)MZ_READ_LE32((const mz_uint8 *)(p) + sizeof(mz_uint32))) << 32U))
-
-#ifdef _MSC_VER
-#define MZ_FORCEINLINE __forceinline
-#elif defined(__GNUC__)
-#define MZ_FORCEINLINE __inline__ __attribute__((__always_inline__))
-#else
-#define MZ_FORCEINLINE inline
-#endif
-
-static void *miniz_def_alloc_func(void *opaque, size_t items, size_t size);
-static void miniz_def_free_func(void *opaque, void *address);
-
-#define MZ_UINT16_MAX (0xFFFFU)
-#define MZ_UINT32_MAX (0xFFFFFFFFU)
-
-/* ------------------- Low-level Compression API Definitions */
-
-/* Set TDEFL_LESS_MEMORY to 1 to use less memory (compression will be slightly slower, and raw/dynamic blocks will be output more frequently). */
-#define TDEFL_LESS_MEMORY 0
-
-/* tdefl_init() compression flags logically OR'd together (low 12 bits contain the max. number of probes per dictionary search): */
-/* TDEFL_DEFAULT_MAX_PROBES: The compressor defaults to 128 dictionary probes per dictionary search. 0=Huffman only, 1=Huffman+LZ (fastest/crap compression), 4095=Huffman+LZ (slowest/best compression). */
-enum
-{
-    TDEFL_HUFFMAN_ONLY = 0,
-    TDEFL_DEFAULT_MAX_PROBES = 128,
-    TDEFL_MAX_PROBES_MASK = 0xFFF
-};
-
-/* TDEFL_WRITE_ZLIB_HEADER: If set, the compressor outputs a zlib header before the deflate data, and the Adler-32 of the source data at the end. Otherwise, you'll get raw deflate data. */
-/* TDEFL_COMPUTE_ADLER32: Always compute the adler-32 of the input data (even when not writing zlib headers). */
-/* TDEFL_GREEDY_PARSING_FLAG: Set to use faster greedy parsing, instead of more efficient lazy parsing. */
-/* TDEFL_NONDETERMINISTIC_PARSING_FLAG: Enable to decrease the compressor's initialization time to the minimum, but the output may vary from run to run given the same input (depending on the contents of memory). */
-/* TDEFL_RLE_MATCHES: Only look for RLE matches (matches with a distance of 1) */
-/* TDEFL_FILTER_MATCHES: Discards matches <= 5 chars if enabled. */
-/* TDEFL_FORCE_ALL_STATIC_BLOCKS: Disable usage of optimized Huffman tables. */
-/* TDEFL_FORCE_ALL_RAW_BLOCKS: Only use raw (uncompressed) deflate blocks. */
-/* The low 12 bits are reserved to control the max # of hash probes per dictionary lookup (see TDEFL_MAX_PROBES_MASK). */
-enum
-{
-    TDEFL_WRITE_ZLIB_HEADER = 0x01000,
-    TDEFL_COMPUTE_ADLER32 = 0x02000,
-    TDEFL_GREEDY_PARSING_FLAG = 0x04000,
-    TDEFL_NONDETERMINISTIC_PARSING_FLAG = 0x08000,
-    TDEFL_RLE_MATCHES = 0x10000,
-    TDEFL_FILTER_MATCHES = 0x20000,
-    TDEFL_FORCE_ALL_STATIC_BLOCKS = 0x40000,
-    TDEFL_FORCE_ALL_RAW_BLOCKS = 0x80000
-};
-
-/* Output stream interface. The compressor uses this interface to write compressed data. It'll typically be called TDEFL_OUT_BUF_SIZE at a time. */
-typedef mz_bool (*tdefl_put_buf_func_ptr)(const void *pBuf, int len, void *pUser);
-
-enum
-{
-    TDEFL_MAX_HUFF_TABLES = 3,
-    TDEFL_MAX_HUFF_SYMBOLS_0 = 288,
-    TDEFL_MAX_HUFF_SYMBOLS_1 = 32,
-    TDEFL_MAX_HUFF_SYMBOLS_2 = 19,
-    TDEFL_LZ_DICT_SIZE = 32768,
-    TDEFL_LZ_DICT_SIZE_MASK = TDEFL_LZ_DICT_SIZE - 1,
-    TDEFL_MIN_MATCH_LEN = 3,
-    TDEFL_MAX_MATCH_LEN = 258
-};
-
-/* TDEFL_OUT_BUF_SIZE MUST be large enough to hold a single entire compressed output block (using static/fixed Huffman codes). */
-#if TDEFL_LESS_MEMORY
-enum
-{
-    TDEFL_LZ_CODE_BUF_SIZE = 24 * 1024,
-    TDEFL_OUT_BUF_SIZE = (TDEFL_LZ_CODE_BUF_SIZE * 13) / 10,
-    TDEFL_MAX_HUFF_SYMBOLS = 288,
-    TDEFL_LZ_HASH_BITS = 12,
-    TDEFL_LEVEL1_HASH_SIZE_MASK = 4095,
-    TDEFL_LZ_HASH_SHIFT = (TDEFL_LZ_HASH_BITS + 2) / 3,
-    TDEFL_LZ_HASH_SIZE = 1 << TDEFL_LZ_HASH_BITS
-};
-#else
-enum
-{
-    TDEFL_LZ_CODE_BUF_SIZE = 64 * 1024,
-    TDEFL_OUT_BUF_SIZE = (TDEFL_LZ_CODE_BUF_SIZE * 13) / 10,
-    TDEFL_MAX_HUFF_SYMBOLS = 288,
-    TDEFL_LZ_HASH_BITS = 15,
-    TDEFL_LEVEL1_HASH_SIZE_MASK = 4095,
-    TDEFL_LZ_HASH_SHIFT = (TDEFL_LZ_HASH_BITS + 2) / 3,
-    TDEFL_LZ_HASH_SIZE = 1 << TDEFL_LZ_HASH_BITS
-};
-#endif
-
-/* The low-level tdefl functions below may be used directly if the above helper functions aren't flexible enough. The low-level functions don't make any heap allocations, unlike the above helper functions. */
-typedef enum {
-    TDEFL_STATUS_BAD_PARAM = -2,
-    TDEFL_STATUS_PUT_BUF_FAILED = -1,
-    TDEFL_STATUS_OKAY = 0,
-    TDEFL_STATUS_DONE = 1
-} tdefl_status;
-
-/* Must map to MZ_NO_FLUSH, MZ_SYNC_FLUSH, etc. enums */
-typedef enum {
-    TDEFL_NO_FLUSH = 0,
-    TDEFL_SYNC_FLUSH = 2,
-    TDEFL_FULL_FLUSH = 3,
-    TDEFL_FINISH = 4
-} tdefl_flush;
-
-/* tdefl's compression state structure. */
-typedef struct
-{
-    tdefl_put_buf_func_ptr m_pPut_buf_func;
-    void *m_pPut_buf_user;
-    mz_uint m_flags, m_max_probes[2];
-    int m_greedy_parsing;
-    mz_uint m_adler32, m_lookahead_pos, m_lookahead_size, m_dict_size;
-    mz_uint8 *m_pLZ_code_buf, *m_pLZ_flags, *m_pOutput_buf, *m_pOutput_buf_end;
-    mz_uint m_num_flags_left, m_total_lz_bytes, m_lz_code_buf_dict_pos, m_bits_in, m_bit_buffer;
-    mz_uint m_saved_match_dist, m_saved_match_len, m_saved_lit, m_output_flush_ofs, m_output_flush_remaining, m_finished, m_block_index, m_wants_to_finish;
-    tdefl_status m_prev_return_status;
-    const void *m_pIn_buf;
-    void *m_pOut_buf;
-    size_t *m_pIn_buf_size, *m_pOut_buf_size;
-    tdefl_flush m_flush;
-    const mz_uint8 *m_pSrc;
-    size_t m_src_buf_left, m_out_buf_ofs;
-    mz_uint8 m_dict[TDEFL_LZ_DICT_SIZE + TDEFL_MAX_MATCH_LEN - 1];
-    mz_uint16 m_huff_count[TDEFL_MAX_HUFF_TABLES][TDEFL_MAX_HUFF_SYMBOLS];
-    mz_uint16 m_huff_codes[TDEFL_MAX_HUFF_TABLES][TDEFL_MAX_HUFF_SYMBOLS];
-    mz_uint8 m_huff_code_sizes[TDEFL_MAX_HUFF_TABLES][TDEFL_MAX_HUFF_SYMBOLS];
-    mz_uint8 m_lz_code_buf[TDEFL_LZ_CODE_BUF_SIZE];
-    mz_uint16 m_next[TDEFL_LZ_DICT_SIZE];
-    mz_uint16 m_hash[TDEFL_LZ_HASH_SIZE];
-    mz_uint8 m_output_buf[TDEFL_OUT_BUF_SIZE];
-} tdefl_compressor;
-
-
-/* ------------------- Low-level Decompression API Definitions */
 
 /* Decompression flags used by tinfl_decompress(). */
 /* TINFL_FLAG_PARSE_ZLIB_HEADER: If set, the input has a valid zlib header and ends with an adler32 checksum (it's a valid zlib stream). Otherwise, the input is a raw deflate stream. */
@@ -545,20 +351,15 @@ typedef unsigned char mz_validate_uint16[sizeof(mz_uint16) == 2 ? 1 : -1];
 typedef unsigned char mz_validate_uint32[sizeof(mz_uint32) == 4 ? 1 : -1];
 typedef unsigned char mz_validate_uint64[sizeof(mz_uint64) == 8 ? 1 : -1];
 
-/* ------------------- zlib-style API's */
-
 static void *miniz_def_alloc_func(void *opaque, size_t items, size_t size)
 {
-    (void)opaque, (void)items, (void)size;
-    return MZ_MALLOC(items * size);
-}
-static void miniz_def_free_func(void *opaque, void *address)
-{
-    (void)opaque, (void)address;
-    MZ_FREE(address);
+	return MTY_Alloc(items, size);
 }
 
-#ifndef MINIZ_NO_ZLIB_APIS
+static void miniz_def_free_func(void *opaque, void *address)
+{
+	MTY_Free(address);
+}
 
 typedef struct
 {
@@ -729,8 +530,6 @@ static int mz_inflateEnd(mz_streamp pStream)
     return MZ_OK;
 }
 
-#endif /*MINIZ_NO_ZLIB_APIS */
-
 #if MINIZ_USE_UNALIGNED_LOADS_AND_STORES
 #ifdef MINIZ_UNALIGNED_USE_MEMCPY
 #else
@@ -744,35 +543,6 @@ static int mz_inflateEnd(mz_streamp pStream)
 #endif
 #endif /* MINIZ_USE_UNALIGNED_LOADS_AND_STORES && MINIZ_LITTLE_ENDIAN */
 
-
-/**************************************************************************
- *
- * Copyright 2013-2014 RAD Game Tools and Valve Software
- * Copyright 2010-2014 Rich Geldreich and Tenacious Software LLC
- * All Rights Reserved.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- *
- **************************************************************************/
-
-
-/* ------------------- Low-level Decompression (completely independent from all compression API's) */
 
 #define TINFL_MEMCPY(d, s, l) memcpy(d, s, l)
 #define TINFL_MEMSET(p, c, l) memset(p, c, l)
