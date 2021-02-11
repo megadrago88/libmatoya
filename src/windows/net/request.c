@@ -20,7 +20,10 @@ static int32_t mty_http_recv_response(HINTERNET request, char **response, uint32
 
 	do {
 		BOOL success = WinHttpQueryDataAvailable(request, &available);
-		if (!success) return MTY_NET_HTTP_ERR_RESPONSE;
+		if (!success) {
+			MTY_Log("'WinHttpQueryDataAvailable' failed with error 0x%X", GetLastError());
+			return MTY_NET_HTTP_ERR_RESPONSE;
+		}
 
 		char *buf = malloc(available);
 
@@ -35,7 +38,10 @@ static int32_t mty_http_recv_response(HINTERNET request, char **response, uint32
 
 		free(buf);
 
-		if (!success) return MTY_NET_HTTP_ERR_RESPONSE;
+		if (!success) {
+			MTY_Log("'WinHttpReadData' failed with error 0x%X", GetLastError());
+			return MTY_NET_HTTP_ERR_RESPONSE;
+		}
 
 	} while (available > 0);
 
@@ -74,11 +80,19 @@ int32_t mty_http_request(struct mty_net_tls_ctx *tls, char *method, enum mty_net
 
 	//context initialization
 	session = WinHttpOpen(L"mty-winhttp/v4", WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
-	if (!session) {r = MTY_NET_HTTP_ERR_REQUEST; goto except;}
+	if (!session) {
+		MTY_Log("'WinHttpOpen' failed with error 0x%X", GetLastError());
+		r = MTY_NET_HTTP_ERR_REQUEST;
+		goto except;
+	}
 
 	//set timeouts
 	BOOL success = WinHttpSetTimeouts(session, timeout_ms, timeout_ms, timeout_ms, timeout_ms);
-	if (!success) {r = MTY_NET_HTTP_ERR_REQUEST; goto except;}
+	if (!success) {
+		MTY_Log("'WinHttpSetTimeouts' failed with error 0x%X", GetLastError());
+		r = MTY_NET_HTTP_ERR_REQUEST;
+		goto except;
+	}
 
 	//tcp connection
 	WCHAR host_w[512];
@@ -90,7 +104,11 @@ int32_t mty_http_request(struct mty_net_tls_ctx *tls, char *method, enum mty_net
 
 	connect = WinHttpConnect(session, host_w,
 		(scheme == MTY_NET_HTTPS) ? INTERNET_DEFAULT_HTTPS_PORT : INTERNET_DEFAULT_HTTP_PORT, 0);
-	if (!connect) {r = MTY_NET_HTTP_ERR_REQUEST; goto except;}
+	if (!connect) {
+		MTY_Log("'WinHttpConnect' failed with error 0x%X", GetLastError());
+		r = MTY_NET_HTTP_ERR_REQUEST;
+		goto except;
+	}
 
 	//http request
 	WCHAR path_w[512];
@@ -101,7 +119,11 @@ int32_t mty_http_request(struct mty_net_tls_ctx *tls, char *method, enum mty_net
 
 	request = WinHttpOpenRequest(connect, method_w, path_w, NULL, WINHTTP_NO_REFERER,
 		WINHTTP_DEFAULT_ACCEPT_TYPES, (scheme == MTY_NET_HTTPS) ? WINHTTP_FLAG_SECURE : 0);
-	if (!request) {r = MTY_NET_HTTP_ERR_REQUEST; goto except;}
+	if (!request) {
+		MTY_Log("'WinHttpOpenRequest' failed with error 0x%X", GetLastError());
+		r = MTY_NET_HTTP_ERR_REQUEST;
+		goto except;
+	}
 
 	//headers & POST body
 	WCHAR headers_w[512];
@@ -113,18 +135,30 @@ int32_t mty_http_request(struct mty_net_tls_ctx *tls, char *method, enum mty_net
 		headers ? headers_w : WINHTTP_NO_ADDITIONAL_HEADERS,
 		headers ? -1L : 0,
 		body, body_len, body_len, 0);
-	if (!success) {r = MTY_NET_HTTP_ERR_REQUEST; goto except;}
+	if (!success) {
+		MTY_Log("'WinHttpSendRequest' failed with error 0x%X", GetLastError());
+		r = MTY_NET_HTTP_ERR_REQUEST;
+		goto except;
+	}
 
 	//response headers
 	success = WinHttpReceiveResponse(request, NULL);
-	if (!success) {r = MTY_NET_HTTP_ERR_RESPONSE; goto except;}
+	if (!success) {
+		MTY_Log("'WinHttpReceiveResponse' failed with error 0x%X", GetLastError());
+		r = MTY_NET_HTTP_ERR_RESPONSE;
+		goto except;
+	}
 
 	//query response headers
 	WCHAR header_wstr[128];
 	DWORD buf_len = 128 * sizeof(WCHAR);
 	success = WinHttpQueryHeaders(request, WINHTTP_QUERY_STATUS_CODE, NULL,
 		header_wstr, &buf_len, NULL);
-	if (!success) {r = MTY_NET_HTTP_ERR_RESPONSE; goto except;}
+	if (!success) {
+		MTY_Log("'WinHttpQueryHeaders' failed with error 0x%X", GetLastError());
+		r = MTY_NET_HTTP_ERR_RESPONSE;
+		goto except;
+	}
 
 	status_code = _wtoi(header_wstr);
 
@@ -149,9 +183,14 @@ int32_t mty_http_request(struct mty_net_tls_ctx *tls, char *method, enum mty_net
 
 	except:
 
-	if (request) WinHttpCloseHandle(request);
-	if (connect) WinHttpCloseHandle(connect);
-	if (session) WinHttpCloseHandle(session);
+	if (request)
+		WinHttpCloseHandle(request);
+
+	if (connect)
+		WinHttpCloseHandle(connect);
+
+	if (session)
+		WinHttpCloseHandle(session);
 
 	if (r != MTY_NET_OK) {
 		free(*response);
