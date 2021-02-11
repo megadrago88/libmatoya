@@ -10,7 +10,7 @@
 #include <string.h>
 
 #include "tcp.h"
-#include "sock.h"
+#include "net/sock.h"
 
 struct tcp_context {
 	SOCKET s;

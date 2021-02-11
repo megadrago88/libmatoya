@@ -1510,6 +1510,7 @@ enum mty_net_status {
 	MTY_NET_WRN_TIMEOUT           = 2000,
 
 	MTY_NET_HTTP_ERR_REQUEST      = -800,
+	MTY_NET_HTTP_ERR_RESPONSE     = -801,
 
 	MTY_NET_ERR_DEFAULT           = -50001,
 
@@ -1615,13 +1616,6 @@ enum mty_net_ws_status_code {
 	MTY_NET_CLOSE_TLS_HANDSHAKE    = 1015,
 };
 
-struct mty_net_info {
-	int32_t scheme;
-	char *host;
-	uint16_t port;
-	char *path;
-};
-
 struct mty_net_tls_ctx;
 struct mty_ws;
 
@@ -1667,11 +1661,11 @@ mty_ws_read_json(struct mty_ws *ws, char *buf, int32_t buf_len, int32_t timeout_
 MTY_EXPORT int32_t
 mty_ws_write_json(struct mty_ws *ws, char *json);
 
-MTY_EXPORT int32_t
-mty_net_parse_url(char *url, struct mty_net_info *uci);
+MTY_EXPORT bool
+mty_net_parse_url(const char *url, char *host, size_t host_size, char *path, size_t path_size);
 
 MTY_EXPORT void
-mty_net_free_info(struct mty_net_info *uci);
+mty_net_url_encode(char *dst, size_t dst_len, const char *src);
 
 MTY_EXPORT struct mty_dtlsx *
 mty_dtls_context_init(void);

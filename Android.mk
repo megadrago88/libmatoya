@@ -66,6 +66,7 @@ LOCAL_SRC_FILES := \
 	src/net/tls.c \
 	src/net/dtls.c \
 	src/net/ws.c \
+	src/unix/net/request.c \
 	src/unix/compress.c \
 	src/unix/fs.c \
 	src/unix/memory.c \

@@ -108,6 +108,7 @@ OBJS := $(OBJS) \
 	src/unix/linux/generic/hid.o \
 	src/unix/linux/generic/audio.o \
 	src/unix/linux/generic/window.o \
+	src/unix/net/request.o \
 	src/net/http.o \
 	src/net/gzip.o \
 	src/net/net.o \
@@ -172,6 +173,7 @@ OBJS := $(OBJS) \
 	src/unix/apple/audio.o \
 	src/unix/apple/crypto.o \
 	src/unix/apple/$(TARGET)/window.o \
+	src/unix/net/request.o \
 	src/net/http.o \
 	src/net/gzip.o \
 	src/net/net.o \
