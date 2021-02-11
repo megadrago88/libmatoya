@@ -41,6 +41,7 @@ OBJS = \
 	src\gfx\render.obj \
 	src\gfx\window-ctx.obj \
 	src\net\http.obj \
+	src\net\async.obj \
 	src\net\gzip.obj \
 	src\net\net.obj \
 	src\net\tcp.obj \

@@ -60,6 +60,7 @@ LOCAL_SRC_FILES := \
 	src/gfx/render.c \
 	src/gfx/window-ctx.c \
 	src/net/http.c \
+	src/net/async.c \
 	src/net/gzip.c \
 	src/net/net.c \
 	src/net/tcp.c \

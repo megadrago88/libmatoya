@@ -110,6 +110,7 @@ OBJS := $(OBJS) \
 	src/unix/linux/generic/window.o \
 	src/unix/net/request.o \
 	src/net/http.o \
+	src/net/async.o \
 	src/net/gzip.o \
 	src/net/net.o \
 	src/net/tcp.o \
@@ -175,6 +176,7 @@ OBJS := $(OBJS) \
 	src/unix/apple/$(TARGET)/window.o \
 	src/unix/net/request.o \
 	src/net/http.o \
+	src/net/async.o \
 	src/net/gzip.o \
 	src/net/net.o \
 	src/net/tcp.o \

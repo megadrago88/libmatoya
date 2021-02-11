@@ -1616,6 +1616,15 @@ enum mty_net_ws_status_code {
 	MTY_NET_CLOSE_TLS_HANDSHAKE    = 1015,
 };
 
+enum mty_async_status {
+	MTY_ASYNC_OK         = 0,
+	MTY_ASYNC_NO_REQUEST = 1,
+	MTY_ASYNC_WAITING    = 2,
+	MTY_ASYNC_ERROR      = 3,
+};
+
+typedef void (*MTY_RES_CB)(int32_t code, char **body, uint32_t *body_len);
+
 struct mty_net_tls_ctx;
 struct mty_ws;
 
@@ -1640,6 +1649,22 @@ MTY_EXPORT int32_t
 mty_http_request(struct mty_net_tls_ctx *tls, char *method, enum mty_net_scheme uc_scheme,
 	char *host, char *path, char *headers, char *body, uint32_t body_len, int32_t timeout_ms,
 	char **response, uint32_t *response_len, bool proxy);
+
+MTY_EXPORT void
+mty_http_async_init(uint32_t num_threads, const char *cacert, size_t cacert_size, bool proxy);
+
+MTY_EXPORT void
+mty_http_async_destroy(void);
+
+MTY_EXPORT void
+mty_http_async(uint32_t *req, const char *method, enum mty_net_scheme scheme, const char *host, const char *path,
+	const char *headers, const char *body, uint32_t body_len, int32_t timeout_ms, MTY_RES_CB res_cb);
+
+MTY_EXPORT enum mty_async_status
+mty_http_async_poll(uint32_t req, int32_t *status_code, char **response, uint32_t *response_len);
+
+MTY_EXPORT void
+mty_http_async_clear(uint32_t *req);
 
 MTY_EXPORT int32_t
 mty_ws_listen(struct mty_ws **mty_ws_out, const char *host, uint16_t port);
