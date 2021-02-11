@@ -14,8 +14,8 @@
 #define MTY_SOCK_IN_PROGRESS WSAEWOULDBLOCK
 #define MTY_SOCK_BAD_FD      WSAENOTSOCK
 
-#define poll      WSAPoll
-#define SHUT_RDWR 2
+#define poll                 WSAPoll
+#define SHUT_RDWR            2
 
 typedef int32_t socklen_t;
 

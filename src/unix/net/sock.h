@@ -20,8 +20,8 @@
 #define MTY_SOCK_IN_PROGRESS EINPROGRESS
 #define MTY_SOCK_BAD_FD      EBADF
 
-#define closesocket    close
-#define INVALID_SOCKET -1
+#define closesocket          close
+#define INVALID_SOCKET       -1
 
 typedef int32_t SOCKET;
 
