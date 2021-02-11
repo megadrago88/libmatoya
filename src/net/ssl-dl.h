@@ -204,18 +204,6 @@ static bool ssl_dl_global_init(void)
 			if (!name) {r = false; goto except;}
 
 		// TLS, HTTPS
-		LOAD_SYM(SSL_DL_SO, BIO_new_mem_buf);
-		LOAD_SYM(SSL_DL_SO, BIO_free);
-
-		LOAD_SYM(SSL_DL_SO, PEM_read_bio_X509);
-		LOAD_SYM(SSL_DL_SO, X509_STORE_add_cert);
-		LOAD_SYM(SSL_DL_SO, X509_VERIFY_PARAM_set1_host);
-		LOAD_SYM(SSL_DL_SO, X509_VERIFY_PARAM_set_hostflags);
-		LOAD_SYM(SSL_DL_SO, X509_free);
-
-		LOAD_SYM(SSL_DL_SO, PEM_read_bio_RSAPrivateKey);
-		LOAD_SYM(SSL_DL_SO, RSA_free);
-
 		LOAD_SYM(SSL_DL_SO, SSL_new);
 		LOAD_SYM(SSL_DL_SO, SSL_free);
 		LOAD_SYM(SSL_DL_SO, SSL_has_pending);
@@ -240,6 +228,18 @@ static bool ssl_dl_global_init(void)
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_set_cipher_list);
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_check_private_key);
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_use_RSAPrivateKey);
+
+		LOAD_SYM(SSL_DL_SO, BIO_new_mem_buf);
+		LOAD_SYM(SSL_DL_SO, BIO_free);
+
+		LOAD_SYM(SSL_DL_SO, PEM_read_bio_X509);
+		LOAD_SYM(SSL_DL_SO, X509_STORE_add_cert);
+		LOAD_SYM(SSL_DL_SO, X509_VERIFY_PARAM_set1_host);
+		LOAD_SYM(SSL_DL_SO, X509_VERIFY_PARAM_set_hostflags);
+		LOAD_SYM(SSL_DL_SO, X509_free);
+
+		LOAD_SYM(SSL_DL_SO, PEM_read_bio_RSAPrivateKey);
+		LOAD_SYM(SSL_DL_SO, RSA_free);
 
 		// DTLS
 		LOAD_SYM(SSL_DL_SO, SSL_set_bio);
