@@ -50,19 +50,20 @@ static int32_t mty_http_recv_response(HINTERNET request, char **response, uint32
 
 static int32_t mty_http_decompress(char **response, uint32_t *response_len)
 {
-	char *response_z = NULL;
-	int32_t response_len_z = 0;
+	size_t response_len_z = 0;
 
-	int32_t e = gzip_decompress(*response, *response_len, &response_z, &response_len_z);
+	char *response_z = mty_gzip_decompress(*response, *response_len, &response_len_z);
 
-	if (e == MTY_NET_OK) {
+	if (response_z) {
 		free(*response);
 
 		*response = response_z;
-		*response_len = response_len_z;
+		*response_len = (uint32_t) response_len_z;
+
+		return MTY_NET_OK;
 	}
 
-	return e;
+	return MTY_NET_ERR_INFLATE;
 }
 
 int32_t mty_http_request(struct mty_net_tls_ctx *tls, char *method, enum mty_net_scheme scheme,

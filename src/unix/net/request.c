@@ -80,15 +80,19 @@ int32_t mty_http_request(struct mty_net_tls_ctx *tls, char *method, enum mty_net
 		e = mty_net_read_body_all(ucc, response, response_len, timeout_ms, 128 * 1024 * 1024);
 
 		if (e == MTY_NET_OK && mty_net_check_header(ucc, "Content-Encoding", "gzip")) {
-			char *response_z = NULL;
-			int32_t response_len_z = 0;
+			size_t response_len_z = 0;
+			char *response_z = mty_gzip_decompress(*response, *response_len, &response_len_z);
 
-			z_e = gzip_decompress(*response, *response_len, &response_z, &response_len_z);
-			if (z_e == MTY_NET_OK) {
+			if (response_z) {
 				free(*response);
 
 				*response = response_z;
 				*response_len = response_len_z;
+
+				z_e = MTY_NET_OK;
+
+			} else {
+				z_e = MTY_NET_ERR_INFLATE;
 			}
 		}
 	}

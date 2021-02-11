@@ -1575,7 +1575,6 @@ enum mty_net_status {
 	MTY_NET_WS_ERR_PONG_TIMEOUT   = -3006,
 	MTY_NET_WS_ERR_PONG           = -3007,
 
-	MTY_NET_ERR_DEFLATE           = -5000,
 	MTY_NET_ERR_INFLATE           = -5001,
 };
 

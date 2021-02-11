@@ -203,6 +203,7 @@ static bool ssl_dl_global_init(void)
 			name = MTY_SOGetSymbol(so, #name); \
 			if (!name) {r = false; goto except;}
 
+		// TLS, HTTPS
 		LOAD_SYM(SSL_DL_SO, BIO_new_mem_buf);
 		LOAD_SYM(SSL_DL_SO, BIO_free);
 
@@ -240,6 +241,7 @@ static bool ssl_dl_global_init(void)
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_check_private_key);
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_use_RSAPrivateKey);
 
+		// DTLS
 		LOAD_SYM(SSL_DL_SO, SSL_set_bio);
 		LOAD_SYM(SSL_DL_SO, SSL_set_accept_state);
 		LOAD_SYM(SSL_DL_SO, SSL_set_connect_state);
