@@ -70,51 +70,75 @@ static char **tls_parse_cacert(const char *raw, size_t size, uint32_t *n)
 	return out;
 }
 
-int32_t tls_load_cacert(const char *cacert, size_t size)
+bool tls_load_cacert(const char *cacert, size_t size)
 {
-	int32_t r = MTY_NET_OK;
+	bool was_set = false;
 
 	if (!ssl_dl_global_init())
 		return MTY_NET_TLS_ERR_CONTEXT;
 
+	uint32_t num_certs = 0;
+	char **parsed_cacert = NULL;
+
 	MTY_GlobalLock(&TLS_GLOCK);
 
-	if (cacert) {
-		TLS_STORE = X509_STORE_new();
-		if (!TLS_STORE) {r = MTY_NET_TLS_ERR_CACERT; goto except;}
-
-		uint32_t num_certs = 0;
-		char **parsed_cacert = tls_parse_cacert(cacert, size, &num_certs);
-
-		for (uint32_t x = 0; x < num_certs && r == MTY_NET_OK; x++) {
-			X509 *cert = NULL;
-			BIO *bio = BIO_new_mem_buf(parsed_cacert[x], -1);
-
-			if (bio && PEM_read_bio_X509(bio, &cert, 0, NULL)) {
-				X509_STORE_add_cert(TLS_STORE, cert);
-				X509_free(cert);
-				BIO_free(bio);
-
-			} else {
-				r = MTY_NET_TLS_ERR_CACERT;
-			}
+	// CACert is set to NULL, remove existing
+	if (!cacert) {
+		if (TLS_STORE) {
+			X509_STORE_free(TLS_STORE);
+			TLS_STORE = NULL;
 		}
 
-		for (uint32_t x = 0; x < num_certs; x++)
-			free(parsed_cacert[x]);
+		goto except;
+	}
 
-		free(parsed_cacert);
+	// CACert is already set
+	if (TLS_STORE)
+		goto except;
 
-	} else if (TLS_STORE) {
-		X509_STORE_free(TLS_STORE);
-		TLS_STORE = NULL;
+	// Generate a new store
+	TLS_STORE = X509_STORE_new();
+	if (!TLS_STORE)
+		goto except;
+
+	parsed_cacert = tls_parse_cacert(cacert, size, &num_certs);
+
+	for (uint32_t x = 0; x < num_certs; x++) {
+		BIO *bio = BIO_new_mem_buf(parsed_cacert[x], -1);
+
+		if (bio) {
+			X509 *cert = NULL;
+
+			if (PEM_read_bio_X509(bio, &cert, 0, NULL)) {
+				was_set = true;
+				X509_STORE_add_cert(TLS_STORE, cert);
+				X509_free(cert);
+
+			} else {
+				was_set = false;
+				MTY_Log("'PEM_read_bio_X509' failed");
+			}
+
+			BIO_free(bio);
+		}
+
+		if (!was_set) {
+			X509_STORE_free(TLS_STORE);
+			TLS_STORE = NULL;
+			break;
+		}
 	}
 
 	except:
 
+	for (uint32_t x = 0; x < num_certs; x++)
+		free(parsed_cacert[x]);
+
+	free(parsed_cacert);
+
 	MTY_GlobalUnlock(&TLS_GLOCK);
 
-	return r;
+	return was_set;
 }
 
 

@@ -14,7 +14,7 @@
 
 struct tls_context;
 
-int32_t tls_load_cacert(const char *cacert, size_t size);
+bool tls_load_cacert(const char *cacert, size_t size);
 
 void tls_close(struct tls_context *tls);
 int32_t tls_connect(struct tls_context **tls_in, struct tcp_context *nc,

@@ -57,7 +57,7 @@ void mty_http_async_init(uint32_t num_threads, bool proxy)
 	CTX->pool = MTY_ThreadPoolCreate(num_threads);
 }
 
-void mty_http_async_destroy(void)
+void MTY_HttpAsyncDestroy(void)
 {
 	if (!CTX)
 		return;

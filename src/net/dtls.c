@@ -207,7 +207,7 @@ static bool mty_dtls_verify_peer_fingerprint(MTY_DTLS *mty_dtls, const char *fin
 	return false;
 }
 
-MTY_DTLSStatus MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size, const char *fingerprint,
+MTY_NetStatus MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size, const char *fingerprint,
 	MTY_DTLSWriteFunc writeFunc, void *opaque)
 {
 	// If we have incoming data add it to the state machine
@@ -215,7 +215,7 @@ MTY_DTLSStatus MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size,
 		int32_t n = BIO_write(ctx->bio_in, packet, (int32_t) size);
 
 		if (n != (int32_t) size)
-			return MTY_DTLS_STATUS_ERROR;
+			return MTY_NET_STATUS_ERROR;
 	}
 
 	// Poll for response data
@@ -230,7 +230,7 @@ MTY_DTLSStatus MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size,
 
 			if (psize != pending) {
 				MTY_Free(pbuf);
-				return MTY_DTLS_STATUS_ERROR;
+				return MTY_NET_STATUS_ERROR;
 			}
 
 			writeFunc(pbuf, pending, opaque);
@@ -243,9 +243,9 @@ MTY_DTLSStatus MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size,
 
 	if (SSL_is_init_finished(ctx->ssl))
 		return mty_dtls_verify_peer_fingerprint(ctx, fingerprint) ?
-			MTY_DTLS_STATUS_DONE : MTY_DTLS_STATUS_ERROR;
+			MTY_NET_STATUS_OK : MTY_NET_STATUS_ERROR;
 
-	return MTY_DTLS_STATUS_CONTINUE;
+	return MTY_NET_STATUS_CONTINUE;
 }
 
 bool MTY_DTLSEncrypt(MTY_DTLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *written)

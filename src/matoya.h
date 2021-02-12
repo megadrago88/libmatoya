@@ -1554,11 +1554,7 @@ enum mty_net_status {
 	MTY_NET_WS_ERR_ORIGIN         = -54002,
 
 	MTY_NET_WS_ERR_CONNECT        = -6101,
-	MTY_NET_WS_ERR_CLOSE          = -6105,
-	MTY_NET_WS_ERR_GOING_AWAY     = -3009,
 	MTY_NET_WS_ERR_POLL           = -3001,
-	MTY_NET_WS_ERR_READ           = -3002,
-	MTY_NET_WS_ERR_WRITE          = -3003,
 	MTY_NET_WS_ERR_PING           = -3005,
 	MTY_NET_WS_ERR_PONG_TIMEOUT   = -3006,
 	MTY_NET_WS_ERR_PONG           = -3007,
@@ -1572,15 +1568,6 @@ enum mty_net_scheme {
 	MTY_NET_HTTPS = 2,
 	MTY_NET_WS    = 3,
 	MTY_NET_WSS   = 4,
-};
-
-enum mty_net_ws_opcode {
-	MTY_NET_WSOP_CONTINUE = 0x0,
-	MTY_NET_WSOP_TEXT     = 0x1,
-	MTY_NET_WSOP_BINARY   = 0x2,
-	MTY_NET_WSOP_CLOSE    = 0x8,
-	MTY_NET_WSOP_PING     = 0x9,
-	MTY_NET_WSOP_PONG     = 0xa,
 };
 
 enum mty_net_ws_status_code {
@@ -1605,71 +1592,83 @@ enum mty_async_status {
 	MTY_ASYNC_ERROR      = 3,
 };
 
+typedef enum {
+	MTY_NET_STATUS_OK       = 0,
+	MTY_NET_STATUS_DONE     = 1,
+	MTY_NET_STATUS_CONTINUE = 2,
+	MTY_NET_STATUS_ERROR    = 3,
+} MTY_NetStatus;
+
 typedef void (*MTY_RES_CB)(int32_t code, char **body, uint32_t *body_len);
 
-struct mty_ws;
+typedef struct MTY_WebSocket MTY_WebSocket;
 
-MTY_EXPORT int32_t
-mty_net_set_cacert(const char *cacert, size_t size);
+MTY_EXPORT bool
+MTY_HttpSetCACert(const char *cacert, size_t size);
 
+MTY_EXPORT bool
+MTY_HttpParseUrl(const char *url, char *host, size_t hostSize, char *path, size_t pathSize);
+
+MTY_EXPORT void
+MTY_HttpEncodeUrl(const char *src, char *dst, size_t size);
+
+//TODO
 MTY_EXPORT int32_t
 mty_http_request(const char *method, enum mty_net_scheme scheme,
 	const char *host, const char *path, const char *headers, const void *body,
 	uint32_t body_len, int32_t timeout_ms, char **response, uint32_t *response_len, bool proxy);
 
+//TODO
 MTY_EXPORT void
 mty_http_async_init(uint32_t num_threads, bool proxy);
 
 MTY_EXPORT void
-mty_http_async_destroy(void);
+MTY_HttpAsyncDestroy(void);
 
+//TODO
 MTY_EXPORT void
 mty_http_async(uint32_t *req, const char *method, enum mty_net_scheme scheme, const char *host, const char *path,
 	const char *headers, const char *body, uint32_t body_len, int32_t timeout_ms, MTY_RES_CB res_cb);
 
+//TODO
 MTY_EXPORT enum mty_async_status
 mty_http_async_poll(uint32_t req, int32_t *status_code, char **response, uint32_t *response_len);
 
+//TODO
 MTY_EXPORT void
 mty_http_async_clear(uint32_t *req);
 
+//TODO
 MTY_EXPORT int32_t
-mty_ws_listen(struct mty_ws **mty_ws_out, const char *host, uint16_t port);
+mty_ws_listen(MTY_WebSocket **mty_ws_out, const char *host, uint16_t port);
 
-MTY_EXPORT struct mty_ws *
-mty_ws_accept(struct mty_ws *ws, const char * const *origins,
+//TODO
+MTY_EXPORT MTY_WebSocket *
+mty_ws_accept(MTY_WebSocket *ws, const char * const *origins,
 	uint32_t num_origins, bool secure_origin, int32_t timeout_ms);
 
+//TODO
 MTY_EXPORT int32_t
-mty_ws_connect(struct mty_ws **mty_ws_out, char *host, uint16_t port,
+mty_ws_connect(MTY_WebSocket **mty_ws_out, char *host, uint16_t port,
 	enum mty_net_scheme scheme, char *proxy_url, char *path, const char *origin,
 	int32_t timeout_ms, int32_t *upgrade_status);
 
 MTY_EXPORT void
-mty_ws_destroy(struct mty_ws **mty_ws_out);
+MTY_WebSocketDestroy(MTY_WebSocket **ws);
 
-MTY_EXPORT int32_t
-mty_ws_read_json(struct mty_ws *ws, char *buf, int32_t buf_len, int32_t timeout_ms);
-
-MTY_EXPORT int32_t
-mty_ws_write_json(struct mty_ws *ws, char *json);
+MTY_EXPORT MTY_NetStatus
+MTY_WebSocketRead(MTY_WebSocket *ws, char *msg, size_t size, uint32_t timeout);
 
 MTY_EXPORT bool
-mty_net_parse_url(const char *url, char *host, size_t host_size, char *path, size_t path_size);
+MTY_WebSocketWrite(MTY_WebSocket *ws, const char *msg);
 
-MTY_EXPORT void
-mty_net_url_encode(char *dst, size_t dst_len, const char *src);
+MTY_EXPORT uint16_t
+MTY_WebSocketGetCloseCode(MTY_WebSocket *ctx);
 
 
 // @module dtls
 
 #define MTY_FINGERPRINT_MAX 512
-
-typedef enum {
-	MTY_DTLS_STATUS_DONE     = 0,
-	MTY_DTLS_STATUS_CONTINUE = 1,
-	MTY_DTLS_STATUS_ERROR    = 2,
-} MTY_DTLSStatus;
 
 typedef struct MTY_Cert MTY_Cert;
 typedef struct MTY_DTLS MTY_DTLS;
@@ -1691,7 +1690,7 @@ MTY_DTLSCreate(MTY_Cert *cert, bool server, uint32_t mtu);
 MTY_EXPORT void
 MTY_DTLSDestroy(MTY_DTLS **dtls);
 
-MTY_EXPORT MTY_DTLSStatus
+MTY_EXPORT MTY_NetStatus
 MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size, const char *fingerprint,
 	MTY_DTLSWriteFunc writeFunc, void *opaque);
 
