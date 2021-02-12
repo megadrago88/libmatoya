@@ -1498,8 +1498,6 @@ MTY_JNIEnv(void);
 
 // @module net
 
-#define MTY_NET_FINGERPRINT_SIZE 512
-
 enum mty_net_status {
 	MTY_NET_OK                    = 0,
 
@@ -1510,13 +1508,6 @@ enum mty_net_status {
 	MTY_NET_HTTP_ERR_RESPONSE     = -801,
 
 	MTY_NET_ERR_DEFAULT           = -50001,
-
-	MTY_NET_DTLS_ERR_BIO_WRITE    = -33000,
-	MTY_NET_DTLS_ERR_BIO_READ     = -33001,
-	MTY_NET_DTLS_ERR_SSL          = -33002,
-	MTY_NET_DTLS_ERR_BUFFER       = -33003,
-	MTY_NET_DTLS_ERR_NO_DATA      = -33004,
-	MTY_NET_DTLS_ERR_CERT         = -33005,
 
 	MTY_NET_TCP_ERR_SOCKET        = -50010,
 	MTY_NET_TCP_ERR_BLOCKMODE     = -50011,
@@ -1618,9 +1609,6 @@ typedef void (*MTY_RES_CB)(int32_t code, char **body, uint32_t *body_len);
 
 struct mty_ws;
 
-struct mty_dtls;
-struct mty_dtls_creds;
-
 MTY_EXPORT int32_t
 mty_net_set_cacert(const char *cacert, size_t size);
 
@@ -1672,36 +1660,52 @@ mty_net_parse_url(const char *url, char *host, size_t host_size, char *path, siz
 MTY_EXPORT void
 mty_net_url_encode(char *dst, size_t dst_len, const char *src);
 
-MTY_EXPORT struct mty_dtls_creds *
-mty_dtls_get_creds(void);
+
+// @module dtls
+
+#define MTY_FINGERPRINT_MAX 512
+
+typedef enum {
+	MTY_DTLS_STATUS_DONE     = 0,
+	MTY_DTLS_STATUS_CONTINUE = 1,
+	MTY_DTLS_STATUS_ERROR    = 2,
+} MTY_DTLSStatus;
+
+typedef struct MTY_Cert MTY_Cert;
+typedef struct MTY_DTLS MTY_DTLS;
+
+typedef void (*MTY_DTLSWriteFunc)(const void *packet, size_t size, void *opaque);
+
+MTY_EXPORT MTY_Cert *
+MTY_CertCreate(void);
 
 MTY_EXPORT void
-mty_dtls_get_fingerprint(struct mty_dtls_creds *creds, char *fingerprint);
+MTY_CertGetFingerprint(MTY_Cert *ctx, char *fingerprint, size_t size);
 
 MTY_EXPORT void
-mty_dtls_free_creds(struct mty_dtls_creds *creds);
+MTY_CertDestroy(MTY_Cert **cert);
 
-MTY_EXPORT int32_t
-mty_dtls_init(struct mty_dtls **mty_dtls_in, struct mty_dtls_creds *creds, bool should_accept, int32_t mtu);
+MTY_EXPORT MTY_DTLS *
+MTY_DTLSCreate(MTY_Cert *cert, bool server, uint32_t mtu);
 
 MTY_EXPORT void
-mty_dtls_close(struct mty_dtls *mty_dtls);
+MTY_DTLSDestroy(MTY_DTLS **dtls);
 
-MTY_EXPORT int32_t
-mty_dtls_handshake(struct mty_dtls *mty_dtls, char *buf, size_t buf_size, char *peer_fingerprint,
-	int32_t (*write_cb)(char *buf, size_t len, void *opaque), void *opaque);
+MTY_EXPORT MTY_DTLSStatus
+MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size, const char *fingerprint,
+	MTY_DTLSWriteFunc writeFunc, void *opaque);
 
-MTY_EXPORT int32_t
-mty_dtls_encrypt(struct mty_dtls *mty_dtls, char *buf_in, int32_t size_in, char *buf_out, int32_t size_out);
+MTY_EXPORT bool
+MTY_DTLSEncrypt(MTY_DTLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *written);
 
-MTY_EXPORT int32_t
-mty_dtls_decrypt(struct mty_dtls *mty_dtls, char *buf_in, int32_t size_in, char *buf_out, int32_t size_out);
+MTY_EXPORT bool
+MTY_DTLSDecrypt(MTY_DTLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *read);
 
-MTY_EXPORT int32_t
-mty_dtls_is_handshake(uint8_t *packet, int32_t n);
+MTY_EXPORT bool
+MTY_DTLSIsHandshake(const void *packet, size_t size);
 
-MTY_EXPORT int32_t
-mty_dtls_is_application_data(uint8_t *packet, int32_t n);
+MTY_EXPORT bool
+MTY_DTLSIsApplicationData(const void *packet, size_t size);
 
 
 #ifdef __cplusplus
