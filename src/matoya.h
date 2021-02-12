@@ -1619,7 +1619,6 @@ typedef void (*MTY_RES_CB)(int32_t code, char **body, uint32_t *body_len);
 struct mty_ws;
 
 struct mty_dtls;
-struct mty_dtlsx;
 struct mty_dtls_creds;
 
 MTY_EXPORT int32_t
@@ -1673,12 +1672,6 @@ mty_net_parse_url(const char *url, char *host, size_t host_size, char *path, siz
 MTY_EXPORT void
 mty_net_url_encode(char *dst, size_t dst_len, const char *src);
 
-MTY_EXPORT struct mty_dtlsx *
-mty_dtls_context_init(void);
-
-MTY_EXPORT void
-mty_dtls_context_destroy(struct mty_dtlsx **ctx_out);
-
 MTY_EXPORT struct mty_dtls_creds *
 mty_dtls_get_creds(void);
 
@@ -1689,8 +1682,7 @@ MTY_EXPORT void
 mty_dtls_free_creds(struct mty_dtls_creds *creds);
 
 MTY_EXPORT int32_t
-mty_dtls_init(struct mty_dtls **mty_dtls_in, struct mty_dtlsx *ctx,
-	struct mty_dtls_creds *creds, bool should_accept, int32_t mtu);
+mty_dtls_init(struct mty_dtls **mty_dtls_in, struct mty_dtls_creds *creds, bool should_accept, int32_t mtu);
 
 MTY_EXPORT void
 mty_dtls_close(struct mty_dtls *mty_dtls);

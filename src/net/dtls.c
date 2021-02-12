@@ -20,66 +20,10 @@ struct mty_dtls_creds {
 
 struct mty_dtls {
 	SSL *ssl;
+	SSL_CTX *ctx;
 	BIO *bio_in;
 	BIO *bio_out;
 };
-
-struct mty_dtlsx {
-	MTY_Mutex *mutex;
-	SSL_CTX *ctx;
-};
-
-
-// DTLS context
-
-static int32_t mty_dtls_verify(int32_t ok, X509_STORE_CTX *ctx)
-{
-	return 1;
-}
-
-struct mty_dtlsx *mty_dtls_context_init(void)
-{
-	if (!ssl_dl_global_init())
-		return NULL;
-
-	struct mty_dtlsx *ctx = calloc(1, sizeof(struct mty_dtlsx));
-
-	ctx->ctx = SSL_CTX_new(DTLS_method());
-	SSL_CTX_set_quiet_shutdown(ctx->ctx, 1);
-	SSL_CTX_set_options(ctx->ctx, SSL_OP_NO_TICKET | SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
-	SSL_CTX_set_verify(ctx->ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, mty_dtls_verify);
-
-	SSL_CTX_set_cipher_list(ctx->ctx,
-		"ECDHE-ECDSA-AES128-GCM-SHA256:"
-		"ECDHE-ECDSA-AES128-SHA:"
-		"ECDHE-ECDSA-AES128-SHA256:"
-		"ECDHE-RSA-AES128-GCM-SHA256:"
-		"ECDHE-RSA-AES128-SHA:"
-		"ECDHE-RSA-AES128-SHA256:"
-		"DHE-RSA-AES128-GCM-SHA256:"
-		"DHE-RSA-AES128-SHA:"
-		"DHE-RSA-AES128-SHA256:"
-	);
-
-	ctx->mutex = MTY_MutexCreate();
-
-	return ctx;
-}
-
-void mty_dtls_context_destroy(struct mty_dtlsx **ctx_out)
-{
-	if (!ctx_out || !*ctx_out)
-		return;
-
-	struct mty_dtlsx *ctx = *ctx_out;
-
-	MTY_MutexDestroy(&ctx->mutex);
-
-	SSL_CTX_free(ctx->ctx);
-
-	free(ctx);
-	*ctx_out = NULL;
-}
 
 
 // Creds
@@ -162,17 +106,35 @@ void mty_dtls_free_creds(struct mty_dtls_creds *creds)
 
 // Core
 
-int32_t mty_dtls_init(struct mty_dtls **mty_dtls_in, struct mty_dtlsx *ctx, struct mty_dtls_creds *creds, bool should_accept, int32_t mtu)
+static int32_t mty_dtls_verify(int32_t ok, X509_STORE_CTX *ctx)
+{
+	return 1;
+}
+
+int32_t mty_dtls_init(struct mty_dtls **mty_dtls_in, struct mty_dtls_creds *creds, bool should_accept, int32_t mtu)
 {
 	int32_t r = MTY_NET_OK;;
 
 	struct mty_dtls *mty_dtls = *mty_dtls_in = calloc(1, sizeof(struct mty_dtls));
 
-	MTY_MutexLock(ctx->mutex);
+	mty_dtls->ctx = SSL_CTX_new(DTLS_method());
+	SSL_CTX_set_quiet_shutdown(mty_dtls->ctx, 1);
+	SSL_CTX_set_options(mty_dtls->ctx, SSL_OP_NO_TICKET | SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
+	SSL_CTX_set_verify(mty_dtls->ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, mty_dtls_verify);
 
-	mty_dtls->ssl = SSL_new(ctx->ctx);
+	SSL_CTX_set_cipher_list(mty_dtls->ctx,
+		"ECDHE-ECDSA-AES128-GCM-SHA256:"
+		"ECDHE-ECDSA-AES128-SHA:"
+		"ECDHE-ECDSA-AES128-SHA256:"
+		"ECDHE-RSA-AES128-GCM-SHA256:"
+		"ECDHE-RSA-AES128-SHA:"
+		"ECDHE-RSA-AES128-SHA256:"
+		"DHE-RSA-AES128-GCM-SHA256:"
+		"DHE-RSA-AES128-SHA:"
+		"DHE-RSA-AES128-SHA256:"
+	);
 
-	MTY_MutexUnlock(ctx->mutex);
+	mty_dtls->ssl = SSL_new(mty_dtls->ctx);
 
 	if (!mty_dtls->ssl) {r = MTY_NET_DTLS_ERR_SSL; MTY_Log("'SSL_new' failed"); goto except;}
 
@@ -211,6 +173,9 @@ void mty_dtls_close(struct mty_dtls *mty_dtls)
 		SSL_shutdown(mty_dtls->ssl);
 		SSL_free(mty_dtls->ssl);
 	}
+
+	if (mty_dtls->ctx)
+		SSL_CTX_free(mty_dtls->ctx);
 
 	free(mty_dtls);
 }
