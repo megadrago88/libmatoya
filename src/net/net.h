@@ -11,6 +11,11 @@
 
 struct mty_net_conn;
 
+enum mty_net_header_type {
+	MTY_NET_REQUEST  = 0,
+	MTY_NET_RESPONSE = 1,
+};
+
 struct mty_net_conn *mty_net_new_conn(void);
 void mty_net_close(struct mty_net_conn *ucc);
 void mty_net_set_header_str(struct mty_net_conn *ucc, const char *name, const char *value);

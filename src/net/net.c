@@ -5,6 +5,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "matoya.h"
+#include "net.h"
 
 #include <stdio.h>
 #include <stdlib.h>

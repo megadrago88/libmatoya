@@ -8,6 +8,9 @@
 
 #include <stdint.h>
 
+#define MTY_NET_PORT    80
+#define MTY_NET_PORT_S  443
+
 enum http_type {
 	HTTP_INT,
 	HTTP_STRING,

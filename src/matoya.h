@@ -1498,9 +1498,6 @@ MTY_JNIEnv(void);
 
 // @module net
 
-#define MTY_NET_PORT    80
-#define MTY_NET_PORT_S  443
-
 #define MTY_NET_FINGERPRINT_SIZE 512
 
 enum mty_net_status {
@@ -1584,11 +1581,6 @@ enum mty_net_scheme {
 	MTY_NET_HTTPS = 2,
 	MTY_NET_WS    = 3,
 	MTY_NET_WSS   = 4,
-};
-
-enum mty_net_header_type {
-	MTY_NET_REQUEST  = 0,
-	MTY_NET_RESPONSE = 1,
 };
 
 enum mty_net_ws_opcode {
