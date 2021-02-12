@@ -11,6 +11,9 @@
 
 #include "ssl-dl.h"
 
+static MTY_Atomic32 TLS_GLOCK;
+static X509_STORE *TLS_STORE;
+
 #define TLS_VERIFY_DEPTH 4
 
 #define TLS_CIPHER_LIST \
@@ -36,11 +39,7 @@
 
 // State
 
-struct tls_state {
-	SSL_CTX *ctx;
-};
-
-static char **tlss_parse_cacert(const char *raw, size_t size, uint32_t *n)
+static char **tls_parse_cacert(const char *raw, size_t size, uint32_t *n)
 {
 	char *cacert = calloc(size + 1, 1);
 	memcpy(cacert, raw, size);
@@ -71,116 +70,49 @@ static char **tlss_parse_cacert(const char *raw, size_t size, uint32_t *n)
 	return out;
 }
 
-int32_t tlss_load_cacert(struct tls_state *tlss, const char *cacert, size_t size)
+int32_t tls_load_cacert(const char *cacert, size_t size)
 {
 	int32_t r = MTY_NET_OK;
 
-	X509_STORE *store = SSL_CTX_get_cert_store(tlss->ctx);
-	if (!store) return MTY_NET_TLS_ERR_CACERT;
+	if (!ssl_dl_global_init())
+		return MTY_NET_TLS_ERR_CONTEXT;
 
-	uint32_t num_certs = 0;
-	char **parsed_cacert = tlss_parse_cacert(cacert, size, &num_certs);
+	MTY_GlobalLock(&TLS_GLOCK);
 
-	for (uint32_t x = 0; x < num_certs && r == MTY_NET_OK; x++) {
-		X509 *cert = NULL;
-		BIO *bio = BIO_new_mem_buf(parsed_cacert[x], -1);
+	if (cacert) {
+		TLS_STORE = X509_STORE_new();
+		if (!TLS_STORE) {r = MTY_NET_TLS_ERR_CACERT; goto except;}
 
-		if (bio && PEM_read_bio_X509(bio, &cert, 0, NULL)) {
-			X509_STORE_add_cert(store, cert);
-			X509_free(cert);
-			BIO_free(bio);
-		} else {
-			r = MTY_NET_TLS_ERR_CACERT;
+		uint32_t num_certs = 0;
+		char **parsed_cacert = tls_parse_cacert(cacert, size, &num_certs);
+
+		for (uint32_t x = 0; x < num_certs && r == MTY_NET_OK; x++) {
+			X509 *cert = NULL;
+			BIO *bio = BIO_new_mem_buf(parsed_cacert[x], -1);
+
+			if (bio && PEM_read_bio_X509(bio, &cert, 0, NULL)) {
+				X509_STORE_add_cert(TLS_STORE, cert);
+				X509_free(cert);
+				BIO_free(bio);
+
+			} else {
+				r = MTY_NET_TLS_ERR_CACERT;
+			}
 		}
+
+		for (uint32_t x = 0; x < num_certs; x++)
+			free(parsed_cacert[x]);
+
+		free(parsed_cacert);
+
+	} else if (TLS_STORE) {
+		X509_STORE_free(TLS_STORE);
+		TLS_STORE = NULL;
 	}
-
-	for (uint32_t x = 0; x < num_certs; x++)
-		free(parsed_cacert[x]);
-
-	free(parsed_cacert);
-
-	return r;
-}
-
-int32_t tlss_load_cert_and_key(struct tls_state *tlss, const char *cert, size_t cert_size,
-	const char *key, size_t key_size)
-{
-	int32_t r = MTY_NET_OK;
-
-	BIO *cbio = NULL, *kbio = NULL;
-	X509 *cert_x509 = NULL;
-	RSA *rsa = NULL;
-
-	cbio = BIO_new_mem_buf(cert, (int32_t) cert_size);
-	cert_x509 = PEM_read_bio_X509(cbio, NULL, 0, NULL);
-	if (!cert_x509) {r = MTY_NET_TLS_ERR_CERT; goto except;}
-
-	int32_t e = SSL_CTX_use_certificate(tlss->ctx, cert_x509);
-	if (e != 1) {r = MTY_NET_TLS_ERR_CERT; goto except;}
-
-	kbio = BIO_new_mem_buf(key, (int32_t) key_size);
-	rsa = PEM_read_bio_RSAPrivateKey(kbio, NULL, 0, NULL);
-	if (!rsa) {r = MTY_NET_TLS_ERR_KEY; goto except;}
-
-	e = SSL_CTX_use_RSAPrivateKey(tlss->ctx, rsa);
-	if (e != 1) {r = MTY_NET_TLS_ERR_KEY; goto except;}
-
-	e = SSL_CTX_check_private_key(tlss->ctx);
-	if (e != 1) {r = MTY_NET_TLS_ERR_KEY; goto except;}
 
 	except:
 
-	if (cert_x509)
-		X509_free(cert_x509);
-
-	if (rsa)
-		RSA_free(rsa);
-
-	if (kbio)
-		BIO_free(kbio);
-
-	if (cbio)
-		BIO_free(cbio);
-
-	return r;
-}
-
-void tlss_free(struct tls_state *tlss)
-{
-	if (!tlss) return;
-
-	if (tlss->ctx)
-		SSL_CTX_free(tlss->ctx);
-
-	free(tlss);
-}
-
-int32_t tlss_alloc(struct tls_state **tlss_in)
-{
-	int32_t r = MTY_NET_OK;
-
-	struct tls_state *tlss = *tlss_in = calloc(1, sizeof(struct tls_state));
-
-	if (!ssl_dl_global_init()) {r = MTY_NET_TLS_ERR_CONTEXT; goto except;}
-
-	//the SSL context can be reused for multiple connections
-	tlss->ctx = SSL_CTX_new(TLS_method());
-	if (!tlss->ctx) {r = MTY_NET_TLS_ERR_CONTEXT; goto except;}
-
-	//limit ciphers to predefined secure list
-	int32_t e = SSL_CTX_set_cipher_list(tlss->ctx, TLS_CIPHER_LIST);
-	if (e != 1) {r = MTY_NET_TLS_ERR_CIPHER; goto except;}
-
-	//disable any non TLS protocols
-	const long flags = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_COMPRESSION;
-	SSL_CTX_set_options(tlss->ctx, flags);
-
-	except:
-
-	if (r != MTY_NET_OK) {
-		tlss_free(tlss);
-		*tlss_in = NULL;
-	}
+	MTY_GlobalUnlock(&TLS_GLOCK);
 
 	return r;
 }
@@ -190,6 +122,7 @@ int32_t tlss_alloc(struct tls_state **tlss_in)
 
 struct tls_context {
 	struct tcp_context *nc;
+	SSL_CTX *ctx;
 	SSL *ssl;
 };
 
@@ -205,14 +138,20 @@ void tls_close(struct tls_context *tls)
 		if (e == 0)
 			SSL_shutdown(tls->ssl);
 
+		MTY_GlobalLock(&TLS_GLOCK);
+
 		SSL_free(tls->ssl);
+
+		MTY_GlobalUnlock(&TLS_GLOCK);
 	}
+
+	if (tls->ctx)
+		SSL_CTX_free(tls->ctx);
 
 	free(tls);
 }
 
-static int32_t tls_context_new(struct tls_context **tls_in, struct tls_state *tlss,
-	struct tcp_context *nc)
+static int32_t tls_context_new(struct tls_context **tls_in, struct tcp_context *nc)
 {
 	struct tls_context *tls = *tls_in = calloc(1, sizeof(struct tls_context));
 
@@ -221,12 +160,33 @@ static int32_t tls_context_new(struct tls_context **tls_in, struct tls_state *tl
 	//keep handle to the underlying tcp_context
 	tls->nc = nc;
 
-	tls->ssl = SSL_new(tlss->ctx);
+	//the SSL context can be reused for multiple connections
+	tls->ctx = SSL_CTX_new(TLS_method());
+	if (!tls->ctx) return MTY_NET_TLS_ERR_CONTEXT;
+
+	//the SSL instance
+	tls->ssl = SSL_new(tls->ctx);
 	if (!tls->ssl) return MTY_NET_TLS_ERR_SSL;
+
+	//cacert store
+	MTY_GlobalLock(&TLS_GLOCK);
+
+	if (TLS_STORE)
+		SSL_ctrl(tls->ssl, SSL_CTRL_SET_VERIFY_CERT_STORE, 1, TLS_STORE);
+
+	MTY_GlobalUnlock(&TLS_GLOCK);
+
+	//disable any non TLS protocols
+	long flags = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_COMPRESSION;
+	SSL_set_options(tls->ssl, flags);
+
+	//limit ciphers to predefined secure list
+	int32_t e = SSL_set_cipher_list(tls->ssl, TLS_CIPHER_LIST);
+	if (e != 1) return MTY_NET_TLS_ERR_CIPHER;
 
 	int32_t s = -1;
 	tcp_get_socket(tls->nc, &s);
-	int32_t e = SSL_set_fd(tls->ssl, s);
+	e = SSL_set_fd(tls->ssl, s);
 	if (e != 1) return MTY_NET_TLS_ERR_FD;
 
 	return MTY_NET_OK;
@@ -243,12 +203,12 @@ static int32_t tls_handshake_poll(struct tls_context *tls, int32_t e, int32_t ti
 	return MTY_NET_TLS_ERR_HANDSHAKE;
 }
 
-int32_t tls_connect(struct tls_context **tls_in, struct tls_state *tlss,
-	struct tcp_context *nc, const char *host, bool verify_host, int32_t timeout_ms)
+int32_t tls_connect(struct tls_context **tls_in, struct tcp_context *nc,
+	const char *host, bool verify_host, int32_t timeout_ms)
 {
 	int32_t r = MTY_NET_OK;
 
-	int32_t e = tls_context_new(tls_in, tlss, nc);
+	int32_t e = tls_context_new(tls_in, nc);
 	struct tls_context *tls = *tls_in;
 	if (e != MTY_NET_OK) {r = e; goto except;}
 
@@ -286,12 +246,11 @@ int32_t tls_connect(struct tls_context **tls_in, struct tls_state *tlss,
 	return r;
 }
 
-int32_t tls_accept(struct tls_context **tls_in, struct tls_state *tlss,
-	struct tcp_context *nc, int32_t timeout_ms)
+int32_t tls_accept(struct tls_context **tls_in, struct tcp_context *nc, int32_t timeout_ms)
 {
 	int32_t r = MTY_NET_OK;
 
-	int32_t e = tls_context_new(tls_in, tlss, nc);
+	int32_t e = tls_context_new(tls_in, nc);
 	struct tls_context *tls = *tls_in;
 	if (e != MTY_NET_OK) {r = e; goto except;}
 

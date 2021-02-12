@@ -34,7 +34,6 @@ struct thread_args {
 static struct mty_http_async {
 	bool proxy;
 	MTY_ThreadPool *pool;
-	struct mty_net_tls_ctx *http;
 } *CTX;
 
 static void mty_http_async_free_ta(void *opaque)
@@ -47,16 +46,13 @@ static void mty_http_async_free_ta(void *opaque)
 	}
 }
 
-void mty_http_async_init(uint32_t num_threads, const char *cacert, size_t cacert_size, bool proxy)
+void mty_http_async_init(uint32_t num_threads, bool proxy)
 {
 	if (CTX)
 		return;
 
 	CTX = calloc(1, sizeof(struct mty_http_async));
 	CTX->proxy = proxy;
-
-	mty_net_new_tls_ctx(&CTX->http);
-	mty_net_set_cacert(CTX->http, cacert, cacert_size);
 
 	CTX->pool = MTY_ThreadPoolCreate(num_threads);
 }
@@ -67,7 +63,6 @@ void mty_http_async_destroy(void)
 		return;
 
 	MTY_ThreadPoolDestroy(&CTX->pool, mty_http_async_free_ta);
-	mty_net_free_tls_ctx(CTX->http);
 
 	free(CTX);
 	CTX = NULL;
@@ -77,7 +72,7 @@ static void mty_http_async_thread(void *opaque)
 {
 	struct thread_args *ta = (struct thread_args *) opaque;
 
-	ta->code = mty_http_request(CTX->http, ta->method, ta->scheme, ta->host, ta->path,
+	ta->code = mty_http_request(ta->method, ta->scheme, ta->host, ta->path,
 		ta->headers[0] ? ta->headers : NULL, ta->body_len > 0 ? ta->body : NULL,
 		ta->body_len, ta->timeout_ms, &ta->res_body, &ta->res_body_len, CTX->proxy);
 

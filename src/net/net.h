@@ -27,6 +27,6 @@ int32_t mty_net_read_body_all(struct mty_net_conn *ucc, char **body, uint32_t *b
 	int32_t timeout_ms, size_t max_body);
 int32_t mty_net_write_header(struct mty_net_conn *ucc, const char *str0, const char *str1, int32_t type);
 int32_t mty_net_get_status_code(struct mty_net_conn *ucc, int32_t *status_code);
-int32_t mty_net_connect(struct mty_net_tls_ctx *uc_tls, struct mty_net_conn *ucc,
+int32_t mty_net_connect(struct mty_net_conn *ucc,
 	int32_t scheme, const char *host, uint16_t port, bool verify_host,
 	const char *proxy_host, uint16_t proxy_port, int32_t timeout_ms);

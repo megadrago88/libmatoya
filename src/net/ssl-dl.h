@@ -28,6 +28,7 @@
 
 #define SSL_CTRL_SET_MTU                              17
 #define SSL_CTRL_SET_TLSEXT_HOSTNAME                  55
+#define SSL_CTRL_SET_VERIFY_CERT_STORE                106
 #define TLSEXT_NAMETYPE_host_name                     0
 
 #define SSL_VERIFY_PEER                               0x01
@@ -77,6 +78,8 @@ STATIC BIO *FP(BIO_new_mem_buf)(const void *buf, int len);
 STATIC int FP(BIO_free)(BIO *a);
 
 STATIC X509 *FP(PEM_read_bio_X509)(BIO *bp, X509 **x, pem_password_cb *cb, void *u);
+STATIC X509_STORE *FP(X509_STORE_new)(void);
+STATIC void FP(X509_STORE_free)(X509_STORE *v);
 STATIC int FP(X509_STORE_add_cert)(X509_STORE *ctx, X509 *x);
 STATIC int FP(X509_VERIFY_PARAM_set1_host)(X509_VERIFY_PARAM *param, const char *name, size_t namelen);
 STATIC void FP(X509_VERIFY_PARAM_set_hostflags)(X509_VERIFY_PARAM *param, unsigned int flags);
@@ -99,16 +102,13 @@ STATIC void FP(SSL_set_verify_depth)(SSL *s, int depth);
 STATIC int FP(SSL_get_error)(const SSL *s, int ret_code);
 STATIC X509_VERIFY_PARAM *FP(SSL_get0_param)(SSL *ssl);
 STATIC long FP(SSL_ctrl)(SSL *ssl, int cmd, long larg, void *parg);
+STATIC int FP(SSL_set_cipher_list)(SSL *ssl, const char *str);
 
 STATIC const SSL_METHOD *FP(TLS_method)(void);
 STATIC SSL_CTX *FP(SSL_CTX_new)(const SSL_METHOD *meth);
 STATIC void FP(SSL_CTX_free)(SSL_CTX *);
-STATIC int FP(SSL_CTX_use_certificate)(SSL_CTX *ctx, X509 *x);
-STATIC X509_STORE *FP(SSL_CTX_get_cert_store)(const SSL_CTX *);
 STATIC unsigned long FP(SSL_CTX_set_options)(SSL_CTX *ctx, unsigned long op);
 STATIC int FP(SSL_CTX_set_cipher_list)(SSL_CTX *, const char *str);
-STATIC int FP(SSL_CTX_check_private_key)(const SSL_CTX *ctx);
-STATIC int FP(SSL_CTX_use_RSAPrivateKey)(SSL_CTX *ctx, RSA *rsa);
 
 
 // DTLS
@@ -218,21 +218,20 @@ static bool ssl_dl_global_init(void)
 		LOAD_SYM(SSL_DL_SO, SSL_get_error);
 		LOAD_SYM(SSL_DL_SO, SSL_get0_param);
 		LOAD_SYM(SSL_DL_SO, SSL_ctrl);
+		LOAD_SYM(SSL_DL_SO, SSL_set_cipher_list);
 
 		LOAD_SYM(SSL_DL_SO, TLS_method);
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_new);
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_free);
-		LOAD_SYM(SSL_DL_SO, SSL_CTX_use_certificate);
-		LOAD_SYM(SSL_DL_SO, SSL_CTX_get_cert_store);
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_set_options);
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_set_cipher_list);
-		LOAD_SYM(SSL_DL_SO, SSL_CTX_check_private_key);
-		LOAD_SYM(SSL_DL_SO, SSL_CTX_use_RSAPrivateKey);
 
 		LOAD_SYM(SSL_DL_SO, BIO_new_mem_buf);
 		LOAD_SYM(SSL_DL_SO, BIO_free);
 
 		LOAD_SYM(SSL_DL_SO, PEM_read_bio_X509);
+		LOAD_SYM(SSL_DL_SO, X509_STORE_new);
+		LOAD_SYM(SSL_DL_SO, X509_STORE_free);
 		LOAD_SYM(SSL_DL_SO, X509_STORE_add_cert);
 		LOAD_SYM(SSL_DL_SO, X509_VERIFY_PARAM_set1_host);
 		LOAD_SYM(SSL_DL_SO, X509_VERIFY_PARAM_set_hostflags);

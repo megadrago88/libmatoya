@@ -29,10 +29,6 @@
 #define mty_net_get_header_str(ucc, key, val_str) \
 	mty_net_get_header(ucc, key, NULL, val_str)
 
-struct mty_net_tls_ctx {
-	struct tls_state *tlss;
-};
-
 struct mty_net_conn {
 	char *hout;
 	struct http_header *hin;
@@ -51,37 +47,9 @@ struct mty_net_conn {
 
 // TLS Context
 
-void mty_net_free_tls_ctx(struct mty_net_tls_ctx *uc_tls)
+int32_t mty_net_set_cacert(const char *cacert, size_t size)
 {
-	if (!uc_tls) return;
-
-	tlss_free(uc_tls->tlss);
-
-	free(uc_tls);
-}
-
-int32_t mty_net_new_tls_ctx(struct mty_net_tls_ctx **uc_tls_in)
-{
-	struct mty_net_tls_ctx *uc_tls = *uc_tls_in = calloc(1, sizeof(struct mty_net_tls_ctx));
-
-	int32_t e = tlss_alloc(&uc_tls->tlss);
-	if (e == MTY_NET_OK) return e;
-
-	mty_net_free_tls_ctx(uc_tls);
-	*uc_tls_in = NULL;
-
-	return e;
-}
-
-int32_t mty_net_set_cacert(struct mty_net_tls_ctx *uc_tls, const char *cacert, size_t size)
-{
-	return tlss_load_cacert(uc_tls->tlss, cacert, size);
-}
-
-int32_t mty_net_set_cert_and_key(struct mty_net_tls_ctx *uc_tls,
-	const char *cert, size_t cert_size, const char *key, size_t key_size)
-{
-	return tlss_load_cert_and_key(uc_tls->tlss, cert, cert_size, key, key_size);
+	return tls_load_cacert(cacert, size);
 }
 
 
@@ -152,7 +120,7 @@ int32_t mty_net_get_status_code(struct mty_net_conn *ucc, int32_t *status_code)
 	return http_get_status_code(ucc->hin, status_code);
 }
 
-int32_t mty_net_connect(struct mty_net_tls_ctx *uc_tls, struct mty_net_conn *ucc,
+int32_t mty_net_connect(struct mty_net_conn *ucc,
 	int32_t scheme, const char *host, uint16_t port, bool verify_host,
 	const char *proxy_host, uint16_t proxy_port, int32_t timeout_ms)
 {
@@ -198,9 +166,7 @@ int32_t mty_net_connect(struct mty_net_tls_ctx *uc_tls, struct mty_net_conn *ucc
 	}
 
 	if (scheme == MTY_NET_HTTPS || scheme == MTY_NET_WSS) {
-		if (!uc_tls) return MTY_NET_TLS_ERR_CONTEXT;
-
-		e = tls_connect(&ucc->tls, uc_tls->tlss, ucc->net, ucc->host, verify_host, timeout_ms);
+		e = tls_connect(&ucc->tls, ucc->net, ucc->host, verify_host, timeout_ms);
 		if (e != MTY_NET_OK) return e;
 
 		//tls read/write callbacks
@@ -220,7 +186,7 @@ static int32_t mty_net_listen(struct mty_net_conn *ucc, const char *bind_ip4, ui
 	return MTY_NET_OK;
 }
 
-static int32_t mty_net_accept(struct mty_net_tls_ctx *uc_tls, struct mty_net_conn *ucc,
+static int32_t mty_net_accept(struct mty_net_conn *ucc,
 	struct mty_net_conn **ucc_new_in, int32_t scheme, int32_t timeout_ms)
 {
 	struct mty_net_conn *ucc_new = *ucc_new_in = mty_net_new_conn();
@@ -235,9 +201,7 @@ static int32_t mty_net_accept(struct mty_net_tls_ctx *uc_tls, struct mty_net_con
 	mty_net_attach_net(ucc_new);
 
 	if (scheme == MTY_NET_HTTPS || scheme == MTY_NET_WSS) {
-		if (!uc_tls) return MTY_NET_TLS_ERR_CONTEXT;
-
-		e = tls_accept(&ucc_new->tls, uc_tls->tlss, ucc_new->net, timeout_ms);
+		e = tls_accept(&ucc_new->tls, ucc_new->net, timeout_ms);
 		if (e != MTY_NET_OK) {r = e; goto except;}
 
 		//tls read/write callbacks
@@ -685,8 +649,9 @@ void mty_ws_destroy(struct mty_ws **mty_ws_out)
 	*mty_ws_out = NULL;
 }
 
-int32_t mty_ws_connect(struct mty_ws **mty_ws_out, struct mty_net_tls_ctx *tls, char *host, uint16_t port,
-	char *proxy_url, char *path, const char *origin, int32_t timeout_ms, int32_t *upgrade_status)
+int32_t mty_ws_connect(struct mty_ws **mty_ws_out, char *host, uint16_t port,
+	enum mty_net_scheme scheme, char *proxy_url, char *path, const char *origin,
+	int32_t timeout_ms, int32_t *upgrade_status)
 {
 	int32_t r = MTY_NET_OK;
 
@@ -697,7 +662,7 @@ int32_t mty_ws_connect(struct mty_ws **mty_ws_out, struct mty_net_tls_ctx *tls, 
 	struct mty_net_info proxy_info = {0};
 	bool use_proxy = proxy_url && proxy_url[0] && _mty_net_parse_url(proxy_url, &proxy_info) == MTY_NET_OK;
 
-	int32_t e = mty_net_connect(tls ? tls : NULL, ws->ucc, tls ? MTY_NET_WSS : MTY_NET_WS,
+	int32_t e = mty_net_connect(ws->ucc, scheme,
 		host, port, true, proxy_info.host, proxy_info.port, timeout_ms);
 	if (e != MTY_NET_OK) {r = MTY_NET_WS_ERR_CONNECT; goto except;}
 
@@ -735,12 +700,12 @@ int32_t mty_ws_listen(struct mty_ws **mty_ws_out, const char *host, uint16_t por
 	return r;
 }
 
-struct mty_ws *mty_ws_accept(struct mty_ws *ws, struct mty_net_tls_ctx *tls, const char * const *origins,
+struct mty_ws *mty_ws_accept(struct mty_ws *ws, const char * const *origins,
 	uint32_t num_origins, bool secure_origin, int32_t timeout_ms)
 {
 	struct mty_ws *ws_child = NULL;
 	struct mty_net_conn *child = NULL;
-	int32_t e = mty_net_accept(tls, ws->ucc, &child, tls ? MTY_NET_WSS : MTY_NET_WS, timeout_ms);
+	int32_t e = mty_net_accept(ws->ucc, &child, MTY_NET_WS, timeout_ms);
 
 	if (e == MTY_NET_OK) {
 		ws_child = MTY_Alloc(1, sizeof(struct mty_ws));

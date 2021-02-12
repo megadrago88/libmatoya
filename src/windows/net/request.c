@@ -66,7 +66,7 @@ static int32_t mty_http_decompress(char **response, uint32_t *response_len)
 	return MTY_NET_ERR_INFLATE;
 }
 
-int32_t mty_http_request(struct mty_net_tls_ctx *tls, char *method, enum mty_net_scheme scheme,
+int32_t mty_http_request(char *method, enum mty_net_scheme scheme,
 	char *host, char *path, char *headers, char *body, uint32_t body_len, int32_t timeout_ms,
 	char **response, uint32_t *response_len, bool proxy)
 {

@@ -1616,33 +1616,22 @@ enum mty_async_status {
 
 typedef void (*MTY_RES_CB)(int32_t code, char **body, uint32_t *body_len);
 
-struct mty_net_tls_ctx;
 struct mty_ws;
 
 struct mty_dtls;
 struct mty_dtlsx;
 struct mty_dtls_creds;
 
-MTY_EXPORT void
-mty_net_free_tls_ctx(struct mty_net_tls_ctx *uc_tls);
+MTY_EXPORT int32_t
+mty_net_set_cacert(const char *cacert, size_t size);
 
 MTY_EXPORT int32_t
-mty_net_new_tls_ctx(struct mty_net_tls_ctx **uc_tls_in);
-
-MTY_EXPORT int32_t
-mty_net_set_cacert(struct mty_net_tls_ctx *uc_tls, const char *cacert, size_t size);
-
-MTY_EXPORT int32_t
-mty_net_set_cert_and_key(struct mty_net_tls_ctx *uc_tls, const char *cert,
-	size_t cert_size, const char *key, size_t key_size);
-
-MTY_EXPORT int32_t
-mty_http_request(struct mty_net_tls_ctx *tls, char *method, enum mty_net_scheme uc_scheme,
+mty_http_request(char *method, enum mty_net_scheme uc_scheme,
 	char *host, char *path, char *headers, char *body, uint32_t body_len, int32_t timeout_ms,
 	char **response, uint32_t *response_len, bool proxy);
 
 MTY_EXPORT void
-mty_http_async_init(uint32_t num_threads, const char *cacert, size_t cacert_size, bool proxy);
+mty_http_async_init(uint32_t num_threads, bool proxy);
 
 MTY_EXPORT void
 mty_http_async_destroy(void);
@@ -1661,12 +1650,13 @@ MTY_EXPORT int32_t
 mty_ws_listen(struct mty_ws **mty_ws_out, const char *host, uint16_t port);
 
 MTY_EXPORT struct mty_ws *
-mty_ws_accept(struct mty_ws *ws, struct mty_net_tls_ctx *tls, const char * const *origins,
+mty_ws_accept(struct mty_ws *ws, const char * const *origins,
 	uint32_t num_origins, bool secure_origin, int32_t timeout_ms);
 
 MTY_EXPORT int32_t
-mty_ws_connect(struct mty_ws **mty_ws_out, struct mty_net_tls_ctx *tls, char *host, uint16_t port,
-	char *proxy_url, char *path, const char *origin, int32_t timeout_ms, int32_t *upgrade_status);
+mty_ws_connect(struct mty_ws **mty_ws_out, char *host, uint16_t port,
+	enum mty_net_scheme scheme, char *proxy_url, char *path, const char *origin,
+	int32_t timeout_ms, int32_t *upgrade_status);
 
 MTY_EXPORT void
 mty_ws_destroy(struct mty_ws **mty_ws_out);

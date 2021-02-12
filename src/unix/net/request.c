@@ -34,7 +34,7 @@ static void mty_http_set_headers(struct mty_net_conn *ucc, char *header_str_orig
 	free(header_str);
 }
 
-int32_t mty_http_request(struct mty_net_tls_ctx *tls, char *method, enum mty_net_scheme uc_scheme,
+int32_t mty_http_request(char *method, enum mty_net_scheme uc_scheme,
 	char *host, char *path, char *headers, char *body, uint32_t body_len, int32_t timeout_ms,
 	char **response, uint32_t *response_len, bool proxy)
 {
@@ -50,7 +50,7 @@ int32_t mty_http_request(struct mty_net_tls_ctx *tls, char *method, enum mty_net
 	struct mty_net_conn *ucc = mty_net_new_conn();
 
 	//make the TCP connection
-	int32_t e = mty_net_connect(tls, ucc, uc_scheme, host, port, true, NULL, 0, timeout_ms);
+	int32_t e = mty_net_connect(ucc, uc_scheme, host, port, true, NULL, 0, timeout_ms);
 	if (e != MTY_NET_OK) goto except;
 
 	//set request headers
