@@ -1626,9 +1626,9 @@ MTY_EXPORT int32_t
 mty_net_set_cacert(const char *cacert, size_t size);
 
 MTY_EXPORT int32_t
-mty_http_request(char *method, enum mty_net_scheme uc_scheme,
-	char *host, char *path, char *headers, char *body, uint32_t body_len, int32_t timeout_ms,
-	char **response, uint32_t *response_len, bool proxy);
+mty_http_request(const char *method, enum mty_net_scheme scheme,
+	const char *host, const char *path, const char *headers, const void *body,
+	uint32_t body_len, int32_t timeout_ms, char **response, uint32_t *response_len, bool proxy);
 
 MTY_EXPORT void
 mty_http_async_init(uint32_t num_threads, bool proxy);

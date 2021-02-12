@@ -66,9 +66,9 @@ static int32_t mty_http_decompress(char **response, uint32_t *response_len)
 	return MTY_NET_ERR_INFLATE;
 }
 
-int32_t mty_http_request(char *method, enum mty_net_scheme scheme,
-	char *host, char *path, char *headers, char *body, uint32_t body_len, int32_t timeout_ms,
-	char **response, uint32_t *response_len, bool proxy)
+int32_t mty_http_request(const char *method, enum mty_net_scheme scheme,
+	const char *host, const char *path, const char *headers, const void *body,
+	uint32_t body_len, int32_t timeout_ms, char **response, uint32_t *response_len, bool proxy)
 {
 	HINTERNET session = NULL, connect = NULL, request = NULL;
 
@@ -135,7 +135,7 @@ int32_t mty_http_request(char *method, enum mty_net_scheme scheme,
 	success = WinHttpSendRequest(request,
 		headers ? headers_w : WINHTTP_NO_ADDITIONAL_HEADERS,
 		headers ? -1L : 0,
-		body, body_len, body_len, 0);
+		(void *) body, body_len, body_len, 0);
 	if (!success) {
 		MTY_Log("'WinHttpSendRequest' failed with error 0x%X", GetLastError());
 		r = MTY_NET_HTTP_ERR_REQUEST;
