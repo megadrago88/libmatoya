@@ -13,7 +13,7 @@
 #include "ssl-dl.h"
 
 struct MTY_Cert {
-	char common_name[33];
+	char cn[64];
 	X509 *cert;
 	RSA *key;
 };
@@ -26,63 +26,62 @@ struct MTY_DTLS {
 };
 
 
-// Creds
+// Cert
 
 MTY_Cert *MTY_CertCreate(void)
 {
 	if (!ssl_dl_global_init())
 		return NULL;
 
-	MTY_Cert *creds = calloc(1, sizeof(MTY_Cert));
+	MTY_Cert *cert = MTY_Alloc(1, sizeof(MTY_Cert));
 
 	BIGNUM *bne = BN_new();
 	BN_set_word(bne, RSA_F4);
 
-	creds->key = RSA_new();
-	RSA_generate_key_ex(creds->key, 1024, bne, NULL);
+	cert->key = RSA_new();
+	RSA_generate_key_ex(cert->key, 1024, bne, NULL);
 	BN_free(bne);
 
-	creds->cert = X509_new();
-	X509_set_version(creds->cert, 2);
-	ASN1_INTEGER_set(X509_get_serialNumber(creds->cert), MTY_RandomUInt(1000000000, 2000000000));
-	X509_gmtime_adj(X509_getm_notBefore(creds->cert), -24 * 3600);    //1 day ago
-	X509_gmtime_adj(X509_getm_notAfter(creds->cert), 30 * 24 * 3600); //30 days out
+	cert->cert = X509_new();
+	X509_set_version(cert->cert, 2);
+	ASN1_INTEGER_set(X509_get_serialNumber(cert->cert), MTY_RandomUInt(1000000000, 2000000000));
+	X509_gmtime_adj(X509_getm_notBefore(cert->cert), -24 * 3600);    // 1 day ago
+	X509_gmtime_adj(X509_getm_notAfter(cert->cert), 30 * 24 * 3600); // 30 days out
 
 	uint8_t rand_name[16];
-	char common_name[33];
 	MTY_RandomBytes(rand_name, 16);
-	MTY_BytesToHex(rand_name, 16, common_name, 33);
-	snprintf(creds->common_name, 33, "%s", common_name);
+	MTY_BytesToHex(rand_name, 16, cert->cn, 64);
 
-	X509_NAME *x509_name = X509_get_subject_name(creds->cert);
-	X509_NAME_add_entry_by_txt(x509_name, "CN", MBSTRING_ASC, (const unsigned char *) creds->common_name, -1, -1, 0);
-	X509_set_issuer_name(creds->cert, x509_name);
+	X509_NAME *x509_name = X509_get_subject_name(cert->cert);
+	X509_NAME_add_entry_by_txt(x509_name, "CN", MBSTRING_ASC, (const unsigned char *) cert->cn, -1, -1, 0);
+	X509_set_issuer_name(cert->cert, x509_name);
 
 	EVP_PKEY *pKey = EVP_PKEY_new();
-	EVP_PKEY_assign(pKey, EVP_PKEY_RSA, creds->key);
-	X509_set_pubkey(creds->cert, pKey);
-	X509_sign(creds->cert, pKey, EVP_sha256());
+	EVP_PKEY_assign(pKey, EVP_PKEY_RSA, cert->key);
+	X509_set_pubkey(cert->cert, pKey);
+	X509_sign(cert->cert, pKey, EVP_sha256());
 
-	return creds;
+	return cert;
 }
 
 static void mty_dtls_x509_to_fingerprint(X509 *cert, char *fingerprint, size_t size)
 {
-	uint8_t buf[EVP_MAX_MD_SIZE];
+	memset(fingerprint, 0, size);
+
 	uint32_t len = 0;
+	uint8_t buf[EVP_MAX_MD_SIZE];
 	X509_digest(cert, EVP_sha256(), buf, &len);
 
-	fingerprint[0] = '\0';
-	const char *prepend = "sha-256 ";
-	snprintf(fingerprint, size, "%s", prepend);
+	MTY_Strcat(fingerprint, size, "sha-256 ");
 
-	size_t offset = strlen(prepend);
+	for (size_t x = 0; x < len; x++) {
+		char append[8];
+		snprintf(append, 8, "%02X:", buf[x]);
+		MTY_Strcat(fingerprint, size, append);
+	}
 
-	for (size_t x = 0; x < len; x++, offset += 3)
-		snprintf(fingerprint + offset, size - offset, "%02X:", buf[x]);
-
-	//remove the trailing ':'
-	fingerprint[offset - 1] = '\0';
+	// Remove the trailing ':'
+	fingerprint[strlen(fingerprint) - 1] = '\0';
 }
 
 void MTY_CertGetFingerprint(MTY_Cert *ctx, char *fingerprint, size_t size)
@@ -103,12 +102,12 @@ void MTY_CertDestroy(MTY_Cert **cert)
 	if (ctx->cert)
 		X509_free(ctx->cert);
 
-	free(ctx);
+	MTY_Free(ctx);
 	*cert = NULL;
 }
 
 
-// Core
+// DTLS
 
 static int32_t mty_dtls_verify(int32_t ok, X509_STORE_CTX *ctx)
 {
@@ -119,7 +118,7 @@ MTY_DTLS *MTY_DTLSCreate(MTY_Cert *cert, bool server, uint32_t mtu)
 {
 	bool ok = true;
 
-	MTY_DTLS *ctx = calloc(1, sizeof(MTY_DTLS));
+	MTY_DTLS *ctx = MTY_Alloc(1, sizeof(MTY_DTLS));
 
 	ctx->ctx = SSL_CTX_new(DTLS_method());
 	SSL_CTX_set_quiet_shutdown(ctx->ctx, 1);
@@ -139,10 +138,9 @@ MTY_DTLS *MTY_DTLSCreate(MTY_Cert *cert, bool server, uint32_t mtu)
 	);
 
 	ctx->ssl = SSL_new(ctx->ctx);
-
 	if (!ctx->ssl) {
-		ok = false;
 		MTY_Log("'SSL_new' failed");
+		ok = false;
 		goto except;
 	}
 
@@ -160,7 +158,7 @@ MTY_DTLS *MTY_DTLSCreate(MTY_Cert *cert, bool server, uint32_t mtu)
 		SSL_set_connect_state(ctx->ssl);
 	}
 
-	//this will tell openssl to create larger datagrams
+	// This will tell openssl to create larger datagrams
 	SSL_set_options(ctx->ssl, SSL_OP_NO_QUERY_MTU);
 	SSL_ctrl(ctx->ssl, SSL_CTRL_SET_MTU, mtu, NULL);
 
@@ -187,7 +185,7 @@ void MTY_DTLSDestroy(MTY_DTLS **dtls)
 	if (ctx->ctx)
 		SSL_CTX_free(ctx->ctx);
 
-	free(ctx);
+	MTY_Free(ctx);
 	*dtls = NULL;
 }
 
@@ -196,9 +194,10 @@ static bool mty_dtls_verify_peer_fingerprint(MTY_DTLS *mty_dtls, const char *fin
 	X509 *peer_cert = SSL_get_peer_certificate(mty_dtls->ssl);
 
 	if (peer_cert) {
-		char found_fingerprint[MTY_FINGERPRINT_MAX];
-		mty_dtls_x509_to_fingerprint(peer_cert, found_fingerprint, MTY_FINGERPRINT_MAX);
-		bool match = !strcmp(found_fingerprint, fingerprint);
+		char found[MTY_FINGERPRINT_MAX];
+		mty_dtls_x509_to_fingerprint(peer_cert, found, MTY_FINGERPRINT_MAX);
+
+		bool match = !strcmp(found, fingerprint);
 
 		X509_free(peer_cert);
 
@@ -211,7 +210,7 @@ static bool mty_dtls_verify_peer_fingerprint(MTY_DTLS *mty_dtls, const char *fin
 MTY_DTLSStatus MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size, const char *fingerprint,
 	MTY_DTLSWriteFunc writeFunc, void *opaque)
 {
-	//if we have incoming data add it to the state machine
+	// If we have incoming data add it to the state machine
 	if (packet && size > 0) {
 		int32_t n = BIO_write(ctx->bio_in, packet, (int32_t) size);
 
@@ -219,21 +218,23 @@ MTY_DTLSStatus MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size,
 			return MTY_DTLS_STATUS_ERROR;
 	}
 
-	//poll for response data
+	// Poll for response data
 	while (true) {
 		SSL_do_handshake(ctx->ssl);
 
 		size_t pending = BIO_ctrl_pending(ctx->bio_out);
 
 		if (pending > 0) {
-			char *pbuf = malloc(pending);
+			char *pbuf = MTY_Alloc(pending, 1);
 			size_t psize = BIO_read(ctx->bio_out, pbuf, (int32_t) pending);
 
-			if (psize != pending)
+			if (psize != pending) {
+				MTY_Free(pbuf);
 				return MTY_DTLS_STATUS_ERROR;
+			}
 
 			writeFunc(pbuf, pending, opaque);
-			free(pbuf);
+			MTY_Free(pbuf);
 
 		} else {
 			break;
@@ -249,40 +250,39 @@ MTY_DTLSStatus MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size,
 
 bool MTY_DTLSEncrypt(MTY_DTLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *written)
 {
-	//perform the encryption, outputs to bio_out
+	// Perform the encryption, outputs to bio_out
 	int32_t n = SSL_write(ctx->ssl, in, (int32_t) inSize);
 
-	//SSL_write threw an error with our input data
+	// SSL_write threw an error with our input data
 	if (n <= 0) {
-		MTY_Log("SSL_write %d:%d", n, SSL_get_error(ctx->ssl, n));
+		MTY_Log("'SSL_write' failed with error %d:%d", n, SSL_get_error(ctx->ssl, n));
 		return false;
 	}
 
-	//retrieve pending encrypted data
+	// Retrieve pending encrypted data
 	size_t pending = BIO_ctrl_pending(ctx->bio_out);
 
-	//there is no pending data in bio_out even though SSL_write succeeded
+	// There is no pending data in bio_out even though SSL_write succeeded
 	if (pending <= 0) {
-		MTY_Log("BIO_ctrl_pending %d", (int32_t) pending);
+		MTY_Log("'BIO_ctrl_pending' with return value %d", (int32_t) pending);
 		return false;
 	}
 
-	//the pending data exceeds the size of our output buffer
+	// The pending data exceeds the size of our output buffer
 	if ((int32_t) pending > (int32_t) outSize) {
-		MTY_Log("BIO_ctrl_pending %d", (int32_t) pending);
+		MTY_Log("'BIO_ctrl_pending' with return value %d", (int32_t) pending);
 		return false;
 	}
 
-	//read the encrypted data from bio_out
+	// Read the encrypted data from bio_out
 	n = BIO_read(ctx->bio_out, out, (int32_t) pending);
 
-	//the size of the encrypted data does not match BIO_ctrl_pending. Something is wrong
+	// The size of the encrypted data does not match BIO_ctrl_pending. Something is wrong
 	if (n != (int32_t) pending) {
-		MTY_Log("BIO_read %d", n);
+		MTY_Log("'BIO_read' failed with return value %d", n);
 		return false;
 	}
 
-	//on success, the number of bytes placed into out is returned
 	*written = n;
 
 	return true;
@@ -290,21 +290,21 @@ bool MTY_DTLSEncrypt(MTY_DTLS *ctx, const void *in, size_t inSize, void *out, si
 
 bool MTY_DTLSDecrypt(MTY_DTLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *read)
 {
-	//fill bio_in with encrypted data
+	// Fill bio_in with encrypted data
 	int32_t n = BIO_write(ctx->bio_in, in, (int32_t) inSize);
 
-	//the size of the encrypted data written does not match sie_in. Something is wrong
+	// The size of the encrypted data written does not match sie_in. Something is wrong
 	if (n != (int32_t) inSize) {
-		MTY_Log("BIO_write %d", n);
+		MTY_Log("'BIO_write' failed with return value %d", n);
 		return false;
 	}
 
-	//decrypt the data
+	// Decrypt the data
 	n = SSL_read(ctx->ssl, out, (int32_t) outSize);
 
-	//if SSL_read succeeds, return the number of bytes placed in out, otherwise the ssl error
+	// If SSL_read succeeds, return the number of bytes placed in out, otherwise the ssl error
 	if (n <= 0) {
-		MTY_Log("SSL_read %d", n, SSL_get_error(ctx->ssl, n));
+		MTY_Log("'SSL_read' failed with error %d:%d", n, SSL_get_error(ctx->ssl, n));
 		return false;
 	}
 
@@ -317,8 +317,8 @@ bool MTY_DTLSIsHandshake(const void *packet, size_t size)
 {
 	const uint8_t *d = packet;
 
-	//0x16feff == DTLS 1.2 Client Hello
-	//0x16fefd == DTLS 1.2 Server Hello, Client Key Exchange, New Session Ticket
+	// 0x16feff == DTLS 1.2 Client Hello
+	// 0x16fefd == DTLS 1.2 Server Hello, Client Key Exchange, New Session Ticket
 	return size > 2 && (d[0] == 0x16 || d[0] == 0x14) && (d[1] == 0xfe && (d[2] == 0xfd || d[2] == 0xff));
 }
 
@@ -326,6 +326,6 @@ bool MTY_DTLSIsApplicationData(const void *packet, size_t size)
 {
 	const uint8_t *d = packet;
 
-	//0x17fefd == DTLS 1.2 Application Data
+	// 0x17fefd == DTLS 1.2 Application Data
 	return size > 2 && d[0] == 0x17 && (d[1] == 0xfe && d[2] == 0xfd);
 }
