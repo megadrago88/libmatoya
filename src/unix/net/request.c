@@ -34,60 +34,59 @@ static void mty_http_set_headers(struct mty_net_conn *ucc, const char *header_st
 	free(header_str);
 }
 
-int32_t mty_http_request(const char *method, enum mty_net_scheme scheme,
-	const char *host, const char *path, const char *headers, const void *body,
-	uint32_t body_len, int32_t timeout_ms, char **response, uint32_t *response_len, bool proxy)
+bool MTY_HttpRequest(const char *method, const char *headers, MTY_Scheme scheme,
+	const char *host, const char *path, const void *body, size_t bodySize, uint32_t timeout,
+	void **response, size_t *responseSize, uint16_t *status)
 {
-	*response_len = 0;
+	*responseSize = 0;
 	*response = NULL;
 
 	int32_t z_e = MTY_NET_OK;
-	int32_t r = MTY_NET_OK;
-	int32_t status_code = 0;
-	uint16_t port = (scheme == MTY_NET_HTTPS) ? 443 : 80;
+	bool ok = true;
+	uint16_t port = (scheme == MTY_SCHEME_HTTPS) ? 443 : 80;
 
 	//make the socket/TLS connection
 	struct mty_net_conn *ucc = mty_net_new_conn();
 
 	//make the TCP connection
-	int32_t e = mty_net_connect(ucc, scheme, host, port, true, NULL, 0, timeout_ms);
+	int32_t e = mty_net_connect(ucc, scheme, host, port, true, NULL, 0, timeout);
 	if (e != MTY_NET_OK) goto except;
 
 	//set request headers
 	mty_net_set_header_str(ucc, "User-Agent", "mty_net/0.0");
 	mty_net_set_header_str(ucc, "Connection", "close");
 	if (headers) mty_http_set_headers(ucc, headers);
-	if (body_len) mty_net_set_header_int(ucc, "Content-Length", body_len);
+	if (bodySize) mty_net_set_header_int(ucc, "Content-Length", bodySize);
 
 	//send the request header
 	e = mty_net_write_header(ucc, method, path, MTY_NET_REQUEST);
 	if (e != MTY_NET_OK) goto except;
 
 	//send the request body
-	e = mty_net_write_body(ucc, body, body_len);
+	e = mty_net_write_body(ucc, body, bodySize);
 	if (e != MTY_NET_OK) goto except;
 
 	//read the response header
-	e = mty_net_read_header(ucc, timeout_ms);
+	e = mty_net_read_header(ucc, timeout);
 	if (e != MTY_NET_OK) goto except;
 
 	//get the status code
-	e = mty_net_get_status_code(ucc, &status_code);
+	e = mty_net_get_status_code(ucc, status);
 	if (e != MTY_NET_OK) goto except;
 
 	//read the response body if not HEAD request -- uncompress if necessary
 	if (strcmp(method, "HEAD")) {
-		e = mty_net_read_body_all(ucc, response, response_len, timeout_ms, 128 * 1024 * 1024);
+		e = mty_net_read_body_all(ucc, response, responseSize, timeout, 128 * 1024 * 1024);
 
 		if (e == MTY_NET_OK && mty_net_check_header(ucc, "Content-Encoding", "gzip")) {
 			size_t response_len_z = 0;
-			char *response_z = mty_gzip_decompress(*response, *response_len, &response_len_z);
+			char *response_z = mty_gzip_decompress(*response, *responseSize, &response_len_z);
 
 			if (response_z) {
 				free(*response);
 
 				*response = response_z;
-				*response_len = response_len_z;
+				*responseSize = response_len_z;
 
 				z_e = MTY_NET_OK;
 
@@ -103,10 +102,10 @@ int32_t mty_http_request(const char *method, enum mty_net_scheme scheme,
 
 	if ((e != MTY_NET_OK && e != MTY_NET_ERR_NO_BODY) || z_e != MTY_NET_OK) {
 		free(*response);
-		*response_len = 0;
+		*responseSize = 0;
 		*response = NULL;
-		r = MTY_NET_HTTP_ERR_REQUEST;
+		ok = false;
 	}
 
-	return (r == MTY_NET_OK) ? status_code : r;
+	return ok;
 }

@@ -213,7 +213,7 @@ static int32_t tls_context_new(struct tls_context **tls_in, struct tcp_context *
 	e = SSL_set_fd(tls->ssl, s);
 	if (e != 1) return MTY_NET_TLS_ERR_FD;
 
-	return MTY_NET_OK;
+	return MTY_NET_TLS_OK;
 }
 
 static int32_t tls_handshake_poll(struct tls_context *tls, int32_t e, int32_t timeout_ms)
@@ -230,11 +230,11 @@ static int32_t tls_handshake_poll(struct tls_context *tls, int32_t e, int32_t ti
 int32_t tls_connect(struct tls_context **tls_in, struct tcp_context *nc,
 	const char *host, bool verify_host, int32_t timeout_ms)
 {
-	int32_t r = MTY_NET_OK;
+	int32_t r = MTY_NET_TLS_OK;
 
 	int32_t e = tls_context_new(tls_in, nc);
 	struct tls_context *tls = *tls_in;
-	if (e != MTY_NET_OK) {r = e; goto except;}
+	if (e != MTY_NET_TLS_OK) {r = e; goto except;}
 
 	//set peer certificate verification
 	SSL_set_verify(tls->ssl, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
@@ -257,12 +257,12 @@ int32_t tls_connect(struct tls_context **tls_in, struct tcp_context *nc,
 
 		//if not successful, see if we neeed to poll for more data
 		e = tls_handshake_poll(tls, e, timeout_ms);
-		if (e != MTY_NET_OK) {r = e; break;}
+		if (e != MTY_NET_TLS_OK) {r = e; break;}
 	}
 
 	except:
 
-	if (r != MTY_NET_OK) {
+	if (r != MTY_NET_TLS_OK) {
 		tls_close(tls);
 		*tls_in = NULL;
 	}
@@ -272,11 +272,11 @@ int32_t tls_connect(struct tls_context **tls_in, struct tcp_context *nc,
 
 int32_t tls_accept(struct tls_context **tls_in, struct tcp_context *nc, int32_t timeout_ms)
 {
-	int32_t r = MTY_NET_OK;
+	int32_t r = MTY_NET_TLS_OK;
 
 	int32_t e = tls_context_new(tls_in, nc);
 	struct tls_context *tls = *tls_in;
-	if (e != MTY_NET_OK) {r = e; goto except;}
+	if (e != MTY_NET_TLS_OK) {r = e; goto except;}
 
 	while (1) {
 		//attempt SSL accept on nonblocking socket -- 1 is success
@@ -285,12 +285,12 @@ int32_t tls_accept(struct tls_context **tls_in, struct tcp_context *nc, int32_t 
 
 		//if not successful, see if we neeed to poll for more data
 		e = tls_handshake_poll(tls, e, timeout_ms);
-		if (e != MTY_NET_OK) {r = e; break;}
+		if (e != MTY_NET_TLS_OK) {r = e; break;}
 	}
 
 	except:
 
-	if (r != MTY_NET_OK) {
+	if (r != MTY_NET_TLS_OK) {
 		tls_close(tls);
 		*tls_in = NULL;
 	}
@@ -314,7 +314,7 @@ int32_t tls_write(void *ctx, const char *buf, size_t size)
 		total += n;
 	}
 
-	return MTY_NET_OK;
+	return MTY_NET_TLS_OK;
 }
 
 int32_t tls_read(void *ctx, char *buf, size_t size, int32_t timeout_ms)
@@ -324,7 +324,7 @@ int32_t tls_read(void *ctx, char *buf, size_t size, int32_t timeout_ms)
 	for (size_t total = 0; total < size;) {
 		if (SSL_has_pending(tls->ssl) == 0) {
 			int32_t e = tcp_poll(tls->nc, TCP_POLLIN, timeout_ms);
-			if (e != MTY_NET_OK) return e;
+			if (e != MTY_NET_TLS_OK) return e;
 		}
 
 		int32_t n = SSL_read(tls->ssl, buf + total, (int32_t) (size - total));
@@ -338,5 +338,5 @@ int32_t tls_read(void *ctx, char *buf, size_t size, int32_t timeout_ms)
 		total += n;
 	}
 
-	return MTY_NET_OK;
+	return MTY_NET_TLS_OK;
 }

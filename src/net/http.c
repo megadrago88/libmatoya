@@ -148,7 +148,7 @@ void http_free_header(struct http_header *h)
 
 int32_t http_get_header(struct http_header *h, const char *key, int32_t *val_int, char **val_str)
 {
-	int32_t r = MTY_NET_ERR_DEFAULT;
+	int32_t r = MTY_NET_HTTP_ERR_DEFAULT;
 
 	char *lc_key = MTY_Strdup(key);
 
@@ -159,7 +159,7 @@ int32_t http_get_header(struct http_header *h, const char *key, int32_t *val_int
 			//set val to key str directly if requesting string
 			if (val_str) {
 				*val_str = h->pairs[x].val;
-				r = MTY_NET_OK;
+				r = MTY_NET_HTTP_OK;
 
 			//convert val to int if requesting int
 			} else if (val_int) {
@@ -168,7 +168,7 @@ int32_t http_get_header(struct http_header *h, const char *key, int32_t *val_int
 
 				if (endptr == h->pairs[x].val) {
 					r = MTY_NET_HTTP_ERR_PARSE_HEADER;
-				} else r = MTY_NET_OK;
+				} else r = MTY_NET_HTTP_OK;
 			}
 
 			goto except;
@@ -184,9 +184,9 @@ int32_t http_get_header(struct http_header *h, const char *key, int32_t *val_int
 	return r;
 }
 
-int32_t http_get_status_code(struct http_header *h, int32_t *status_code)
+int32_t http_get_status_code(struct http_header *h, uint16_t *status_code)
 {
-	int32_t r = MTY_NET_ERR_DEFAULT;
+	int32_t r = MTY_NET_HTTP_ERR_DEFAULT;
 	char *tok, *ptr = NULL;
 
 	char *tmp_first_line = MTY_Strdup(h->first_line);
@@ -197,9 +197,9 @@ int32_t http_get_status_code(struct http_header *h, int32_t *status_code)
 	tok = MTY_Strtok(NULL, " ", &ptr);
 	if (!tok) {r = MTY_NET_HTTP_ERR_PARSE_STATUS; goto except;};
 
-	*status_code = strtol(tok, NULL, 10);
+	*status_code = (uint16_t) strtol(tok, NULL, 10);
 
-	r = MTY_NET_OK;
+	r = MTY_NET_HTTP_OK;
 
 	except:
 
@@ -229,7 +229,7 @@ char *http_set_header(char *header, const char *name, int32_t type, const void *
 
 int32_t http_parse_url(const char *url_in, int32_t *scheme, char **host, uint16_t *port, char **path)
 {
-	int32_t r = MTY_NET_OK;
+	int32_t r = MTY_NET_HTTP_OK;
 	char *tok, *ptr = NULL;
 	char *tok2, *ptr2 = NULL;
 
@@ -237,7 +237,7 @@ int32_t http_parse_url(const char *url_in, int32_t *scheme, char **host, uint16_
 
 	*host = NULL;
 	*path = NULL;
-	*scheme = MTY_NET_NONE;
+	*scheme = MTY_SCHEME_NONE;
 	*port = 0;
 
 	//scheme
@@ -247,13 +247,13 @@ int32_t http_parse_url(const char *url_in, int32_t *scheme, char **host, uint16_
 
 		http_lc(tok);
 		if (!strcmp(tok, "https")) {
-			*scheme = MTY_NET_HTTPS;
+			*scheme = MTY_SCHEME_HTTPS;
 		} else if (!strcmp(tok, "http")) {
-			*scheme = MTY_NET_HTTP;
+			*scheme = MTY_SCHEME_HTTP;
 		} else if (!strcmp(tok, "ws")) {
-			*scheme = MTY_NET_WS;
+			*scheme = MTY_SCHEME_WS;
 		} else if (!strcmp(tok, "wss")) {
-			*scheme = MTY_NET_WSS;
+			*scheme = MTY_SCHEME_WSS;
 		} else {r = MTY_NET_HTTP_ERR_PARSE_SCHEME; goto except;}
 
 		//host + port
@@ -262,7 +262,7 @@ int32_t http_parse_url(const char *url_in, int32_t *scheme, char **host, uint16_
 
 	//no scheme, assume host:port/path syntax
 	} else {
-		*scheme = MTY_NET_HTTP;
+		*scheme = MTY_SCHEME_HTTP;
 		tok = MTY_Strtok(url, "/", &ptr);
 	}
 
@@ -273,7 +273,7 @@ int32_t http_parse_url(const char *url_in, int32_t *scheme, char **host, uint16_
 	if (tok2) { //we have a port
 		*port = (uint16_t) atoi(tok2);
 	} else {
-		*port = (*scheme == MTY_NET_HTTPS) ? MTY_NET_PORT_S : MTY_NET_PORT;
+		*port = (*scheme == MTY_SCHEME_HTTPS) ? MTY_NET_PORT_S : MTY_NET_PORT;
 	}
 
 	//path

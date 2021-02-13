@@ -14,6 +14,24 @@ enum tcp_events {
 	TCP_POLLOUT = 1,
 };
 
+enum {
+	MTY_NET_TCP_OK                = 0,
+	MTY_NET_TCP_ERR_SOCKET        = -50010,
+	MTY_NET_TCP_ERR_BLOCKMODE     = -50011,
+	MTY_NET_TCP_ERR_CONNECT       = -50012,
+	MTY_NET_TCP_ERR_CONNECT_FINAL = -50013,
+	MTY_NET_TCP_ERR_WRITE         = -50014,
+	MTY_NET_TCP_ERR_READ          = -50015,
+	MTY_NET_TCP_ERR_CLOSED        = -50016,
+	MTY_NET_TCP_ERR_RESOLVE       = -50017,
+	MTY_NET_TCP_ERR_NTOP          = -50018,
+	MTY_NET_TCP_ERR_TIMEOUT       = -50019,
+	MTY_NET_TCP_ERR_POLL          = -50020,
+	MTY_NET_TCP_ERR_BIND          = -50021,
+	MTY_NET_TCP_ERR_LISTEN        = -50022,
+	MTY_NET_TCP_ERR_ACCEPT        = -50023,
+};
+
 struct tcp_context;
 
 int32_t tcp_error(void);

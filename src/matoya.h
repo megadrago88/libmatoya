@@ -1498,108 +1498,22 @@ MTY_JNIEnv(void);
 
 // @module net
 
-enum mty_net_status {
-	MTY_NET_OK                    = 0,
-
-	MTY_NET_WRN_CONTINUE          = 10,
-	MTY_NET_WRN_TIMEOUT           = 2000,
-
-	MTY_NET_HTTP_ERR_REQUEST      = -800,
-	MTY_NET_HTTP_ERR_RESPONSE     = -801,
-
-	MTY_NET_ERR_DEFAULT           = -50001,
-
-	MTY_NET_TCP_ERR_SOCKET        = -50010,
-	MTY_NET_TCP_ERR_BLOCKMODE     = -50011,
-	MTY_NET_TCP_ERR_CONNECT       = -50012,
-	MTY_NET_TCP_ERR_CONNECT_FINAL = -50013,
-	MTY_NET_TCP_ERR_WRITE         = -50014,
-	MTY_NET_TCP_ERR_READ          = -50015,
-	MTY_NET_TCP_ERR_CLOSED        = -50016,
-	MTY_NET_TCP_ERR_RESOLVE       = -50017,
-	MTY_NET_TCP_ERR_NTOP          = -50018,
-	MTY_NET_TCP_ERR_TIMEOUT       = -50019,
-	MTY_NET_TCP_ERR_POLL          = -50020,
-	MTY_NET_TCP_ERR_BIND          = -50021,
-	MTY_NET_TCP_ERR_LISTEN        = -50022,
-	MTY_NET_TCP_ERR_ACCEPT        = -50023,
-
-	MTY_NET_TLS_ERR_CONTEXT       = -51000,
-	MTY_NET_TLS_ERR_SSL           = -51001,
-	MTY_NET_TLS_ERR_FD            = -51002,
-	MTY_NET_TLS_ERR_HANDSHAKE     = -51003,
-	MTY_NET_TLS_ERR_WRITE         = -51004,
-	MTY_NET_TLS_ERR_READ          = -51005,
-	MTY_NET_TLS_ERR_CLOSED        = -51006,
-	MTY_NET_TLS_ERR_CACERT        = -51007,
-	MTY_NET_TLS_ERR_CIPHER        = -51008,
-	MTY_NET_TLS_ERR_CERT          = -51009,
-	MTY_NET_TLS_ERR_KEY           = -51010,
-
-	MTY_NET_HTTP_ERR_PARSE_STATUS = -52000,
-	MTY_NET_HTTP_ERR_PARSE_HEADER = -52001,
-	MTY_NET_HTTP_ERR_PARSE_SCHEME = -52002,
-	MTY_NET_HTTP_ERR_PARSE_HOST   = -52003,
-	MTY_NET_HTTP_ERR_NOT_FOUND    = -52004,
-
-	MTY_NET_ERR_NO_BODY           = -53000,
-	MTY_NET_ERR_MAX_CHUNK         = -53001,
-	MTY_NET_ERR_MAX_BODY          = -53002,
-	MTY_NET_ERR_MAX_HEADER        = -53003,
-	MTY_NET_ERR_BUFFER            = -53004,
-	MTY_NET_ERR_PROXY             = -53005,
-
-	MTY_NET_WS_ERR_STATUS         = -54000,
-	MTY_NET_WS_ERR_KEY            = -54001,
-	MTY_NET_WS_ERR_ORIGIN         = -54002,
-
-	MTY_NET_WS_ERR_CONNECT        = -6101,
-	MTY_NET_WS_ERR_POLL           = -3001,
-	MTY_NET_WS_ERR_PING           = -3005,
-	MTY_NET_WS_ERR_PONG_TIMEOUT   = -3006,
-	MTY_NET_WS_ERR_PONG           = -3007,
-
-	MTY_NET_ERR_INFLATE           = -5001,
-};
-
-enum mty_net_scheme {
-	MTY_NET_NONE  = 0,
-	MTY_NET_HTTP  = 1,
-	MTY_NET_HTTPS = 2,
-	MTY_NET_WS    = 3,
-	MTY_NET_WSS   = 4,
-};
-
-enum mty_net_ws_status_code {
-	MTY_NET_CLOSE_NORMAL           = 1000,
-	MTY_NET_CLOSE_GOING_AWAY       = 1001,
-	MTY_NET_CLOSE_PROTOCOL         = 1002,
-	MTY_NET_CLOSE_DATA_TYPE        = 1003,
-	MTY_NET_CLOSE_NO_STATUS_CODE   = 1005,
-	MTY_NET_CLOSE_ABNORMAL_CLOSE   = 1006,
-	MTY_NET_CLOSE_DATA_CONSISTENCY = 1007,
-	MTY_NET_CLOSE_POLICY           = 1008,
-	MTY_NET_CLOSE_TOO_BIG          = 1009,
-	MTY_NET_CLOSE_EXTENSION        = 1010,
-	MTY_NET_CLOSE_UNEXPECTED       = 1011,
-	MTY_NET_CLOSE_TLS_HANDSHAKE    = 1015,
-};
-
-enum mty_async_status {
-	MTY_ASYNC_OK         = 0,
-	MTY_ASYNC_NO_REQUEST = 1,
-	MTY_ASYNC_WAITING    = 2,
-	MTY_ASYNC_ERROR      = 3,
-};
+typedef enum {
+	MTY_SCHEME_NONE  = 0,
+	MTY_SCHEME_HTTP  = 1,
+	MTY_SCHEME_HTTPS = 2,
+	MTY_SCHEME_WS    = 3,
+	MTY_SCHEME_WSS   = 4,
+} MTY_Scheme;
 
 typedef enum {
-	MTY_NET_STATUS_OK       = 0,
-	MTY_NET_STATUS_DONE     = 1,
-	MTY_NET_STATUS_CONTINUE = 2,
-	MTY_NET_STATUS_ERROR    = 3,
-} MTY_NetStatus;
+	MTY_ASYNC_OK       = 0,
+	MTY_ASYNC_DONE     = 1,
+	MTY_ASYNC_CONTINUE = 2,
+	MTY_ASYNC_ERROR    = 3,
+} MTY_Async;
 
-typedef void (*MTY_RES_CB)(int32_t code, char **body, uint32_t *body_len);
+typedef void (*MTY_HttpAsyncFunc)(uint16_t code, void **body, size_t *body_len);
 
 typedef struct MTY_WebSocket MTY_WebSocket;
 
@@ -1612,51 +1526,43 @@ MTY_HttpParseUrl(const char *url, char *host, size_t hostSize, char *path, size_
 MTY_EXPORT void
 MTY_HttpEncodeUrl(const char *src, char *dst, size_t size);
 
-//TODO
-MTY_EXPORT int32_t
-mty_http_request(const char *method, enum mty_net_scheme scheme,
-	const char *host, const char *path, const char *headers, const void *body,
-	uint32_t body_len, int32_t timeout_ms, char **response, uint32_t *response_len, bool proxy);
+MTY_EXPORT bool
+MTY_HttpRequest(const char *method, const char *headers, MTY_Scheme scheme,
+	const char *host, const char *path, const void *body, size_t bodySize, uint32_t timeout,
+	void **response, size_t *responseSize, uint16_t *status);
 
-//TODO
 MTY_EXPORT void
-mty_http_async_init(uint32_t num_threads, bool proxy);
+MTY_HttpAsyncCreate(uint32_t maxThreads);
 
 MTY_EXPORT void
 MTY_HttpAsyncDestroy(void);
 
-//TODO
 MTY_EXPORT void
-mty_http_async(uint32_t *req, const char *method, enum mty_net_scheme scheme, const char *host, const char *path,
-	const char *headers, const char *body, uint32_t body_len, int32_t timeout_ms, MTY_RES_CB res_cb);
+MTY_HttpAsyncRequest(uint32_t *index, const char *method, const char *headers, MTY_Scheme scheme,
+	const char *host, const char *path, const void *body, size_t size, uint32_t timeout,
+	MTY_HttpAsyncFunc func);
 
-//TODO
-MTY_EXPORT enum mty_async_status
-mty_http_async_poll(uint32_t req, int32_t *status_code, char **response, uint32_t *response_len);
+MTY_EXPORT MTY_Async
+MTY_HttpAsyncPoll(uint32_t index, void **response, size_t *size, uint16_t *status);
 
-//TODO
 MTY_EXPORT void
-mty_http_async_clear(uint32_t *req);
+MTY_HttpAsyncClear(uint32_t *index);
 
-//TODO
-MTY_EXPORT int32_t
-mty_ws_listen(MTY_WebSocket **mty_ws_out, const char *host, uint16_t port);
-
-//TODO
 MTY_EXPORT MTY_WebSocket *
-mty_ws_accept(MTY_WebSocket *ws, const char * const *origins,
-	uint32_t num_origins, bool secure_origin, int32_t timeout_ms);
+MTY_WebSocketListen(const char *host, uint16_t port);
 
-//TODO
-MTY_EXPORT int32_t
-mty_ws_connect(MTY_WebSocket **mty_ws_out, char *host, uint16_t port,
-	enum mty_net_scheme scheme, char *proxy_url, char *path, const char *origin,
-	int32_t timeout_ms, int32_t *upgrade_status);
+MTY_EXPORT MTY_WebSocket *
+MTY_WebSocketAccept(MTY_WebSocket *ws, const char * const *origins, uint32_t numOrigins,
+	bool secure, uint32_t timeout);
+
+MTY_EXPORT MTY_WebSocket *
+MTY_WebSocketConnect(const char *headers, MTY_Scheme scheme, const char *host,
+	uint16_t port, const char *path, uint32_t timeout, uint16_t *upgradeStatus);
 
 MTY_EXPORT void
 MTY_WebSocketDestroy(MTY_WebSocket **ws);
 
-MTY_EXPORT MTY_NetStatus
+MTY_EXPORT MTY_Async
 MTY_WebSocketRead(MTY_WebSocket *ws, char *msg, size_t size, uint32_t timeout);
 
 MTY_EXPORT bool
@@ -1670,10 +1576,10 @@ MTY_WebSocketGetCloseCode(MTY_WebSocket *ctx);
 
 #define MTY_FINGERPRINT_MAX 512
 
+typedef void (*MTY_DTLSWriteFunc)(const void *packet, size_t size, void *opaque);
+
 typedef struct MTY_Cert MTY_Cert;
 typedef struct MTY_DTLS MTY_DTLS;
-
-typedef void (*MTY_DTLSWriteFunc)(const void *packet, size_t size, void *opaque);
 
 MTY_EXPORT MTY_Cert *
 MTY_CertCreate(void);
@@ -1690,7 +1596,7 @@ MTY_DTLSCreate(MTY_Cert *cert, bool server, uint32_t mtu);
 MTY_EXPORT void
 MTY_DTLSDestroy(MTY_DTLS **dtls);
 
-MTY_EXPORT MTY_NetStatus
+MTY_EXPORT MTY_Async
 MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size, const char *fingerprint,
 	MTY_DTLSWriteFunc writeFunc, void *opaque);
 

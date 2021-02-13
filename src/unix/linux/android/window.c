@@ -728,7 +728,8 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1button(JNIEnv *env, jobjec
 }
 
 JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1axis(JNIEnv *env, jobject obj,
-	jint deviceId, jfloat hatX, jfloat hatY, jfloat lX, jfloat lY, jfloat rX, jfloat rY, jfloat lT, jfloat rT)
+	jint deviceId, jfloat hatX, jfloat hatY, jfloat lX, jfloat lY, jfloat rX, jfloat rY,
+	jfloat lT, jfloat rT, jfloat lTalt, jfloat rTalt)
 {
 	MTY_MutexLock(CTX.ctrl_mutex);
 
@@ -741,6 +742,15 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1axis(JNIEnv *env, jobject 
 
 	c->values[MTY_CVALUE_TRIGGER_L].data = lrint(lT * (float) UINT8_MAX);
 	c->values[MTY_CVALUE_TRIGGER_R].data = lrint(rT * (float) UINT8_MAX);
+
+	// Xbox Series X hack
+	if (c->vid == 0x045E && c->pid == 0x0B13) {
+		if (c->values[MTY_CVALUE_TRIGGER_L].data == 0)
+			c->values[MTY_CVALUE_TRIGGER_L].data = lrint(lTalt * (float) UINT8_MAX);
+
+		if (c->values[MTY_CVALUE_TRIGGER_R].data == 0)
+			c->values[MTY_CVALUE_TRIGGER_R].data = lrint(rTalt * (float) UINT8_MAX);
+	}
 
 	bool up = hatY == -1.0f;
 	bool down = hatY == 1.0f;

@@ -14,7 +14,7 @@
 
 #include "net/gzip.h"
 
-static int32_t mty_http_recv_response(HINTERNET request, char **response, uint32_t *response_len)
+static bool mty_http_recv_response(HINTERNET request, void **response, size_t *responseSize)
 {
 	DWORD available = 0;
 
@@ -22,7 +22,7 @@ static int32_t mty_http_recv_response(HINTERNET request, char **response, uint32
 		BOOL success = WinHttpQueryDataAvailable(request, &available);
 		if (!success) {
 			MTY_Log("'WinHttpQueryDataAvailable' failed with error 0x%X", GetLastError());
-			return MTY_NET_HTTP_ERR_RESPONSE;
+			return false;
 		}
 
 		char *buf = malloc(available);
@@ -31,67 +31,66 @@ static int32_t mty_http_recv_response(HINTERNET request, char **response, uint32
 		success = WinHttpReadData(request, buf, available, &read);
 
 		if (success && read > 0) {
-			*response = realloc(*response, *response_len + read + 1);
-			memcpy(*response + *response_len, buf, read);
-			*response_len += read;
+			*response = realloc(*response, *responseSize + read + 1);
+			memcpy((uint8_t *) *response + *responseSize, buf, read);
+			*responseSize += read;
 		}
 
 		free(buf);
 
 		if (!success) {
 			MTY_Log("'WinHttpReadData' failed with error 0x%X", GetLastError());
-			return MTY_NET_HTTP_ERR_RESPONSE;
+			return false;
 		}
 
 	} while (available > 0);
 
-	return MTY_NET_OK;
+	return true;
 }
 
-static int32_t mty_http_decompress(char **response, uint32_t *response_len)
+static bool mty_http_decompress(void **response, size_t *responseSize)
 {
 	size_t response_len_z = 0;
 
-	char *response_z = mty_gzip_decompress(*response, *response_len, &response_len_z);
+	char *response_z = mty_gzip_decompress(*response, *responseSize, &response_len_z);
 
 	if (response_z) {
 		free(*response);
 
 		*response = response_z;
-		*response_len = (uint32_t) response_len_z;
+		*responseSize = response_len_z;
 
-		return MTY_NET_OK;
+		return true;
 	}
 
-	return MTY_NET_ERR_INFLATE;
+	return false;
 }
 
-int32_t mty_http_request(const char *method, enum mty_net_scheme scheme,
-	const char *host, const char *path, const char *headers, const void *body,
-	uint32_t body_len, int32_t timeout_ms, char **response, uint32_t *response_len, bool proxy)
+bool MTY_HttpRequest(const char *method, const char *headers, MTY_Scheme scheme,
+	const char *host, const char *path, const void *body, size_t bodySize, uint32_t timeout,
+	void **response, size_t *responseSize, uint16_t *status)
 {
 	HINTERNET session = NULL, connect = NULL, request = NULL;
 
-	*response_len = 0;
+	*responseSize = 0;
 	*response = NULL;
 
-	int32_t r = MTY_NET_OK;
-	int32_t status_code = 0;
+	bool ok = true;
 	bool gzipped = false;
 
 	//context initialization
 	session = WinHttpOpen(L"mty-winhttp/v4", WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
 	if (!session) {
 		MTY_Log("'WinHttpOpen' failed with error 0x%X", GetLastError());
-		r = MTY_NET_HTTP_ERR_REQUEST;
+		ok = false;
 		goto except;
 	}
 
 	//set timeouts
-	BOOL success = WinHttpSetTimeouts(session, timeout_ms, timeout_ms, timeout_ms, timeout_ms);
+	BOOL success = WinHttpSetTimeouts(session, timeout, timeout, timeout, timeout);
 	if (!success) {
 		MTY_Log("'WinHttpSetTimeouts' failed with error 0x%X", GetLastError());
-		r = MTY_NET_HTTP_ERR_REQUEST;
+		ok = false;
 		goto except;
 	}
 
@@ -104,10 +103,10 @@ int32_t mty_http_request(const char *method, enum mty_net_scheme scheme,
 	WinHttpSetOption(session, WINHTTP_OPTION_SECURE_PROTOCOLS, &opt, sizeof(DWORD));
 
 	connect = WinHttpConnect(session, host_w,
-		(scheme == MTY_NET_HTTPS) ? INTERNET_DEFAULT_HTTPS_PORT : INTERNET_DEFAULT_HTTP_PORT, 0);
+		(scheme == MTY_SCHEME_HTTPS) ? INTERNET_DEFAULT_HTTPS_PORT : INTERNET_DEFAULT_HTTP_PORT, 0);
 	if (!connect) {
 		MTY_Log("'WinHttpConnect' failed with error 0x%X", GetLastError());
-		r = MTY_NET_HTTP_ERR_REQUEST;
+		ok = false;
 		goto except;
 	}
 
@@ -119,10 +118,10 @@ int32_t mty_http_request(const char *method, enum mty_net_scheme scheme,
 	_snwprintf_s(method_w, 32, _TRUNCATE, L"%hs", method);
 
 	request = WinHttpOpenRequest(connect, method_w, path_w, NULL, WINHTTP_NO_REFERER,
-		WINHTTP_DEFAULT_ACCEPT_TYPES, (scheme == MTY_NET_HTTPS) ? WINHTTP_FLAG_SECURE : 0);
+		WINHTTP_DEFAULT_ACCEPT_TYPES, (scheme == MTY_SCHEME_HTTPS) ? WINHTTP_FLAG_SECURE : 0);
 	if (!request) {
 		MTY_Log("'WinHttpOpenRequest' failed with error 0x%X", GetLastError());
-		r = MTY_NET_HTTP_ERR_REQUEST;
+		ok = false;
 		goto except;
 	}
 
@@ -135,10 +134,10 @@ int32_t mty_http_request(const char *method, enum mty_net_scheme scheme,
 	success = WinHttpSendRequest(request,
 		headers ? headers_w : WINHTTP_NO_ADDITIONAL_HEADERS,
 		headers ? -1L : 0,
-		(void *) body, body_len, body_len, 0);
+		(void *) body, (DWORD) bodySize, (DWORD) bodySize, 0);
 	if (!success) {
 		MTY_Log("'WinHttpSendRequest' failed with error 0x%X", GetLastError());
-		r = MTY_NET_HTTP_ERR_REQUEST;
+		ok = false;
 		goto except;
 	}
 
@@ -146,7 +145,7 @@ int32_t mty_http_request(const char *method, enum mty_net_scheme scheme,
 	success = WinHttpReceiveResponse(request, NULL);
 	if (!success) {
 		MTY_Log("'WinHttpReceiveResponse' failed with error 0x%X", GetLastError());
-		r = MTY_NET_HTTP_ERR_RESPONSE;
+		ok = false;
 		goto except;
 	}
 
@@ -157,11 +156,11 @@ int32_t mty_http_request(const char *method, enum mty_net_scheme scheme,
 		header_wstr, &buf_len, NULL);
 	if (!success) {
 		MTY_Log("'WinHttpQueryHeaders' failed with error 0x%X", GetLastError());
-		r = MTY_NET_HTTP_ERR_RESPONSE;
+		ok = false;
 		goto except;
 	}
 
-	status_code = _wtoi(header_wstr);
+	*status = (uint16_t) _wtoi(header_wstr);
 
 	//content encoding
 	buf_len = 128 * sizeof(WCHAR);
@@ -171,15 +170,15 @@ int32_t mty_http_request(const char *method, enum mty_net_scheme scheme,
 	gzipped = success && !wcscmp(header_wstr, L"gzip");
 
 	//response body
-	r = mty_http_recv_response(request, response, response_len);
-	if (r != MTY_NET_OK) goto except;
+	ok = mty_http_recv_response(request, response, responseSize);
+	if (!ok) goto except;
 
 	//response decompression & null character
-	if (*response && *response_len > 0) {
-		(*response)[*response_len] = '\0';
+	if (*response && *responseSize > 0) {
+		((uint8_t *) *response)[*responseSize] = '\0';
 
 		if (gzipped)
-			r = mty_http_decompress(response, response_len);
+			ok = mty_http_decompress(response, responseSize);
 	}
 
 	except:
@@ -193,11 +192,11 @@ int32_t mty_http_request(const char *method, enum mty_net_scheme scheme,
 	if (session)
 		WinHttpCloseHandle(session);
 
-	if (r != MTY_NET_OK) {
+	if (!ok) {
 		free(*response);
-		*response_len = 0;
+		*responseSize = 0;
 		*response = NULL;
 	}
 
-	return (r == MTY_NET_OK) ? status_code : r;
+	return ok;
 }

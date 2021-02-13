@@ -114,7 +114,7 @@ int32_t mty_net_read_header(struct mty_net_conn *ucc, int32_t timeout_ms)
 	return e;
 }
 
-int32_t mty_net_get_status_code(struct mty_net_conn *ucc, int32_t *status_code)
+int32_t mty_net_get_status_code(struct mty_net_conn *ucc, uint16_t *status_code)
 {
 	*status_code = 0;
 	return http_get_status_code(ucc->hin, status_code);
@@ -159,13 +159,13 @@ int32_t mty_net_connect(struct mty_net_conn *ucc,
 		if (e != MTY_NET_OK) return e;
 
 		//get the status code
-		int32_t status_code = -1;
+		uint16_t status_code = 0;
 		e = mty_net_get_status_code(ucc, &status_code);
 		if (e != MTY_NET_OK) return e;
 		if (status_code != 200) return MTY_NET_ERR_PROXY;
 	}
 
-	if (scheme == MTY_NET_HTTPS || scheme == MTY_NET_WSS) {
+	if (scheme == MTY_SCHEME_HTTPS || scheme == MTY_SCHEME_WSS) {
 		e = tls_connect(&ucc->tls, ucc->net, ucc->host, verify_host, timeout_ms);
 		if (e != MTY_NET_OK) return e;
 
@@ -200,7 +200,7 @@ static int32_t mty_net_accept(struct mty_net_conn *ucc,
 	ucc_new->net = new_net;
 	mty_net_attach_net(ucc_new);
 
-	if (scheme == MTY_NET_HTTPS || scheme == MTY_NET_WSS) {
+	if (scheme == MTY_SCHEME_HTTPS || scheme == MTY_SCHEME_WSS) {
 		e = tls_accept(&ucc_new->tls, ucc_new->net, timeout_ms);
 		if (e != MTY_NET_OK) {r = e; goto except;}
 
@@ -294,7 +294,7 @@ static int32_t mty_net_read_chunk_len(struct mty_net_conn *ucc, uint32_t *len, i
 	return r;
 }
 
-static int32_t mty_net_response_body_chunked(struct mty_net_conn *ucc, char **body, uint32_t *body_len,
+static int32_t mty_net_response_body_chunked(struct mty_net_conn *ucc, void **body, size_t *body_len,
 	int32_t timeout_ms, size_t max_body)
 {
 	uint32_t offset = 0;
@@ -310,14 +310,14 @@ static int32_t mty_net_response_body_chunked(struct mty_net_conn *ucc, char **bo
 		*body = realloc(*body, offset + chunk_len + 2);
 
 		//read chunk into buffer with extra 2 bytes for "\r\n"
-		e = ucc->read(ucc->ctx, *body + offset, chunk_len + 2, timeout_ms);
+		e = ucc->read(ucc->ctx, (char *) *body + offset, chunk_len + 2, timeout_ms);
 		if (e != MTY_NET_OK) return e;
 
 		offset += chunk_len;
 
 	} while (chunk_len > 0);
 
-	(*body)[offset] = '\0';
+	((uint8_t *) *body)[offset] = '\0';
 	*body_len = offset;
 
 	return MTY_NET_OK;
@@ -337,7 +337,7 @@ int8_t mty_net_check_header(struct mty_net_conn *ucc, const char *name, const ch
 	return (e == MTY_NET_OK && strstr(http_lc(val), subval)) ? 1 : 0;
 }
 
-int32_t mty_net_read_body_all(struct mty_net_conn *ucc, char **body, uint32_t *body_len,
+int32_t mty_net_read_body_all(struct mty_net_conn *ucc, void **body, size_t *body_len,
 	int32_t timeout_ms, size_t max_body)
 {
 	int32_t r = MTY_NET_OK;
@@ -573,8 +573,8 @@ static int32_t mty_net_ws_read(MTY_WebSocket *ws, char *buf, uint32_t buf_len, u
 	return (int32_t) h.payload_len;
 }
 
-static int32_t mty_net_ws_connect(MTY_WebSocket *ws, const char *path, const char *origin,
-	int32_t timeout_ms, int32_t *upgrade_status)
+static int32_t mty_net_ws_connect(MTY_WebSocket *ws, const char *path, const char *headers,
+	int32_t timeout_ms, uint16_t *upgrade_status)
 {
 	int32_t r = MTY_NET_OK;
 	*upgrade_status = 0;
@@ -587,8 +587,9 @@ static int32_t mty_net_ws_connect(MTY_WebSocket *ws, const char *path, const cha
 	mty_net_set_header_str(ws->ucc, "Sec-WebSocket-Version", "13");
 
 	//optional origin header
-	if (origin)
-		mty_net_set_header_str(ws->ucc, "Origin", origin);
+	// XXX TODO
+	// if (headers)
+	// 	mty_net_set_header_str(ws->ucc, "Origin", origin);
 
 	//write the header
 	int32_t e = mty_net_write_header(ws->ucc, "GET", path, MTY_NET_REQUEST);
@@ -635,7 +636,7 @@ void MTY_WebSocketDestroy(MTY_WebSocket **ws)
 
 	if (ctx->ucc) {
 		if (ctx->connected)
-			mty_net_ws_close(ctx, MTY_NET_CLOSE_NORMAL);
+			mty_net_ws_close(ctx, 1000);
 
 		mty_net_close(ctx->ucc);
 	}
@@ -646,69 +647,69 @@ void MTY_WebSocketDestroy(MTY_WebSocket **ws)
 	*ws = NULL;
 }
 
-int32_t mty_ws_connect(MTY_WebSocket **mty_ws_out, char *host, uint16_t port,
-	enum mty_net_scheme scheme, char *proxy_url, char *path, const char *origin,
-	int32_t timeout_ms, int32_t *upgrade_status)
+MTY_WebSocket *MTY_WebSocketConnect(const char *headers, MTY_Scheme scheme, const char *host,
+	uint16_t port, const char *path, uint32_t timeout, uint16_t *upgradeStatus)
 {
-	int32_t r = MTY_NET_OK;
+	bool ok = true;
 
-	MTY_WebSocket *ws = *mty_ws_out = calloc(1, sizeof(MTY_WebSocket));
+	MTY_WebSocket *ctx = calloc(1, sizeof(MTY_WebSocket));
 
-	ws->ucc = mty_net_new_conn();
+	ctx->ucc = mty_net_new_conn();
 
 	struct mty_net_info proxy_info = {0};
-	bool use_proxy = proxy_url && proxy_url[0] && _mty_net_parse_url(proxy_url, &proxy_info) == MTY_NET_OK;
+	// bool use_proxy = proxy_url && proxy_url[0] && _mty_net_parse_url(proxy_url, &proxy_info) == MTY_NET_OK;
 
-	int32_t e = mty_net_connect(ws->ucc, scheme,
-		host, port, true, proxy_info.host, proxy_info.port, timeout_ms);
-	if (e != MTY_NET_OK) {r = MTY_NET_WS_ERR_CONNECT; goto except;}
-
-	if (use_proxy)
-		mty_net_free_info(&proxy_info);
-
-	e = mty_net_ws_connect(ws, path, origin, timeout_ms, upgrade_status);
-	if (e != MTY_NET_OK) {r = MTY_NET_WS_ERR_CONNECT; goto except;}
-	ws->connected = true;
-
-	ws->last_ping = ws->last_pong = MTY_Timestamp();
-
-	except:
-
-	if (r != MTY_NET_OK)
-		MTY_WebSocketDestroy(mty_ws_out);
-
-	return r;
-}
-
-int32_t mty_ws_listen(MTY_WebSocket **mty_ws_out, const char *host, uint16_t port)
-{
-	MTY_WebSocket *ws = *mty_ws_out = calloc(1, sizeof(MTY_WebSocket));
-	ws->ucc = mty_net_new_conn();
-
-	int32_t r = mty_net_listen(ws->ucc, host, port);
-	if (r != MTY_NET_OK)
+	int32_t e = mty_net_connect(ctx->ucc, scheme, host, port, true,
+		proxy_info.host, proxy_info.port, timeout);
+	if (e != MTY_NET_OK) {
+		ok = false;
 		goto except;
+	}
+
+	// if (use_proxy)
+	// 	mty_net_free_info(&proxy_info);
+
+	e = mty_net_ws_connect(ctx, path, headers, timeout, upgradeStatus);
+	if (e != MTY_NET_OK) {
+		ok = false;
+		goto except;
+	}
+
+	ctx->connected = true;
+	ctx->last_ping = ctx->last_pong = MTY_Timestamp();
 
 	except:
 
-	if (r != MTY_NET_OK)
-		MTY_WebSocketDestroy(mty_ws_out);
+	if (!ok)
+		MTY_WebSocketDestroy(&ctx);
 
-	return r;
+	return ctx;
 }
 
-MTY_WebSocket *mty_ws_accept(MTY_WebSocket *ws, const char * const *origins,
-	uint32_t num_origins, bool secure_origin, int32_t timeout_ms)
+MTY_WebSocket *MTY_WebSocketListen(const char *host, uint16_t port)
+{
+	MTY_WebSocket *ctx = calloc(1, sizeof(MTY_WebSocket));
+	ctx->ucc = mty_net_new_conn();
+
+	int32_t r = mty_net_listen(ctx->ucc, host, port);
+	if (r != MTY_NET_OK)
+		MTY_WebSocketDestroy(&ctx);
+
+	return ctx;
+}
+
+MTY_WebSocket *MTY_WebSocketAccept(MTY_WebSocket *ws, const char * const *origins, uint32_t numOrigins,
+	bool secure, uint32_t timeout)
 {
 	MTY_WebSocket *ws_child = NULL;
 	struct mty_net_conn *child = NULL;
-	int32_t e = mty_net_accept(ws->ucc, &child, MTY_NET_WS, timeout_ms);
+	int32_t e = mty_net_accept(ws->ucc, &child, MTY_SCHEME_WS, timeout);
 
 	if (e == MTY_NET_OK) {
 		ws_child = MTY_Alloc(1, sizeof(MTY_WebSocket));
 		ws_child->ucc = child;
 
-		e = mty_net_ws_accept(ws_child, origins, num_origins, secure_origin, timeout_ms);
+		e = mty_net_ws_accept(ws_child, origins, numOrigins, secure, timeout);
 
 		if (e == MTY_NET_OK) {
 			ws_child->connected = true;
@@ -746,9 +747,9 @@ uint16_t MTY_WebSocketGetCloseCode(MTY_WebSocket *ctx)
 	return ctx->close_code;
 }
 
-MTY_NetStatus MTY_WebSocketRead(MTY_WebSocket *ws, char *msg, size_t size, uint32_t timeout)
+MTY_Async MTY_WebSocketRead(MTY_WebSocket *ws, char *msg, size_t size, uint32_t timeout)
 {
-	MTY_NetStatus r = MTY_NET_STATUS_OK;
+	MTY_Async r = MTY_ASYNC_OK;
 
 	int32_t e = mty_ws_ping(ws, WS_PING_INTERVAL);
 
@@ -767,46 +768,46 @@ MTY_NetStatus MTY_WebSocketRead(MTY_WebSocket *ws, char *msg, size_t size, uint3
 			switch (opcode) {
 				case MTY_NET_WSOP_PING:
 					e = mty_net_ws_write(ws, msg, n, MTY_NET_WSOP_PONG);
-					r = e == MTY_NET_OK ? MTY_NET_STATUS_CONTINUE : MTY_NET_STATUS_ERROR;
+					r = e == MTY_NET_OK ? MTY_ASYNC_CONTINUE : MTY_ASYNC_ERROR;
 					break;
 
 				case MTY_NET_WSOP_PONG:
 					ws->last_pong = MTY_Timestamp();
-					r = MTY_NET_STATUS_CONTINUE;
+					r = MTY_ASYNC_CONTINUE;
 					break;
 
 				case MTY_NET_WSOP_TEXT:
 					if (n == 0)
-						r = MTY_NET_STATUS_CONTINUE;
+						r = MTY_ASYNC_CONTINUE;
 					break;
 
 				case MTY_NET_WSOP_CLOSE: {
 					memcpy(&ws->close_code, msg, 2);
 					ws->close_code = MTY_SwapFromBE16(ws->close_code);
 
-					r = MTY_NET_STATUS_DONE;
+					r = MTY_ASYNC_DONE;
 					break;
 				}
 
 				default:
-					r = MTY_NET_STATUS_CONTINUE;
+					r = MTY_ASYNC_CONTINUE;
 					break;
 			}
 
 		} else {
-			r = MTY_NET_STATUS_ERROR;
+			r = MTY_ASYNC_ERROR;
 		}
 
 	} else if (e == MTY_NET_TCP_ERR_TIMEOUT) {
-		r = MTY_NET_STATUS_CONTINUE;
+		r = MTY_ASYNC_CONTINUE;
 
 	} else {
-		r = MTY_NET_STATUS_ERROR;
+		r = MTY_ASYNC_ERROR;
 	}
 
 	//if we haven't gotten a pong within 30 seconds, throw an error
 	if (MTY_TimeDiff(ws->last_pong, MTY_Timestamp()) > WS_PONG_TO)
-		r = MTY_NET_STATUS_ERROR;
+		r = MTY_ASYNC_ERROR;
 
 	return r;
 }

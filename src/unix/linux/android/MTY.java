@@ -73,7 +73,8 @@ public class MTY extends SurfaceView implements
 	native void app_mouse_button(boolean pressed, int button, float x, float y);
 	native void app_mouse_wheel(float x, float y);
 	native void app_button(int deviceId, boolean pressed, int code);
-	native void app_axis(int deviceId, float hatX, float hatY, float lX, float lY, float rX, float rY, float lT, float rT);
+	native void app_axis(int deviceId, float hatX, float hatY, float lX, float lY, float rX, float rY,
+		float lT, float rT, float lTalt, float rTalt);
 	native void app_unhandled_touch(int action, float x, float y, int fingers);
 
 	static {
@@ -360,7 +361,9 @@ public class MTY extends SurfaceView implements
 				event.getAxisValue(MotionEvent.AXIS_Z),
 				event.getAxisValue(MotionEvent.AXIS_RZ),
 				event.getAxisValue(MotionEvent.AXIS_LTRIGGER),
-				event.getAxisValue(MotionEvent.AXIS_RTRIGGER));
+				event.getAxisValue(MotionEvent.AXIS_RTRIGGER),
+				event.getAxisValue(MotionEvent.AXIS_BRAKE),
+				event.getAxisValue(MotionEvent.AXIS_GAS));
 		}
 
 		return true;
