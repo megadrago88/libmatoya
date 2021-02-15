@@ -229,6 +229,9 @@ char *http_set_header(char *header, const char *name, int32_t type, const void *
 
 int32_t http_parse_url(const char *url_in, int32_t *scheme, char **host, uint16_t *port, char **path)
 {
+	if (!url_in || !url_in[0])
+		return MTY_NET_HTTP_ERR_PARSE_SCHEME;
+
 	int32_t r = MTY_NET_HTTP_OK;
 	char *tok, *ptr = NULL;
 	char *tok2, *ptr2 = NULL;
@@ -266,10 +269,16 @@ int32_t http_parse_url(const char *url_in, int32_t *scheme, char **host, uint16_
 		tok = MTY_Strtok(url, "/", &ptr);
 	}
 
+	if (!tok) {r = MTY_NET_HTTP_ERR_PARSE_SCHEME; goto except;}
+
 	//try to find a port
 	*host = MTY_Strdup(tok);
+	if (!*host) {r = MTY_NET_HTTP_ERR_PARSE_HOST; goto except;}
+
 	tok2 = MTY_Strtok(*host, ":", &ptr2);
-	tok2 = MTY_Strtok(NULL, ":", &ptr2);
+	if (tok2)
+		tok2 = MTY_Strtok(NULL, ":", &ptr2);
+
 	if (tok2) { //we have a port
 		*port = (uint16_t) atoi(tok2);
 	} else {
@@ -279,6 +288,7 @@ int32_t http_parse_url(const char *url_in, int32_t *scheme, char **host, uint16_
 	//path
 	tok = MTY_Strtok(NULL, "", &ptr);
 	if (!tok) tok = "";
+
 	size_t path_len = strlen(tok) + 2;
 	*path = malloc(strlen(tok) + 2);
 	snprintf(*path, path_len, "/%s", tok);

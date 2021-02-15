@@ -43,6 +43,7 @@ enum mty_net_status {
 	MTY_NET_ERR_INFLATE           = -5001,
 };
 
+char *mty_net_get_proxy(void);
 struct mty_net_conn *mty_net_new_conn(void);
 void mty_net_close(struct mty_net_conn *ucc);
 void mty_net_set_header_str(struct mty_net_conn *ucc, const char *name, const char *value);
@@ -54,6 +55,6 @@ int32_t mty_net_read_body_all(struct mty_net_conn *ucc, void **body, size_t *bod
 	int32_t timeout_ms, size_t max_body);
 int32_t mty_net_write_header(struct mty_net_conn *ucc, const char *str0, const char *str1, int32_t type);
 int32_t mty_net_get_status_code(struct mty_net_conn *ucc, uint16_t *status_code);
-int32_t mty_net_connect(struct mty_net_conn *ucc,
-	int32_t scheme, const char *host, uint16_t port, bool verify_host,
-	const char *proxy_host, uint16_t proxy_port, int32_t timeout_ms);
+int32_t mty_net_connect(struct mty_net_conn *ucc, int32_t scheme, const char *host, uint16_t port,
+	bool verify_host, int32_t timeout_ms);
+void mty_http_set_headers(struct mty_net_conn *ucc, const char *header_str_orig);

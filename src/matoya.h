@@ -1521,6 +1521,9 @@ MTY_EXPORT bool
 MTY_HttpSetCACert(const char *cacert, size_t size);
 
 MTY_EXPORT bool
+MTY_HttpSetProxy(const char *proxy);
+
+MTY_EXPORT bool
 MTY_HttpParseUrl(const char *url, char *host, size_t hostSize, char *path, size_t pathSize);
 
 MTY_EXPORT void

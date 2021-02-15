@@ -12,6 +12,7 @@
 #include <windows.h>
 #include <winhttp.h>
 
+#include "net/net.h"
 #include "net/gzip.h"
 
 static bool mty_http_recv_response(HINTERNET request, void **response, size_t *responseSize)
@@ -78,8 +79,22 @@ bool MTY_HttpRequest(const char *method, const char *headers, MTY_Scheme scheme,
 	bool ok = true;
 	bool gzipped = false;
 
+	// Proxy
+	char *proxy = mty_net_get_proxy();
+	DWORD access_type = WINHTTP_ACCESS_TYPE_NO_PROXY;
+	WCHAR *wproxy = WINHTTP_NO_PROXY_NAME;
+	WCHAR wproxy_buf[512];
+
+	if (proxy) {
+		access_type = WINHTTP_ACCESS_TYPE_NAMED_PROXY;
+
+		_snwprintf_s(wproxy_buf, 512, _TRUNCATE, L"%hs", proxy);
+		wproxy = wproxy_buf;
+		MTY_Free(proxy);
+	}
+
 	//context initialization
-	session = WinHttpOpen(L"mty-winhttp/v4", WINHTTP_ACCESS_TYPE_NO_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+	session = WinHttpOpen(L"mty-winhttp/v4", access_type, wproxy, WINHTTP_NO_PROXY_BYPASS, 0);
 	if (!session) {
 		MTY_Log("'WinHttpOpen' failed with error 0x%X", GetLastError());
 		ok = false;

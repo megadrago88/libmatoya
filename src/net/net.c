@@ -44,6 +44,54 @@ struct mty_net_conn {
 	uint16_t port;
 };
 
+struct mty_net_info {
+	int32_t scheme;
+	char *host;
+	uint16_t port;
+	char *path;
+};
+
+
+// Global proxy setting
+
+static MTY_Atomic32 NET_GLOCK;
+static char NET_PROXY[MTY_URL_MAX];
+
+bool MTY_HttpSetProxy(const char *proxy)
+{
+	MTY_GlobalLock(&NET_GLOCK);
+
+	bool was_set = NET_PROXY[0];
+
+	if (proxy) {
+		if (!was_set) {
+			snprintf(NET_PROXY, MTY_URL_MAX, "%s", proxy);
+			was_set = true;
+		}
+
+	} else {
+		NET_PROXY[0] = '\0';
+	}
+
+	MTY_GlobalUnlock(&NET_GLOCK);
+
+	return was_set;
+}
+
+char *mty_net_get_proxy(void)
+{
+	char *proxy = NULL;
+
+	MTY_GlobalLock(&NET_GLOCK);
+
+	if (NET_PROXY[0])
+		proxy = MTY_Strdup(NET_PROXY);
+
+	MTY_GlobalUnlock(&NET_GLOCK);
+
+	return proxy;
+}
+
 
 // TLS Context
 
@@ -120,22 +168,36 @@ int32_t mty_net_get_status_code(struct mty_net_conn *ucc, uint16_t *status_code)
 	return http_get_status_code(ucc->hin, status_code);
 }
 
-int32_t mty_net_connect(struct mty_net_conn *ucc,
-	int32_t scheme, const char *host, uint16_t port, bool verify_host,
-	const char *proxy_host, uint16_t proxy_port, int32_t timeout_ms)
+int32_t mty_net_connect(struct mty_net_conn *ucc, int32_t scheme, const char *host, uint16_t port,
+	bool verify_host, int32_t timeout_ms)
 {
 	//set state
 	ucc->host = MTY_Strdup(host);
 	ucc->port = port;
 
+	struct mty_net_info pi = {0};
+
+	MTY_GlobalLock(&NET_GLOCK);
+
+	bool url_ok = http_parse_url(NET_PROXY, &pi.scheme, &pi.host, &pi.port, &pi.path) == MTY_NET_OK;
+
+	MTY_GlobalUnlock(&NET_GLOCK);
+
+	bool use_proxy = url_ok && pi.host && pi.host[0];
+
 	//connect via proxy if specified
-	bool use_proxy = proxy_host && proxy_host[0] && proxy_port > 0;
-	const char *use_host = use_proxy ? proxy_host : host;
-	uint16_t use_port = use_proxy ? proxy_port : port;
+	const char *use_host = use_proxy ? pi.host : host;
+	uint16_t use_port = use_proxy ? pi.port : port;
 
 	//resolve the hostname into an ip4 address
 	char ip4[LEN_IP4];
 	int32_t e = tcp_getip4(use_host, ip4, LEN_IP4);
+
+	if (use_proxy) {
+		free(pi.host);
+		free(pi.path);
+	}
+
 	if (e != MTY_NET_OK) return e;
 
 	//make the net connection
@@ -378,32 +440,12 @@ int32_t mty_net_read_body_all(struct mty_net_conn *ucc, void **body, size_t *bod
 
 // Helpers
 
-struct mty_net_info {
-	int32_t scheme;
-	char *host;
-	uint16_t port;
-	char *path;
-};
-
-static int32_t _mty_net_parse_url(const char *url, struct mty_net_info *uci)
-{
-	memset(uci, 0, sizeof(struct mty_net_info));
-
-	return http_parse_url(url, &uci->scheme, &uci->host, &uci->port, &uci->path);
-}
-
-static void mty_net_free_info(struct mty_net_info *uci)
-{
-	free(uci->host);
-	free(uci->path);
-}
-
 bool MTY_HttpParseUrl(const char *url, char *host, size_t hostSize, char *path, size_t pathSize)
 {
 	bool r = false;
 	struct mty_net_info uci = {0};
 
-	if (_mty_net_parse_url(url, &uci) == MTY_NET_OK) {
+	if (http_parse_url(url, &uci.scheme, &uci.host, &uci.port, &uci.path) == MTY_NET_OK) {
 		snprintf(host, hostSize, "%s", uci.host);
 		snprintf(path, pathSize, "%s", uci.path);
 		r = true;
@@ -438,6 +480,29 @@ void MTY_HttpEncodeUrl(const char *src, char *dst, size_t size)
 		dst += inc;
 		size -= inc;
 	}
+}
+
+void mty_http_set_headers(struct mty_net_conn *ucc, const char *header_str_orig)
+{
+	char *tok, *ptr = NULL;
+	char *header_str = MTY_Strdup(header_str_orig);
+
+	tok = MTY_Strtok(header_str, "\n", &ptr);
+	while (tok) {
+		char *key, *val = NULL, *ptr2 = NULL;
+
+		key = MTY_Strtok(tok, " :", &ptr2);
+		if (key)
+			val = MTY_Strtok(NULL, "", &ptr2);
+
+		if (key && val) {
+			mty_net_set_header_str(ucc, key, val);
+		} else break;
+
+		tok = MTY_Strtok(NULL, "\n", &ptr);
+	}
+
+	free(header_str);
 }
 
 
@@ -586,10 +651,9 @@ static int32_t mty_net_ws_connect(MTY_WebSocket *ws, const char *path, const cha
 	mty_net_set_header_str(ws->ucc, "Sec-WebSocket-Key", sec_key);
 	mty_net_set_header_str(ws->ucc, "Sec-WebSocket-Version", "13");
 
-	//optional origin header
-	// XXX TODO
-	// if (headers)
-	// 	mty_net_set_header_str(ws->ucc, "Origin", origin);
+	//optional headers
+	if (headers)
+		mty_http_set_headers(ws->ucc, headers);
 
 	//write the header
 	int32_t e = mty_net_write_header(ws->ucc, "GET", path, MTY_NET_REQUEST);
@@ -656,18 +720,11 @@ MTY_WebSocket *MTY_WebSocketConnect(const char *headers, MTY_Scheme scheme, cons
 
 	ctx->ucc = mty_net_new_conn();
 
-	struct mty_net_info proxy_info = {0};
-	// bool use_proxy = proxy_url && proxy_url[0] && _mty_net_parse_url(proxy_url, &proxy_info) == MTY_NET_OK;
-
-	int32_t e = mty_net_connect(ctx->ucc, scheme, host, port, true,
-		proxy_info.host, proxy_info.port, timeout);
+	int32_t e = mty_net_connect(ctx->ucc, scheme, host, port, true, timeout);
 	if (e != MTY_NET_OK) {
 		ok = false;
 		goto except;
 	}
-
-	// if (use_proxy)
-	// 	mty_net_free_info(&proxy_info);
 
 	e = mty_net_ws_connect(ctx, path, headers, timeout, upgradeStatus);
 	if (e != MTY_NET_OK) {

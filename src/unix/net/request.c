@@ -12,28 +12,6 @@
 #include "net/net.h"
 #include "net/gzip.h"
 
-static void mty_http_set_headers(struct mty_net_conn *ucc, const char *header_str_orig)
-{
-	char *tok, *ptr = NULL;
-	char *header_str = MTY_Strdup(header_str_orig);
-
-	tok = MTY_Strtok(header_str, "\n", &ptr);
-	while (tok) {
-		char *key, *val = NULL, *ptr2 = NULL;
-
-		key = MTY_Strtok(tok, ":", &ptr2);
-		if (key) val = MTY_Strtok(NULL, ":", &ptr2);
-
-		if (key && val) {
-			mty_net_set_header_str(ucc, key, val);
-		} else break;
-
-		tok = MTY_Strtok(NULL, "\n", &ptr);
-	}
-
-	free(header_str);
-}
-
 bool MTY_HttpRequest(const char *method, const char *headers, MTY_Scheme scheme,
 	const char *host, const char *path, const void *body, size_t bodySize, uint32_t timeout,
 	void **response, size_t *responseSize, uint16_t *status)
@@ -49,7 +27,7 @@ bool MTY_HttpRequest(const char *method, const char *headers, MTY_Scheme scheme,
 	struct mty_net_conn *ucc = mty_net_new_conn();
 
 	//make the TCP connection
-	int32_t e = mty_net_connect(ucc, scheme, host, port, true, NULL, 0, timeout);
+	int32_t e = mty_net_connect(ucc, scheme, host, port, true, timeout);
 	if (e != MTY_NET_OK) goto except;
 
 	//set request headers
