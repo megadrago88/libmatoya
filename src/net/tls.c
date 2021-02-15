@@ -145,7 +145,7 @@ bool tls_load_cacert(const char *cacert, size_t size)
 // Context
 
 struct tls_context {
-	struct tcp_context *nc;
+	TCP_SOCKET socket;
 	SSL_CTX *ctx;
 	SSL *ssl;
 };
@@ -175,14 +175,14 @@ void tls_close(struct tls_context *tls)
 	free(tls);
 }
 
-static int32_t tls_context_new(struct tls_context **tls_in, struct tcp_context *nc)
+static int32_t tls_context_new(struct tls_context **tls_in, TCP_SOCKET socket)
 {
 	struct tls_context *tls = *tls_in = calloc(1, sizeof(struct tls_context));
 
 	if (!ssl_dl_global_init()) return MTY_NET_TLS_ERR_CONTEXT;
 
 	//keep handle to the underlying tcp_context
-	tls->nc = nc;
+	tls->socket = socket;
 
 	//the SSL context can be reused for multiple connections
 	tls->ctx = SSL_CTX_new(TLS_method());
@@ -208,9 +208,7 @@ static int32_t tls_context_new(struct tls_context **tls_in, struct tcp_context *
 	int32_t e = SSL_set_cipher_list(tls->ssl, TLS_CIPHER_LIST);
 	if (e != 1) return MTY_NET_TLS_ERR_CIPHER;
 
-	int32_t s = -1;
-	tcp_get_socket(tls->nc, &s);
-	e = SSL_set_fd(tls->ssl, s);
+	e = SSL_set_fd(tls->ssl, socket);
 	if (e != 1) return MTY_NET_TLS_ERR_FD;
 
 	return MTY_NET_TLS_OK;
@@ -222,17 +220,17 @@ static int32_t tls_handshake_poll(struct tls_context *tls, int32_t e, int32_t ti
 	if (ne == tcp_bad_fd()) return MTY_NET_TLS_ERR_FD;
 
 	if (ne == tcp_would_block() || SSL_get_error(tls->ssl, e) == SSL_ERROR_WANT_READ)
-		return tcp_poll(tls->nc, TCP_POLLIN, timeout_ms);
+		return tcp_poll(tls->socket, TCP_POLLIN, timeout_ms);
 
 	return MTY_NET_TLS_ERR_HANDSHAKE;
 }
 
-int32_t tls_connect(struct tls_context **tls_in, struct tcp_context *nc,
+int32_t tls_connect(struct tls_context **tls_in, TCP_SOCKET socket,
 	const char *host, bool verify_host, int32_t timeout_ms)
 {
 	int32_t r = MTY_NET_TLS_OK;
 
-	int32_t e = tls_context_new(tls_in, nc);
+	int32_t e = tls_context_new(tls_in, socket);
 	struct tls_context *tls = *tls_in;
 	if (e != MTY_NET_TLS_OK) {r = e; goto except;}
 
@@ -270,11 +268,11 @@ int32_t tls_connect(struct tls_context **tls_in, struct tcp_context *nc,
 	return r;
 }
 
-int32_t tls_accept(struct tls_context **tls_in, struct tcp_context *nc, int32_t timeout_ms)
+int32_t tls_accept(struct tls_context **tls_in, TCP_SOCKET socket, int32_t timeout_ms)
 {
 	int32_t r = MTY_NET_TLS_OK;
 
-	int32_t e = tls_context_new(tls_in, nc);
+	int32_t e = tls_context_new(tls_in, socket);
 	struct tls_context *tls = *tls_in;
 	if (e != MTY_NET_TLS_OK) {r = e; goto except;}
 
@@ -323,7 +321,7 @@ int32_t tls_read(void *ctx, char *buf, size_t size, int32_t timeout_ms)
 
 	for (size_t total = 0; total < size;) {
 		if (SSL_has_pending(tls->ssl) == 0) {
-			int32_t e = tcp_poll(tls->nc, TCP_POLLIN, timeout_ms);
+			int32_t e = tcp_poll(tls->socket, TCP_POLLIN, timeout_ms);
 			if (e != MTY_NET_TLS_OK) return e;
 		}
 

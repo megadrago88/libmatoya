@@ -32,9 +32,9 @@ struct tls_context;
 bool tls_load_cacert(const char *cacert, size_t size);
 
 void tls_close(struct tls_context *tls);
-int32_t tls_connect(struct tls_context **tls_in, struct tcp_context *nc,
+int32_t tls_connect(struct tls_context **tls_in, TCP_SOCKET socket,
 	const char *host, bool verify_host, int32_t timeout_ms);
-int32_t tls_accept(struct tls_context **tls_in, struct tcp_context *nc, int32_t timeout_ms);
+int32_t tls_accept(struct tls_context **tls_in, TCP_SOCKET socket, int32_t timeout_ms);
 
 int32_t tls_write(void *ctx, const char *buf, size_t size);
 int32_t tls_read(void *ctx, char *buf, size_t size, int32_t timeout_ms);

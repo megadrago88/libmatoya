@@ -25,7 +25,7 @@ struct mty_net_conn {
 	char *hout;
 	struct http_header *hin;
 
-	struct tcp_context *net;
+	TCP_SOCKET net;
 	struct tls_context *tls;
 
 	void *ctx;
@@ -102,7 +102,7 @@ struct mty_net_conn *mty_net_new_conn(void)
 
 static void mty_net_attach_net(struct mty_net_conn *ucc)
 {
-	ucc->ctx = ucc->net;
+	ucc->ctx = (void *) (uintptr_t) ucc->net;
 	ucc->read = tcp_read;
 	ucc->write = tcp_write;
 }
@@ -256,7 +256,7 @@ int32_t mty_net_accept(struct mty_net_conn *ucc, struct mty_net_conn **ucc_new_i
 	struct mty_net_conn *ucc_new = *ucc_new_in = mty_net_new_conn();
 
 	int32_t r = MTY_NET_OK;
-	struct tcp_context *new_net = NULL;
+	TCP_SOCKET new_net = tcp_invalid_socket();
 
 	int32_t e = tcp_accept(ucc->net, &new_net, timeout_ms);
 	if (e != MTY_NET_OK) {r = e; goto except;}
