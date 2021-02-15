@@ -13,6 +13,107 @@
 #include "net/http.h"
 #include "net/gzip.h"
 
+#define LEN_CHUNK  64
+
+static int8_t mty_net_check_header(struct mty_net_conn *ucc, const char *name, const char *subval)
+{
+	char *val = NULL;
+
+	int32_t e = mty_net_get_header_str(ucc, name, &val);
+
+	return (e == MTY_NET_OK && strstr(http_lc(val), subval)) ? 1 : 0;
+}
+
+static int32_t mty_net_read_chunk_len(struct mty_net_conn *ucc, uint32_t *len, int32_t timeout_ms)
+{
+	int32_t r = MTY_NET_ERR_MAX_CHUNK;
+
+	char chunk_len[LEN_CHUNK];
+	memset(chunk_len, 0, LEN_CHUNK);
+
+	for (uint32_t x = 0; x < LEN_CHUNK - 1; x++) {
+		int32_t e = mty_net_read(ucc, chunk_len + x, 1, timeout_ms);
+		if (e != MTY_NET_OK) {r = e; break;}
+
+		if (x > 0 && chunk_len[x - 1] == '\r' && chunk_len[x] == '\n') {
+			chunk_len[x - 1] = '\0';
+			*len = strtoul(chunk_len, NULL, 16);
+			return MTY_NET_OK;
+		}
+	}
+
+	*len = 0;
+
+	return r;
+}
+
+static int32_t mty_net_response_body_chunked(struct mty_net_conn *ucc, void **body, size_t *body_len,
+	int32_t timeout_ms, size_t max_body)
+{
+	uint32_t offset = 0;
+	uint32_t chunk_len = 0;
+
+	do {
+		//read the chunk size one byte at a time
+		int32_t e = mty_net_read_chunk_len(ucc, &chunk_len, timeout_ms);
+		if (e != MTY_NET_OK) return e;
+		if (offset + chunk_len > max_body) return MTY_NET_ERR_MAX_BODY;
+
+		//make room for chunk and "\r\n" after chunk
+		*body = realloc(*body, offset + chunk_len + 2);
+
+		//read chunk into buffer with extra 2 bytes for "\r\n"
+		e = mty_net_read(ucc, (char *) *body + offset, chunk_len + 2, timeout_ms);
+		if (e != MTY_NET_OK) return e;
+
+		offset += chunk_len;
+
+	} while (chunk_len > 0);
+
+	((uint8_t *) *body)[offset] = '\0';
+	*body_len = offset;
+
+	return MTY_NET_OK;
+}
+
+static int32_t mty_net_read_body_all(struct mty_net_conn *ucc, void **body, size_t *body_len,
+	int32_t timeout_ms, size_t max_body)
+{
+	int32_t r = MTY_NET_OK;
+
+	*body = NULL;
+	*body_len = 0;
+
+	//look for chunked response
+	if (mty_net_check_header(ucc, "Transfer-Encoding", "chunked")) {
+		int32_t e = mty_net_response_body_chunked(ucc, body, body_len, timeout_ms, max_body);
+		if (e != MTY_NET_OK) {r = e; goto except;}
+
+	//use Content-Length
+	} else {
+		int32_t e = mty_net_get_header_int(ucc, "Content-Length", (int32_t *) body_len);
+		if (e != MTY_NET_OK) {r = e; goto except;}
+
+		if (*body_len == 0) {r = MTY_NET_ERR_NO_BODY; goto except;}
+		if (*body_len > max_body) {r = MTY_NET_ERR_MAX_BODY; goto except;}
+
+		*body = calloc(*body_len + 1, 1);
+
+		e = mty_net_read(ucc, *body, *body_len, timeout_ms);
+
+		if (e != MTY_NET_OK) {r = e; goto except;}
+	}
+
+	except:
+
+	if (r != MTY_NET_OK) {
+		free(*body);
+		*body = NULL;
+	}
+
+	return r;
+}
+
 bool MTY_HttpRequest(const char *host, bool secure, const char *method, const char *path,
 	const char *headers, const void *body, size_t bodySize, uint32_t timeout,
 	void **response, size_t *responseSize, uint16_t *status)
@@ -42,7 +143,7 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 	if (e != MTY_NET_OK) goto except;
 
 	//send the request body
-	e = mty_net_write_body(ucc, body, bodySize);
+	e = mty_net_write(ucc, body, bodySize);
 	if (e != MTY_NET_OK) goto except;
 
 	//read the response header

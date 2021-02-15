@@ -43,18 +43,28 @@ enum mty_net_status {
 	MTY_NET_ERR_INFLATE           = -5001,
 };
 
+#define mty_net_get_header_str(ucc, key, val_str) \
+	mty_net_get_header(ucc, key, NULL, val_str)
+
+#define mty_net_get_header_int(ucc, key, val_int) \
+	mty_net_get_header(ucc, key, val_int, NULL)
+
 char *mty_net_get_proxy(void);
+
 struct mty_net_conn *mty_net_new_conn(void);
-void mty_net_close(struct mty_net_conn *ucc);
-void mty_net_set_header_str(struct mty_net_conn *ucc, const char *name, const char *value);
-int32_t mty_net_read_header(struct mty_net_conn *ucc, int32_t timeout_ms);
-int32_t mty_net_write_body(struct mty_net_conn *ucc, const char *body, uint32_t body_len);
-int8_t mty_net_check_header(struct mty_net_conn *ucc, const char *name, const char *subval);
-void mty_net_set_header_int(struct mty_net_conn *ucc, const char *name, int32_t value);
-int32_t mty_net_read_body_all(struct mty_net_conn *ucc, void **body, size_t *body_len,
-	int32_t timeout_ms, size_t max_body);
-int32_t mty_net_write_header(struct mty_net_conn *ucc, const char *str0, const char *str1, int32_t type);
-int32_t mty_net_get_status_code(struct mty_net_conn *ucc, uint16_t *status_code);
 int32_t mty_net_connect(struct mty_net_conn *ucc, bool secure, const char *host, uint16_t port,
 	bool verify_host, int32_t timeout_ms);
+int32_t mty_net_write(struct mty_net_conn *ucc, const char *body, uint32_t body_len);
+int32_t mty_net_poll(struct mty_net_conn *ucc, int32_t timeout_ms);
+int32_t mty_net_read(struct mty_net_conn *ucc, char *body, uint32_t body_len, int32_t timeout);
+int32_t mty_net_listen(struct mty_net_conn *ucc, const char *bind_ip4, uint16_t port);
+int32_t mty_net_accept(struct mty_net_conn *ucc, struct mty_net_conn **ucc_new_in, bool secure, int32_t timeout_ms);
+void mty_net_close(struct mty_net_conn *ucc);
+
+void mty_net_set_header_str(struct mty_net_conn *ucc, const char *name, const char *value);
+int32_t mty_net_read_header(struct mty_net_conn *ucc, int32_t timeout_ms);
+void mty_net_set_header_int(struct mty_net_conn *ucc, const char *name, int32_t value);
+int32_t mty_net_write_header(struct mty_net_conn *ucc, const char *str0, const char *str1, int32_t type);
+int32_t mty_net_get_header(struct mty_net_conn *ucc, const char *key, int32_t *val_int, char **val_str);
+int32_t mty_net_get_status_code(struct mty_net_conn *ucc, uint16_t *status_code);
 void mty_http_set_headers(struct mty_net_conn *ucc, const char *header_str_orig);
