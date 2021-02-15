@@ -67,8 +67,8 @@ static bool mty_http_decompress(void **response, size_t *responseSize)
 	return false;
 }
 
-bool MTY_HttpRequest(const char *method, const char *headers, bool secure,
-	const char *host, const char *path, const void *body, size_t bodySize, uint32_t timeout,
+bool MTY_HttpRequest(const char *host, bool secure, const char *method, const char *path,
+	const char *headers, const void *body, size_t bodySize, uint32_t timeout,
 	void **response, size_t *responseSize, uint16_t *status)
 {
 	HINTERNET session = NULL, connect = NULL, request = NULL;

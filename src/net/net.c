@@ -534,7 +534,7 @@ enum {
 };
 
 static int32_t mty_net_ws_accept(MTY_WebSocket *ws, const char * const *origins,
-	int32_t n_origins, bool secure, int32_t timeout_ms)
+	int32_t n_origins, bool secure_origin, int32_t timeout_ms)
 {
 	//wait for the client's request header
 	int32_t e = mty_net_read_header(ws->ucc, timeout_ms);
@@ -550,7 +550,7 @@ static int32_t mty_net_ws_accept(MTY_WebSocket *ws, const char * const *origins,
 	if (e != MTY_NET_OK) return e;
 
 	//secure origin check
-	if (secure) {
+	if (secure_origin) {
 		char *scheme = strstr(origin, "https://");
 		if (scheme != origin) return MTY_NET_WS_ERR_ORIGIN;
 	}
@@ -711,8 +711,8 @@ void MTY_WebSocketDestroy(MTY_WebSocket **ws)
 	*ws = NULL;
 }
 
-MTY_WebSocket *MTY_WebSocketConnect(const char *headers, bool secure, const char *host,
-	uint16_t port, const char *path, uint32_t timeout, uint16_t *upgradeStatus)
+MTY_WebSocket *MTY_WebSocketConnect(const char *host, uint16_t port, bool secure, const char *path,
+	const char *headers, uint32_t timeout, uint16_t *upgradeStatus)
 {
 	bool ok = true;
 
@@ -756,7 +756,7 @@ MTY_WebSocket *MTY_WebSocketListen(const char *host, uint16_t port)
 }
 
 MTY_WebSocket *MTY_WebSocketAccept(MTY_WebSocket *ws, const char * const *origins, uint32_t numOrigins,
-	bool secure, uint32_t timeout)
+	bool secureOrigin, uint32_t timeout)
 {
 	MTY_WebSocket *ws_child = NULL;
 	struct mty_net_conn *child = NULL;
@@ -766,7 +766,7 @@ MTY_WebSocket *MTY_WebSocketAccept(MTY_WebSocket *ws, const char * const *origin
 		ws_child = MTY_Alloc(1, sizeof(MTY_WebSocket));
 		ws_child->ucc = child;
 
-		e = mty_net_ws_accept(ws_child, origins, numOrigins, secure, timeout);
+		e = mty_net_ws_accept(ws_child, origins, numOrigins, secureOrigin, timeout);
 
 		if (e == MTY_NET_OK) {
 			ws_child->connected = true;

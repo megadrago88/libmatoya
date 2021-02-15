@@ -27,13 +27,11 @@ struct thread_args {
 	MTY_Async status;
 	uint16_t code;
 	void *res_body;
-	size_t  res_body_len;
+	size_t res_body_len;
 	MTY_HttpAsyncFunc cb;
 };
 
-static struct mty_http_async {
-	MTY_ThreadPool *pool;
-} *CTX;
+static MTY_ThreadPool *CTX;
 
 static void mty_http_async_free_ta(void *opaque)
 {
@@ -50,9 +48,7 @@ void MTY_HttpAsyncCreate(uint32_t maxThreads)
 	if (CTX)
 		return;
 
-	CTX = calloc(1, sizeof(struct mty_http_async));
-
-	CTX->pool = MTY_ThreadPoolCreate(maxThreads);
+	CTX = MTY_ThreadPoolCreate(maxThreads);
 }
 
 void MTY_HttpAsyncDestroy(void)
@@ -60,19 +56,16 @@ void MTY_HttpAsyncDestroy(void)
 	if (!CTX)
 		return;
 
-	MTY_ThreadPoolDestroy(&CTX->pool, mty_http_async_free_ta);
-
-	free(CTX);
-	CTX = NULL;
+	MTY_ThreadPoolDestroy(&CTX, mty_http_async_free_ta);
 }
 
 static void mty_http_async_thread(void *opaque)
 {
 	struct thread_args *ta = (struct thread_args *) opaque;
 
-	bool ok = MTY_HttpRequest(ta->method, ta->headers[0] ? ta->headers : NULL, ta->secure,
-		ta->host, ta->path, ta->body_len > 0 ? ta->body : NULL, ta->body_len, ta->timeout_ms,
-		&ta->res_body, &ta->res_body_len, &ta->code);
+	bool ok = MTY_HttpRequest(ta->host, ta->secure, ta->method, ta->path,
+		ta->headers[0] ? ta->headers : NULL, ta->body_len > 0 ? ta->body : NULL, ta->body_len,
+		ta->timeout_ms, &ta->res_body, &ta->res_body_len, &ta->code);
 
 	if (ok && ta->cb && ta->res_body && ta->res_body_len > 0)
 		ta->cb(ta->code, &ta->res_body, &ta->res_body_len);
@@ -80,12 +73,12 @@ static void mty_http_async_thread(void *opaque)
 	ta->status = !ok ? MTY_ASYNC_ERROR : MTY_ASYNC_OK;
 }
 
-void MTY_HttpAsyncRequest(uint32_t *index, const char *method, const char *headers, bool secure,
-	const char *host, const char *path, const void *body, size_t size, uint32_t timeout,
+void MTY_HttpAsyncRequest(uint32_t *index, const char *host, bool secure, const char *method,
+	const char *path, const char *headers, const void *body, size_t size, uint32_t timeout,
 	MTY_HttpAsyncFunc func)
 {
 	if (*index != 0)
-		MTY_ThreadPoolDetach(CTX->pool, *index, mty_http_async_free_ta);
+		MTY_ThreadPoolDetach(CTX, *index, mty_http_async_free_ta);
 
 	struct thread_args *ta = calloc(1, sizeof(struct thread_args));
 	ta->secure = secure;
@@ -99,7 +92,7 @@ void MTY_HttpAsyncRequest(uint32_t *index, const char *method, const char *heade
 	if (body)
 		memcpy(ta->body, body, size);
 
-	*index = MTY_ThreadPoolStart(CTX->pool, mty_http_async_thread, ta);
+	*index = MTY_ThreadPoolStart(CTX, mty_http_async_thread, ta);
 
 	if (*index == 0)
 		free(ta);
@@ -112,7 +105,7 @@ MTY_Async MTY_HttpAsyncPoll(uint32_t index, void **response, size_t *size, uint1
 
 	struct thread_args *ta = NULL;
 	MTY_Async r = MTY_ASYNC_DONE;
-	MTY_ThreadState pstatus = MTY_ThreadPoolState(CTX->pool, index, (void **) &ta);
+	MTY_ThreadState pstatus = MTY_ThreadPoolState(CTX, index, (void **) &ta);
 
 	if (pstatus == MTY_THREAD_STATE_DONE) {
 		*response = ta->res_body;
@@ -129,6 +122,6 @@ MTY_Async MTY_HttpAsyncPoll(uint32_t index, void **response, size_t *size, uint1
 
 void MTY_HttpAsyncClear(uint32_t *index)
 {
-	MTY_ThreadPoolDetach(CTX->pool, *index, mty_http_async_free_ta);
+	MTY_ThreadPoolDetach(CTX, *index, mty_http_async_free_ta);
 	*index = 0;
 }

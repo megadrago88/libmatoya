@@ -1522,8 +1522,8 @@ MTY_EXPORT void
 MTY_HttpEncodeUrl(const char *src, char *dst, size_t size);
 
 MTY_EXPORT bool
-MTY_HttpRequest(const char *method, const char *headers, bool secure,
-	const char *host, const char *path, const void *body, size_t bodySize, uint32_t timeout,
+MTY_HttpRequest(const char *host, bool secure, const char *method, const char *path,
+	const char *headers, const void *body, size_t bodySize, uint32_t timeout,
 	void **response, size_t *responseSize, uint16_t *status);
 
 MTY_EXPORT void
@@ -1533,8 +1533,8 @@ MTY_EXPORT void
 MTY_HttpAsyncDestroy(void);
 
 MTY_EXPORT void
-MTY_HttpAsyncRequest(uint32_t *index, const char *method, const char *headers, bool secure,
-	const char *host, const char *path, const void *body, size_t size, uint32_t timeout,
+MTY_HttpAsyncRequest(uint32_t *index, const char *host, bool secure, const char *method,
+	const char *path, const char *headers, const void *body, size_t size, uint32_t timeout,
 	MTY_HttpAsyncFunc func);
 
 MTY_EXPORT MTY_Async
@@ -1548,11 +1548,11 @@ MTY_WebSocketListen(const char *host, uint16_t port);
 
 MTY_EXPORT MTY_WebSocket *
 MTY_WebSocketAccept(MTY_WebSocket *ws, const char * const *origins, uint32_t numOrigins,
-	bool secure, uint32_t timeout);
+	bool secureOrigin, uint32_t timeout);
 
 MTY_EXPORT MTY_WebSocket *
-MTY_WebSocketConnect(const char *headers, bool secure, const char *host,
-	uint16_t port, const char *path, uint32_t timeout, uint16_t *upgradeStatus);
+MTY_WebSocketConnect(const char *host, uint16_t port, bool secure, const char *path,
+	const char *headers, uint32_t timeout, uint16_t *upgradeStatus);
 
 MTY_EXPORT void
 MTY_WebSocketDestroy(MTY_WebSocket **ws);
