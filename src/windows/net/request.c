@@ -67,7 +67,7 @@ static bool mty_http_decompress(void **response, size_t *responseSize)
 	return false;
 }
 
-bool MTY_HttpRequest(const char *method, const char *headers, MTY_Scheme scheme,
+bool MTY_HttpRequest(const char *method, const char *headers, bool secure,
 	const char *host, const char *path, const void *body, size_t bodySize, uint32_t timeout,
 	void **response, size_t *responseSize, uint16_t *status)
 {
@@ -118,7 +118,7 @@ bool MTY_HttpRequest(const char *method, const char *headers, MTY_Scheme scheme,
 	WinHttpSetOption(session, WINHTTP_OPTION_SECURE_PROTOCOLS, &opt, sizeof(DWORD));
 
 	connect = WinHttpConnect(session, host_w,
-		(scheme == MTY_SCHEME_HTTPS) ? INTERNET_DEFAULT_HTTPS_PORT : INTERNET_DEFAULT_HTTP_PORT, 0);
+		secure ? INTERNET_DEFAULT_HTTPS_PORT : INTERNET_DEFAULT_HTTP_PORT, 0);
 	if (!connect) {
 		MTY_Log("'WinHttpConnect' failed with error 0x%X", GetLastError());
 		ok = false;
@@ -133,7 +133,7 @@ bool MTY_HttpRequest(const char *method, const char *headers, MTY_Scheme scheme,
 	_snwprintf_s(method_w, 32, _TRUNCATE, L"%hs", method);
 
 	request = WinHttpOpenRequest(connect, method_w, path_w, NULL, WINHTTP_NO_REFERER,
-		WINHTTP_DEFAULT_ACCEPT_TYPES, (scheme == MTY_SCHEME_HTTPS) ? WINHTTP_FLAG_SECURE : 0);
+		WINHTTP_DEFAULT_ACCEPT_TYPES, secure ? WINHTTP_FLAG_SECURE : 0);
 	if (!request) {
 		MTY_Log("'WinHttpOpenRequest' failed with error 0x%X", GetLastError());
 		ok = false;

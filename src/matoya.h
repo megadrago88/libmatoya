@@ -1499,14 +1499,6 @@ MTY_JNIEnv(void);
 // @module net
 
 typedef enum {
-	MTY_SCHEME_NONE  = 0,
-	MTY_SCHEME_HTTP  = 1,
-	MTY_SCHEME_HTTPS = 2,
-	MTY_SCHEME_WS    = 3,
-	MTY_SCHEME_WSS   = 4,
-} MTY_Scheme;
-
-typedef enum {
 	MTY_ASYNC_OK       = 0,
 	MTY_ASYNC_DONE     = 1,
 	MTY_ASYNC_CONTINUE = 2,
@@ -1530,7 +1522,7 @@ MTY_EXPORT void
 MTY_HttpEncodeUrl(const char *src, char *dst, size_t size);
 
 MTY_EXPORT bool
-MTY_HttpRequest(const char *method, const char *headers, MTY_Scheme scheme,
+MTY_HttpRequest(const char *method, const char *headers, bool secure,
 	const char *host, const char *path, const void *body, size_t bodySize, uint32_t timeout,
 	void **response, size_t *responseSize, uint16_t *status);
 
@@ -1541,7 +1533,7 @@ MTY_EXPORT void
 MTY_HttpAsyncDestroy(void);
 
 MTY_EXPORT void
-MTY_HttpAsyncRequest(uint32_t *index, const char *method, const char *headers, MTY_Scheme scheme,
+MTY_HttpAsyncRequest(uint32_t *index, const char *method, const char *headers, bool secure,
 	const char *host, const char *path, const void *body, size_t size, uint32_t timeout,
 	MTY_HttpAsyncFunc func);
 
@@ -1559,7 +1551,7 @@ MTY_WebSocketAccept(MTY_WebSocket *ws, const char * const *origins, uint32_t num
 	bool secure, uint32_t timeout);
 
 MTY_EXPORT MTY_WebSocket *
-MTY_WebSocketConnect(const char *headers, MTY_Scheme scheme, const char *host,
+MTY_WebSocketConnect(const char *headers, bool secure, const char *host,
 	uint16_t port, const char *path, uint32_t timeout, uint16_t *upgradeStatus);
 
 MTY_EXPORT void

@@ -45,7 +45,7 @@ struct mty_net_conn {
 };
 
 struct mty_net_info {
-	int32_t scheme;
+	bool secure;
 	char *host;
 	uint16_t port;
 	char *path;
@@ -168,7 +168,7 @@ int32_t mty_net_get_status_code(struct mty_net_conn *ucc, uint16_t *status_code)
 	return http_get_status_code(ucc->hin, status_code);
 }
 
-int32_t mty_net_connect(struct mty_net_conn *ucc, int32_t scheme, const char *host, uint16_t port,
+int32_t mty_net_connect(struct mty_net_conn *ucc, bool secure, const char *host, uint16_t port,
 	bool verify_host, int32_t timeout_ms)
 {
 	//set state
@@ -179,7 +179,7 @@ int32_t mty_net_connect(struct mty_net_conn *ucc, int32_t scheme, const char *ho
 
 	MTY_GlobalLock(&NET_GLOCK);
 
-	bool url_ok = http_parse_url(NET_PROXY, &pi.scheme, &pi.host, &pi.port, &pi.path) == MTY_NET_OK;
+	bool url_ok = http_parse_url(NET_PROXY, &pi.secure, &pi.host, &pi.port, &pi.path) == MTY_NET_OK;
 
 	MTY_GlobalUnlock(&NET_GLOCK);
 
@@ -227,7 +227,7 @@ int32_t mty_net_connect(struct mty_net_conn *ucc, int32_t scheme, const char *ho
 		if (status_code != 200) return MTY_NET_ERR_PROXY;
 	}
 
-	if (scheme == MTY_SCHEME_HTTPS || scheme == MTY_SCHEME_WSS) {
+	if (secure) {
 		e = tls_connect(&ucc->tls, ucc->net, ucc->host, verify_host, timeout_ms);
 		if (e != MTY_NET_OK) return e;
 
@@ -249,7 +249,7 @@ static int32_t mty_net_listen(struct mty_net_conn *ucc, const char *bind_ip4, ui
 }
 
 static int32_t mty_net_accept(struct mty_net_conn *ucc,
-	struct mty_net_conn **ucc_new_in, int32_t scheme, int32_t timeout_ms)
+	struct mty_net_conn **ucc_new_in, bool secure, int32_t timeout_ms)
 {
 	struct mty_net_conn *ucc_new = *ucc_new_in = mty_net_new_conn();
 
@@ -262,7 +262,7 @@ static int32_t mty_net_accept(struct mty_net_conn *ucc,
 	ucc_new->net = new_net;
 	mty_net_attach_net(ucc_new);
 
-	if (scheme == MTY_SCHEME_HTTPS || scheme == MTY_SCHEME_WSS) {
+	if (secure) {
 		e = tls_accept(&ucc_new->tls, ucc_new->net, timeout_ms);
 		if (e != MTY_NET_OK) {r = e; goto except;}
 
@@ -445,7 +445,7 @@ bool MTY_HttpParseUrl(const char *url, char *host, size_t hostSize, char *path, 
 	bool r = false;
 	struct mty_net_info uci = {0};
 
-	if (http_parse_url(url, &uci.scheme, &uci.host, &uci.port, &uci.path) == MTY_NET_OK) {
+	if (http_parse_url(url, &uci.secure, &uci.host, &uci.port, &uci.path) == MTY_NET_OK) {
 		snprintf(host, hostSize, "%s", uci.host);
 		snprintf(path, pathSize, "%s", uci.path);
 		r = true;
@@ -711,7 +711,7 @@ void MTY_WebSocketDestroy(MTY_WebSocket **ws)
 	*ws = NULL;
 }
 
-MTY_WebSocket *MTY_WebSocketConnect(const char *headers, MTY_Scheme scheme, const char *host,
+MTY_WebSocket *MTY_WebSocketConnect(const char *headers, bool secure, const char *host,
 	uint16_t port, const char *path, uint32_t timeout, uint16_t *upgradeStatus)
 {
 	bool ok = true;
@@ -720,7 +720,7 @@ MTY_WebSocket *MTY_WebSocketConnect(const char *headers, MTY_Scheme scheme, cons
 
 	ctx->ucc = mty_net_new_conn();
 
-	int32_t e = mty_net_connect(ctx->ucc, scheme, host, port, true, timeout);
+	int32_t e = mty_net_connect(ctx->ucc, secure, host, port, true, timeout);
 	if (e != MTY_NET_OK) {
 		ok = false;
 		goto except;
@@ -760,7 +760,7 @@ MTY_WebSocket *MTY_WebSocketAccept(MTY_WebSocket *ws, const char * const *origin
 {
 	MTY_WebSocket *ws_child = NULL;
 	struct mty_net_conn *child = NULL;
-	int32_t e = mty_net_accept(ws->ucc, &child, MTY_SCHEME_WS, timeout);
+	int32_t e = mty_net_accept(ws->ucc, &child, false, timeout);
 
 	if (e == MTY_NET_OK) {
 		ws_child = MTY_Alloc(1, sizeof(MTY_WebSocket));

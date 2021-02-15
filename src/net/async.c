@@ -15,7 +15,7 @@
 struct thread_args {
 	// Request
 	char method[32];
-	MTY_Scheme scheme;
+	bool secure;
 	char host[128];
 	char path[1024];
 	char headers[1024];
@@ -70,7 +70,7 @@ static void mty_http_async_thread(void *opaque)
 {
 	struct thread_args *ta = (struct thread_args *) opaque;
 
-	bool ok = MTY_HttpRequest(ta->method, ta->headers[0] ? ta->headers : NULL, ta->scheme,
+	bool ok = MTY_HttpRequest(ta->method, ta->headers[0] ? ta->headers : NULL, ta->secure,
 		ta->host, ta->path, ta->body_len > 0 ? ta->body : NULL, ta->body_len, ta->timeout_ms,
 		&ta->res_body, &ta->res_body_len, &ta->code);
 
@@ -80,7 +80,7 @@ static void mty_http_async_thread(void *opaque)
 	ta->status = !ok ? MTY_ASYNC_ERROR : MTY_ASYNC_OK;
 }
 
-void MTY_HttpAsyncRequest(uint32_t *index, const char *method, const char *headers, MTY_Scheme scheme,
+void MTY_HttpAsyncRequest(uint32_t *index, const char *method, const char *headers, bool secure,
 	const char *host, const char *path, const void *body, size_t size, uint32_t timeout,
 	MTY_HttpAsyncFunc func)
 {
@@ -88,7 +88,7 @@ void MTY_HttpAsyncRequest(uint32_t *index, const char *method, const char *heade
 		MTY_ThreadPoolDetach(CTX->pool, *index, mty_http_async_free_ta);
 
 	struct thread_args *ta = calloc(1, sizeof(struct thread_args));
-	ta->scheme = scheme;
+	ta->secure = secure;
 	ta->body_len = size;
 	ta->timeout_ms = timeout;
 	ta->cb = func;

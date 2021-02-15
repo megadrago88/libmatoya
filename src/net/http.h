@@ -37,4 +37,4 @@ void http_free_header(struct http_header *h);
 int32_t http_get_header(struct http_header *h, const char *key, int32_t *val_int, char **val_str);
 int32_t http_get_status_code(struct http_header *h, uint16_t *status_code);
 char *http_set_header(char *header, const char *name, int32_t type, const void *value);
-int32_t http_parse_url(const char *url_in, int32_t *scheme, char **host, uint16_t *port, char **path);
+int32_t http_parse_url(const char *url_in, bool *secure, char **host, uint16_t *port, char **path);

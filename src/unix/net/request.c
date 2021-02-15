@@ -10,9 +10,10 @@
 #include <string.h>
 
 #include "net/net.h"
+#include "net/http.h"
 #include "net/gzip.h"
 
-bool MTY_HttpRequest(const char *method, const char *headers, MTY_Scheme scheme,
+bool MTY_HttpRequest(const char *method, const char *headers, bool secure,
 	const char *host, const char *path, const void *body, size_t bodySize, uint32_t timeout,
 	void **response, size_t *responseSize, uint16_t *status)
 {
@@ -21,13 +22,13 @@ bool MTY_HttpRequest(const char *method, const char *headers, MTY_Scheme scheme,
 
 	int32_t z_e = MTY_NET_OK;
 	bool ok = true;
-	uint16_t port = (scheme == MTY_SCHEME_HTTPS) ? 443 : 80;
+	uint16_t port = secure ? MTY_NET_PORT_S : MTY_NET_PORT;
 
 	//make the socket/TLS connection
 	struct mty_net_conn *ucc = mty_net_new_conn();
 
 	//make the TCP connection
-	int32_t e = mty_net_connect(ucc, scheme, host, port, true, timeout);
+	int32_t e = mty_net_connect(ucc, secure, host, port, true, timeout);
 	if (e != MTY_NET_OK) goto except;
 
 	//set request headers

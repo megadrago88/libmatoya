@@ -227,7 +227,7 @@ char *http_set_header(char *header, const char *name, int32_t type, const void *
 	return header;
 }
 
-int32_t http_parse_url(const char *url_in, int32_t *scheme, char **host, uint16_t *port, char **path)
+int32_t http_parse_url(const char *url_in, bool *secure, char **host, uint16_t *port, char **path)
 {
 	if (!url_in || !url_in[0])
 		return MTY_NET_HTTP_ERR_PARSE_SCHEME;
@@ -240,7 +240,7 @@ int32_t http_parse_url(const char *url_in, int32_t *scheme, char **host, uint16_
 
 	*host = NULL;
 	*path = NULL;
-	*scheme = MTY_SCHEME_NONE;
+	*secure = false;
 	*port = 0;
 
 	//scheme
@@ -249,15 +249,16 @@ int32_t http_parse_url(const char *url_in, int32_t *scheme, char **host, uint16_
 		if (!tok) {r = MTY_NET_HTTP_ERR_PARSE_SCHEME; goto except;}
 
 		http_lc(tok);
-		if (!strcmp(tok, "https")) {
-			*scheme = MTY_SCHEME_HTTPS;
-		} else if (!strcmp(tok, "http")) {
-			*scheme = MTY_SCHEME_HTTP;
-		} else if (!strcmp(tok, "ws")) {
-			*scheme = MTY_SCHEME_WS;
-		} else if (!strcmp(tok, "wss")) {
-			*scheme = MTY_SCHEME_WSS;
-		} else {r = MTY_NET_HTTP_ERR_PARSE_SCHEME; goto except;}
+		if (!strcmp(tok, "https") || !strcmp(tok, "wss")) {
+			*secure = true;
+
+		} else if (!strcmp(tok, "http") || !strcmp(tok, "ws")) {
+			*secure = false;
+
+		} else {
+			r = MTY_NET_HTTP_ERR_PARSE_SCHEME;
+			goto except;
+		}
 
 		//host + port
 		tok = MTY_Strtok(NULL, "/", &ptr);
@@ -265,7 +266,7 @@ int32_t http_parse_url(const char *url_in, int32_t *scheme, char **host, uint16_
 
 	//no scheme, assume host:port/path syntax
 	} else {
-		*scheme = MTY_SCHEME_HTTP;
+		*secure = false;
 		tok = MTY_Strtok(url, "/", &ptr);
 	}
 
@@ -282,7 +283,7 @@ int32_t http_parse_url(const char *url_in, int32_t *scheme, char **host, uint16_
 	if (tok2) { //we have a port
 		*port = (uint16_t) atoi(tok2);
 	} else {
-		*port = (*scheme == MTY_SCHEME_HTTPS) ? MTY_NET_PORT_S : MTY_NET_PORT;
+		*port = *secure ? MTY_NET_PORT_S : MTY_NET_PORT;
 	}
 
 	//path
