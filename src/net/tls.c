@@ -11,6 +11,21 @@
 
 #include "ssl-dl.h"
 
+enum {
+	MTY_NET_TLS_OK                = 0,
+	MTY_NET_TLS_ERR_CONTEXT       = -51000,
+	MTY_NET_TLS_ERR_SSL           = -51001,
+	MTY_NET_TLS_ERR_FD            = -51002,
+	MTY_NET_TLS_ERR_HANDSHAKE     = -51003,
+	MTY_NET_TLS_ERR_WRITE         = -51004,
+	MTY_NET_TLS_ERR_READ          = -51005,
+	MTY_NET_TLS_ERR_CLOSED        = -51006,
+	MTY_NET_TLS_ERR_CACERT        = -51007,
+	MTY_NET_TLS_ERR_CIPHER        = -51008,
+	MTY_NET_TLS_ERR_CERT          = -51009,
+	MTY_NET_TLS_ERR_KEY           = -51010,
+};
+
 static MTY_Atomic32 TLS_GLOCK;
 static X509_STORE *TLS_STORE;
 
@@ -144,40 +159,44 @@ bool tls_load_cacert(const char *cacert, size_t size)
 
 // Context
 
-struct tls_context {
+struct tls {
 	TCP_SOCKET socket;
 	SSL_CTX *ctx;
 	SSL *ssl;
 };
 
-void tls_close(struct tls_context *tls)
+void tls_destroy(struct tls **tls)
 {
-	if (!tls) return;
+	if (!tls || !*tls)
+		return;
 
-	if (tls->ssl) {
+	struct tls *ctx = *tls;
+
+	if (ctx->ssl) {
 		int32_t e;
 
 		//SSL_shutdown may need to be called twice
-		e = SSL_shutdown(tls->ssl);
+		e = SSL_shutdown(ctx->ssl);
 		if (e == 0)
-			SSL_shutdown(tls->ssl);
+			SSL_shutdown(ctx->ssl);
 
 		MTY_GlobalLock(&TLS_GLOCK);
 
-		SSL_free(tls->ssl);
+		SSL_free(ctx->ssl);
 
 		MTY_GlobalUnlock(&TLS_GLOCK);
 	}
 
-	if (tls->ctx)
-		SSL_CTX_free(tls->ctx);
+	if (ctx->ctx)
+		SSL_CTX_free(ctx->ctx);
 
-	free(tls);
+	MTY_Free(ctx);
+	*tls = NULL;
 }
 
-static int32_t tls_context_new(struct tls_context **tls_in, TCP_SOCKET socket)
+static int32_t tls_new(struct tls **tls_in, TCP_SOCKET socket)
 {
-	struct tls_context *tls = *tls_in = calloc(1, sizeof(struct tls_context));
+	struct tls *tls = *tls_in = calloc(1, sizeof(struct tls));
 
 	if (!ssl_dl_global_init()) return MTY_NET_TLS_ERR_CONTEXT;
 
@@ -214,7 +233,7 @@ static int32_t tls_context_new(struct tls_context **tls_in, TCP_SOCKET socket)
 	return MTY_NET_TLS_OK;
 }
 
-static int32_t tls_handshake_poll(struct tls_context *tls, int32_t e, int32_t timeout_ms)
+static int32_t tls_handshake_poll(struct tls *tls, int32_t e, int32_t timeout_ms)
 {
 	int32_t ne = tcp_error();
 	if (ne == tcp_bad_fd()) return MTY_NET_TLS_ERR_FD;
@@ -225,80 +244,75 @@ static int32_t tls_handshake_poll(struct tls_context *tls, int32_t e, int32_t ti
 	return MTY_NET_TLS_ERR_HANDSHAKE;
 }
 
-int32_t tls_connect(struct tls_context **tls_in, TCP_SOCKET socket,
-	const char *host, bool verify_host, int32_t timeout_ms)
+struct tls *tls_connect(TCP_SOCKET socket, const char *host, bool verify_host, int32_t timeout_ms)
 {
 	int32_t r = MTY_NET_TLS_OK;
 
-	int32_t e = tls_context_new(tls_in, socket);
-	struct tls_context *tls = *tls_in;
+	struct tls *ctx = NULL;
+	int32_t e = tls_new(&ctx, socket);
 	if (e != MTY_NET_TLS_OK) {r = e; goto except;}
 
 	//set peer certificate verification
-	SSL_set_verify(tls->ssl, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
-	SSL_set_verify_depth(tls->ssl, TLS_VERIFY_DEPTH);
+	SSL_set_verify(ctx->ssl, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
+	SSL_set_verify_depth(ctx->ssl, TLS_VERIFY_DEPTH);
 
 	//set hostname validation
 	if (verify_host) {
-		X509_VERIFY_PARAM *param = SSL_get0_param(tls->ssl);
+		X509_VERIFY_PARAM *param = SSL_get0_param(ctx->ssl);
 		X509_VERIFY_PARAM_set_hostflags(param, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
 		X509_VERIFY_PARAM_set1_host(param, host, 0);
 	}
 
 	//set hostname extension -- sometimes required
-	SSL_ctrl(tls->ssl, SSL_CTRL_SET_TLSEXT_HOSTNAME, TLSEXT_NAMETYPE_host_name, (char *) host);
+	SSL_ctrl(ctx->ssl, SSL_CTRL_SET_TLSEXT_HOSTNAME, TLSEXT_NAMETYPE_host_name, (char *) host);
 
-	while (1) {
+	while (true) {
 		//attempt SSL connection on nonblocking socket -- 1 is success
-		e = SSL_connect(tls->ssl);
+		e = SSL_connect(ctx->ssl);
 		if (e == 1) break;
 
 		//if not successful, see if we neeed to poll for more data
-		e = tls_handshake_poll(tls, e, timeout_ms);
+		e = tls_handshake_poll(ctx, e, timeout_ms);
 		if (e != MTY_NET_TLS_OK) {r = e; break;}
 	}
 
 	except:
 
-	if (r != MTY_NET_TLS_OK) {
-		tls_close(tls);
-		*tls_in = NULL;
-	}
+	if (r != MTY_NET_TLS_OK)
+		tls_destroy(&ctx);
 
-	return r;
+	return ctx;
 }
 
-int32_t tls_accept(struct tls_context **tls_in, TCP_SOCKET socket, int32_t timeout_ms)
+struct tls *tls_accept(TCP_SOCKET socket, int32_t timeout_ms)
 {
 	int32_t r = MTY_NET_TLS_OK;
 
-	int32_t e = tls_context_new(tls_in, socket);
-	struct tls_context *tls = *tls_in;
+	struct tls *ctx = NULL;
+	int32_t e = tls_new(&ctx, socket);
 	if (e != MTY_NET_TLS_OK) {r = e; goto except;}
 
 	while (1) {
 		//attempt SSL accept on nonblocking socket -- 1 is success
-		e = SSL_accept(tls->ssl);
+		e = SSL_accept(ctx->ssl);
 		if (e == 1) break;
 
 		//if not successful, see if we neeed to poll for more data
-		e = tls_handshake_poll(tls, e, timeout_ms);
+		e = tls_handshake_poll(ctx, e, timeout_ms);
 		if (e != MTY_NET_TLS_OK) {r = e; break;}
 	}
 
 	except:
 
-	if (r != MTY_NET_TLS_OK) {
-		tls_close(tls);
-		*tls_in = NULL;
-	}
+	if (r != MTY_NET_TLS_OK)
+		tls_destroy(&ctx);
 
-	return r;
+	return ctx;
 }
 
 int32_t tls_write(void *ctx, const char *buf, size_t size)
 {
-	struct tls_context *tls = (struct tls_context *) ctx;
+	struct tls *tls = ctx;
 
 	for (size_t total = 0; total < size;) {
 		int32_t n = SSL_write(tls->ssl, buf + total, (int32_t) (size - total));
@@ -317,7 +331,7 @@ int32_t tls_write(void *ctx, const char *buf, size_t size)
 
 int32_t tls_read(void *ctx, char *buf, size_t size, int32_t timeout_ms)
 {
-	struct tls_context *tls = (struct tls_context *) ctx;
+	struct tls *tls = ctx;
 
 	for (size_t total = 0; total < size;) {
 		if (SSL_has_pending(tls->ssl) == 0) {
