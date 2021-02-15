@@ -84,34 +84,6 @@ int32_t tcp_poll(struct tcp_context *nc, int32_t tcp_event, int32_t timeout_ms)
 	return (e == 0) ? MTY_NET_TCP_ERR_TIMEOUT : (e < 0) ? MTY_NET_TCP_ERR_POLL : MTY_NET_TCP_OK;
 }
 
-int32_t tcp_getip4(const char *host, char *ip4, uint32_t ip4_len)
-{
-	int32_t r = MTY_NET_TCP_OK;
-	struct addrinfo hints;
-	struct addrinfo *servinfo = NULL;
-
-	//set to request only IP4, TCP
-	memset(&hints, 0, sizeof(struct addrinfo));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;
-
-	int32_t e = getaddrinfo(host, NULL, &hints, &servinfo);
-	if (e != 0) {r = MTY_NET_TCP_ERR_RESOLVE; goto except;}
-
-	//attempt to convert the first returned address into string
-	struct sockaddr_in *addr = (struct sockaddr_in *) servinfo->ai_addr;
-	const char *dst = inet_ntop(AF_INET, &addr->sin_addr, ip4, ip4_len);
-	if (!dst) {r = MTY_NET_TCP_ERR_NTOP; goto except;}
-
-	except:
-
-	if (servinfo)
-		freeaddrinfo(servinfo);
-
-	return r;
-}
-
 static int32_t tcp_setup(struct tcp_context *nc, const char *ip4, uint16_t port, struct sockaddr_in *addr)
 {
 	nc->s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -257,4 +229,41 @@ void tcp_get_socket(struct tcp_context *nc, void *socket)
 	SOCKET *s = (SOCKET *) socket;
 
 	*s = nc->s;
+}
+
+
+// DNS
+
+bool dns_query(const char *host, char *ip, size_t size)
+{
+	bool r = true;
+
+	// Set to request only IP4, TCP
+	struct addrinfo hints = {0};
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+
+	struct addrinfo *servinfo = NULL;
+	int32_t e = getaddrinfo(host, NULL, &hints, &servinfo);
+	if (e != 0) {
+		MTY_Log("'getaddrinfo' failed with error %d", e);
+		r = false;
+		goto except;
+	}
+
+	// Attempt to convert the first returned address into string
+	struct sockaddr_in *addr = (struct sockaddr_in *) servinfo->ai_addr;
+	if (!inet_ntop(AF_INET, &addr->sin_addr, ip, size)) {
+		MTY_Log("'inet_ntop' failed with errno %d", errno);
+		r = false;
+		goto except;
+	}
+
+	except:
+
+	if (servinfo)
+		freeaddrinfo(servinfo);
+
+	return r;
 }

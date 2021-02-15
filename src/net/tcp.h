@@ -41,7 +41,6 @@ int32_t tcp_bad_fd(void);
 
 void tcp_close(struct tcp_context *nc);
 int32_t tcp_poll(struct tcp_context *nc, int32_t tcp_event, int32_t timeout_ms);
-int32_t tcp_getip4(const char *host, char *ip4, uint32_t ip4_len);
 int32_t tcp_connect(struct tcp_context **nc_out, const char *ip4, uint16_t port, int32_t timeout_ms);
 int32_t tcp_listen(struct tcp_context **nc_out, const char *bind_ip4, uint16_t port);
 int32_t tcp_accept(struct tcp_context *nc, struct tcp_context **child, int32_t timeout_ms);
@@ -49,3 +48,5 @@ void tcp_get_socket(struct tcp_context *nc, void *socket);
 
 int32_t tcp_write(void *ctx, const char *buf, size_t size);
 int32_t tcp_read(void *ctx, char *buf, size_t size, int32_t timeout_ms);
+
+bool dns_query(const char *host, char *ip, size_t size);

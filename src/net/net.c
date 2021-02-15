@@ -181,11 +181,11 @@ int32_t mty_net_connect(struct mty_net_conn *ucc, bool secure, const char *host,
 
 	MTY_GlobalLock(&NET_GLOCK);
 
-	bool url_ok = http_parse_url(NET_PROXY, &pi.secure, &pi.host, &pi.port, &pi.path) == MTY_NET_OK;
+	bool ok = http_parse_url(NET_PROXY, &pi.secure, &pi.host, &pi.port, &pi.path) == MTY_NET_OK;
 
 	MTY_GlobalUnlock(&NET_GLOCK);
 
-	bool use_proxy = url_ok && pi.host && pi.host[0];
+	bool use_proxy = ok && pi.host && pi.host[0];
 
 	//connect via proxy if specified
 	const char *use_host = use_proxy ? pi.host : host;
@@ -193,17 +193,18 @@ int32_t mty_net_connect(struct mty_net_conn *ucc, bool secure, const char *host,
 
 	//resolve the hostname into an ip4 address
 	char ip4[LEN_IP4];
-	int32_t e = tcp_getip4(use_host, ip4, LEN_IP4);
+	ok = dns_query(use_host, ip4, LEN_IP4);
 
 	if (use_proxy) {
 		free(pi.host);
 		free(pi.path);
 	}
 
-	if (e != MTY_NET_OK) return e;
+	if (!ok)
+		return MTY_NET_ERR_DEFAULT;
 
 	//make the net connection
-	e = tcp_connect(&ucc->net, ip4, use_port, timeout_ms);
+	int32_t e = tcp_connect(&ucc->net, ip4, use_port, timeout_ms);
 	if (e != MTY_NET_OK) return e;
 
 	//default read/write callbacks
