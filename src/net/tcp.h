@@ -32,21 +32,20 @@ enum {
 	MTY_NET_TCP_ERR_ACCEPT        = -50023,
 };
 
-typedef int32_t TCP_SOCKET;
+typedef intptr_t TCP_SOCKET;
 
 int32_t tcp_error(void);
 int32_t tcp_would_block(void);
-int32_t tcp_in_progress(void);
 int32_t tcp_invalid_socket(void);
 int32_t tcp_bad_fd(void);
 
-void tcp_close(TCP_SOCKET nc);
+TCP_SOCKET tcp_connect(const char *ip4, uint16_t port, int32_t timeout_ms);
+TCP_SOCKET tcp_listen(const char *bind_ip4, uint16_t port);
+TCP_SOCKET tcp_accept(TCP_SOCKET nc, int32_t timeout_ms);
 int32_t tcp_poll(TCP_SOCKET nc, int32_t tcp_event, int32_t timeout_ms);
-int32_t tcp_connect(TCP_SOCKET *nc_out, const char *ip4, uint16_t port, int32_t timeout_ms);
-int32_t tcp_listen(TCP_SOCKET *nc_out, const char *bind_ip4, uint16_t port);
-int32_t tcp_accept(TCP_SOCKET nc, TCP_SOCKET *child, int32_t timeout_ms);
+void tcp_destroy(TCP_SOCKET *nc);
 
-int32_t tcp_write(void *ctx, const char *buf, size_t size);
-int32_t tcp_read(void *ctx, char *buf, size_t size, int32_t timeout_ms);
+int32_t tcp_write(TCP_SOCKET s, const char *buf, size_t size);
+int32_t tcp_read(TCP_SOCKET s, char *buf, size_t size, int32_t timeout_ms);
 
 bool dns_query(const char *host, char *ip, size_t size);

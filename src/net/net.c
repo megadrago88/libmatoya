@@ -28,10 +28,6 @@ struct mty_net_conn {
 	TCP_SOCKET socket;
 	struct tls *tls;
 
-	void *ctx;
-	int32_t (*read)(void *ctx, char *buf, size_t size, int32_t timeout_ms);
-	int32_t (*write)(void *ctx, const char *buf, size_t size);
-
 	char *host;
 	uint16_t port;
 };
@@ -100,28 +96,14 @@ struct mty_net_conn *mty_net_new_conn(void)
 	return calloc(1, sizeof(struct mty_net_conn));
 }
 
-static void mty_net_attach_net(struct mty_net_conn *ucc)
-{
-	ucc->ctx = (void *) (uintptr_t) ucc->socket;
-	ucc->read = tcp_read;
-	ucc->write = tcp_write;
-}
-
-static void mty_net_attach_tls(struct mty_net_conn *ucc)
-{
-	ucc->ctx = ucc->tls;
-	ucc->read = tls_read;
-	ucc->write = tls_write;
-}
-
 int32_t mty_net_write(struct mty_net_conn *ucc, const char *body, uint32_t body_len)
 {
-	return ucc->write(ucc->ctx, body, body_len);
+	return ucc->tls ? tls_write(ucc->tls, body, body_len) : tcp_write(ucc->socket, body, body_len);
 }
 
 int32_t mty_net_read(struct mty_net_conn *ucc, char *body, uint32_t body_len, int32_t timeout)
 {
-	return ucc->read(ucc->ctx, body, body_len, timeout);
+	return ucc->tls ? tls_read(ucc->tls, body, body_len, timeout) : tcp_read(ucc->socket, body, body_len, timeout);
 }
 
 static int32_t mty_net_read_header_(struct mty_net_conn *ucc, char **header, int32_t timeout_ms)
@@ -204,18 +186,16 @@ int32_t mty_net_connect(struct mty_net_conn *ucc, bool secure, const char *host,
 		return MTY_NET_ERR_DEFAULT;
 
 	//make the socket connection
-	int32_t e = tcp_connect(&ucc->socket, ip4, use_port, timeout_ms);
-	if (e != MTY_NET_OK) return e;
-
-	//default read/write callbacks
-	mty_net_attach_net(ucc);
+	ucc->socket = tcp_connect(ip4, use_port, timeout_ms);
+	if (ucc->socket == tcp_invalid_socket())
+		return MTY_NET_ERR_DEFAULT;
 
 	//proxy CONNECT request
 	if (use_proxy) {
 		char *h = http_connect(ucc->host, ucc->port, NULL);
 
 		//write the header to the HTTP client/server
-		e = mty_net_write(ucc, h, (uint32_t) strlen(h));
+		int32_t e = mty_net_write(ucc, h, (uint32_t) strlen(h));
 		free(h);
 		if (e != MTY_NET_OK) return e;
 
@@ -234,9 +214,6 @@ int32_t mty_net_connect(struct mty_net_conn *ucc, bool secure, const char *host,
 		ucc->tls = tls_connect(ucc->socket, ucc->host, verify_host, timeout_ms);
 		if (!ucc->tls)
 			return MTY_NET_ERR_DEFAULT;
-
-		//tls read/write callbacks
-		mty_net_attach_tls(ucc);
 	}
 
 	return MTY_NET_OK;
@@ -245,9 +222,9 @@ int32_t mty_net_connect(struct mty_net_conn *ucc, bool secure, const char *host,
 int32_t mty_net_listen(struct mty_net_conn *ucc, const char *bind_ip4, uint16_t port)
 {
 	ucc->port = port;
-
-	int32_t e = tcp_listen(&ucc->socket, bind_ip4, ucc->port);
-	if (e != MTY_NET_OK) return e;
+	ucc->socket = tcp_listen(bind_ip4, ucc->port);
+	if (ucc->socket == tcp_invalid_socket())
+		return MTY_NET_ERR_DEFAULT;
 
 	return MTY_NET_OK;
 }
@@ -257,20 +234,13 @@ int32_t mty_net_accept(struct mty_net_conn *ucc, struct mty_net_conn **ucc_new_i
 	struct mty_net_conn *ucc_new = *ucc_new_in = mty_net_new_conn();
 
 	int32_t r = MTY_NET_OK;
-	TCP_SOCKET new_net = tcp_invalid_socket();
 
-	int32_t e = tcp_accept(ucc->socket, &new_net, timeout_ms);
-	if (e != MTY_NET_OK) {r = e; goto except;}
-
-	ucc_new->socket = new_net;
-	mty_net_attach_net(ucc_new);
+	ucc_new->socket = tcp_accept(ucc->socket, timeout_ms);
+	if (ucc_new->socket == tcp_invalid_socket()) {r = MTY_NET_ERR_DEFAULT; goto except;}
 
 	if (secure) {
 		ucc_new->tls = tls_accept(ucc_new->socket, timeout_ms);
 		if (!ucc_new->tls) {r = MTY_NET_ERR_DEFAULT; goto except;}
-
-		//tls read/write callbacks
-		mty_net_attach_tls(ucc_new);
 	}
 
 	except:
@@ -293,7 +263,8 @@ void mty_net_close(struct mty_net_conn *ucc)
 	if (!ucc) return;
 
 	tls_destroy(&ucc->tls);
-	tcp_close(ucc->socket);
+	tcp_destroy(&ucc->socket);
+
 	free(ucc->host);
 	http_free_header(ucc->hin);
 	free(ucc->hout);

@@ -227,7 +227,8 @@ static int32_t tls_new(struct tls **tls_in, TCP_SOCKET socket)
 	int32_t e = SSL_set_cipher_list(tls->ssl, TLS_CIPHER_LIST);
 	if (e != 1) return MTY_NET_TLS_ERR_CIPHER;
 
-	e = SSL_set_fd(tls->ssl, socket);
+	//Event though sockets on windows can be 64-bit, OpenSSL requires them as a 32-bit int
+	e = SSL_set_fd(tls->ssl, (int32_t) socket);
 	if (e != 1) return MTY_NET_TLS_ERR_FD;
 
 	return MTY_NET_TLS_OK;
@@ -310,14 +311,12 @@ struct tls *tls_accept(TCP_SOCKET socket, int32_t timeout_ms)
 	return ctx;
 }
 
-int32_t tls_write(void *ctx, const char *buf, size_t size)
+int32_t tls_write(struct tls *ctx, const char *buf, size_t size)
 {
-	struct tls *tls = ctx;
-
 	for (size_t total = 0; total < size;) {
-		int32_t n = SSL_write(tls->ssl, buf + total, (int32_t) (size - total));
+		int32_t n = SSL_write(ctx->ssl, buf + total, (int32_t) (size - total));
 		if (n <= 0) {
-			int32_t ssl_e = SSL_get_error(tls->ssl, n);
+			int32_t ssl_e = SSL_get_error(ctx->ssl, n);
 			if (ssl_e == SSL_ERROR_WANT_READ || ssl_e == SSL_ERROR_WANT_WRITE) continue;
 			if (ssl_e == SSL_ERROR_ZERO_RETURN) return MTY_NET_TLS_ERR_CLOSED;
 			return MTY_NET_TLS_ERR_WRITE;
@@ -329,19 +328,17 @@ int32_t tls_write(void *ctx, const char *buf, size_t size)
 	return MTY_NET_TLS_OK;
 }
 
-int32_t tls_read(void *ctx, char *buf, size_t size, int32_t timeout_ms)
+int32_t tls_read(struct tls *ctx, char *buf, size_t size, int32_t timeout_ms)
 {
-	struct tls *tls = ctx;
-
 	for (size_t total = 0; total < size;) {
-		if (SSL_has_pending(tls->ssl) == 0) {
-			int32_t e = tcp_poll(tls->socket, TCP_POLLIN, timeout_ms);
+		if (SSL_has_pending(ctx->ssl) == 0) {
+			int32_t e = tcp_poll(ctx->socket, TCP_POLLIN, timeout_ms);
 			if (e != MTY_NET_TLS_OK) return e;
 		}
 
-		int32_t n = SSL_read(tls->ssl, buf + total, (int32_t) (size - total));
+		int32_t n = SSL_read(ctx->ssl, buf + total, (int32_t) (size - total));
 		if (n <= 0) {
-			int32_t ssl_e = SSL_get_error(tls->ssl, n);
+			int32_t ssl_e = SSL_get_error(ctx->ssl, n);
 			if (ssl_e == SSL_ERROR_WANT_READ || ssl_e == SSL_ERROR_WANT_WRITE) continue;
 			if (ssl_e == SSL_ERROR_ZERO_RETURN) return MTY_NET_TLS_ERR_CLOSED;
 			return MTY_NET_TLS_ERR_READ;

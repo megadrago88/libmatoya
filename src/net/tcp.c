@@ -31,11 +31,6 @@ int32_t tcp_would_block(void)
 	return MTY_SOCK_WOULD_BLOCK;
 }
 
-int32_t tcp_in_progress(void)
-{
-	return MTY_SOCK_IN_PROGRESS;
-}
-
 int32_t tcp_bad_fd(void)
 {
 	return MTY_SOCK_BAD_FD;
@@ -46,13 +41,17 @@ int32_t tcp_invalid_socket(void)
 	return INVALID_SOCKET;
 }
 
-void tcp_close(TCP_SOCKET nc)
+void tcp_destroy(TCP_SOCKET *nc)
 {
-	if (!nc) return;
+	if (!nc)
+		return;
 
-	if (nc != INVALID_SOCKET) {
-		shutdown(nc, SHUT_RDWR);
-		closesocket(nc);
+	TCP_SOCKET s = *nc;
+
+	if (s != INVALID_SOCKET) {
+		shutdown(s, SHUT_RDWR);
+		closesocket(s);
+		*nc = INVALID_SOCKET;
 	}
 }
 
@@ -88,7 +87,7 @@ static int32_t tcp_setup(TCP_SOCKET *nc, const char *ip4, uint16_t port, struct 
 	SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (s == INVALID_SOCKET) return MTY_NET_TCP_ERR_SOCKET;
 
-	*nc = (TCP_SOCKET) s;
+	*nc = s;
 
 	//put socket in nonblocking mode, allows us to implement connection timeout
 	int32_t e = sock_set_nonblocking(s);
@@ -109,89 +108,87 @@ static int32_t tcp_setup(TCP_SOCKET *nc, const char *ip4, uint16_t port, struct 
 	return MTY_NET_TCP_OK;
 }
 
-int32_t tcp_connect(TCP_SOCKET *nc_out, const char *ip4, uint16_t port, int32_t timeout_ms)
+TCP_SOCKET tcp_connect(const char *ip4, uint16_t port, int32_t timeout_ms)
 {
 	int32_t r = MTY_NET_TCP_OK;
 
+	TCP_SOCKET s = INVALID_SOCKET;
+
 	struct sockaddr_in addr;
-	int32_t e = tcp_setup(nc_out, ip4, port, &addr);
+	int32_t e = tcp_setup(&s, ip4, port, &addr);
 	if (e != MTY_NET_TCP_OK) {r = e; goto except;}
 
 	//initiate the socket connection
-	e = connect(*nc_out, (struct sockaddr *) &addr, sizeof(struct sockaddr_in));
+	e = connect(s, (struct sockaddr *) &addr, sizeof(struct sockaddr_in));
 
 	//initial socket state must be 'in progress' for nonblocking connect
-	if (tcp_error() != tcp_in_progress()) {r = MTY_NET_TCP_ERR_CONNECT; goto except;}
+	if (tcp_error() != MTY_SOCK_IN_PROGRESS) {r = MTY_NET_TCP_ERR_CONNECT; goto except;}
 
 	//wait for socket to be ready to write
-	e = tcp_poll(*nc_out, TCP_POLLOUT, timeout_ms);
+	e = tcp_poll(s, TCP_POLLOUT, timeout_ms);
 	if (e != MTY_NET_TCP_OK) {r = e; goto except;}
 
 	//if the socket is clear of errors, we made a successful connection
-	if (tcp_get_error(*nc_out) != 0) {r = MTY_NET_TCP_ERR_CONNECT_FINAL; goto except;}
+	if (tcp_get_error(s) != 0) {r = MTY_NET_TCP_ERR_CONNECT_FINAL; goto except;}
 
 	except:
 
-	if (r != MTY_NET_TCP_OK) {
-		tcp_close(*nc_out);
-		*nc_out = INVALID_SOCKET;
-	}
+	if (r != MTY_NET_TCP_OK)
+		tcp_destroy(&s);
 
-	return r;
+	return s;
 }
 
-int32_t tcp_listen(TCP_SOCKET *nc_out, const char *bind_ip4, uint16_t port)
+TCP_SOCKET tcp_listen(const char *bind_ip4, uint16_t port)
 {
 	int32_t r = MTY_NET_TCP_OK;
 
+	TCP_SOCKET s = INVALID_SOCKET;
+
 	struct sockaddr_in addr;
-	int32_t e = tcp_setup(nc_out, bind_ip4, port, &addr);
+	int32_t e = tcp_setup(&s, bind_ip4, port, &addr);
 	if (e != MTY_NET_TCP_OK) {r = e; goto except;}
 
-	e = bind(*nc_out, (struct sockaddr *) &addr, sizeof(struct sockaddr_in));
+	e = bind(s, (struct sockaddr *) &addr, sizeof(struct sockaddr_in));
 	if (e != 0) {r = MTY_NET_TCP_ERR_BIND; goto except;}
 
-	e = listen(*nc_out, SOMAXCONN);
+	e = listen(s, SOMAXCONN);
 	if (e != 0) {r = MTY_NET_TCP_ERR_LISTEN; goto except;}
 
 	except:
 
-	if (r != MTY_NET_TCP_OK) {
-		tcp_close(*nc_out);
-		*nc_out = INVALID_SOCKET;
-	}
+	if (r != MTY_NET_TCP_OK)
+		tcp_destroy(&s);
 
-	return r;
+	return s;
 }
 
-int32_t tcp_accept(TCP_SOCKET nc, TCP_SOCKET *child, int32_t timeout_ms)
+TCP_SOCKET tcp_accept(TCP_SOCKET nc, int32_t timeout_ms)
 {
 	int32_t e = tcp_poll(nc, TCP_POLLIN, timeout_ms);
 
 	if (e == MTY_NET_TCP_OK) {
 		SOCKET s = accept(nc, NULL, NULL);
-		if (s == INVALID_SOCKET) return MTY_NET_TCP_ERR_ACCEPT;
+		if (s == INVALID_SOCKET) return s;
 
 		e = sock_set_nonblocking(s);
-		if (e != 0) return MTY_NET_TCP_ERR_BLOCKMODE;
+		if (e != 0) return INVALID_SOCKET;
 
 		tcp_set_options(s);
 
-		*child = (TCP_SOCKET) s;
-
-		return MTY_NET_TCP_OK;
+		return s;
 	}
 
-	return e;
+	return INVALID_SOCKET;
 }
 
-int32_t tcp_write(void *ctx, const char *buf, size_t size)
+int32_t tcp_write(TCP_SOCKET s, const char *buf, size_t size)
 {
-	TCP_SOCKET nc = (TCP_SOCKET) (uintptr_t) ctx;
-
 	for (size_t total = 0; total < size;) {
-		int32_t n = send(nc, buf + total, (int32_t) (size - total), 0);
-		if (n <= 0) return MTY_NET_TCP_ERR_WRITE;
+		int32_t n = send(s, buf + total, (int32_t) (size - total), 0);
+
+		if (n <= 0)
+			return MTY_NET_TCP_ERR_WRITE;
 
 		total += n;
 	}
@@ -199,19 +196,20 @@ int32_t tcp_write(void *ctx, const char *buf, size_t size)
 	return MTY_NET_TCP_OK;
 }
 
-int32_t tcp_read(void *ctx, char *buf, size_t size, int32_t timeout_ms)
+int32_t tcp_read(TCP_SOCKET s, char *buf, size_t size, int32_t timeout_ms)
 {
-	TCP_SOCKET nc = (TCP_SOCKET) (uintptr_t) ctx;
-
 	for (size_t total = 0; total < size;) {
-		int32_t e = tcp_poll(nc, TCP_POLLIN, timeout_ms);
-		if (e != MTY_NET_TCP_OK) return e;
+		int32_t e = tcp_poll(s, TCP_POLLIN, timeout_ms);
 
-		int32_t n = recv(nc, buf + total, (int32_t) (size - total), 0);
+		if (e != MTY_NET_TCP_OK)
+			return e;
+
+		int32_t n = recv(s, buf + total, (int32_t) (size - total), 0);
 		if (n <= 0) {
-			if (tcp_error() == tcp_would_block()) continue;
+			if (tcp_error() == tcp_would_block())
+				continue;
 
-			return (n == 0) ? MTY_NET_TCP_ERR_CLOSED : MTY_NET_TCP_ERR_READ;
+			return n == 0 ? MTY_NET_TCP_ERR_CLOSED : MTY_NET_TCP_ERR_READ;
 		}
 
 		total += n;
