@@ -446,6 +446,9 @@ MTY_Strdup(const char *str);
 MTY_EXPORT void
 MTY_Strcat(char *dst, size_t size, const char *src);
 
+MTY_EXPORT int32_t
+MTY_Strcasecmp(const char *s1, const char *s2);
+
 MTY_EXPORT void
 MTY_Free(void *mem);
 

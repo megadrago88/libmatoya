@@ -17,11 +17,10 @@
 
 static int8_t mty_net_check_header(struct mty_net_conn *ucc, const char *name, const char *subval)
 {
-	char *val = NULL;
+	const char *val = NULL;
+	bool ok = mty_net_get_header_str(ucc, name, &val);
 
-	int32_t e = mty_net_get_header_str(ucc, name, &val);
-
-	return (e == MTY_NET_OK && strstr(http_lc(val), subval)) ? 1 : 0;
+	return ok && MTY_Strcasecmp(val, subval) ? 1 : 0;
 }
 
 static int32_t mty_net_read_chunk_len(struct mty_net_conn *ucc, uint32_t *len, int32_t timeout_ms)
@@ -91,8 +90,10 @@ static int32_t mty_net_read_body_all(struct mty_net_conn *ucc, void **body, size
 
 	//use Content-Length
 	} else {
-		int32_t e = mty_net_get_header_int(ucc, "Content-Length", (int32_t *) body_len);
-		if (e != MTY_NET_OK) {r = e; goto except;}
+		if (!mty_net_get_header_int(ucc, "Content-Length", (int32_t *) body_len)) {
+			r = MTY_NET_ERR_DEFAULT;
+			goto except;
+		}
 
 		if (*body_len == 0) {r = MTY_NET_ERR_NO_BODY; goto except;}
 		if (*body_len > max_body) {r = MTY_NET_ERR_MAX_BODY; goto except;}
@@ -132,7 +133,7 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 	if (e != MTY_NET_OK) goto except;
 
 	//set request headers
-	mty_net_set_header_str(ucc, "User-Agent", "mty_net/0.0");
+	mty_net_set_header_str(ucc, "User-Agent", "mty-http/v4");
 	mty_net_set_header_str(ucc, "Connection", "close");
 	if (headers) mty_http_set_headers(ucc, headers);
 	if (bodySize) mty_net_set_header_int(ucc, "Content-Length", bodySize);
@@ -150,8 +151,10 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 	if (e != MTY_NET_OK) goto except;
 
 	//get the status code
-	e = mty_net_get_status_code(ucc, status);
-	if (e != MTY_NET_OK) goto except;
+	if (!mty_net_get_status_code(ucc, status)) {
+		 e = MTY_NET_ERR_DEFAULT;
+		 goto except;
+	}
 
 	//read the response body if not HEAD request -- uncompress if necessary
 	if (strcmp(method, "HEAD")) {

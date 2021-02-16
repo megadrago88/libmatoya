@@ -117,3 +117,8 @@ char *MTY_Strtok(char *str, const char *delim, char **saveptr)
 {
 	return strtok_s(str, delim, saveptr);
 }
+
+int32_t MTY_Strcasecmp(const char *s1, const char *s2)
+{
+	return _stricmp(s1, s2);
+}

@@ -212,9 +212,9 @@ static int32_t mty_net_ws_accept(MTY_WebSocket *ws, const char * const *origins,
 	mty_net_set_header_str(ws->ucc, "Connection", "Upgrade");
 
 	//check the origin header against our whitelist
-	char *origin = NULL;
-	e = mty_net_get_header_str(ws->ucc, "Origin", &origin);
-	if (e != MTY_NET_OK) return e;
+	const char *origin = NULL;
+	if (!mty_net_get_header_str(ws->ucc, "Origin", &origin))
+		 return MTY_NET_ERR_DEFAULT;
 
 	//secure origin check
 	if (secure_origin) {
@@ -232,9 +232,9 @@ static int32_t mty_net_ws_accept(MTY_WebSocket *ws, const char * const *origins,
 	if (!origin_ok) return MTY_NET_WS_ERR_ORIGIN;
 
 	//read the key and set a compliant response header
-	char *sec_key = NULL;
-	e = mty_net_get_header_str(ws->ucc, "Sec-WebSocket-Key", &sec_key);
-	if (e != MTY_NET_OK) return e;
+	const char *sec_key = NULL;
+	if (!mty_net_get_header_str(ws->ucc, "Sec-WebSocket-Key", &sec_key))
+		return MTY_NET_ERR_DEFAULT;
 
 	char *accept_key = ws_create_accept_key(sec_key);
 	mty_net_set_header_str(ws->ucc, "Sec-WebSocket-Accept", accept_key);
@@ -331,14 +331,20 @@ static int32_t mty_net_ws_connect(MTY_WebSocket *ws, const char *path, const cha
 	if (e != MTY_NET_OK) {r = e; goto except;}
 
 	//make sure we have a 101 from the server
-	e = mty_net_get_status_code(ws->ucc, upgrade_status);
-	if (e != MTY_NET_OK) {r = e; goto except;}
+	if (!mty_net_get_status_code(ws->ucc, upgrade_status)) {
+		r = MTY_NET_WS_ERR_STATUS;
+		goto except;
+	}
+
 	if (*upgrade_status != 101) {r = MTY_NET_WS_ERR_STATUS; goto except;}
 
 	//validate the security key response
-	char *server_sec_key = NULL;
-	e = mty_net_get_header_str(ws->ucc, "Sec-WebSocket-Accept", &server_sec_key);
-	if (e != MTY_NET_OK) {r = e; goto except;}
+	const char *server_sec_key = NULL;
+	if (!mty_net_get_header_str(ws->ucc, "Sec-WebSocket-Accept", &server_sec_key)) {
+		r = MTY_NET_ERR_DEFAULT;
+		goto except;
+	}
+
 	if (!ws_validate_key(sec_key, server_sec_key)) {r = MTY_NET_WS_ERR_KEY; goto except;}
 
 	//client must send masked messages

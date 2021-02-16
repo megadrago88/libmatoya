@@ -18,30 +18,19 @@ enum mty_net_header_type {
 
 enum mty_net_status {
 	MTY_NET_OK                    = 0,
-
 	MTY_NET_ERR_DEFAULT           = -50001,
-
 	MTY_NET_ERR_NO_BODY           = -53000,
 	MTY_NET_ERR_MAX_CHUNK         = -53001,
 	MTY_NET_ERR_MAX_BODY          = -53002,
 	MTY_NET_ERR_MAX_HEADER        = -53003,
 	MTY_NET_ERR_BUFFER            = -53004,
 	MTY_NET_ERR_PROXY             = -53005,
-
 	MTY_NET_WS_ERR_STATUS         = -54000,
 	MTY_NET_WS_ERR_KEY            = -54001,
 	MTY_NET_WS_ERR_ORIGIN         = -54002,
-
 	MTY_NET_WS_ERR_PING           = -3005,
-
 	MTY_NET_ERR_INFLATE           = -5001,
 };
-
-#define mty_net_get_header_str(ucc, key, val_str) \
-	mty_net_get_header(ucc, key, NULL, val_str)
-
-#define mty_net_get_header_int(ucc, key, val_int) \
-	mty_net_get_header(ucc, key, val_int, NULL)
 
 char *mty_net_get_proxy(void);
 
@@ -58,6 +47,7 @@ void mty_net_set_header_str(struct mty_net_conn *ucc, const char *name, const ch
 int32_t mty_net_read_header(struct mty_net_conn *ucc, int32_t timeout_ms);
 void mty_net_set_header_int(struct mty_net_conn *ucc, const char *name, int32_t value);
 int32_t mty_net_write_header(struct mty_net_conn *ucc, const char *str0, const char *str1, int32_t type);
-int32_t mty_net_get_header(struct mty_net_conn *ucc, const char *key, int32_t *val_int, char **val_str);
-int32_t mty_net_get_status_code(struct mty_net_conn *ucc, uint16_t *status_code);
+bool mty_net_get_status_code(struct mty_net_conn *ucc, uint16_t *status_code);
+bool mty_net_get_header_str(struct mty_net_conn *ucc, const char *key, const char **val);
+bool mty_net_get_header_int(struct mty_net_conn *ucc, const char *key, int32_t *val);
 void mty_http_set_headers(struct mty_net_conn *ucc, const char *header_str_orig);
