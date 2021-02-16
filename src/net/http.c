@@ -47,7 +47,7 @@ char *http_request(const char *method, const char *host, const char *path, const
 	if (!fields)
 		fields = "";
 
-	size_t size = snprintf(NULL, 0, HTTP_REQUEST_FMT, method, path, host, fields);
+	size_t size = snprintf(NULL, 0, HTTP_REQUEST_FMT, method, path, host, fields) + 1;
 	char *str = MTY_Alloc(size, 1);
 
 	snprintf(str, size, HTTP_REQUEST_FMT, method, path, host, fields);
@@ -60,7 +60,7 @@ char *http_connect(const char *host, uint16_t port, const char *fields)
 	if (!fields)
 		fields = "";
 
-	size_t size = snprintf(NULL, 0, HTTP_CONNECT_FMT, host, port, fields);
+	size_t size = snprintf(NULL, 0, HTTP_CONNECT_FMT, host, port, fields) + 1;
 	char *str = MTY_Alloc(size, 1);
 
 	snprintf(str, size, HTTP_CONNECT_FMT, host, port, fields);
@@ -73,7 +73,7 @@ char *http_response(const char *code, const char *msg, const char *fields)
 	if (!fields)
 		fields = "";
 
-	size_t size = snprintf(NULL, 0, HTTP_RESPONSE_FMT, code, msg, fields);
+	size_t size = snprintf(NULL, 0, HTTP_RESPONSE_FMT, code, msg, fields) + 1;
 	char *str = MTY_Alloc(size, 1);
 
 	snprintf(str, size, HTTP_RESPONSE_FMT, code, msg, fields);
@@ -132,7 +132,7 @@ struct http_header *http_parse_header(const char *header)
 	return h;
 }
 
-void http_free_header(struct http_header **header)
+void http_header_destroy(struct http_header **header)
 {
 	if (!header || !*header)
 		return;
@@ -204,26 +204,24 @@ bool http_get_header_str(struct http_header *h, const char *key, const char **va
 	return false;
 }
 
-char *http_set_header(char *header, const char *name, const char *fmt, ...)
+char *http_set_header_int(char *header, const char *name, int32_t val)
 {
-	va_list args;
-	va_start(args, fmt);
+	size_t len = header ? strlen(header) : 0;
+	size_t new_len = len + strlen(name) + 2 + 10 + 3;
 
-	size_t size = vsnprintf(NULL, 0, fmt, args);
-	char *val = MTY_Alloc(size, 1);
+	header = MTY_Realloc(header, new_len, 1);
+	snprintf(header + len, new_len, "%s: %d\r\n", name, val);
 
-	vsnprintf(val, size, fmt, args);
-	va_end(args);
+	return header;
+}
 
-	size_t fsize = snprintf(NULL, 0, "%s: %s\r\n", name, val);
-	char *fval = MTY_Alloc(fsize, 1);
+char *http_set_header_str(char *header, const char *name, const char *val)
+{
+	size_t len = header ? strlen(header) : 0;
+	size_t new_len = len + strlen(name) + 2 + strlen(val) + 3;
 
-	size_t total = strlen(header) + fsize;
-	header = MTY_Realloc(header, total, 1);
-	MTY_Strcat(header, total, fval);
-
-	MTY_Free(fval);
-	MTY_Free(val);
+	header = MTY_Realloc(header, new_len, 1);
+	snprintf(header + len, new_len, "%s: %s\r\n", name, val);
 
 	return header;
 }
@@ -314,4 +312,51 @@ bool http_parse_url(const char *url, bool *secure, char **host, uint16_t *port, 
 	MTY_Free(dup);
 
 	return r;
+}
+
+bool MTY_HttpParseUrl(const char *url, char *host, size_t hostSize, char *path, size_t pathSize)
+{
+	bool r = false;
+
+	bool secure = false;
+	uint16_t port = 0;
+	char *phost = NULL;
+	char *ppath = NULL;
+
+	if (http_parse_url(url, &secure, &phost, &port, &ppath)) {
+		snprintf(host, hostSize, "%s", phost);
+		snprintf(path, pathSize, "%s", ppath);
+		r = true;
+	}
+
+	MTY_Free(phost);
+	MTY_Free(ppath);
+
+	return r;
+}
+
+void MTY_HttpEncodeUrl(const char *src, char *dst, size_t size)
+{
+	char table[256];
+	dst[0] = '\0';
+
+	for (int32_t i = 0; i < 256; i++)
+		table[i] = (char) (isalnum(i) || i == '*' || i == '-' || i == '.' || i == '_' ?
+			i : (i == ' ') ? '+' : 0);
+
+	for (size_t x = 0; x < strlen(src); x++){
+		int32_t c = src[x];
+		int32_t inc = 1;
+
+		if (table[c]) {
+			snprintf(dst, size, "%c", table[c]);
+
+		} else {
+			snprintf(dst, size, "%%%02X", c);
+			inc = 3;
+		}
+
+		dst += inc;
+		size -= inc;
+	}
 }

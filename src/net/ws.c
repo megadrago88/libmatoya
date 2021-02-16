@@ -39,7 +39,7 @@ struct ws_header {
 };
 
 struct MTY_WebSocket {
-	struct mty_net_conn *ucc;
+	struct mty_net *ucc;
 	bool connected;
 
 	int64_t last_ping;
@@ -394,7 +394,7 @@ void MTY_WebSocketDestroy(MTY_WebSocket **ws)
 		if (ctx->connected)
 			mty_net_ws_close(ctx, 1000);
 
-		mty_net_close(ctx->ucc);
+		mty_net_destroy(&ctx->ucc);
 	}
 
 	MTY_Free(ctx->netbuf);
@@ -408,17 +408,15 @@ MTY_WebSocket *MTY_WebSocketConnect(const char *host, uint16_t port, bool secure
 {
 	bool ok = true;
 
-	MTY_WebSocket *ctx = calloc(1, sizeof(MTY_WebSocket));
+	MTY_WebSocket *ctx = MTY_Alloc(1, sizeof(MTY_WebSocket));
 
-	ctx->ucc = mty_net_new_conn();
-
-	int32_t e = mty_net_connect(ctx->ucc, secure, host, port, timeout);
-	if (e != MTY_NET_OK) {
+	ctx->ucc = mty_net_connect(host, port, secure, timeout);
+	if (!ctx->ucc) {
 		ok = false;
 		goto except;
 	}
 
-	e = mty_net_ws_connect(ctx, path, headers, timeout, upgradeStatus);
+	int32_t e = mty_net_ws_connect(ctx, path, headers, timeout, upgradeStatus);
 	if (e != MTY_NET_OK) {
 		ok = false;
 		goto except;
@@ -437,11 +435,10 @@ MTY_WebSocket *MTY_WebSocketConnect(const char *host, uint16_t port, bool secure
 
 MTY_WebSocket *MTY_WebSocketListen(const char *host, uint16_t port)
 {
-	MTY_WebSocket *ctx = calloc(1, sizeof(MTY_WebSocket));
-	ctx->ucc = mty_net_new_conn();
+	MTY_WebSocket *ctx = MTY_Alloc(1, sizeof(MTY_WebSocket));
 
-	int32_t r = mty_net_listen(ctx->ucc, host, port);
-	if (r != MTY_NET_OK)
+	ctx->ucc = mty_net_listen(host, port);
+	if (!ctx->ucc)
 		MTY_WebSocketDestroy(&ctx);
 
 	return ctx;
@@ -451,21 +448,20 @@ MTY_WebSocket *MTY_WebSocketAccept(MTY_WebSocket *ws, const char * const *origin
 	bool secureOrigin, uint32_t timeout)
 {
 	MTY_WebSocket *ws_child = NULL;
-	struct mty_net_conn *child = NULL;
-	int32_t e = mty_net_accept(ws->ucc, &child, false, timeout);
+	struct mty_net *child = mty_net_accept(ws->ucc, false, timeout);
 
-	if (e == MTY_NET_OK) {
+	if (child) {
 		ws_child = MTY_Alloc(1, sizeof(MTY_WebSocket));
 		ws_child->ucc = child;
 
-		e = mty_net_ws_accept(ws_child, origins, numOrigins, secureOrigin, timeout);
+		int32_t e = mty_net_ws_accept(ws_child, origins, numOrigins, secureOrigin, timeout);
 
 		if (e == MTY_NET_OK) {
 			ws_child->connected = true;
 			ws_child->last_ping = ws_child->last_pong = MTY_Timestamp();
 
 		} else {
-			mty_net_close(child);
+			mty_net_destroy(&child);
 
 			MTY_Free(ws_child);
 			ws_child = NULL;

@@ -15,7 +15,7 @@
 
 #define LEN_CHUNK  64
 
-static int8_t mty_net_check_header(struct mty_net_conn *ucc, const char *name, const char *subval)
+static int8_t mty_net_check_header(struct mty_net *ucc, const char *name, const char *subval)
 {
 	const char *val = NULL;
 	bool ok = mty_net_get_header_str(ucc, name, &val);
@@ -23,7 +23,7 @@ static int8_t mty_net_check_header(struct mty_net_conn *ucc, const char *name, c
 	return ok && MTY_Strcasecmp(val, subval) ? 1 : 0;
 }
 
-static int32_t mty_net_read_chunk_len(struct mty_net_conn *ucc, uint32_t *len, int32_t timeout_ms)
+static int32_t mty_net_read_chunk_len(struct mty_net *ucc, uint32_t *len, int32_t timeout_ms)
 {
 	int32_t r = MTY_NET_ERR_MAX_CHUNK;
 
@@ -46,7 +46,7 @@ static int32_t mty_net_read_chunk_len(struct mty_net_conn *ucc, uint32_t *len, i
 	return r;
 }
 
-static int32_t mty_net_response_body_chunked(struct mty_net_conn *ucc, void **body, size_t *body_len,
+static int32_t mty_net_response_body_chunked(struct mty_net *ucc, void **body, size_t *body_len,
 	int32_t timeout_ms, size_t max_body)
 {
 	uint32_t offset = 0;
@@ -75,7 +75,7 @@ static int32_t mty_net_response_body_chunked(struct mty_net_conn *ucc, void **bo
 	return MTY_NET_OK;
 }
 
-static int32_t mty_net_read_body_all(struct mty_net_conn *ucc, void **body, size_t *body_len,
+static int32_t mty_net_read_body_all(struct mty_net *ucc, void **body, size_t *body_len,
 	int32_t timeout_ms, size_t max_body)
 {
 	int32_t r = MTY_NET_OK;
@@ -122,15 +122,13 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 	*response = NULL;
 
 	int32_t z_e = MTY_NET_OK;
+	int32_t e = MTY_NET_OK;
 	bool ok = true;
 	uint16_t port = secure ? MTY_NET_PORT_S : MTY_NET_PORT;
 
-	//make the socket/TLS connection
-	struct mty_net_conn *ucc = mty_net_new_conn();
-
 	//make the TCP connection
-	int32_t e = mty_net_connect(ucc, secure, host, port, timeout);
-	if (e != MTY_NET_OK) goto except;
+	struct mty_net *ucc = mty_net_connect(host, port, secure, timeout);
+	if (!ucc) goto except;
 
 	//set request headers
 	mty_net_set_header_str(ucc, "User-Agent", "mty-http/v4");
@@ -180,7 +178,7 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 
 	except:
 
-	mty_net_close(ucc);
+	mty_net_destroy(&ucc);
 
 	if ((e != MTY_NET_OK && e != MTY_NET_ERR_NO_BODY) || z_e != MTY_NET_OK) {
 		free(*response);

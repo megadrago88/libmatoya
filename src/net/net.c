@@ -21,7 +21,7 @@
 #define LEN_ORIGIN 512
 #define LEN_HEADER (2 * 1024 * 1024)
 
-struct mty_net_conn {
+struct mty_net {
 	char *hout;
 	struct http_header *hin;
 
@@ -30,13 +30,6 @@ struct mty_net_conn {
 
 	char *host;
 	uint16_t port;
-};
-
-struct mty_net_info {
-	bool secure;
-	char *host;
-	uint16_t port;
-	char *path;
 };
 
 
@@ -91,22 +84,17 @@ bool MTY_HttpSetCACert(const char *cacert, size_t size)
 
 // Connection
 
-struct mty_net_conn *mty_net_new_conn(void)
+bool mty_net_write(struct mty_net *ucc, const void *buf, size_t size)
 {
-	return calloc(1, sizeof(struct mty_net_conn));
+	return ucc->tls ? tls_write(ucc->tls, buf, size) : tcp_write(ucc->socket, buf, size);
 }
 
-bool mty_net_write(struct mty_net_conn *ucc, const char *body, uint32_t body_len)
+bool mty_net_read(struct mty_net *ucc, void *buf, size_t size, uint32_t timeout)
 {
-	return ucc->tls ? tls_write(ucc->tls, body, body_len) : tcp_write(ucc->socket, body, body_len);
+	return ucc->tls ? tls_read(ucc->tls, buf, size, timeout) : tcp_read(ucc->socket, buf, size, timeout);
 }
 
-bool mty_net_read(struct mty_net_conn *ucc, char *body, uint32_t body_len, int32_t timeout)
-{
-	return ucc->tls ? tls_read(ucc->tls, body, body_len, timeout) : tcp_read(ucc->socket, body, body_len, timeout);
-}
-
-static int32_t mty_net_read_header_(struct mty_net_conn *ucc, char **header, int32_t timeout_ms)
+static int32_t mty_net_read_header_(struct mty_net *ucc, char **header, int32_t timeout)
 {
 	int32_t r = MTY_NET_ERR_MAX_HEADER;
 
@@ -114,7 +102,7 @@ static int32_t mty_net_read_header_(struct mty_net_conn *ucc, char **header, int
 	char *h = *header = calloc(max_header, 1);
 
 	for (uint32_t x = 0; x < max_header - 1; x++) {
-		if (!mty_net_read(ucc, h + x, 1, timeout_ms))
+		if (!mty_net_read(ucc, h + x, 1, timeout))
 			{r = MTY_NET_ERR_DEFAULT; break;}
 
 		if (x > 2 && h[x - 3] == '\r' && h[x - 2] == '\n' && h[x - 1] == '\r' && h[x] == '\n')
@@ -127,14 +115,14 @@ static int32_t mty_net_read_header_(struct mty_net_conn *ucc, char **header, int
 	return r;
 }
 
-int32_t mty_net_read_header(struct mty_net_conn *ucc, int32_t timeout_ms)
+int32_t mty_net_read_header(struct mty_net *ucc, int32_t timeout)
 {
 	//free any exiting response headers
-	http_free_header(&ucc->hin);
+	http_header_destroy(&ucc->hin);
 
 	//read the HTTP response header
 	char *header = NULL;
-	int32_t e = mty_net_read_header_(ucc, &header, timeout_ms);
+	int32_t e = mty_net_read_header_(ucc, &header, timeout);
 
 	if (e == MTY_NET_OK) {
 		//parse the header into the http_header struct
@@ -145,146 +133,179 @@ int32_t mty_net_read_header(struct mty_net_conn *ucc, int32_t timeout_ms)
 	return e;
 }
 
-bool mty_net_get_status_code(struct mty_net_conn *ucc, uint16_t *status_code)
+bool mty_net_get_status_code(struct mty_net *ucc, uint16_t *status_code)
 {
 	*status_code = 0;
 	return http_get_status_code(ucc->hin, status_code);
 }
 
-int32_t mty_net_connect(struct mty_net_conn *ucc, bool secure, const char *host, uint16_t port, int32_t timeout_ms)
+struct mty_net *mty_net_connect(const char *host, uint16_t port, bool secure, uint32_t timeout)
 {
-	//set state
-	ucc->host = MTY_Strdup(host);
-	ucc->port = port;
+	bool r = true;
 
-	struct mty_net_info pi = {0};
+	struct mty_net *ctx = MTY_Alloc(1, sizeof(struct mty_net));
+	ctx->host = MTY_Strdup(host);
+	ctx->port = port;
 
 	MTY_GlobalLock(&NET_GLOCK);
 
-	bool ok = http_parse_url(NET_PROXY, &pi.secure, &pi.host, &pi.port, &pi.path);
+	bool psecure = false;
+	uint16_t pport = 0;
+	char *phost = NULL;
+	char *ppath = NULL;
+
+	bool ok = http_parse_url(NET_PROXY, &psecure, &phost, &pport, &ppath);
 
 	MTY_GlobalUnlock(&NET_GLOCK);
 
-	bool use_proxy = ok && pi.host && pi.host[0];
+	bool use_proxy = ok && phost && phost[0];
 
 	//connect via proxy if specified
-	const char *use_host = use_proxy ? pi.host : host;
-	uint16_t use_port = use_proxy ? pi.port : port;
+	const char *use_host = use_proxy ? phost : host;
+	uint16_t use_port = use_proxy ? pport : port;
 
 	//resolve the hostname into an ip4 address
 	char ip4[LEN_IP4];
-	ok = dns_query(use_host, ip4, LEN_IP4);
+	r = dns_query(use_host, ip4, LEN_IP4);
 
 	if (use_proxy) {
-		free(pi.host);
-		free(pi.path);
+		MTY_Free(phost);
+		MTY_Free(ppath);
 	}
 
-	if (!ok)
-		return MTY_NET_ERR_DEFAULT;
+	if (!r)
+		goto except;
 
 	//make the socket connection
-	ucc->socket = tcp_connect(ip4, use_port, timeout_ms);
-	if (ucc->socket == TCP_INVALID_SOCKET)
-		return MTY_NET_ERR_DEFAULT;
+	ctx->socket = tcp_connect(ip4, use_port, timeout);
+	if (ctx->socket == TCP_INVALID_SOCKET) {
+		r = false;
+		goto except;
+	}
 
 	//proxy CONNECT request
 	if (use_proxy) {
-		char *h = http_connect(ucc->host, ucc->port, NULL);
+		char *h = http_connect(ctx->host, ctx->port, NULL);
 
 		//write the header to the HTTP client/server
-		ok = mty_net_write(ucc, h, (uint32_t) strlen(h));
-		free(h);
-		if (!ok) return MTY_NET_ERR_DEFAULT;
+		r = mty_net_write(ctx, h, strlen(h));
+		MTY_Free(h);
+
+		if (!r)
+			goto except;
 
 		//read the response header
-		int32_t e = mty_net_read_header(ucc, timeout_ms);
-		if (e != MTY_NET_OK) return e;
+		int32_t e = mty_net_read_header(ctx, timeout);
+		if (e != MTY_NET_OK) {
+			r = false;
+			goto except;
+		}
 
 		//get the status code
 		uint16_t status_code = 0;
-		if (!mty_net_get_status_code(ucc, &status_code))
-			return MTY_NET_ERR_DEFAULT;
+		r = mty_net_get_status_code(ctx, &status_code);
+		if (!r)
+			goto except;
 
-		if (status_code != 200)
-			return MTY_NET_ERR_PROXY;
+		if (status_code != 200) {
+			r = false;
+			goto except;
+		}
 	}
 
 	if (secure) {
-		ucc->tls = tls_connect(ucc->socket, ucc->host, timeout_ms);
-		if (!ucc->tls)
-			return MTY_NET_ERR_DEFAULT;
-	}
-
-	return MTY_NET_OK;
-}
-
-int32_t mty_net_listen(struct mty_net_conn *ucc, const char *bind_ip4, uint16_t port)
-{
-	ucc->port = port;
-	ucc->socket = tcp_listen(bind_ip4, ucc->port);
-	if (ucc->socket == TCP_INVALID_SOCKET)
-		return MTY_NET_ERR_DEFAULT;
-
-	return MTY_NET_OK;
-}
-
-int32_t mty_net_accept(struct mty_net_conn *ucc, struct mty_net_conn **ucc_new_in, bool secure, int32_t timeout_ms)
-{
-	struct mty_net_conn *ucc_new = *ucc_new_in = mty_net_new_conn();
-
-	int32_t r = MTY_NET_OK;
-
-	ucc_new->socket = tcp_accept(ucc->socket, timeout_ms);
-	if (ucc_new->socket == TCP_INVALID_SOCKET) {r = MTY_NET_ERR_DEFAULT; goto except;}
-
-	if (secure) {
-		ucc_new->tls = tls_accept(ucc_new->socket, timeout_ms);
-		if (!ucc_new->tls) {r = MTY_NET_ERR_DEFAULT; goto except;}
+		ctx->tls = tls_connect(ctx->socket, ctx->host, timeout);
+		if (!ctx->tls) {
+			r = false;
+			goto except;
+		}
 	}
 
 	except:
 
-	if (r != MTY_NET_OK) {
-		free(ucc_new);
-		*ucc_new_in = NULL;
+	if (!r)
+		mty_net_destroy(&ctx);
+
+	return ctx;
+}
+
+struct mty_net *mty_net_listen(const char *ip, uint16_t port)
+{
+	struct mty_net *ctx = MTY_Alloc(1, sizeof(struct mty_net));
+	ctx->port = port;
+
+	ctx->socket = tcp_listen(ip, ctx->port);
+	if (ctx->socket == TCP_INVALID_SOCKET)
+		mty_net_destroy(&ctx);
+
+	return ctx;
+}
+
+struct mty_net *mty_net_accept(struct mty_net *ucc, bool secure, uint32_t timeout)
+{
+	bool r = true;
+	struct mty_net *child = MTY_Alloc(1, sizeof(struct mty_net));
+
+	child->socket = tcp_accept(ucc->socket, timeout);
+	if (child->socket == TCP_INVALID_SOCKET) {
+		r = false;
+		goto except;
 	}
 
-	return r;
+	if (secure) {
+		child->tls = tls_accept(child->socket, timeout);
+		if (!child->tls) {
+			r = false;
+			goto except;
+		}
+	}
+
+	except:
+
+	if (!r)
+		mty_net_destroy(&child);
+
+	return child;
 }
 
-MTY_Async mty_net_poll(struct mty_net_conn *ucc, int32_t timeout_ms)
+MTY_Async mty_net_poll(struct mty_net *ucc, uint32_t timeout)
 {
-	return tcp_poll(ucc->socket, false, timeout_ms);
+	return tcp_poll(ucc->socket, false, timeout);
 }
 
-void mty_net_close(struct mty_net_conn *ucc)
+void mty_net_destroy(struct mty_net **net)
 {
-	if (!ucc) return;
+	if (!net || !*net)
+		return;
 
-	tls_destroy(&ucc->tls);
-	tcp_destroy(&ucc->socket);
+	struct mty_net *ctx = *net;
 
-	free(ucc->host);
-	http_free_header(&ucc->hin);
-	free(ucc->hout);
-	free(ucc);
+	tls_destroy(&ctx->tls);
+	tcp_destroy(&ctx->socket);
+
+	http_header_destroy(&ctx->hin);
+
+	MTY_Free(ctx->host);
+	MTY_Free(ctx->hout);
+
+	free(ctx);
+	*net = NULL;
 }
 
 
 // Request
 
-void mty_net_set_header_str(struct mty_net_conn *ucc, const char *name, const char *value)
+void mty_net_set_header_str(struct mty_net *ucc, const char *name, const char *value)
 {
-	ucc->hout = http_set_header(ucc->hout, name, "%s", value);
+	ucc->hout = http_set_header_str(ucc->hout, name, value);
 }
 
-void mty_net_set_header_int(struct mty_net_conn *ucc, const char *name, int32_t value)
+void mty_net_set_header_int(struct mty_net *ucc, const char *name, int32_t value)
 {
-	ucc->hout = http_set_header(ucc->hout, name, "%d", value);
+	ucc->hout = http_set_header_int(ucc->hout, name, value);
 }
 
-int32_t mty_net_write_header(struct mty_net_conn *ucc, const char *str0, const char *str1, int32_t type)
+int32_t mty_net_write_header(struct mty_net *ucc, const char *str0, const char *str1, int32_t type)
 {
 	//generate the HTTP request/response header
 	char *h = (type == MTY_NET_REQUEST) ?
@@ -302,12 +323,12 @@ int32_t mty_net_write_header(struct mty_net_conn *ucc, const char *str0, const c
 
 // Response
 
-bool mty_net_get_header_str(struct mty_net_conn *ucc, const char *key, const char **val)
+bool mty_net_get_header_str(struct mty_net *ucc, const char *key, const char **val)
 {
 	return http_get_header_str(ucc->hin, key, val);
 }
 
-bool mty_net_get_header_int(struct mty_net_conn *ucc, const char *key, int32_t *val)
+bool mty_net_get_header_int(struct mty_net *ucc, const char *key, int32_t *val)
 {
 	return http_get_header_int(ucc->hin, key, val);
 }
@@ -315,49 +336,7 @@ bool mty_net_get_header_int(struct mty_net_conn *ucc, const char *key, int32_t *
 
 // Utility
 
-bool MTY_HttpParseUrl(const char *url, char *host, size_t hostSize, char *path, size_t pathSize)
-{
-	bool r = false;
-	struct mty_net_info uci = {0};
-
-	if (http_parse_url(url, &uci.secure, &uci.host, &uci.port, &uci.path)) {
-		snprintf(host, hostSize, "%s", uci.host);
-		snprintf(path, pathSize, "%s", uci.path);
-		r = true;
-	}
-
-	free(uci.host);
-	free(uci.path);
-
-	return r;
-}
-
-void MTY_HttpEncodeUrl(const char *src, char *dst, size_t size)
-{
-	char table[256];
-	dst[0] = '\0';
-
-	for (int32_t i = 0; i < 256; i++)
-		table[i] = (char) (isalnum(i) || i == '*' || i == '-' || i == '.' || i == '_' ?
-			i : (i == ' ') ? '+' : 0);
-
-	for (size_t x = 0; x < strlen(src); x++){
-		int32_t c = src[x];
-		int32_t inc = 1;
-
-		if (table[c]) {
-			snprintf(dst, size, "%c", table[c]);
-		} else {
-			snprintf(dst, size, "%%%02X", c);
-			inc = 3;
-		}
-
-		dst += inc;
-		size -= inc;
-	}
-}
-
-void mty_http_set_headers(struct mty_net_conn *ucc, const char *header_str_orig)
+void mty_http_set_headers(struct mty_net *ucc, const char *header_str_orig)
 {
 	char *tok, *ptr = NULL;
 	char *header_str = MTY_Strdup(header_str_orig);
