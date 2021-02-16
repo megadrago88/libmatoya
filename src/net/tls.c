@@ -39,13 +39,35 @@ static X509_STORE *TLS_STORE;
 
 // State
 
-static char **tls_parse_cacert(const char *raw, size_t size, uint32_t *n)
+static bool tls_add_cacert_to_store(X509_STORE *store, const void *cacert, size_t size)
 {
-	char *cacert = MTY_Alloc(size + 1, 1);
-	memcpy(cacert, raw, size);
+	bool r = true;
 
-	char **out = NULL;
-	uint32_t out_len = 0;
+	BIO *bio = BIO_new_mem_buf(cacert, (int32_t) size);
+
+	if (bio) {
+		X509 *cert = NULL;
+
+		if (PEM_read_bio_X509(bio, &cert, 0, NULL)) {
+			X509_STORE_add_cert(store, cert);
+			X509_free(cert);
+
+		} else {
+			MTY_Log("'PEM_read_bio_X509' failed");
+			r = false;
+		}
+
+		BIO_free(bio);
+	}
+
+	return r;
+}
+
+static bool tls_parse_cacert(X509_STORE *store, const char *raw, size_t size)
+{
+	bool r = true;
+
+	char *cacert = MTY_Strdup(raw);
 
 	char *tok = cacert;
 	char *next = strstr(tok, "\n\n");
@@ -53,12 +75,9 @@ static char **tls_parse_cacert(const char *raw, size_t size, uint32_t *n)
 		next = strstr(tok, "\r\n\r\n");
 
 	while (next) {
-		out_len++;
-		out = MTY_Realloc(out, out_len, sizeof(char *));
-
-		size_t this_len = next - tok;
-		out[out_len - 1] = MTY_Alloc(this_len + 1, 1);
-		memcpy(out[out_len - 1], tok, this_len);
+		r = tls_add_cacert_to_store(store, tok, next - tok);
+		if (!r)
+			break;
 
 		tok = next + 2;
 		next = strstr(tok, "\n\n");
@@ -68,9 +87,7 @@ static char **tls_parse_cacert(const char *raw, size_t size, uint32_t *n)
 
 	MTY_Free(cacert);
 
-	*n = out_len;
-
-	return out;
+	return r;
 }
 
 bool tls_load_cacert(const char *cacert, size_t size)
@@ -79,9 +96,6 @@ bool tls_load_cacert(const char *cacert, size_t size)
 		return false;
 
 	bool was_set = false;
-
-	uint32_t num_certs = 0;
-	char **parsed_cacert = NULL;
 
 	MTY_GlobalLock(&TLS_GLOCK);
 
@@ -104,40 +118,14 @@ bool tls_load_cacert(const char *cacert, size_t size)
 	if (!TLS_STORE)
 		goto except;
 
-	parsed_cacert = tls_parse_cacert(cacert, size, &num_certs);
+	was_set = tls_parse_cacert(TLS_STORE, cacert, size);
 
-	for (uint32_t x = 0; x < num_certs; x++) {
-		BIO *bio = BIO_new_mem_buf(parsed_cacert[x], -1);
-
-		if (bio) {
-			X509 *cert = NULL;
-
-			if (PEM_read_bio_X509(bio, &cert, 0, NULL)) {
-				was_set = true;
-				X509_STORE_add_cert(TLS_STORE, cert);
-				X509_free(cert);
-
-			} else {
-				was_set = false;
-				MTY_Log("'PEM_read_bio_X509' failed");
-			}
-
-			BIO_free(bio);
-		}
-
-		if (!was_set) {
-			X509_STORE_free(TLS_STORE);
-			TLS_STORE = NULL;
-			break;
-		}
+	if (!was_set) {
+		X509_STORE_free(TLS_STORE);
+		TLS_STORE = NULL;
 	}
 
 	except:
-
-	for (uint32_t x = 0; x < num_certs; x++)
-		MTY_Free(parsed_cacert[x]);
-
-	MTY_Free(parsed_cacert);
 
 	MTY_GlobalUnlock(&TLS_GLOCK);
 
