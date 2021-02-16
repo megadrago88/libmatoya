@@ -96,12 +96,12 @@ struct mty_net_conn *mty_net_new_conn(void)
 	return calloc(1, sizeof(struct mty_net_conn));
 }
 
-int32_t mty_net_write(struct mty_net_conn *ucc, const char *body, uint32_t body_len)
+bool mty_net_write(struct mty_net_conn *ucc, const char *body, uint32_t body_len)
 {
 	return ucc->tls ? tls_write(ucc->tls, body, body_len) : tcp_write(ucc->socket, body, body_len);
 }
 
-int32_t mty_net_read(struct mty_net_conn *ucc, char *body, uint32_t body_len, int32_t timeout)
+bool mty_net_read(struct mty_net_conn *ucc, char *body, uint32_t body_len, int32_t timeout)
 {
 	return ucc->tls ? tls_read(ucc->tls, body, body_len, timeout) : tcp_read(ucc->socket, body, body_len, timeout);
 }
@@ -114,8 +114,8 @@ static int32_t mty_net_read_header_(struct mty_net_conn *ucc, char **header, int
 	char *h = *header = calloc(max_header, 1);
 
 	for (uint32_t x = 0; x < max_header - 1; x++) {
-		int32_t e = mty_net_read(ucc, h + x, 1, timeout_ms);
-		if (e != MTY_NET_OK) {r = e; break;}
+		if (!mty_net_read(ucc, h + x, 1, timeout_ms))
+			{r = MTY_NET_ERR_DEFAULT; break;}
 
 		if (x > 2 && h[x - 3] == '\r' && h[x - 2] == '\n' && h[x - 1] == '\r' && h[x] == '\n')
 			return MTY_NET_OK;
@@ -152,8 +152,7 @@ int32_t mty_net_get_status_code(struct mty_net_conn *ucc, uint16_t *status_code)
 	return http_get_status_code(ucc->hin, status_code);
 }
 
-int32_t mty_net_connect(struct mty_net_conn *ucc, bool secure, const char *host, uint16_t port,
-	bool verify_host, int32_t timeout_ms)
+int32_t mty_net_connect(struct mty_net_conn *ucc, bool secure, const char *host, uint16_t port, int32_t timeout_ms)
 {
 	//set state
 	ucc->host = MTY_Strdup(host);
@@ -187,7 +186,7 @@ int32_t mty_net_connect(struct mty_net_conn *ucc, bool secure, const char *host,
 
 	//make the socket connection
 	ucc->socket = tcp_connect(ip4, use_port, timeout_ms);
-	if (ucc->socket == tcp_invalid_socket())
+	if (ucc->socket == TCP_INVALID_SOCKET)
 		return MTY_NET_ERR_DEFAULT;
 
 	//proxy CONNECT request
@@ -195,12 +194,12 @@ int32_t mty_net_connect(struct mty_net_conn *ucc, bool secure, const char *host,
 		char *h = http_connect(ucc->host, ucc->port, NULL);
 
 		//write the header to the HTTP client/server
-		int32_t e = mty_net_write(ucc, h, (uint32_t) strlen(h));
+		ok = mty_net_write(ucc, h, (uint32_t) strlen(h));
 		free(h);
-		if (e != MTY_NET_OK) return e;
+		if (!ok) return MTY_NET_ERR_DEFAULT;
 
 		//read the response header
-		e = mty_net_read_header(ucc, timeout_ms);
+		int32_t e = mty_net_read_header(ucc, timeout_ms);
 		if (e != MTY_NET_OK) return e;
 
 		//get the status code
@@ -211,7 +210,7 @@ int32_t mty_net_connect(struct mty_net_conn *ucc, bool secure, const char *host,
 	}
 
 	if (secure) {
-		ucc->tls = tls_connect(ucc->socket, ucc->host, verify_host, timeout_ms);
+		ucc->tls = tls_connect(ucc->socket, ucc->host, timeout_ms);
 		if (!ucc->tls)
 			return MTY_NET_ERR_DEFAULT;
 	}
@@ -223,7 +222,7 @@ int32_t mty_net_listen(struct mty_net_conn *ucc, const char *bind_ip4, uint16_t 
 {
 	ucc->port = port;
 	ucc->socket = tcp_listen(bind_ip4, ucc->port);
-	if (ucc->socket == tcp_invalid_socket())
+	if (ucc->socket == TCP_INVALID_SOCKET)
 		return MTY_NET_ERR_DEFAULT;
 
 	return MTY_NET_OK;
@@ -236,7 +235,7 @@ int32_t mty_net_accept(struct mty_net_conn *ucc, struct mty_net_conn **ucc_new_i
 	int32_t r = MTY_NET_OK;
 
 	ucc_new->socket = tcp_accept(ucc->socket, timeout_ms);
-	if (ucc_new->socket == tcp_invalid_socket()) {r = MTY_NET_ERR_DEFAULT; goto except;}
+	if (ucc_new->socket == TCP_INVALID_SOCKET) {r = MTY_NET_ERR_DEFAULT; goto except;}
 
 	if (secure) {
 		ucc_new->tls = tls_accept(ucc_new->socket, timeout_ms);
@@ -253,9 +252,9 @@ int32_t mty_net_accept(struct mty_net_conn *ucc, struct mty_net_conn **ucc_new_i
 	return r;
 }
 
-int32_t mty_net_poll(struct mty_net_conn *ucc, int32_t timeout_ms)
+MTY_Async mty_net_poll(struct mty_net_conn *ucc, int32_t timeout_ms)
 {
-	return tcp_poll(ucc->socket, TCP_POLLIN, timeout_ms);
+	return tcp_poll(ucc->socket, false, timeout_ms);
 }
 
 void mty_net_close(struct mty_net_conn *ucc)
@@ -292,11 +291,11 @@ int32_t mty_net_write_header(struct mty_net_conn *ucc, const char *str0, const c
 		http_response(str0, str1, ucc->hout);
 
 	//write the header to the HTTP client/server
-	int32_t e = mty_net_write(ucc, h, (uint32_t) strlen(h));
+	bool ok = mty_net_write(ucc, h, (uint32_t) strlen(h));
 
 	free(h);
 
-	return e;
+	return ok ? MTY_NET_OK : MTY_NET_ERR_DEFAULT;
 }
 
 

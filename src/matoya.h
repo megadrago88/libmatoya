@@ -1505,7 +1505,7 @@ typedef enum {
 	MTY_ASYNC_ERROR    = 3,
 } MTY_Async;
 
-typedef void (*MTY_HttpAsyncFunc)(uint16_t code, void **body, size_t *body_len);
+typedef void (*MTY_HttpAsyncFunc)(uint16_t code, void **body, size_t *size);
 
 typedef struct MTY_WebSocket MTY_WebSocket;
 

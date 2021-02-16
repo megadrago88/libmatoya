@@ -32,8 +32,8 @@ static int32_t mty_net_read_chunk_len(struct mty_net_conn *ucc, uint32_t *len, i
 	memset(chunk_len, 0, LEN_CHUNK);
 
 	for (uint32_t x = 0; x < LEN_CHUNK - 1; x++) {
-		int32_t e = mty_net_read(ucc, chunk_len + x, 1, timeout_ms);
-		if (e != MTY_NET_OK) {r = e; break;}
+		if (!mty_net_read(ucc, chunk_len + x, 1, timeout_ms))
+			{r = MTY_NET_ERR_DEFAULT; break;}
 
 		if (x > 0 && chunk_len[x - 1] == '\r' && chunk_len[x] == '\n') {
 			chunk_len[x - 1] = '\0';
@@ -63,8 +63,8 @@ static int32_t mty_net_response_body_chunked(struct mty_net_conn *ucc, void **bo
 		*body = realloc(*body, offset + chunk_len + 2);
 
 		//read chunk into buffer with extra 2 bytes for "\r\n"
-		e = mty_net_read(ucc, (char *) *body + offset, chunk_len + 2, timeout_ms);
-		if (e != MTY_NET_OK) return e;
+		if (!mty_net_read(ucc, (char *) *body + offset, chunk_len + 2, timeout_ms))
+			return MTY_NET_ERR_DEFAULT;
 
 		offset += chunk_len;
 
@@ -99,9 +99,8 @@ static int32_t mty_net_read_body_all(struct mty_net_conn *ucc, void **body, size
 
 		*body = calloc(*body_len + 1, 1);
 
-		e = mty_net_read(ucc, *body, *body_len, timeout_ms);
-
-		if (e != MTY_NET_OK) {r = e; goto except;}
+		if (!mty_net_read(ucc, *body, *body_len, timeout_ms))
+			{r = MTY_NET_ERR_DEFAULT; goto except;}
 	}
 
 	except:
@@ -129,7 +128,7 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 	struct mty_net_conn *ucc = mty_net_new_conn();
 
 	//make the TCP connection
-	int32_t e = mty_net_connect(ucc, secure, host, port, true, timeout);
+	int32_t e = mty_net_connect(ucc, secure, host, port, timeout);
 	if (e != MTY_NET_OK) goto except;
 
 	//set request headers
@@ -143,8 +142,8 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 	if (e != MTY_NET_OK) goto except;
 
 	//send the request body
-	e = mty_net_write(ucc, body, bodySize);
-	if (e != MTY_NET_OK) goto except;
+	if (!mty_net_write(ucc, body, bodySize))
+		{e = MTY_NET_ERR_DEFAULT; goto except;}
 
 	//read the response header
 	e = mty_net_read_header(ucc, timeout);

@@ -11,7 +11,6 @@
 #include <stdio.h>
 
 #include "net.h"
-#include "tcp.h"
 
 #define SHA1_LEN         20
 #define WS_HEADER_SIZE   14
@@ -273,7 +272,7 @@ static int32_t mty_net_ws_write(MTY_WebSocket *ws, const char *buf, uint32_t buf
 	ws_serialize(&h, buf, ws->netbuf, &out_size);
 
 	//write full network buffer
-	return mty_net_write(ws->ucc, ws->netbuf, (uint32_t) out_size);
+	return mty_net_write(ws->ucc, ws->netbuf, (uint32_t) out_size) ? MTY_NET_OK : MTY_NET_ERR_DEFAULT;
 }
 
 static int32_t mty_net_ws_read(MTY_WebSocket *ws, char *buf, uint32_t buf_len, uint8_t *opcode, int32_t timeout_ms)
@@ -282,22 +281,22 @@ static int32_t mty_net_ws_read(MTY_WebSocket *ws, char *buf, uint32_t buf_len, u
 	struct ws_header h;
 
 	//first two bytes contain most control information
-	int32_t e = mty_net_read(ws->ucc, header_buf, 2, timeout_ms);
-	if (e != MTY_NET_OK) return e;
+	if (!mty_net_read(ws->ucc, header_buf, 2, timeout_ms))
+		return MTY_NET_ERR_DEFAULT;
 	ws_parse_header0(&h, header_buf);
 	*opcode = h.opcode;
 
 	//read the payload size and mask
-	e = mty_net_read(ws->ucc, header_buf, h.addtl_bytes, timeout_ms);
-	if (e != MTY_NET_OK) return e;
+	if (!mty_net_read(ws->ucc, header_buf, h.addtl_bytes, timeout_ms))
+		return MTY_NET_ERR_DEFAULT;
 	ws_parse_header1(&h, header_buf);
 
 	//check bounds
 	if (h.payload_len > INT32_MAX) return MTY_NET_ERR_MAX_BODY;
 	if (h.payload_len > buf_len) return MTY_NET_ERR_BUFFER;
 
-	e = mty_net_read(ws->ucc, buf, (uint32_t) h.payload_len, timeout_ms);
-	if (e != MTY_NET_OK) return e;
+	if (!mty_net_read(ws->ucc, buf, (uint32_t) h.payload_len, timeout_ms))
+		return MTY_NET_ERR_DEFAULT;
 
 	//unmask the data if necessary
 	if (h.mask)
@@ -407,7 +406,7 @@ MTY_WebSocket *MTY_WebSocketConnect(const char *host, uint16_t port, bool secure
 
 	ctx->ucc = mty_net_new_conn();
 
-	int32_t e = mty_net_connect(ctx->ucc, secure, host, port, true, timeout);
+	int32_t e = mty_net_connect(ctx->ucc, secure, host, port, timeout);
 	if (e != MTY_NET_OK) {
 		ok = false;
 		goto except;
@@ -477,16 +476,14 @@ uint16_t MTY_WebSocketGetCloseCode(MTY_WebSocket *ctx)
 
 MTY_Async MTY_WebSocketRead(MTY_WebSocket *ws, char *msg, size_t size, uint32_t timeout)
 {
-	MTY_Async r = MTY_ASYNC_OK;
-
 	int32_t e = mty_ws_ping(ws, WS_PING_INTERVAL);
 
 	if (e != MTY_NET_OK)
 		return e;
 
-	e = mty_net_poll(ws->ucc, timeout);
+	MTY_Async r = mty_net_poll(ws->ucc, timeout);
 
-	if (e == MTY_NET_OK) {
+	if (r == MTY_ASYNC_OK) {
 		uint8_t opcode = MTY_NET_WSOP_CONTINUE;
 		memset(msg, 0, size);
 
@@ -525,12 +522,6 @@ MTY_Async MTY_WebSocketRead(MTY_WebSocket *ws, char *msg, size_t size, uint32_t 
 		} else {
 			r = MTY_ASYNC_ERROR;
 		}
-
-	} else if (e == MTY_NET_TCP_ERR_TIMEOUT) {
-		r = MTY_ASYNC_CONTINUE;
-
-	} else {
-		r = MTY_ASYNC_ERROR;
 	}
 
 	//if we haven't gotten a pong within 30 seconds, throw an error

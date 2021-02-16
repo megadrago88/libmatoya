@@ -19,8 +19,9 @@
 
 typedef int32_t socklen_t;
 
-static int32_t sock_set_nonblocking(SOCKET s)
+static bool sock_set_nonblocking(SOCKET s)
 {
 	u_long mode = 1;
-	return ioctlsocket(s, FIONBIO, &mode);
+
+	return ioctlsocket(s, FIONBIO, &mode) == 0;
 }

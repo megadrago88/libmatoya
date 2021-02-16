@@ -8,44 +8,23 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
-enum tcp_events {
-	TCP_POLLIN  = 0,
-	TCP_POLLOUT = 1,
-};
+#include "matoya.h"
 
-enum {
-	MTY_NET_TCP_OK                = 0,
-	MTY_NET_TCP_ERR_SOCKET        = -50010,
-	MTY_NET_TCP_ERR_BLOCKMODE     = -50011,
-	MTY_NET_TCP_ERR_CONNECT       = -50012,
-	MTY_NET_TCP_ERR_CONNECT_FINAL = -50013,
-	MTY_NET_TCP_ERR_WRITE         = -50014,
-	MTY_NET_TCP_ERR_READ          = -50015,
-	MTY_NET_TCP_ERR_CLOSED        = -50016,
-	MTY_NET_TCP_ERR_RESOLVE       = -50017,
-	MTY_NET_TCP_ERR_NTOP          = -50018,
-	MTY_NET_TCP_ERR_TIMEOUT       = -50019,
-	MTY_NET_TCP_ERR_POLL          = -50020,
-	MTY_NET_TCP_ERR_BIND          = -50021,
-	MTY_NET_TCP_ERR_LISTEN        = -50022,
-	MTY_NET_TCP_ERR_ACCEPT        = -50023,
-};
+// This is OK for both winsock and unix sockets
+#define TCP_INVALID_SOCKET (-1)
 
 typedef intptr_t TCP_SOCKET;
 
-int32_t tcp_error(void);
-int32_t tcp_would_block(void);
-int32_t tcp_invalid_socket(void);
-int32_t tcp_bad_fd(void);
+TCP_SOCKET tcp_connect(const char *ip, uint16_t port, uint32_t timeout);
+TCP_SOCKET tcp_listen(const char *ip, uint16_t port);
+TCP_SOCKET tcp_accept(TCP_SOCKET s, uint32_t timeout);
+void tcp_destroy(TCP_SOCKET *socket);
 
-TCP_SOCKET tcp_connect(const char *ip4, uint16_t port, int32_t timeout_ms);
-TCP_SOCKET tcp_listen(const char *bind_ip4, uint16_t port);
-TCP_SOCKET tcp_accept(TCP_SOCKET nc, int32_t timeout_ms);
-int32_t tcp_poll(TCP_SOCKET nc, int32_t tcp_event, int32_t timeout_ms);
-void tcp_destroy(TCP_SOCKET *nc);
-
-int32_t tcp_write(TCP_SOCKET s, const char *buf, size_t size);
-int32_t tcp_read(TCP_SOCKET s, char *buf, size_t size, int32_t timeout_ms);
+MTY_Async tcp_async(void);
+MTY_Async tcp_poll(TCP_SOCKET s, bool out, uint32_t timeout);
+bool tcp_write(TCP_SOCKET s, const void *buf, size_t size);
+bool tcp_read(TCP_SOCKET s, void *buf, size_t size, uint32_t timeout);
 
 bool dns_query(const char *host, char *ip, size_t size);

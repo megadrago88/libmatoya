@@ -25,7 +25,7 @@
 
 typedef int32_t SOCKET;
 
-static int32_t sock_set_nonblocking(SOCKET s)
+static bool sock_set_nonblocking(SOCKET s)
 {
-	return fcntl(s, F_SETFL, O_NONBLOCK);
+	return fcntl(s, F_SETFL, O_NONBLOCK) == 0;
 }

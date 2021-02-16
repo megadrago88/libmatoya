@@ -16,9 +16,9 @@ struct tls;
 
 bool tls_load_cacert(const char *cacert, size_t size);
 
-struct tls *tls_connect(TCP_SOCKET socket, const char *host, bool verify_host, int32_t timeout_ms);
-struct tls *tls_accept(TCP_SOCKET socket, int32_t timeout_ms);
+struct tls *tls_connect(TCP_SOCKET socket, const char *host, uint32_t timeout);
+struct tls *tls_accept(TCP_SOCKET socket, uint32_t timeout);
 void tls_destroy(struct tls **tls);
 
-int32_t tls_write(struct tls *ctx, const char *buf, size_t size);
-int32_t tls_read(struct tls *ctx, char *buf, size_t size, int32_t timeout_ms);
+bool tls_write(struct tls *ctx, const void *buf, size_t size);
+bool tls_read(struct tls *ctx, void *buf, size_t size, uint32_t timeout);

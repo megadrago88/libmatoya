@@ -11,21 +11,6 @@
 
 #include "ssl-dl.h"
 
-enum {
-	MTY_NET_TLS_OK                = 0,
-	MTY_NET_TLS_ERR_CONTEXT       = -51000,
-	MTY_NET_TLS_ERR_SSL           = -51001,
-	MTY_NET_TLS_ERR_FD            = -51002,
-	MTY_NET_TLS_ERR_HANDSHAKE     = -51003,
-	MTY_NET_TLS_ERR_WRITE         = -51004,
-	MTY_NET_TLS_ERR_READ          = -51005,
-	MTY_NET_TLS_ERR_CLOSED        = -51006,
-	MTY_NET_TLS_ERR_CACERT        = -51007,
-	MTY_NET_TLS_ERR_CIPHER        = -51008,
-	MTY_NET_TLS_ERR_CERT          = -51009,
-	MTY_NET_TLS_ERR_KEY           = -51010,
-};
-
 static MTY_Atomic32 TLS_GLOCK;
 static X509_STORE *TLS_STORE;
 
@@ -56,7 +41,7 @@ static X509_STORE *TLS_STORE;
 
 static char **tls_parse_cacert(const char *raw, size_t size, uint32_t *n)
 {
-	char *cacert = calloc(size + 1, 1);
+	char *cacert = MTY_Alloc(size + 1, 1);
 	memcpy(cacert, raw, size);
 
 	char **out = NULL;
@@ -64,33 +49,36 @@ static char **tls_parse_cacert(const char *raw, size_t size, uint32_t *n)
 
 	char *tok = cacert;
 	char *next = strstr(tok, "\n\n");
-	if (!next) next = strstr(tok, "\r\n\r\n");
+	if (!next)
+		next = strstr(tok, "\r\n\r\n");
 
 	while (next) {
 		out_len++;
-		out = realloc(out, sizeof(char *) * out_len);
+		out = MTY_Realloc(out, out_len, sizeof(char *));
 
 		size_t this_len = next - tok;
-		out[out_len - 1] = calloc(this_len + 1, 1);
+		out[out_len - 1] = MTY_Alloc(this_len + 1, 1);
 		memcpy(out[out_len - 1], tok, this_len);
 
 		tok = next + 2;
 		next = strstr(tok, "\n\n");
-		if (!next) next = strstr(tok, "\r\n\r\n");
+		if (!next)
+			next = strstr(tok, "\r\n\r\n");
 	}
 
-	free(cacert);
+	MTY_Free(cacert);
 
 	*n = out_len;
+
 	return out;
 }
 
 bool tls_load_cacert(const char *cacert, size_t size)
 {
-	bool was_set = false;
-
 	if (!ssl_dl_global_init())
-		return MTY_NET_TLS_ERR_CONTEXT;
+		return false;
+
+	bool was_set = false;
 
 	uint32_t num_certs = 0;
 	char **parsed_cacert = NULL;
@@ -147,9 +135,9 @@ bool tls_load_cacert(const char *cacert, size_t size)
 	except:
 
 	for (uint32_t x = 0; x < num_certs; x++)
-		free(parsed_cacert[x]);
+		MTY_Free(parsed_cacert[x]);
 
-	free(parsed_cacert);
+	MTY_Free(parsed_cacert);
 
 	MTY_GlobalUnlock(&TLS_GLOCK);
 
@@ -173,11 +161,8 @@ void tls_destroy(struct tls **tls)
 	struct tls *ctx = *tls;
 
 	if (ctx->ssl) {
-		int32_t e;
-
-		//SSL_shutdown may need to be called twice
-		e = SSL_shutdown(ctx->ssl);
-		if (e == 0)
+		// SSL_shutdown may need to be called twice
+		if (SSL_shutdown(ctx->ssl) == 0)
 			SSL_shutdown(ctx->ssl);
 
 		MTY_GlobalLock(&TLS_GLOCK);
@@ -194,158 +179,161 @@ void tls_destroy(struct tls **tls)
 	*tls = NULL;
 }
 
-static int32_t tls_new(struct tls **tls_in, TCP_SOCKET socket)
+static struct tls *tls_new(TCP_SOCKET socket)
 {
-	struct tls *tls = *tls_in = calloc(1, sizeof(struct tls));
+	if (!ssl_dl_global_init())
+		return NULL;
 
-	if (!ssl_dl_global_init()) return MTY_NET_TLS_ERR_CONTEXT;
+	bool r = true;
 
-	//keep handle to the underlying tcp_context
-	tls->socket = socket;
+	struct tls *ctx = MTY_Alloc(1, sizeof(struct tls));
+	ctx->socket = socket;
 
-	//the SSL context can be reused for multiple connections
-	tls->ctx = SSL_CTX_new(TLS_method());
-	if (!tls->ctx) return MTY_NET_TLS_ERR_CONTEXT;
+	ctx->ctx = SSL_CTX_new(TLS_method());
+	if (!ctx->ctx) {
+		r = false;
+		goto except;
+	}
 
-	//the SSL instance
-	tls->ssl = SSL_new(tls->ctx);
-	if (!tls->ssl) return MTY_NET_TLS_ERR_SSL;
+	ctx->ssl = SSL_new(ctx->ctx);
+	if (!ctx->ssl) {
+		r = false;
+		goto except;
+	}
 
-	//cacert store
+	// Global lock for internal OpenSSL reference count
 	MTY_GlobalLock(&TLS_GLOCK);
 
 	if (TLS_STORE)
-		SSL_ctrl(tls->ssl, SSL_CTRL_SET_VERIFY_CERT_STORE, 1, TLS_STORE);
+		SSL_ctrl(ctx->ssl, SSL_CTRL_SET_VERIFY_CERT_STORE, 1, TLS_STORE);
 
 	MTY_GlobalUnlock(&TLS_GLOCK);
 
-	//disable any non TLS protocols
 	long flags = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_COMPRESSION;
-	SSL_set_options(tls->ssl, flags);
+	SSL_set_options(ctx->ssl, flags);
 
-	//limit ciphers to predefined secure list
-	int32_t e = SSL_set_cipher_list(tls->ssl, TLS_CIPHER_LIST);
-	if (e != 1) return MTY_NET_TLS_ERR_CIPHER;
+	int32_t e = SSL_set_cipher_list(ctx->ssl, TLS_CIPHER_LIST);
+	if (e != 1) {
+		r = false;
+		goto except;
+	}
 
-	//Event though sockets on windows can be 64-bit, OpenSSL requires them as a 32-bit int
-	e = SSL_set_fd(tls->ssl, (int32_t) socket);
-	if (e != 1) return MTY_NET_TLS_ERR_FD;
+	// Even though sockets on windows can be 64-bit, OpenSSL requires them as a 32-bit int
+	e = SSL_set_fd(ctx->ssl, (int32_t) socket);
+	if (e != 1) {
+		r = false;
+		goto except;
+	}
 
-	return MTY_NET_TLS_OK;
+	except:
+
+	if (!r)
+		tls_destroy(&ctx);
+
+	return ctx;
 }
 
-static int32_t tls_handshake_poll(struct tls *tls, int32_t e, int32_t timeout_ms)
+static MTY_Async tls_handshake_poll(struct tls *tls, int32_t e, uint32_t timeout)
 {
-	int32_t ne = tcp_error();
-	if (ne == tcp_bad_fd()) return MTY_NET_TLS_ERR_FD;
+	MTY_Async a = tcp_async();
 
-	if (ne == tcp_would_block() || SSL_get_error(tls->ssl, e) == SSL_ERROR_WANT_READ)
-		return tcp_poll(tls->socket, TCP_POLLIN, timeout_ms);
+	if (a != MTY_ASYNC_ERROR && (a == MTY_ASYNC_CONTINUE || SSL_get_error(tls->ssl, e) == SSL_ERROR_WANT_READ))
+		return tcp_poll(tls->socket, false, timeout);
 
-	return MTY_NET_TLS_ERR_HANDSHAKE;
+	return MTY_ASYNC_ERROR;
 }
 
-struct tls *tls_connect(TCP_SOCKET socket, const char *host, bool verify_host, int32_t timeout_ms)
+struct tls *tls_connect(TCP_SOCKET socket, const char *host, uint32_t timeout)
 {
-	int32_t r = MTY_NET_TLS_OK;
+	struct tls *ctx = tls_new(socket);
+	if (!ctx)
+		return NULL;
 
-	struct tls *ctx = NULL;
-	int32_t e = tls_new(&ctx, socket);
-	if (e != MTY_NET_TLS_OK) {r = e; goto except;}
+	bool r = true;
 
-	//set peer certificate verification
 	SSL_set_verify(ctx->ssl, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
 	SSL_set_verify_depth(ctx->ssl, TLS_VERIFY_DEPTH);
 
-	//set hostname validation
-	if (verify_host) {
-		X509_VERIFY_PARAM *param = SSL_get0_param(ctx->ssl);
-		X509_VERIFY_PARAM_set_hostflags(param, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
-		X509_VERIFY_PARAM_set1_host(param, host, 0);
-	}
+	X509_VERIFY_PARAM *param = SSL_get0_param(ctx->ssl);
+	X509_VERIFY_PARAM_set_hostflags(param, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
+	X509_VERIFY_PARAM_set1_host(param, host, 0);
 
-	//set hostname extension -- sometimes required
 	SSL_ctrl(ctx->ssl, SSL_CTRL_SET_TLSEXT_HOSTNAME, TLSEXT_NAMETYPE_host_name, (char *) host);
 
-	while (true) {
-		//attempt SSL connection on nonblocking socket -- 1 is success
-		e = SSL_connect(ctx->ssl);
-		if (e == 1) break;
+	while (r) {
+		int32_t e = SSL_connect(ctx->ssl);
+		if (e == 1)
+			break;
 
-		//if not successful, see if we neeed to poll for more data
-		e = tls_handshake_poll(ctx, e, timeout_ms);
-		if (e != MTY_NET_TLS_OK) {r = e; break;}
+		if (tls_handshake_poll(ctx, e, timeout) != MTY_ASYNC_OK)
+			r = false;
 	}
 
-	except:
-
-	if (r != MTY_NET_TLS_OK)
+	if (!r)
 		tls_destroy(&ctx);
 
 	return ctx;
 }
 
-struct tls *tls_accept(TCP_SOCKET socket, int32_t timeout_ms)
+struct tls *tls_accept(TCP_SOCKET socket, uint32_t timeout)
 {
-	int32_t r = MTY_NET_TLS_OK;
+	struct tls *ctx = tls_new(socket);
+	if (!ctx)
+		return NULL;
 
-	struct tls *ctx = NULL;
-	int32_t e = tls_new(&ctx, socket);
-	if (e != MTY_NET_TLS_OK) {r = e; goto except;}
+	bool r = true;
 
-	while (1) {
-		//attempt SSL accept on nonblocking socket -- 1 is success
-		e = SSL_accept(ctx->ssl);
-		if (e == 1) break;
+	while (r) {
+		int32_t e = SSL_accept(ctx->ssl);
+		if (e == 1)
+			break;
 
-		//if not successful, see if we neeed to poll for more data
-		e = tls_handshake_poll(ctx, e, timeout_ms);
-		if (e != MTY_NET_TLS_OK) {r = e; break;}
+		if (tls_handshake_poll(ctx, e, timeout) != MTY_ASYNC_OK)
+			r = false;
 	}
 
-	except:
-
-	if (r != MTY_NET_TLS_OK)
+	if (!r)
 		tls_destroy(&ctx);
 
 	return ctx;
 }
 
-int32_t tls_write(struct tls *ctx, const char *buf, size_t size)
+bool tls_write(struct tls *ctx, const void *buf, size_t size)
 {
 	for (size_t total = 0; total < size;) {
-		int32_t n = SSL_write(ctx->ssl, buf + total, (int32_t) (size - total));
-		if (n <= 0) {
-			int32_t ssl_e = SSL_get_error(ctx->ssl, n);
-			if (ssl_e == SSL_ERROR_WANT_READ || ssl_e == SSL_ERROR_WANT_WRITE) continue;
-			if (ssl_e == SSL_ERROR_ZERO_RETURN) return MTY_NET_TLS_ERR_CLOSED;
-			return MTY_NET_TLS_ERR_WRITE;
-		}
+		int32_t n = SSL_write(ctx->ssl, (uint8_t *) buf + total, (int32_t) (size - total));
 
-		total += n;
+		if (n <= 0) {
+			int32_t e = SSL_get_error(ctx->ssl, n);
+			if (e != SSL_ERROR_WANT_READ && e != SSL_ERROR_WANT_WRITE)
+				return false;
+
+		} else {
+			total += n;
+		}
 	}
 
-	return MTY_NET_TLS_OK;
+	return true;
 }
 
-int32_t tls_read(struct tls *ctx, char *buf, size_t size, int32_t timeout_ms)
+bool tls_read(struct tls *ctx, void *buf, size_t size, uint32_t timeout)
 {
 	for (size_t total = 0; total < size;) {
-		if (SSL_has_pending(ctx->ssl) == 0) {
-			int32_t e = tcp_poll(ctx->socket, TCP_POLLIN, timeout_ms);
-			if (e != MTY_NET_TLS_OK) return e;
-		}
+		if (SSL_has_pending(ctx->ssl) == 0)
+			if (tcp_poll(ctx->socket, false, timeout) != MTY_ASYNC_OK)
+				return false;
 
-		int32_t n = SSL_read(ctx->ssl, buf + total, (int32_t) (size - total));
+		int32_t n = SSL_read(ctx->ssl, (uint8_t *) buf + total, (int32_t) (size - total));
+
 		if (n <= 0) {
-			int32_t ssl_e = SSL_get_error(ctx->ssl, n);
-			if (ssl_e == SSL_ERROR_WANT_READ || ssl_e == SSL_ERROR_WANT_WRITE) continue;
-			if (ssl_e == SSL_ERROR_ZERO_RETURN) return MTY_NET_TLS_ERR_CLOSED;
-			return MTY_NET_TLS_ERR_READ;
-		}
+			int32_t e = SSL_get_error(ctx->ssl, n);
+			if (e != SSL_ERROR_WANT_READ && e != SSL_ERROR_WANT_WRITE)
+				return false;
 
-		total += n;
+		} else {
+			total += n;
+		}
 	}
 
-	return MTY_NET_TLS_OK;
+	return true;
 }
