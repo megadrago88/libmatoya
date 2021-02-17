@@ -241,7 +241,6 @@ bool dns_query(const char *host, char *ip, size_t size)
 	struct addrinfo *servinfo = NULL;
 	int32_t e = getaddrinfo(host, NULL, &hints, &servinfo);
 	if (e != 0) {
-		MTY_Log("'getaddrinfo' failed with error %d", e);
 		r = false;
 		goto except;
 	}
