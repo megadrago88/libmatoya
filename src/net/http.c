@@ -23,6 +23,8 @@ struct http_header {
 	uint32_t npairs;
 };
 
+#define HTTP_HEADER_MAX (2 * 1024 * 1024)
+
 
 // Standard header generators
 
@@ -226,8 +228,91 @@ char *http_set_header_str(char *header, const char *name, const char *val)
 	return header;
 }
 
+char *http_set_all_headers(char *header, const char *all)
+{
+	char *dup = MTY_Strdup(all);
 
-// Misc
+	char *ptr = NULL;
+	char *tok = MTY_Strtok(dup, "\n", &ptr);
+
+	while (tok) {
+		char *ptr2 = NULL;
+		char *key = MTY_Strtok(tok, " :", &ptr2);
+		char *val = key ? MTY_Strtok(NULL, "", &ptr2) : NULL;
+
+		if (!key || !val)
+			break;
+
+		header = http_set_header_str(header, key, val);
+
+		tok = MTY_Strtok(NULL, "\n", &ptr);
+	}
+
+	MTY_Free(dup);
+
+	return header;
+}
+
+
+// Wrapped header IO
+
+static char *http_read_header_io(struct mty_net *net, uint32_t timeout)
+{
+	bool r = false;
+	char *h = MTY_Alloc(HTTP_HEADER_MAX, 1);
+
+	for (uint32_t x = 0; x < HTTP_HEADER_MAX - 1; x++) {
+		if (!mty_net_read(net, h + x, 1, timeout))
+			break;
+
+		if (x > 2 && h[x - 3] == '\r' && h[x - 2] == '\n' && h[x - 1] == '\r' && h[x] == '\n') {
+			r = true;
+			break;
+		}
+	}
+
+	if (!r) {
+		MTY_Free(h);
+		h = NULL;
+	}
+
+	return h;
+}
+
+struct http_header *http_read_header(struct mty_net *net, uint32_t timeout)
+{
+	char *header = http_read_header_io(net, timeout);
+	if (!header)
+		return NULL;
+
+	struct http_header *h = http_parse_header(header);
+	MTY_Free(header);
+
+	return h;
+}
+
+bool http_write_response_header(struct mty_net *net, const char *code, const char *reason, const char *headers)
+{
+	char *hstr = http_response(code, reason, headers);
+	bool r = mty_net_write(net, hstr, strlen(hstr));
+
+	MTY_Free(hstr);
+
+	return r;
+}
+
+bool http_write_request_header(struct mty_net *net, const char *method, const char *path, const char *headers)
+{
+	char *hstr = http_request(method, mty_net_get_host(net), path, headers);
+	bool r = mty_net_write(net, hstr, strlen(hstr));
+
+	MTY_Free(hstr);
+
+	return r;
+}
+
+
+// URL utilities
 
 bool http_parse_url(const char *url, bool *secure, char **host, uint16_t *port, char **path)
 {

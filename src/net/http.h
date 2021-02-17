@@ -9,6 +9,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "net.h"
+
 #define MTY_NET_PORT   80
 #define MTY_NET_PORT_S 443
 
@@ -25,5 +27,10 @@ bool http_get_header_int(struct http_header *h, const char *key, int32_t *val);
 bool http_get_header_str(struct http_header *h, const char *key, const char **val);
 char *http_set_header_int(char *header, const char *name, int32_t val);
 char *http_set_header_str(char *header, const char *name, const char *val);
+char *http_set_all_headers(char *header, const char *all);
+
+struct http_header *http_read_header(struct mty_net *net, uint32_t timeout);
+bool http_write_response_header(struct mty_net *net, const char *code, const char *reason, const char *headers);
+bool http_write_request_header(struct mty_net *net, const char *method, const char *path, const char *headers);
 
 bool http_parse_url(const char *url, bool *secure, char **host, uint16_t *port, char **path);

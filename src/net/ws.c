@@ -11,6 +11,7 @@
 #include <stdio.h>
 
 #include "net.h"
+#include "http.h"
 
 #define SHA1_LEN         20
 #define WS_HEADER_SIZE   14
@@ -203,23 +204,23 @@ static void ws_serialize(struct ws_header *h, const char *payload, char *out, ui
 static int32_t mty_net_ws_accept(MTY_WebSocket *ws, const char * const *origins,
 	int32_t n_origins, bool secure_origin, int32_t timeout_ms)
 {
-	//wait for the client's request header
-	int32_t e = mty_net_read_header(ws->ucc, timeout_ms);
-	if (e != MTY_NET_OK) return e;
+	char *res = NULL;
+	struct http_header *hdr = NULL;
 
-	//set obligatory headers
-	mty_net_set_header_str(ws->ucc, "Upgrade", "websocket");
-	mty_net_set_header_str(ws->ucc, "Connection", "Upgrade");
+	//wait for the client's request header
+	hdr = http_read_header(ws->ucc, timeout_ms);
+	if (!hdr)
+		return MTY_NET_ERR_DEFAULT;
 
 	//check the origin header against our whitelist
 	const char *origin = NULL;
-	if (!mty_net_get_header_str(ws->ucc, "Origin", &origin))
+	if (!http_get_header_str(hdr, "Origin", &origin))
 		 return MTY_NET_ERR_DEFAULT;
 
 	//secure origin check
 	if (secure_origin) {
 		char *scheme = strstr(origin, "https://");
-		if (scheme != origin) return MTY_NET_WS_ERR_ORIGIN;
+		if (scheme != origin) return MTY_NET_ERR_DEFAULT;
 	}
 
 	//the substring MUST came at the end of the origin header, thus a strstr AND a strcmp
@@ -229,20 +230,28 @@ static int32_t mty_net_ws_accept(MTY_WebSocket *ws, const char * const *origins,
 		if (match && !strcmp(match, origins[x])) {origin_ok = true; break;}
 	}
 
-	if (!origin_ok) return MTY_NET_WS_ERR_ORIGIN;
+	if (!origin_ok) return MTY_NET_ERR_DEFAULT;
 
 	//read the key and set a compliant response header
 	const char *sec_key = NULL;
-	if (!mty_net_get_header_str(ws->ucc, "Sec-WebSocket-Key", &sec_key))
+	if (!http_get_header_str(hdr, "Sec-WebSocket-Key", &sec_key))
 		return MTY_NET_ERR_DEFAULT;
 
 	char *accept_key = ws_create_accept_key(sec_key);
-	mty_net_set_header_str(ws->ucc, "Sec-WebSocket-Accept", accept_key);
+	res = http_set_header_str(res, "Sec-WebSocket-Accept", accept_key);
 	free(accept_key);
 
+	//set obligatory headers
+	res = http_set_header_str(res, "Upgrade", "websocket");
+	res = http_set_header_str(res, "Connection", "Upgrade");
+
 	//write the response header
-	e = mty_net_write_header(ws->ucc, "101", "Switching Protocols", MTY_NET_RESPONSE);
-	if (e != MTY_NET_OK) return e;
+	if (!http_write_response_header(ws->ucc, "101", "Switching Protocols", res))
+		return MTY_NET_ERR_DEFAULT;
+
+	// XXX TODO this needs to be goto
+	MTY_Free(res);
+	http_header_destroy(&hdr);
 
 	//server does not send masked messages
 	ws->mask = 0;
@@ -292,8 +301,8 @@ static int32_t mty_net_ws_read(MTY_WebSocket *ws, char *buf, uint32_t buf_len, u
 	ws_parse_header1(&h, header_buf);
 
 	//check bounds
-	if (h.payload_len > INT32_MAX) return MTY_NET_ERR_MAX_BODY;
-	if (h.payload_len > buf_len) return MTY_NET_ERR_BUFFER;
+	if (h.payload_len > INT32_MAX) return MTY_NET_ERR_DEFAULT;
+	if (h.payload_len > buf_len) return MTY_NET_ERR_DEFAULT;
 
 	if (!mty_net_read(ws->ucc, buf, (uint32_t) h.payload_len, timeout_ms))
 		return MTY_NET_ERR_DEFAULT;
@@ -311,48 +320,58 @@ static int32_t mty_net_ws_connect(MTY_WebSocket *ws, const char *path, const cha
 	int32_t r = MTY_NET_OK;
 	*upgrade_status = 0;
 
+	char *req = NULL;
+	struct http_header *hdr = NULL;
+
 	//obligatory websocket headers
 	char *sec_key = ws_create_key();
-	mty_net_set_header_str(ws->ucc, "Upgrade", "websocket");
-	mty_net_set_header_str(ws->ucc, "Connection", "Upgrade");
-	mty_net_set_header_str(ws->ucc, "Sec-WebSocket-Key", sec_key);
-	mty_net_set_header_str(ws->ucc, "Sec-WebSocket-Version", "13");
+	req = http_set_header_str(req, "Upgrade", "websocket");
+	req = http_set_header_str(req, "Connection", "Upgrade");
+	req = http_set_header_str(req, "Sec-WebSocket-Key", sec_key);
+	req = http_set_header_str(req, "Sec-WebSocket-Version", "13");
 
 	//optional headers
 	if (headers)
-		mty_http_set_headers(ws->ucc, headers);
+		req = http_set_all_headers(req, headers);
 
 	//write the header
-	int32_t e = mty_net_write_header(ws->ucc, "GET", path, MTY_NET_REQUEST);
-	if (e != MTY_NET_OK) {r = e; goto except;}
-
-	//we expect a 101 response code from the server
-	e = mty_net_read_header(ws->ucc, timeout_ms);
-	if (e != MTY_NET_OK) {r = e; goto except;}
-
-	//make sure we have a 101 from the server
-	if (!mty_net_get_status_code(ws->ucc, upgrade_status)) {
-		r = MTY_NET_WS_ERR_STATUS;
-		goto except;
-	}
-
-	if (*upgrade_status != 101) {r = MTY_NET_WS_ERR_STATUS; goto except;}
-
-	//validate the security key response
-	const char *server_sec_key = NULL;
-	if (!mty_net_get_header_str(ws->ucc, "Sec-WebSocket-Accept", &server_sec_key)) {
+	if (!http_write_request_header(ws->ucc, "GET", path, req)) {
 		r = MTY_NET_ERR_DEFAULT;
 		goto except;
 	}
 
-	if (!ws_validate_key(sec_key, server_sec_key)) {r = MTY_NET_WS_ERR_KEY; goto except;}
+	//we expect a 101 response code from the server
+	hdr = http_read_header(ws->ucc, timeout_ms);
+	if (!hdr) {
+		r = MTY_NET_ERR_DEFAULT;
+		goto except;
+	}
+
+	//make sure we have a 101 from the server
+	if (!http_get_status_code(hdr, upgrade_status)) {
+		r = MTY_NET_ERR_DEFAULT;
+		goto except;
+	}
+
+	if (*upgrade_status != 101) {r = MTY_NET_ERR_DEFAULT; goto except;}
+
+	//validate the security key response
+	const char *server_sec_key = NULL;
+	if (!http_get_header_str(hdr, "Sec-WebSocket-Accept", &server_sec_key)) {
+		r = MTY_NET_ERR_DEFAULT;
+		goto except;
+	}
+
+	if (!ws_validate_key(sec_key, server_sec_key)) {r = MTY_NET_ERR_DEFAULT; goto except;}
 
 	//client must send masked messages
 	ws->mask = 1;
 
 	except:
 
-	free(sec_key);
+	http_header_destroy(&hdr);
+	MTY_Free(sec_key);
+	MTY_Free(req);
 
 	return r;
 }
@@ -377,7 +396,7 @@ static int32_t mty_ws_ping(MTY_WebSocket *ws, int32_t ping_frequency_ms)
 			ws->last_ping = now;
 	}
 
-	return (e == MTY_NET_OK) ? MTY_NET_OK : MTY_NET_WS_ERR_PING;
+	return (e == MTY_NET_OK) ? MTY_NET_OK : MTY_NET_ERR_DEFAULT;
 }
 
 
