@@ -73,19 +73,17 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 
 		// Check for content-encoding header and attempt to uncompress
 		const char *val = NULL;
-		if (http_get_header_str(hdr, "Content-Encoding", &val)) {
-			if (!MTY_Strcasecmp(val, "gzip")) {
-				size_t zlen = 0;
-				void *z = mty_gzip_decompress(*response, *responseSize, &zlen);
-				if (!z) {
-					r = false;
-					goto except;
-				}
-
-				MTY_Free(*response);
-				*response = z;
-				*responseSize = zlen;
+		if (http_get_header_str(hdr, "Content-Encoding", &val) && !MTY_Strcasecmp(val, "gzip")) {
+			size_t zlen = 0;
+			void *z = mty_gzip_decompress(*response, *responseSize, &zlen);
+			if (!z) {
+				r = false;
+				goto except;
 			}
+
+			MTY_Free(*response);
+			*response = z;
+			*responseSize = zlen;
 		}
 	}
 
