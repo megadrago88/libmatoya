@@ -15,40 +15,6 @@
 #include "net/http.h"
 #include "net/gzip.h"
 
-static bool mty_http_recv_response(HINTERNET request, void **response, size_t *responseSize)
-{
-	DWORD available = 0;
-
-	do {
-		BOOL success = WinHttpQueryDataAvailable(request, &available);
-		if (!success) {
-			MTY_Log("'WinHttpQueryDataAvailable' failed with error 0x%X", GetLastError());
-			return false;
-		}
-
-		DWORD read = 0;
-		void *buf = MTY_Alloc(available + 1, 1);
-		success = WinHttpReadData(request, buf, available, &read);
-
-		if (success && read > 0) {
-			*response = MTY_Realloc(*response, *responseSize + read + 1, 1);
-			memcpy((uint8_t *) *response + *responseSize, buf, read + 1);
-
-			*responseSize += read;
-		}
-
-		MTY_Free(buf);
-
-		if (!success) {
-			MTY_Log("'WinHttpReadData' failed with error 0x%X", GetLastError());
-			return false;
-		}
-
-	} while (available > 0);
-
-	return true;
-}
-
 bool MTY_HttpRequest(const char *_host, bool secure, const char *_method, const char *_path,
 	const char *_headers, const void *body, size_t bodySize, uint32_t timeout,
 	void **response, size_t *responseSize, uint16_t *status)
@@ -61,7 +27,7 @@ bool MTY_HttpRequest(const char *_host, bool secure, const char *_method, const 
 	HINTERNET connect = NULL;
 	HINTERNET request = NULL;
 
-	// Wide char conversion
+	// WCHAR conversion
 	WCHAR host[512];
 	_snwprintf_s(host, 512, _TRUNCATE, L"%hs", _host);
 
@@ -144,11 +110,29 @@ bool MTY_HttpRequest(const char *_host, bool secure, const char *_method, const 
 		!wcscmp(header_wstr, L"gzip");
 
 	// Receive response body
-	r = mty_http_recv_response(request, response, responseSize);
-	if (!r)
-		goto except;
+	while (true) {
+		DWORD available = 0;
+		r = WinHttpQueryDataAvailable(request, &available);
+		if (!r)
+			goto except;
 
-	// Response deco & null character
+		if (available == 0)
+			break;
+
+		*response = MTY_Realloc(*response, *responseSize + available + 1, 1);
+
+		DWORD read = 0;
+		r = WinHttpReadData(request, (uint8_t *) *response + *responseSize, available, &read);
+		if (!r)
+			goto except;
+
+		*responseSize += read;
+
+		// Keep null character at the end of the buffer for protection
+		memset((uint8_t *) *response + *responseSize, 0, 1);
+	}
+
+	// Optionally uncompress
 	if (gzipped && *response && *responseSize > 0) {
 		size_t zlen = 0;
 		void *z = mty_gzip_decompress(*response, *responseSize, &zlen);
