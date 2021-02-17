@@ -223,7 +223,7 @@ static struct tls *tls_new(TCP_SOCKET socket)
 
 static MTY_Async tls_handshake_poll(struct tls *tls, int32_t e, uint32_t timeout)
 {
-	MTY_Async a = tcp_async();
+	MTY_Async a = tcp_async_state();
 
 	if (a != MTY_ASYNC_ERROR && (a == MTY_ASYNC_CONTINUE || SSL_get_error(tls->ssl, e) == SSL_ERROR_WANT_READ))
 		return tcp_poll(tls->socket, false, timeout);

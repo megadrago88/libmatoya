@@ -75,7 +75,7 @@ TCP_SOCKET tcp_connect(const char *ip, uint16_t port, uint32_t timeout)
 
 	bool r = true;
 
-	// TODO Check return value?
+	// Since this is async, it will always return -1, no need to check it
 	connect(s, (struct sockaddr *) &addr, sizeof(struct sockaddr_in));
 
 	// Initial socket state must be 'in progress' for nonblocking connect
@@ -172,7 +172,7 @@ void tcp_destroy(TCP_SOCKET *socket)
 
 // Poll, read, write
 
-MTY_Async tcp_async(void)
+MTY_Async tcp_async_state(void)
 {
 	int32_t e = mty_sock_error();
 

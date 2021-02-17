@@ -9,7 +9,7 @@
 
 #include "miniz/miniz.c"
 
-#define MTY_GZIP_CHUNK_SIZE (256 * 1024) // 256KB
+#define MTY_GZIP_CHUNK_SIZE (256 * 1024)
 
 void *mty_gzip_decompress(const void *in, size_t inSize, size_t *outSize)
 {

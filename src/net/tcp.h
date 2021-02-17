@@ -22,7 +22,7 @@ TCP_SOCKET tcp_listen(const char *ip, uint16_t port);
 TCP_SOCKET tcp_accept(TCP_SOCKET s, uint32_t timeout);
 void tcp_destroy(TCP_SOCKET *socket);
 
-MTY_Async tcp_async(void);
+MTY_Async tcp_async_state(void);
 MTY_Async tcp_poll(TCP_SOCKET s, bool out, uint32_t timeout);
 bool tcp_write(TCP_SOCKET s, const void *buf, size_t size);
 bool tcp_read(TCP_SOCKET s, void *buf, size_t size, uint32_t timeout);
