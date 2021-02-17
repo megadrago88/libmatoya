@@ -27,8 +27,8 @@ struct ws_header {
 	bool rsv1;
 	bool rsv2;
 	bool rsv3;
-	bool opcode;
 	bool mask;
+	uint8_t opcode;
 	size_t payload_len;
 	uint32_t masking_key;
 	uint8_t addtl_bytes;
@@ -104,7 +104,7 @@ static void ws_parse_header0(struct ws_header *h, const uint8_t *buf)
 	h->rsv1 = b & 0x40;
 	h->rsv2 = b & 0x20;
 	h->rsv3 = b & 0x10;
-	h->opcode = b & 0x0F;
+	h->opcode = b & 0xF;
 
 	b = buf[1];
 	h->mask = b & 0x80;
@@ -150,7 +150,7 @@ static void ws_mask(const uint8_t *in, size_t buf_len, uint32_t mask, uint8_t *o
 		out[x] = in[x] ^ key[x % 4];
 }
 
-static size_t ws_serialize(struct ws_header *h, const void *payload, uint8_t *out)
+static size_t ws_serialize(const struct ws_header *h, const void *payload, uint8_t *out)
 {
 	size_t o = 0;
 	uint8_t b = 0;
@@ -167,7 +167,7 @@ static size_t ws_serialize(struct ws_header *h, const void *payload, uint8_t *ou
 	if (h->rsv3)
 		b |= 0x10;
 
-	b |= h->opcode & 0x0f;
+	b |= h->opcode & 0xF;
 	out[o++] = b;
 
 	b = 0;
@@ -182,7 +182,7 @@ static size_t ws_serialize(struct ws_header *h, const void *payload, uint8_t *ou
 
 	} else if (h->payload_len >= 126 && h->payload_len <= UINT16_MAX) {
 		uint16_t l = MTY_SwapToBE16((uint16_t) h->payload_len);
-		b |= 0x7e;
+		b |= 0x7E;
 		out[o++] = b;
 
 		memcpy(out + o, &l, 2);
@@ -190,23 +190,21 @@ static size_t ws_serialize(struct ws_header *h, const void *payload, uint8_t *ou
 
 	} else {
 		uint64_t l = MTY_SwapToBE64((uint64_t) h->payload_len);
-		b |= 0x7f;
+		b |= 0x7F;
 		out[o++] = b;
 
 		memcpy(out + o, &l, 8);
 		o += 8;
 	}
 
-	// Generate the mask randomly
-	if (h->mask) {
-		MTY_RandomBytes(&h->masking_key, sizeof(uint32_t));
-		memcpy(out + o, &h->masking_key, 4);
-		o += 4;
-	}
-
 	// Mask if necessary
 	if (h->mask) {
-		ws_mask(payload, h->payload_len, h->masking_key, out + o);
+		uint32_t masking_key = 0;
+		MTY_RandomBytes(&masking_key, sizeof(uint32_t));
+		memcpy(out + o, &masking_key, 4);
+		o += 4;
+
+		ws_mask(payload, h->payload_len, masking_key, out + o);
 
 	} else {
 		memcpy(out + o, payload, h->payload_len);
@@ -505,7 +503,7 @@ MTY_Async MTY_WebSocketRead(MTY_WebSocket *ws, char *msg, size_t size, uint32_t 
 		memset(msg, 0, size);
 
 		size_t n = 0;
-		if (ws_read(ws, msg, (uint32_t) size - 1, &opcode, 1000, &n)) {
+		if (ws_read(ws, msg, size - 1, &opcode, 1000, &n)) {
 			switch (opcode) {
 				case MTY_NET_WSOP_PING:
 					r = ws_write(ws, msg, n, MTY_NET_WSOP_PONG) ? MTY_ASYNC_CONTINUE : MTY_ASYNC_ERROR;
