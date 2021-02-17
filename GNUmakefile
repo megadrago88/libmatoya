@@ -114,7 +114,7 @@ OBJS := $(OBJS) \
 	src/net/gzip.o \
 	src/net/net.o \
 	src/net/tcp.o \
-	src/net/tls.o \
+	src/net/sec.o \
 	src/net/dtls.o \
 	src/net/ws.o
 
@@ -180,7 +180,7 @@ OBJS := $(OBJS) \
 	src/net/gzip.o \
 	src/net/net.o \
 	src/net/tcp.o \
-	src/net/tls.o \
+	src/net/sec.o \
 	src/net/dtls.o \
 	src/net/ws.o
 

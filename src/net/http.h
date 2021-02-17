@@ -33,4 +33,8 @@ struct http_header *http_read_header(struct mty_net *net, uint32_t timeout);
 bool http_write_response_header(struct mty_net *net, const char *code, const char *reason, const char *headers);
 bool http_write_request_header(struct mty_net *net, const char *method, const char *path, const char *headers);
 
+char *http_get_proxy(void);
+bool http_should_proxy(const char **host, uint16_t *port);
+bool http_proxy_connect(struct mty_net *net, uint16_t port, uint32_t timeout);
+
 bool http_parse_url(const char *url, bool *secure, char **host, uint16_t *port, char **path);

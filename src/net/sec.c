@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include "tls.h"
+#include "sec.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -90,7 +90,7 @@ static bool tls_parse_cacert(X509_STORE *store, const char *raw, size_t size)
 	return r;
 }
 
-bool tls_load_cacert(const char *cacert, size_t size)
+bool MTY_HttpSetCACert(const char *cacert, size_t size)
 {
 	if (!ssl_dl_global_init())
 		return false;

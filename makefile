@@ -45,7 +45,7 @@ OBJS = \
 	src\net\gzip.obj \
 	src\net\net.obj \
 	src\net\tcp.obj \
-	src\net\tls.obj \
+	src\net\sec.obj \
 	src\net\dtls.obj \
 	src\net\ws.obj
 

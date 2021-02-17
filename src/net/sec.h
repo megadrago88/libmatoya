@@ -14,8 +14,6 @@
 
 struct tls;
 
-bool tls_load_cacert(const char *cacert, size_t size);
-
 struct tls *tls_connect(TCP_SOCKET socket, const char *host, uint32_t timeout);
 struct tls *tls_accept(TCP_SOCKET socket, uint32_t timeout);
 void tls_destroy(struct tls **tls);

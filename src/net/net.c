@@ -14,146 +14,33 @@
 #include <stdbool.h>
 
 #include "tcp.h"
-#include "tls.h"
+#include "sec.h"
 #include "http.h"
 
 struct mty_net {
 	char *host;
-	uint16_t port;
-
 	TCP_SOCKET socket;
 	struct tls *tls;
 };
 
-
-// Global proxy setting
-
-static MTY_Atomic32 NET_GLOCK;
-static char NET_PROXY[MTY_URL_MAX];
-
-bool MTY_HttpSetProxy(const char *proxy)
-{
-	MTY_GlobalLock(&NET_GLOCK);
-
-	bool was_set = NET_PROXY[0];
-
-	if (proxy) {
-		if (!was_set) {
-			snprintf(NET_PROXY, MTY_URL_MAX, "%s", proxy);
-			was_set = true;
-		}
-
-	} else {
-		NET_PROXY[0] = '\0';
-	}
-
-	MTY_GlobalUnlock(&NET_GLOCK);
-
-	return was_set;
-}
-
-char *mty_net_get_proxy(void)
-{
-	char *proxy = NULL;
-
-	MTY_GlobalLock(&NET_GLOCK);
-
-	if (NET_PROXY[0])
-		proxy = MTY_Strdup(NET_PROXY);
-
-	MTY_GlobalUnlock(&NET_GLOCK);
-
-	return proxy;
-}
-
-
-// TLS Context
-
-bool MTY_HttpSetCACert(const char *cacert, size_t size)
-{
-	return tls_load_cacert(cacert, size);
-}
-
-
-// Connection
-
-static bool mty_net_proxy_connect(struct mty_net *ctx, uint32_t timeout)
-{
-	struct http_header *hdr = NULL;
-	char *h = http_connect(ctx->host, ctx->port, NULL);
-
-	//write the header to the HTTP client/server
-	bool r = mty_net_write(ctx, h, strlen(h));
-	MTY_Free(h);
-
-	if (!r)
-		goto except;
-
-	//read the response header
-	hdr = http_read_header(ctx, timeout);
-	if (!hdr) {
-		r = false;
-		goto except;
-	}
-
-	//get the status code
-	uint16_t status_code = 0;
-	r = http_get_status_code(hdr, &status_code);
-	if (!r)
-		goto except;
-
-	if (status_code != 200) {
-		r = false;
-		goto except;
-	}
-
-	except:
-
-	if (hdr)
-		http_header_destroy(&hdr);
-
-	return r;
-}
-
 struct mty_net *mty_net_connect(const char *host, uint16_t port, bool secure, uint32_t timeout)
 {
-	bool r = true;
-
 	struct mty_net *ctx = MTY_Alloc(1, sizeof(struct mty_net));
 	ctx->host = MTY_Strdup(host);
-	ctx->port = port;
 
-	// Use proxy host if globally set
-	MTY_GlobalLock(&NET_GLOCK);
-
-	bool psecure = false;
-	uint16_t pport = 0;
-	char *phost = NULL;
-	char *ppath = NULL;
-
-	bool ok = http_parse_url(NET_PROXY, &psecure, &phost, &pport, &ppath);
-
-	MTY_GlobalUnlock(&NET_GLOCK);
-
-	bool use_proxy = ok && phost && phost[0];
-
-	const char *use_host = use_proxy ? phost : host;
-	uint16_t use_port = use_proxy ? pport : port;
+	// Check global HTTP proxy settings
+	const char *chost = ctx->host;
+	uint16_t cport = port;
+	bool use_proxy = http_should_proxy(&chost, &cport);
 
 	// DNS resolve hostname into an ip address string
 	char ip[64];
-	r = dns_query(use_host, ip, 64);
-
-	if (use_proxy) {
-		MTY_Free(phost);
-		MTY_Free(ppath);
-	}
-
+	bool r = dns_query(chost, ip, 64);
 	if (!r)
 		goto except;
 
 	// Make the tcp connection
-	ctx->socket = tcp_connect(ip, use_port, timeout);
+	ctx->socket = tcp_connect(ip, cport, timeout);
 	if (ctx->socket == TCP_INVALID_SOCKET) {
 		r = false;
 		goto except;
@@ -161,7 +48,7 @@ struct mty_net *mty_net_connect(const char *host, uint16_t port, bool secure, ui
 
 	// HTTP proxy CONNECT request
 	if (use_proxy) {
-		r = mty_net_proxy_connect(ctx, timeout);
+		r = http_proxy_connect(ctx, port, timeout);
 		if (!r)
 			goto except;
 	}
@@ -187,9 +74,8 @@ struct mty_net *mty_net_listen(const char *ip, uint16_t port)
 {
 	struct mty_net *ctx = MTY_Alloc(1, sizeof(struct mty_net));
 	ctx->host = MTY_Strdup(ip);
-	ctx->port = port;
 
-	ctx->socket = tcp_listen(ip, ctx->port);
+	ctx->socket = tcp_listen(ip, port);
 	if (ctx->socket == TCP_INVALID_SOCKET)
 		mty_net_destroy(&ctx);
 
@@ -224,11 +110,6 @@ struct mty_net *mty_net_accept(struct mty_net *ctx, bool secure, uint32_t timeou
 	return child;
 }
 
-MTY_Async mty_net_poll(struct mty_net *ctx, uint32_t timeout)
-{
-	return tcp_poll(ctx->socket, false, timeout);
-}
-
 void mty_net_destroy(struct mty_net **net)
 {
 	if (!net || !*net)
@@ -243,6 +124,11 @@ void mty_net_destroy(struct mty_net **net)
 
 	free(ctx);
 	*net = NULL;
+}
+
+MTY_Async mty_net_poll(struct mty_net *ctx, uint32_t timeout)
+{
+	return tcp_poll(ctx->socket, false, timeout);
 }
 
 bool mty_net_write(struct mty_net *ctx, const void *buf, size_t size)

@@ -12,7 +12,7 @@
 #include <windows.h>
 #include <winhttp.h>
 
-#include "net/net.h"
+#include "net/http.h"
 #include "net/gzip.h"
 
 static bool mty_http_recv_response(HINTERNET request, void **response, size_t *responseSize)
@@ -80,7 +80,7 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 	bool gzipped = false;
 
 	// Proxy
-	char *proxy = mty_net_get_proxy();
+	char *proxy = http_get_proxy();
 	DWORD access_type = WINHTTP_ACCESS_TYPE_NO_PROXY;
 	WCHAR *wproxy = WINHTTP_NO_PROXY_NAME;
 	WCHAR wproxy_buf[512];

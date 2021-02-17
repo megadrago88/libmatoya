@@ -11,8 +11,6 @@
 
 struct mty_net;
 
-char *mty_net_get_proxy(void);
-
 struct mty_net *mty_net_connect(const char *host, uint16_t port, bool secure, uint32_t timeout);
 struct mty_net *mty_net_listen(const char *ip, uint16_t port);
 struct mty_net *mty_net_accept(struct mty_net *ctx, bool secure, uint32_t timeout);

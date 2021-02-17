@@ -12,6 +12,8 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "tls.h"
+
 struct http_pair {
 	char *key;
 	char *val;
@@ -307,6 +309,112 @@ bool http_write_request_header(struct mty_net *net, const char *method, const ch
 	bool r = mty_net_write(net, hstr, strlen(hstr));
 
 	MTY_Free(hstr);
+
+	return r;
+}
+
+
+// HTTP Proxy IO and global settings
+
+static MTY_Atomic32 HTTP_GLOCK;
+static char HTTP_PROXY[MTY_URL_MAX];
+static MTY_TLS char HTTP_PROXY_HOST[MTY_URL_MAX];
+
+bool MTY_HttpSetProxy(const char *proxy)
+{
+	MTY_GlobalLock(&HTTP_GLOCK);
+
+	bool was_set = HTTP_PROXY[0];
+
+	if (proxy) {
+		if (!was_set) {
+			snprintf(HTTP_PROXY, MTY_URL_MAX, "%s", proxy);
+			was_set = true;
+		}
+
+	} else {
+		HTTP_PROXY[0] = '\0';
+	}
+
+	MTY_GlobalUnlock(&HTTP_GLOCK);
+
+	return was_set;
+}
+
+char *http_get_proxy(void)
+{
+	char *proxy = NULL;
+
+	MTY_GlobalLock(&HTTP_GLOCK);
+
+	if (HTTP_PROXY[0])
+		proxy = MTY_Strdup(HTTP_PROXY);
+
+	MTY_GlobalUnlock(&HTTP_GLOCK);
+
+	return proxy;
+}
+
+bool http_should_proxy(const char **host, uint16_t *port)
+{
+	bool r = false;
+
+	MTY_GlobalLock(&HTTP_GLOCK);
+
+	bool psecure = false;
+	char *phost = NULL;
+	char *ppath = NULL;
+
+	if (http_parse_url(HTTP_PROXY, &psecure, &phost, port, &ppath)) {
+		if (phost && phost[0]) {
+			snprintf(HTTP_PROXY_HOST, MTY_URL_MAX, "%s", phost);
+			*host = HTTP_PROXY_HOST;
+			r = true;
+		}
+
+		MTY_Free(phost);
+		MTY_Free(ppath);
+	}
+
+	MTY_GlobalUnlock(&HTTP_GLOCK);
+
+	return r;
+}
+
+bool http_proxy_connect(struct mty_net *net, uint16_t port, uint32_t timeout)
+{
+	struct http_header *hdr = NULL;
+	char *h = http_connect(mty_net_get_host(net), port, NULL);
+
+	//write the header to the HTTP client/server
+	bool r = mty_net_write(net, h, strlen(h));
+	MTY_Free(h);
+
+	if (!r)
+		goto except;
+
+	//read the response header
+	hdr = http_read_header(net, timeout);
+	if (!hdr) {
+		r = false;
+		goto except;
+	}
+
+	//get the status code
+	uint16_t status_code = 0;
+	r = http_get_status_code(hdr, &status_code);
+	if (!r)
+		goto except;
+
+	if (status_code != 200) {
+		r = false;
+		goto except;
+	}
+
+	except:
+
+	if (hdr)
+		http_header_destroy(&hdr);
 
 	return r;
 }
