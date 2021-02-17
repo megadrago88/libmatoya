@@ -50,7 +50,9 @@ static bool http_read_chunked(struct mty_net *net, void **res, size_t *size, uin
 			return false;
 
 		*size += chunk_len;
-		((uint8_t *) *res)[*size] = '\0';
+
+		// Keep null character at the end of the buffer for protection
+		memset((uint8_t *) *res + *size, 0, 1);
 
 	} while (chunk_len > 0);
 
