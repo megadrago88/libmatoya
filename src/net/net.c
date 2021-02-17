@@ -8,10 +8,7 @@
 #include "net.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
-#include <stdbool.h>
 
 #include "tcp.h"
 #include "sec.h"
@@ -122,7 +119,7 @@ void mty_net_destroy(struct mty_net **net)
 
 	MTY_Free(ctx->host);
 
-	free(ctx);
+	MTY_Free(ctx);
 	*net = NULL;
 }
 

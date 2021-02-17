@@ -26,18 +26,18 @@ static bool mty_http_recv_response(HINTERNET request, void **response, size_t *r
 			return false;
 		}
 
-		char *buf = malloc(available);
+		char *buf = MTY_Alloc(available, 1);
 
 		DWORD read = 0;
 		success = WinHttpReadData(request, buf, available, &read);
 
 		if (success && read > 0) {
-			*response = realloc(*response, *responseSize + read + 1);
+			*response = MTY_Realloc(*response, *responseSize + read + 1, 1);
 			memcpy((uint8_t *) *response + *responseSize, buf, read);
 			*responseSize += read;
 		}
 
-		free(buf);
+		MTY_Free(buf);
 
 		if (!success) {
 			MTY_Log("'WinHttpReadData' failed with error 0x%X", GetLastError());
@@ -56,7 +56,7 @@ static bool mty_http_decompress(void **response, size_t *responseSize)
 	char *response_z = mty_gzip_decompress(*response, *responseSize, &response_len_z);
 
 	if (response_z) {
-		free(*response);
+		MTY_Free(*response);
 
 		*response = response_z;
 		*responseSize = response_len_z;
@@ -208,7 +208,7 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 		WinHttpCloseHandle(session);
 
 	if (!ok) {
-		free(*response);
+		MTY_Free(*response);
 		*responseSize = 0;
 		*response = NULL;
 	}

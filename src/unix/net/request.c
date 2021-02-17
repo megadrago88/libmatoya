@@ -82,7 +82,7 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 					goto except;
 				}
 
-				free(*response);
+				MTY_Free(*response);
 				*response = z;
 				*responseSize = zlen;
 			}
@@ -96,7 +96,7 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 	mty_net_destroy(&net);
 
 	if (!r) {
-		free(*response);
+		MTY_Free(*response);
 		*responseSize = 0;
 		*response = NULL;
 	}

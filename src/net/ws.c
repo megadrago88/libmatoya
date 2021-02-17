@@ -72,12 +72,12 @@ static char *ws_create_key(void)
 static char *ws_create_accept_key(const char *key)
 {
 	size_t buf_len = strlen(key) + strlen(WSMAGIC) + 1;
-	char *buf = malloc(buf_len);
+	char *buf = MTY_Alloc(buf_len, 1);
 	snprintf(buf, buf_len, "%s%s", key, WSMAGIC);
 
 	uint8_t sha1[SHA1_LEN];
 	MTY_CryptoHash(MTY_ALGORITHM_SHA1, buf, strlen(buf), NULL, 0, sha1, SHA1_LEN);
-	free(buf);
+	MTY_Free(buf);
 
 	size_t akey_len = ((SHA1_LEN + 2) / 3 * 4) + 1;
 	char *akey = MTY_Alloc(akey_len, 1);
@@ -90,7 +90,7 @@ static bool ws_validate_key(const char *key, const char *accept_in)
 {
 	char *accept_key = ws_create_accept_key(key);
 	bool r = !strcmp(accept_key, accept_in);
-	free(accept_key);
+	MTY_Free(accept_key);
 
 	return r;
 }
@@ -315,7 +315,7 @@ static bool mty_net_ws_accept(MTY_WebSocket *ws, const char * const *origins,
 
 	char *accept_key = ws_create_accept_key(sec_key);
 	res = http_set_header_str(res, "Sec-WebSocket-Accept", accept_key);
-	free(accept_key);
+	MTY_Free(accept_key);
 
 	//set obligatory headers
 	res = http_set_header_str(res, "Upgrade", "websocket");
