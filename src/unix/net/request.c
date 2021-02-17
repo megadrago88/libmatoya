@@ -13,6 +13,50 @@
 #include "net/http.h"
 #include "net/gzip.h"
 
+static bool http_read_chunk_len(struct mty_net *net, uint32_t timeout, size_t *len)
+{
+	*len = 0;
+	char len_buf[64] = {0};
+
+	for (uint32_t x = 0; x < 64 - 1; x++) {
+		if (!mty_net_read(net, len_buf + x, 1, timeout))
+			break;
+
+		if (x > 0 && len_buf[x - 1] == '\r' && len_buf[x] == '\n') {
+			len_buf[x - 1] = '\0';
+			*len = strtoul(len_buf, NULL, 16);
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool http_read_chunked(struct mty_net *net, void **res, size_t *size, uint32_t timeout)
+{
+	size_t chunk_len = 0;
+
+	do {
+		// Read the chunk size one byte at a time
+		if (!http_read_chunk_len(net, timeout, &chunk_len))
+			return false;
+
+		// Make room for chunk and "\r\n" after chunk
+		*res = MTY_Realloc(*res, *size + chunk_len + 2, 1);
+
+		// Read chunk into buffer with extra 2 bytes for "\r\n"
+		if (!mty_net_read(net, (uint8_t *) *res + *size, chunk_len + 2, timeout))
+			return false;
+
+		*size += chunk_len;
+		((uint8_t *) *res)[*size] = '\0';
+
+	} while (chunk_len > 0);
+
+	return true;
+}
+
 bool MTY_HttpRequest(const char *host, bool secure, const char *method, const char *path,
 	const char *headers, const void *body, size_t bodySize, uint32_t timeout,
 	void **response, size_t *responseSize, uint16_t *status)
@@ -63,7 +107,8 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 	if (!r)
 		goto except;
 
-	// If response has a body, read it and uncompress it
+	// Read response body -- either fixed content length or chunked
+	const char *val = NULL;
 	if (http_get_header_int(hdr, "Content-Length", (int32_t *) responseSize) && *responseSize > 0) {
 		*response = MTY_Alloc(*responseSize + 1, 1);
 
@@ -71,8 +116,14 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 		if (!r)
 			goto except;
 
-		// Check for content-encoding header and attempt to uncompress
-		const char *val = NULL;
+	} else if (http_get_header_str(hdr, "Transfer-Encoding", &val) && !MTY_Strcasecmp(val, "chunked")) {
+		r = http_read_chunked(net, response, responseSize, timeout);
+		if (!r)
+			goto except;
+	}
+
+	// Check for content-encoding header and attempt to uncompress
+	if (*response && *responseSize > 0) {
 		if (http_get_header_str(hdr, "Content-Encoding", &val) && !MTY_Strcasecmp(val, "gzip")) {
 			size_t zlen = 0;
 			void *z = mty_gzip_decompress(*response, *responseSize, &zlen);
