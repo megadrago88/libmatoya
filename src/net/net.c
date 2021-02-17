@@ -186,6 +186,7 @@ struct mty_net *mty_net_connect(const char *host, uint16_t port, bool secure, ui
 struct mty_net *mty_net_listen(const char *ip, uint16_t port)
 {
 	struct mty_net *ctx = MTY_Alloc(1, sizeof(struct mty_net));
+	ctx->host = MTY_Strdup(ip);
 	ctx->port = port;
 
 	ctx->socket = tcp_listen(ip, ctx->port);
@@ -199,6 +200,7 @@ struct mty_net *mty_net_accept(struct mty_net *ctx, bool secure, uint32_t timeou
 {
 	bool r = true;
 	struct mty_net *child = MTY_Alloc(1, sizeof(struct mty_net));
+	child->host = MTY_Strdup(ctx->host);
 
 	child->socket = tcp_accept(ctx->socket, timeout);
 	if (child->socket == TCP_INVALID_SOCKET) {

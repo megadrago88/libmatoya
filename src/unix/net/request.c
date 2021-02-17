@@ -13,49 +13,6 @@
 #include "net/http.h"
 #include "net/gzip.h"
 
-#define LEN_CHUNK  64
-
-static bool mty_net_check_header(struct http_header *hdr, const char *name, const char *subval)
-{
-	const char *val = NULL;
-	bool ok = http_get_header_str(hdr, name, &val);
-
-	return ok && !MTY_Strcasecmp(val, subval);
-}
-
-static int32_t mty_net_read_body_all(struct mty_net *ucc, struct http_header *hdr,
-	void **body, size_t *body_len, int32_t timeout_ms, size_t max_body)
-{
-	int32_t r = MTY_NET_OK;
-
-	*body = NULL;
-	*body_len = 0;
-
-	if (!http_get_header_int(hdr, "Content-Length", (int32_t *) body_len)) {
-		r = MTY_NET_ERR_DEFAULT;
-		goto except;
-	}
-
-	if (*body_len == 0)
-		goto except;
-
-	if (*body_len > max_body) {r = MTY_NET_ERR_DEFAULT; goto except;}
-
-	*body = calloc(*body_len + 1, 1);
-
-	if (!mty_net_read(ucc, *body, *body_len, timeout_ms))
-		{r = MTY_NET_ERR_DEFAULT; goto except;}
-
-	except:
-
-	if (r != MTY_NET_OK) {
-		free(*body);
-		*body = NULL;
-	}
-
-	return r;
-}
-
 bool MTY_HttpRequest(const char *host, bool secure, const char *method, const char *path,
 	const char *headers, const void *body, size_t bodySize, uint32_t timeout,
 	void **response, size_t *responseSize, uint16_t *status)
@@ -63,18 +20,18 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 	*responseSize = 0;
 	*response = NULL;
 
-	bool ok = true;
-	int32_t e = MTY_NET_OK;
-	uint16_t port = secure ? MTY_NET_PORT_S : MTY_NET_PORT;
-	struct http_header *hdr = NULL;
+	bool r = true;
 	char *req = NULL;
+	struct http_header *hdr = NULL;
 
-	//make the TCP connection
-	struct mty_net *ucc = mty_net_connect(host, port, secure, timeout);
-	if (!ucc)
+	// Make the TCP/TLS connection
+	struct mty_net *net = mty_net_connect(host, secure ? MTY_NET_PORT_S : MTY_NET_PORT, secure, timeout);
+	if (!net) {
+		r = false;
 		goto except;
+	}
 
-	//set request headers
+	// Set request headers
 	req = http_set_header_str(req, "User-Agent", "mty-http/v4");
 	req = http_set_header_str(req, "Connection", "close");
 
@@ -84,49 +41,50 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 	if (bodySize)
 		req = http_set_header_int(req, "Content-Length", bodySize);
 
-	//send the request header
-	if (!http_write_request_header(ucc, method, path, req)) {
-		e = MTY_NET_ERR_DEFAULT;
+	// Send the request header
+	r = http_write_request_header(net, method, path, req);
+	if (!r)
 		goto except;
-	}
 
-	//send the request body
-	if (!mty_net_write(ucc, body, bodySize)) {
-		e = MTY_NET_ERR_DEFAULT;
+	// Send the request body
+	r = mty_net_write(net, body, bodySize);
+	if (!r)
 		goto except;
-	}
 
-	//read the response header
-	hdr = http_read_header(ucc, timeout);
+	// Read the response header
+	hdr = http_read_header(net, timeout);
 	if (!hdr) {
-		e = MTY_NET_ERR_DEFAULT;
+		r = false;
 		goto except;
 	}
 
-	//get the status code
-	if (!http_get_status_code(hdr, status)) {
-		 e = MTY_NET_ERR_DEFAULT;
-		 goto except;
-	}
+	// Get the status code
+	r = http_get_status_code(hdr, status);
+	if (!r)
+		goto except;
 
-	//read the response body if not HEAD request -- uncompress if necessary
-	if (strcmp(method, "HEAD")) {
-		e = mty_net_read_body_all(ucc, hdr, response, responseSize, timeout, 128 * 1024 * 1024);
+	// If response has a body, read it and uncompress it
+	if (http_get_header_int(hdr, "Content-Length", (int32_t *) responseSize) && *responseSize > 0) {
+		*response = MTY_Alloc(*responseSize + 1, 1);
 
-		if (e == MTY_NET_OK && mty_net_check_header(hdr, "Content-Encoding", "gzip")) {
-			size_t response_len_z = 0;
-			char *response_z = mty_gzip_decompress(*response, *responseSize, &response_len_z);
+		r = mty_net_read(net, *response, *responseSize, timeout);
+		if (!r)
+			goto except;
 
-			if (response_z) {
+		// Check for content-encoding header and attempt to uncompress
+		const char *val = NULL;
+		if (http_get_header_str(hdr, "Content-Encoding", &val)) {
+			if (!MTY_Strcasecmp(val, "gzip")) {
+				size_t zlen = 0;
+				void *z = mty_gzip_decompress(*response, *responseSize, &zlen);
+				if (!z) {
+					r = false;
+					goto except;
+				}
+
 				free(*response);
-
-				*response = response_z;
-				*responseSize = response_len_z;
-
-				e = MTY_NET_OK;
-
-			} else {
-				e = MTY_NET_ERR_DEFAULT;
+				*response = z;
+				*responseSize = zlen;
 			}
 		}
 	}
@@ -135,14 +93,13 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 
 	MTY_Free(req);
 	http_header_destroy(&hdr);
-	mty_net_destroy(&ucc);
+	mty_net_destroy(&net);
 
-	if (e != MTY_NET_OK) {
+	if (!r) {
 		free(*response);
 		*responseSize = 0;
 		*response = NULL;
-		ok = false;
 	}
 
-	return ok;
+	return r;
 }

@@ -13,11 +13,6 @@
 #include "net.h"
 #include "http.h"
 
-#define SHA1_LEN         20
-#define WS_HEADER_SIZE   14
-#define WS_PING_INTERVAL 60000
-#define WS_PONG_TO       ((double) (WS_PING_INTERVAL * 3))
-
 enum {
 	MTY_NET_WSOP_CONTINUE = 0x0,
 	MTY_NET_WSOP_TEXT     = 0x1,
@@ -40,7 +35,7 @@ struct ws_header {
 };
 
 struct MTY_WebSocket {
-	struct mty_net *ucc;
+	struct mty_net *net;
 	bool connected;
 
 	int64_t last_ping;
@@ -55,7 +50,11 @@ struct MTY_WebSocket {
 
 // Private
 
-static char *WSMAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+#define SHA1_LEN         20
+#define WS_HEADER_SIZE   14
+#define WS_PING_INTERVAL 60000
+#define WS_PONG_TO       ((double) (WS_PING_INTERVAL * 3))
+#define WSMAGIC          "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
 static char *ws_create_key(void)
 {
@@ -87,10 +86,10 @@ static char *ws_create_accept_key(const char *key)
 	return akey;
 }
 
-static int8_t ws_validate_key(const char *key, const char *accept_in)
+static bool ws_validate_key(const char *key, const char *accept_in)
 {
 	char *accept_key = ws_create_accept_key(key);
-	int8_t r = strcmp(accept_key, accept_in) ? 0 : 1;
+	bool r = !strcmp(accept_key, accept_in);
 	free(accept_key);
 
 	return r;
@@ -111,9 +110,14 @@ static void ws_parse_header0(struct ws_header *h, char *buf)
 	h->mask = (b & 0x80) ? 1 : 0;
 	h->payload_len = b & 0x7f;
 
-	if (h->payload_len == 126) h->addtl_bytes += 2;
-	if (h->payload_len == 127) h->addtl_bytes += 8;
-	if (h->mask) h->addtl_bytes += 4;
+	if (h->payload_len == 126)
+		h->addtl_bytes += 2;
+
+	if (h->payload_len == 127)
+		h->addtl_bytes += 8;
+
+	if (h->mask)
+		h->addtl_bytes += 4;
 }
 
 static void ws_parse_header1(struct ws_header *h, char *buf)
@@ -201,125 +205,10 @@ static void ws_serialize(struct ws_header *h, const char *payload, char *out, ui
 	*out_size = o + h->payload_len;
 }
 
-static int32_t mty_net_ws_accept(MTY_WebSocket *ws, const char * const *origins,
-	int32_t n_origins, bool secure_origin, int32_t timeout_ms)
+static bool mty_net_ws_connect(MTY_WebSocket *ws, const char *path, const char *headers,
+	uint32_t timeout, uint16_t *upgrade_status)
 {
-	char *res = NULL;
-	struct http_header *hdr = NULL;
-
-	//wait for the client's request header
-	hdr = http_read_header(ws->ucc, timeout_ms);
-	if (!hdr)
-		return MTY_NET_ERR_DEFAULT;
-
-	//check the origin header against our whitelist
-	const char *origin = NULL;
-	if (!http_get_header_str(hdr, "Origin", &origin))
-		 return MTY_NET_ERR_DEFAULT;
-
-	//secure origin check
-	if (secure_origin) {
-		char *scheme = strstr(origin, "https://");
-		if (scheme != origin) return MTY_NET_ERR_DEFAULT;
-	}
-
-	//the substring MUST came at the end of the origin header, thus a strstr AND a strcmp
-	bool origin_ok = false;
-	for (int32_t x = 0; x < n_origins; x++) {
-		char *match = strstr(origin, origins[x]);
-		if (match && !strcmp(match, origins[x])) {origin_ok = true; break;}
-	}
-
-	if (!origin_ok) return MTY_NET_ERR_DEFAULT;
-
-	//read the key and set a compliant response header
-	const char *sec_key = NULL;
-	if (!http_get_header_str(hdr, "Sec-WebSocket-Key", &sec_key))
-		return MTY_NET_ERR_DEFAULT;
-
-	char *accept_key = ws_create_accept_key(sec_key);
-	res = http_set_header_str(res, "Sec-WebSocket-Accept", accept_key);
-	free(accept_key);
-
-	//set obligatory headers
-	res = http_set_header_str(res, "Upgrade", "websocket");
-	res = http_set_header_str(res, "Connection", "Upgrade");
-
-	//write the response header
-	if (!http_write_response_header(ws->ucc, "101", "Switching Protocols", res))
-		return MTY_NET_ERR_DEFAULT;
-
-	// XXX TODO this needs to be goto
-	MTY_Free(res);
-	http_header_destroy(&hdr);
-
-	//server does not send masked messages
-	ws->mask = 0;
-
-	return MTY_NET_OK;
-}
-
-static int32_t mty_net_ws_write(MTY_WebSocket *ws, const char *buf, uint32_t buf_len, uint8_t opcode)
-{
-	struct ws_header h;
-	memset(&h, 0, sizeof(struct ws_header));
-
-	h.fin = 1;
-	h.mask = ws->mask;
-	h.opcode = opcode;
-	h.payload_len = buf_len;
-
-	//resize the serialized buffer
-	if (h.payload_len + WS_HEADER_SIZE > ws->netbuf_size) {
-		free(ws->netbuf);
-		ws->netbuf_size = h.payload_len + WS_HEADER_SIZE;
-		ws->netbuf = malloc((size_t) ws->netbuf_size);
-	}
-
-	//serialize the payload into a websocket conformant message
-	uint64_t out_size = 0;
-	ws_serialize(&h, buf, ws->netbuf, &out_size);
-
-	//write full network buffer
-	return mty_net_write(ws->ucc, ws->netbuf, (uint32_t) out_size) ? MTY_NET_OK : MTY_NET_ERR_DEFAULT;
-}
-
-static int32_t mty_net_ws_read(MTY_WebSocket *ws, char *buf, uint32_t buf_len, uint8_t *opcode, int32_t timeout_ms)
-{
-	char header_buf[WS_HEADER_SIZE];
-	struct ws_header h;
-
-	//first two bytes contain most control information
-	if (!mty_net_read(ws->ucc, header_buf, 2, timeout_ms))
-		return MTY_NET_ERR_DEFAULT;
-	ws_parse_header0(&h, header_buf);
-	*opcode = h.opcode;
-
-	//read the payload size and mask
-	if (!mty_net_read(ws->ucc, header_buf, h.addtl_bytes, timeout_ms))
-		return MTY_NET_ERR_DEFAULT;
-	ws_parse_header1(&h, header_buf);
-
-	//check bounds
-	if (h.payload_len > INT32_MAX) return MTY_NET_ERR_DEFAULT;
-	if (h.payload_len > buf_len) return MTY_NET_ERR_DEFAULT;
-
-	if (!mty_net_read(ws->ucc, buf, (uint32_t) h.payload_len, timeout_ms))
-		return MTY_NET_ERR_DEFAULT;
-
-	//unmask the data if necessary
-	if (h.mask)
-		ws_mask(buf, buf, h.payload_len, h.masking_key);
-
-	return (int32_t) h.payload_len;
-}
-
-static int32_t mty_net_ws_connect(MTY_WebSocket *ws, const char *path, const char *headers,
-	int32_t timeout_ms, uint16_t *upgrade_status)
-{
-	int32_t r = MTY_NET_OK;
-	*upgrade_status = 0;
-
+	bool r = true;
 	char *req = NULL;
 	struct http_header *hdr = NULL;
 
@@ -335,34 +224,35 @@ static int32_t mty_net_ws_connect(MTY_WebSocket *ws, const char *path, const cha
 		req = http_set_all_headers(req, headers);
 
 	//write the header
-	if (!http_write_request_header(ws->ucc, "GET", path, req)) {
-		r = MTY_NET_ERR_DEFAULT;
+	r = http_write_request_header(ws->net, "GET", path, req);
+	if (!r)
 		goto except;
-	}
 
 	//we expect a 101 response code from the server
-	hdr = http_read_header(ws->ucc, timeout_ms);
+	hdr = http_read_header(ws->net, timeout);
 	if (!hdr) {
-		r = MTY_NET_ERR_DEFAULT;
+		r = false;
 		goto except;
 	}
 
 	//make sure we have a 101 from the server
-	if (!http_get_status_code(hdr, upgrade_status)) {
-		r = MTY_NET_ERR_DEFAULT;
+	r = http_get_status_code(hdr, upgrade_status);
+	if (!r)
 		goto except;
-	}
 
-	if (*upgrade_status != 101) {r = MTY_NET_ERR_DEFAULT; goto except;}
+	r = *upgrade_status == 101;
+	if (!r)
+		goto except;
 
 	//validate the security key response
 	const char *server_sec_key = NULL;
-	if (!http_get_header_str(hdr, "Sec-WebSocket-Accept", &server_sec_key)) {
-		r = MTY_NET_ERR_DEFAULT;
+	r = http_get_header_str(hdr, "Sec-WebSocket-Accept", &server_sec_key);
+	if (!r)
 		goto except;
-	}
 
-	if (!ws_validate_key(sec_key, server_sec_key)) {r = MTY_NET_ERR_DEFAULT; goto except;}
+	r = ws_validate_key(sec_key, server_sec_key);
+	if (!r)
+		goto except;
 
 	//client must send masked messages
 	ws->mask = 1;
@@ -376,51 +266,160 @@ static int32_t mty_net_ws_connect(MTY_WebSocket *ws, const char *path, const cha
 	return r;
 }
 
-static int32_t mty_net_ws_close(MTY_WebSocket *ws, uint16_t status_code)
+static bool mty_net_ws_accept(MTY_WebSocket *ws, const char * const *origins,
+	uint32_t n_origins, bool secure_origin, uint32_t timeout)
+{
+	bool r = true;
+	char *res = NULL;
+	struct http_header *hdr = NULL;
+
+	//wait for the client's request header
+	hdr = http_read_header(ws->net, timeout);
+	if (!hdr) {
+		r = false;
+		goto except;
+	}
+
+	//check the origin header against our whitelist
+	const char *origin = NULL;
+	r = http_get_header_str(hdr, "Origin", &origin);
+	if (!r)
+		goto except;
+
+	//secure origin check
+	if (secure_origin) {
+		r = strstr(origin, "https://") == origin;
+		if (!r)
+			goto except;
+	}
+
+	//the substring MUST came at the end of the origin header, thus a strstr AND a strcmp
+	r = false;
+	for (uint32_t x = 0; x < n_origins; x++) {
+		char *match = strstr(origin, origins[x]);
+
+		if (match && !strcmp(match, origins[x])) {
+			r = true;
+			break;
+		}
+	}
+
+	if (!r)
+		goto except;
+
+	//read the key and set a compliant response header
+	const char *sec_key = NULL;
+	r = http_get_header_str(hdr, "Sec-WebSocket-Key", &sec_key);
+	if (!r)
+		goto except;
+
+	char *accept_key = ws_create_accept_key(sec_key);
+	res = http_set_header_str(res, "Sec-WebSocket-Accept", accept_key);
+	free(accept_key);
+
+	//set obligatory headers
+	res = http_set_header_str(res, "Upgrade", "websocket");
+	res = http_set_header_str(res, "Connection", "Upgrade");
+
+	//write the response header
+	r = http_write_response_header(ws->net, "101", "Switching Protocols", res);
+	if (!r)
+		goto except;
+
+	//server does not send masked messages
+	ws->mask = 0;
+
+	except:
+
+	MTY_Free(res);
+	http_header_destroy(&hdr);
+
+	return r;
+}
+
+static bool mty_net_ws_write(MTY_WebSocket *ws, const void *buf, size_t size, uint8_t opcode)
+{
+	struct ws_header h = {0};
+	h.fin = 1;
+	h.mask = ws->mask;
+	h.opcode = opcode;
+	h.payload_len = size;
+
+	//resize the serialized buffer
+	if (h.payload_len + WS_HEADER_SIZE > ws->netbuf_size) {
+		ws->netbuf_size = h.payload_len + WS_HEADER_SIZE;
+		ws->netbuf = MTY_Realloc(ws->netbuf, ws->netbuf_size, 1);
+	}
+
+	//serialize the payload into a websocket conformant message
+	uint64_t out_size = 0;
+	ws_serialize(&h, buf, ws->netbuf, &out_size);
+
+	//write full network buffer
+	return mty_net_write(ws->net, ws->netbuf, out_size);;
+}
+
+static bool mty_net_ws_read(MTY_WebSocket *ws, void *buf, size_t size, uint8_t *opcode, uint32_t timeout, uint64_t *read)
+{
+	char header_buf[WS_HEADER_SIZE];
+	struct ws_header h;
+
+	//first two bytes contain most control information
+	if (!mty_net_read(ws->net, header_buf, 2, timeout))
+		return false;
+
+	ws_parse_header0(&h, header_buf);
+	*opcode = h.opcode;
+
+	//read the payload size and mask
+	if (!mty_net_read(ws->net, header_buf, h.addtl_bytes, timeout))
+		return false;
+
+	ws_parse_header1(&h, header_buf);
+
+	//check bounds
+	if (h.payload_len > INT32_MAX)
+		return false;
+
+	if (h.payload_len > size)
+		return false;
+
+	if (!mty_net_read(ws->net, buf, h.payload_len, timeout))
+		return false;
+
+	//unmask the data if necessary
+	if (h.mask)
+		ws_mask(buf, buf, h.payload_len, h.masking_key);
+
+	*read = h.payload_len;
+
+	return true;
+}
+
+static bool mty_net_ws_close(MTY_WebSocket *ws, uint16_t status_code)
 {
 	uint16_t status_code_be = MTY_SwapToBE16(status_code);
 
-	return mty_net_ws_write(ws, (char *) &status_code_be, sizeof(uint16_t), MTY_NET_WSOP_CLOSE);
+	return mty_net_ws_write(ws, &status_code_be, sizeof(uint16_t), MTY_NET_WSOP_CLOSE);
 }
 
-static int32_t mty_ws_ping(MTY_WebSocket *ws, int32_t ping_frequency_ms)
+static bool mty_ws_ping(MTY_WebSocket *ws, int32_t ping_frequency_ms)
 {
-	int32_t e = MTY_NET_OK;
-
+	bool r = true;
 	int64_t now = MTY_Timestamp();
 
 	if (MTY_TimeDiff(ws->last_ping, now) > (double) ping_frequency_ms) {
-		e = mty_net_ws_write(ws, "ping", 4, MTY_NET_WSOP_PING);
+		r = mty_net_ws_write(ws, "ping", 4, MTY_NET_WSOP_PING);
 
-		if (e == MTY_NET_OK)
+		if (r)
 			ws->last_ping = now;
 	}
 
-	return (e == MTY_NET_OK) ? MTY_NET_OK : MTY_NET_ERR_DEFAULT;
+	return r;
 }
 
 
 // Public
-
-void MTY_WebSocketDestroy(MTY_WebSocket **ws)
-{
-	if (!ws || !*ws)
-		return;
-
-	MTY_WebSocket *ctx = *ws;
-
-	if (ctx->ucc) {
-		if (ctx->connected)
-			mty_net_ws_close(ctx, 1000);
-
-		mty_net_destroy(&ctx->ucc);
-	}
-
-	MTY_Free(ctx->netbuf);
-
-	MTY_Free(ctx);
-	*ws = NULL;
-}
 
 MTY_WebSocket *MTY_WebSocketConnect(const char *host, uint16_t port, bool secure, const char *path,
 	const char *headers, uint32_t timeout, uint16_t *upgradeStatus)
@@ -429,17 +428,15 @@ MTY_WebSocket *MTY_WebSocketConnect(const char *host, uint16_t port, bool secure
 
 	MTY_WebSocket *ctx = MTY_Alloc(1, sizeof(MTY_WebSocket));
 
-	ctx->ucc = mty_net_connect(host, port, secure, timeout);
-	if (!ctx->ucc) {
+	ctx->net = mty_net_connect(host, port, secure, timeout);
+	if (!ctx->net) {
 		ok = false;
 		goto except;
 	}
 
-	int32_t e = mty_net_ws_connect(ctx, path, headers, timeout, upgradeStatus);
-	if (e != MTY_NET_OK) {
-		ok = false;
+	ok = mty_net_ws_connect(ctx, path, headers, timeout, upgradeStatus);
+	if (!ok)
 		goto except;
-	}
 
 	ctx->connected = true;
 	ctx->last_ping = ctx->last_pong = MTY_Timestamp();
@@ -456,8 +453,8 @@ MTY_WebSocket *MTY_WebSocketListen(const char *host, uint16_t port)
 {
 	MTY_WebSocket *ctx = MTY_Alloc(1, sizeof(MTY_WebSocket));
 
-	ctx->ucc = mty_net_listen(host, port);
-	if (!ctx->ucc)
+	ctx->net = mty_net_listen(host, port);
+	if (!ctx->net)
 		MTY_WebSocketDestroy(&ctx);
 
 	return ctx;
@@ -467,15 +464,13 @@ MTY_WebSocket *MTY_WebSocketAccept(MTY_WebSocket *ws, const char * const *origin
 	bool secureOrigin, uint32_t timeout)
 {
 	MTY_WebSocket *ws_child = NULL;
-	struct mty_net *child = mty_net_accept(ws->ucc, false, timeout);
+	struct mty_net *child = mty_net_accept(ws->net, false, timeout);
 
 	if (child) {
 		ws_child = MTY_Alloc(1, sizeof(MTY_WebSocket));
-		ws_child->ucc = child;
+		ws_child->net = child;
 
-		int32_t e = mty_net_ws_accept(ws_child, origins, numOrigins, secureOrigin, timeout);
-
-		if (e == MTY_NET_OK) {
+		if (mty_net_ws_accept(ws_child, origins, numOrigins, secureOrigin, timeout)) {
 			ws_child->connected = true;
 			ws_child->last_ping = ws_child->last_pong = MTY_Timestamp();
 
@@ -490,31 +485,42 @@ MTY_WebSocket *MTY_WebSocketAccept(MTY_WebSocket *ws, const char * const *origin
 	return ws_child;
 }
 
-uint16_t MTY_WebSocketGetCloseCode(MTY_WebSocket *ctx)
+void MTY_WebSocketDestroy(MTY_WebSocket **ws)
 {
-	return ctx->close_code;
+	if (!ws || !*ws)
+		return;
+
+	MTY_WebSocket *ctx = *ws;
+
+	if (ctx->net) {
+		if (ctx->connected)
+			mty_net_ws_close(ctx, 1000);
+
+		mty_net_destroy(&ctx->net);
+	}
+
+	MTY_Free(ctx->netbuf);
+
+	MTY_Free(ctx);
+	*ws = NULL;
 }
 
 MTY_Async MTY_WebSocketRead(MTY_WebSocket *ws, char *msg, size_t size, uint32_t timeout)
 {
-	int32_t e = mty_ws_ping(ws, WS_PING_INTERVAL);
+	if (!mty_ws_ping(ws, WS_PING_INTERVAL))
+		return MTY_ASYNC_ERROR;
 
-	if (e != MTY_NET_OK)
-		return e;
-
-	MTY_Async r = mty_net_poll(ws->ucc, timeout);
+	MTY_Async r = mty_net_poll(ws->net, timeout);
 
 	if (r == MTY_ASYNC_OK) {
 		uint8_t opcode = MTY_NET_WSOP_CONTINUE;
 		memset(msg, 0, size);
 
-		int32_t n = mty_net_ws_read(ws, msg, (uint32_t) size - 1, &opcode, 1000);
-
-		if (n >= 0) {
+		uint64_t n  = 0;
+		if (mty_net_ws_read(ws, msg, (uint32_t) size - 1, &opcode, 1000, &n)) {
 			switch (opcode) {
 				case MTY_NET_WSOP_PING:
-					e = mty_net_ws_write(ws, msg, n, MTY_NET_WSOP_PONG);
-					r = e == MTY_NET_OK ? MTY_ASYNC_CONTINUE : MTY_ASYNC_ERROR;
+					r = mty_net_ws_write(ws, msg, n, MTY_NET_WSOP_PONG) ? MTY_ASYNC_CONTINUE : MTY_ASYNC_ERROR;
 					break;
 
 				case MTY_NET_WSOP_PONG:
@@ -539,7 +545,6 @@ MTY_Async MTY_WebSocketRead(MTY_WebSocket *ws, char *msg, size_t size, uint32_t 
 					r = MTY_ASYNC_CONTINUE;
 					break;
 			}
-
 		} else {
 			r = MTY_ASYNC_ERROR;
 		}
@@ -554,7 +559,10 @@ MTY_Async MTY_WebSocketRead(MTY_WebSocket *ws, char *msg, size_t size, uint32_t 
 
 bool MTY_WebSocketWrite(MTY_WebSocket *ws, const char *msg)
 {
-	int32_t e = mty_net_ws_write(ws, msg, (uint32_t) strlen(msg), MTY_NET_WSOP_TEXT);
+	return mty_net_ws_write(ws, msg, strlen(msg), MTY_NET_WSOP_TEXT);
+}
 
-	return e == MTY_NET_OK;
+uint16_t MTY_WebSocketGetCloseCode(MTY_WebSocket *ctx)
+{
+	return ctx->close_code;
 }

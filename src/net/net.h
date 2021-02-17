@@ -11,11 +11,6 @@
 
 struct mty_net;
 
-enum mty_net_status {
-	MTY_NET_OK          = 0,
-	MTY_NET_ERR_DEFAULT = -1,
-};
-
 char *mty_net_get_proxy(void);
 
 struct mty_net *mty_net_connect(const char *host, uint16_t port, bool secure, uint32_t timeout);
