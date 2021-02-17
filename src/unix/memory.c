@@ -137,6 +137,11 @@ bool MTY_MultiToWide(const char *src, wchar_t *dst, uint32_t len)
 	return true;
 }
 
+char *MTY_Strtok(char *str, const char *delim, char **saveptr)
+{
+	return strtok_r(str, delim, saveptr);
+}
+
 int32_t MTY_Strcasecmp(const char *s1, const char *s2)
 {
 	return strcasecmp(s1, s2);
