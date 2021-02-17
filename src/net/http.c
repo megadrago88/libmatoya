@@ -14,19 +14,6 @@
 
 #include "tls.h"
 
-struct http_pair {
-	char *key;
-	char *val;
-};
-
-struct http_header {
-	char *first_line;
-	struct http_pair *pairs;
-	uint32_t npairs;
-};
-
-#define HTTP_HEADER_MAX (2 * 1024 * 1024)
-
 
 // Standard header generators
 
@@ -46,7 +33,7 @@ static const char HTTP_RESPONSE_FMT[] =
 	"%s"
 	"\r\n";
 
-char *http_request(const char *method, const char *host, const char *path, const char *fields)
+static char *http_request(const char *method, const char *host, const char *path, const char *fields)
 {
 	if (!fields)
 		fields = "";
@@ -59,7 +46,7 @@ char *http_request(const char *method, const char *host, const char *path, const
 	return str;
 }
 
-char *http_connect(const char *host, uint16_t port, const char *fields)
+static char *http_connect(const char *host, uint16_t port, const char *fields)
 {
 	if (!fields)
 		fields = "";
@@ -72,7 +59,7 @@ char *http_connect(const char *host, uint16_t port, const char *fields)
 	return str;
 }
 
-char *http_response(const char *code, const char *msg, const char *fields)
+static char *http_response(const char *code, const char *msg, const char *fields)
 {
 	if (!fields)
 		fields = "";
@@ -87,6 +74,17 @@ char *http_response(const char *code, const char *msg, const char *fields)
 
 
 // Header parsing, construction
+
+struct http_pair {
+	char *key;
+	char *val;
+};
+
+struct http_header {
+	char *first_line;
+	struct http_pair *pairs;
+	uint32_t npairs;
+};
 
 struct http_header *http_parse_header(const char *header)
 {
@@ -258,6 +256,8 @@ char *http_set_all_headers(char *header, const char *all)
 
 // Wrapped header IO
 
+#define HTTP_HEADER_MAX (16 * 1024)
+
 static char *http_read_header_io(struct mty_net *net, uint32_t timeout)
 {
 	bool r = false;
@@ -318,7 +318,7 @@ bool http_write_request_header(struct mty_net *net, const char *method, const ch
 
 static MTY_Atomic32 HTTP_GLOCK;
 static char HTTP_PROXY[MTY_URL_MAX];
-static MTY_TLS char HTTP_PROXY_HOST[MTY_URL_MAX];
+static MTY_TLS char HTTP_PROXY_TLS[MTY_URL_MAX];
 
 bool MTY_HttpSetProxy(const char *proxy)
 {
@@ -341,14 +341,16 @@ bool MTY_HttpSetProxy(const char *proxy)
 	return was_set;
 }
 
-char *http_get_proxy(void)
+const char *http_get_proxy(void)
 {
-	char *proxy = NULL;
+	const char *proxy = NULL;
 
 	MTY_GlobalLock(&HTTP_GLOCK);
 
-	if (HTTP_PROXY[0])
-		proxy = MTY_Strdup(HTTP_PROXY);
+	if (HTTP_PROXY[0]) {
+		snprintf(HTTP_PROXY_TLS, MTY_URL_MAX, "%s", HTTP_PROXY);
+		proxy = HTTP_PROXY_TLS;
+	}
 
 	MTY_GlobalUnlock(&HTTP_GLOCK);
 
@@ -357,26 +359,25 @@ char *http_get_proxy(void)
 
 bool http_should_proxy(const char **host, uint16_t *port)
 {
+	const char *proxy = http_get_proxy();
+	if (!proxy)
+		return false;
+
 	bool r = false;
-
-	MTY_GlobalLock(&HTTP_GLOCK);
-
 	bool psecure = false;
 	char *phost = NULL;
 	char *ppath = NULL;
 
-	if (http_parse_url(HTTP_PROXY, &psecure, &phost, port, &ppath)) {
+	if (http_parse_url(proxy, &psecure, &phost, port, &ppath)) {
 		if (phost && phost[0]) {
-			snprintf(HTTP_PROXY_HOST, MTY_URL_MAX, "%s", phost);
-			*host = HTTP_PROXY_HOST;
+			snprintf(HTTP_PROXY_TLS, MTY_URL_MAX, "%s", phost);
+			*host = HTTP_PROXY_TLS;
 			r = true;
 		}
 
 		MTY_Free(phost);
 		MTY_Free(ppath);
 	}
-
-	MTY_GlobalUnlock(&HTTP_GLOCK);
 
 	return r;
 }

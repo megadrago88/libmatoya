@@ -80,7 +80,7 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 	bool gzipped = false;
 
 	// Proxy
-	char *proxy = http_get_proxy();
+	const char *proxy = http_get_proxy();
 	DWORD access_type = WINHTTP_ACCESS_TYPE_NO_PROXY;
 	WCHAR *wproxy = WINHTTP_NO_PROXY_NAME;
 	WCHAR wproxy_buf[512];
@@ -90,7 +90,6 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 
 		_snwprintf_s(wproxy_buf, 512, _TRUNCATE, L"%hs", proxy);
 		wproxy = wproxy_buf;
-		MTY_Free(proxy);
 	}
 
 	//context initialization

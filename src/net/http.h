@@ -16,10 +16,6 @@
 
 struct http_header;
 
-char *http_request(const char *method, const char *host, const char *path, const char *fields);
-char *http_connect(const char *host, uint16_t port, const char *fields);
-char *http_response(const char *code, const char *msg, const char *fields);
-
 struct http_header *http_parse_header(const char *header);
 void http_header_destroy(struct http_header **header);
 bool http_get_status_code(struct http_header *h, uint16_t *status_code);
@@ -33,7 +29,7 @@ struct http_header *http_read_header(struct mty_net *net, uint32_t timeout);
 bool http_write_response_header(struct mty_net *net, const char *code, const char *reason, const char *headers);
 bool http_write_request_header(struct mty_net *net, const char *method, const char *path, const char *headers);
 
-char *http_get_proxy(void);
+const char *http_get_proxy(void);
 bool http_should_proxy(const char **host, uint16_t *port);
 bool http_proxy_connect(struct mty_net *net, uint16_t port, uint32_t timeout);
 
