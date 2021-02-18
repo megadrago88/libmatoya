@@ -60,6 +60,7 @@ OBJS = $(OBJS) \
 	src\windows\hid.obj \
 	src\windows\aes-gcm.obj \
 	src\windows\net\sec.obj \
+	src\windows\net\sec-engine.obj \
 	src\windows\net\dtls.obj \
 	src\windows\net\request.obj \
 	src\windows\gfx\gl-ctx.obj \

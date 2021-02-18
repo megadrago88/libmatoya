@@ -1574,7 +1574,7 @@ MTY_WebSocketGetCloseCode(MTY_WebSocket *ctx);
 
 #define MTY_FINGERPRINT_MAX 512
 
-typedef void (*MTY_DTLSWriteFunc)(const void *packet, size_t size, void *opaque);
+typedef bool (*MTY_DTLSWriteFunc)(const void *buf, size_t size, void *opaque);
 
 typedef struct MTY_Cert MTY_Cert;
 typedef struct MTY_DTLS MTY_DTLS;
