@@ -45,8 +45,6 @@ OBJS = \
 	src\net\gzip.obj \
 	src\net\net.obj \
 	src\net\tcp.obj \
-	src\net\sec.obj \
-	src\net\dtls.obj \
 	src\net\ws.obj
 
 OBJS = $(OBJS) \
@@ -61,6 +59,8 @@ OBJS = $(OBJS) \
 	src\windows\window.obj \
 	src\windows\hid.obj \
 	src\windows\aes-gcm.obj \
+	src\windows\net\sec.obj \
+	src\windows\net\dtls.obj \
 	src\windows\net\request.obj \
 	src\windows\gfx\gl-ctx.obj \
 	src\windows\gfx\d3d9.obj \

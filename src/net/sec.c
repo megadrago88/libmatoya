@@ -37,7 +37,7 @@ static X509_STORE *TLS_STORE;
 	"DHE-RSA-AES256-SHA256"
 
 
-// State
+// CACert store
 
 static bool tls_add_cacert_to_store(X509_STORE *store, const void *cacert, size_t size)
 {
