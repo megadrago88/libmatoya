@@ -22,7 +22,7 @@ void *MTY_DecompressImage(const void *input, size_t size, uint32_t *width, uint3
 	IWICBitmapSource *sframe = NULL;
 	IWICBitmapSource *cframe = NULL;
 
-	HRESULT e = CoCreateInstance(&CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, &IID_IWICImagingFactory, &factory);
+	HRESULT e = CoCreateInstance(&CLSID_WICImagingFactory1, NULL, CLSCTX_INPROC_SERVER, &IID_IWICImagingFactory, &factory);
 	if (e != S_OK) {
 		MTY_Log("'CoCreateInstance' failed with HRESULT 0x%X", e);
 		goto except;
@@ -114,7 +114,7 @@ void *MTY_CompressImage(MTY_Image type, const void *input, uint32_t width, uint3
 	IWICBitmapFrameEncode *frame = NULL;
 	IStream *stream = NULL;
 
-	HRESULT e = CoCreateInstance(&CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, &IID_IWICImagingFactory, &factory);
+	HRESULT e = CoCreateInstance(&CLSID_WICImagingFactory1, NULL, CLSCTX_INPROC_SERVER, &IID_IWICImagingFactory, &factory);
 	if (e != S_OK) {
 		MTY_Log("'CoCreateInstance' failed with HRESULT 0x%X", e);
 		goto except;

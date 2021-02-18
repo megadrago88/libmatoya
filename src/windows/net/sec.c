@@ -82,6 +82,7 @@ struct tls *tls_connect(TCP_SOCKET socket, const char *host, uint32_t timeout)
 	SCHANNEL_CRED sc = {0};
 	sc.dwVersion = SCHANNEL_CRED_VERSION;
 	sc.grbitEnabledProtocols = SP_PROT_TLS1_2_CLIENT;
+	sc.dwFlags = SCH_USE_STRONG_CRYPTO;
 
 	SECURITY_STATUS e = AcquireCredentialsHandle(NULL, L"Microsoft Unified Security Protocol Provider",
 		SECPKG_CRED_OUTBOUND, NULL, &sc, NULL, NULL, &ctx->ch, NULL);
@@ -152,12 +153,8 @@ struct tls *tls_connect(TCP_SOCKET socket, const char *host, uint32_t timeout)
 		e = InitializeSecurityContext(&ctx->ch, &ctx->ctx, whost, flags, 0, 0, &in_desc, 0,
 			NULL, &out_desc2, &out_flags, NULL);
 
-		// Handshake has completed successfully
-		if (e == SEC_E_OK)
-			break;
-
 		// Check for errors
-		if (e != SEC_I_CONTINUE_NEEDED) {
+		if (e != SEC_E_OK && e != SEC_I_CONTINUE_NEEDED) {
 			MTY_Log("'InitializeSecurityContext' failed with error 0x%X", e);
 			r = false;
 			goto except;
@@ -172,6 +169,10 @@ struct tls *tls_connect(TCP_SOCKET socket, const char *host, uint32_t timeout)
 			if (!r)
 				goto except;
 		}
+
+		// Handshake has completed successfully
+		if (e == SEC_E_OK)
+			break;
 	}
 
 	except:
@@ -236,7 +237,10 @@ bool tls_write(struct tls *ctx, const void *buf, size_t size)
 		goto except;
 	}
 
-	r = tcp_write(ctx->socket, tmp, full_size);
+	// The first two buffers remain contiguous, but the trailer size may change
+	size_t final = bufs[0].cbBuffer + bufs[1].cbBuffer + bufs[2].cbBuffer;
+
+	r = tcp_write(ctx->socket, tmp, final);
 	if (!r)
 		goto except;
 
