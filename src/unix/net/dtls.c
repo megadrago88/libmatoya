@@ -18,7 +18,7 @@ struct MTY_Cert {
 	RSA *key;
 };
 
-struct MTY_DTLS {
+struct MTY_TLS {
 	char *fp;
 
 	SSL *ssl;
@@ -26,6 +26,127 @@ struct MTY_DTLS {
 	BIO *bio_in;
 	BIO *bio_out;
 };
+
+static MTY_Atomic32 TLS_GLOCK;
+static X509_STORE *TLS_STORE;
+
+#define TLS_VERIFY_DEPTH 4
+
+#define TLS_CIPHER_LIST \
+	"ECDHE-ECDSA-AES128-GCM-SHA256:" \
+	"ECDHE-ECDSA-AES256-GCM-SHA384:" \
+	"ECDHE-ECDSA-AES128-SHA:" \
+	"ECDHE-ECDSA-AES256-SHA:" \
+	"ECDHE-ECDSA-AES128-SHA256:" \
+	"ECDHE-ECDSA-AES256-SHA384:" \
+	"ECDHE-RSA-AES128-GCM-SHA256:" \
+	"ECDHE-RSA-AES256-GCM-SHA384:" \
+	"ECDHE-RSA-AES128-SHA:" \
+	"ECDHE-RSA-AES256-SHA:" \
+	"ECDHE-RSA-AES128-SHA256:" \
+	"ECDHE-RSA-AES256-SHA384:" \
+	"DHE-RSA-AES128-GCM-SHA256:" \
+	"DHE-RSA-AES256-GCM-SHA384:" \
+	"DHE-RSA-AES128-SHA:" \
+	"DHE-RSA-AES256-SHA:" \
+	"DHE-RSA-AES128-SHA256:" \
+	"DHE-RSA-AES256-SHA256"
+
+
+// CACert store
+
+static bool tls_add_cacert_to_store(X509_STORE *store, const void *cacert, size_t size)
+{
+	bool r = true;
+
+	BIO *bio = BIO_new_mem_buf(cacert, (int32_t) size);
+
+	if (bio) {
+		X509 *cert = NULL;
+
+		if (PEM_read_bio_X509(bio, &cert, 0, NULL)) {
+			X509_STORE_add_cert(store, cert);
+			X509_free(cert);
+
+		} else {
+			MTY_Log("'PEM_read_bio_X509' failed");
+			r = false;
+		}
+
+		BIO_free(bio);
+	}
+
+	return r;
+}
+
+static bool tls_parse_cacert(X509_STORE *store, const char *raw, size_t size)
+{
+	bool r = true;
+
+	char *cacert = MTY_Strdup(raw);
+
+	char *tok = cacert;
+	char *next = strstr(tok, "\n\n");
+	if (!next)
+		next = strstr(tok, "\r\n\r\n");
+
+	while (next) {
+		r = tls_add_cacert_to_store(store, tok, next - tok);
+		if (!r)
+			break;
+
+		tok = next + 2;
+		next = strstr(tok, "\n\n");
+		if (!next)
+			next = strstr(tok, "\r\n\r\n");
+	}
+
+	MTY_Free(cacert);
+
+	return r;
+}
+
+bool MTY_HttpSetCACert(const char *cacert, size_t size)
+{
+	if (!ssl_dl_global_init())
+		return false;
+
+	bool was_set = false;
+
+	MTY_GlobalLock(&TLS_GLOCK);
+
+	// CACert is set to NULL, remove existing
+	if (!cacert) {
+		if (TLS_STORE) {
+			X509_STORE_free(TLS_STORE);
+			TLS_STORE = NULL;
+		}
+
+		goto except;
+	}
+
+	// CACert is already set
+	if (TLS_STORE)
+		goto except;
+
+	// Generate a new store
+	TLS_STORE = X509_STORE_new();
+	if (!TLS_STORE)
+		goto except;
+
+	was_set = tls_parse_cacert(TLS_STORE, cacert, size);
+
+	if (!was_set) {
+		X509_STORE_free(TLS_STORE);
+		TLS_STORE = NULL;
+	}
+
+	except:
+
+	MTY_GlobalUnlock(&TLS_GLOCK);
+
+	return was_set;
+}
 
 
 // Cert
@@ -66,7 +187,7 @@ MTY_Cert *MTY_CertCreate(void)
 	return cert;
 }
 
-static void mty_dtls_x509_to_fingerprint(X509 *cert, char *fingerprint, size_t size)
+static void tls_x509_to_fingerprint(X509 *cert, char *fingerprint, size_t size)
 {
 	memset(fingerprint, 0, size);
 
@@ -88,7 +209,7 @@ static void mty_dtls_x509_to_fingerprint(X509 *cert, char *fingerprint, size_t s
 
 void MTY_CertGetFingerprint(MTY_Cert *ctx, char *fingerprint, size_t size)
 {
-	mty_dtls_x509_to_fingerprint(ctx->cert, fingerprint, size);
+	tls_x509_to_fingerprint(ctx->cert, fingerprint, size);
 }
 
 void MTY_CertDestroy(MTY_Cert **cert)
@@ -104,108 +225,128 @@ void MTY_CertDestroy(MTY_Cert **cert)
 	if (ctx->cert)
 		X509_free(ctx->cert);
 
-	MTY_Free(ctx->fp);
-
 	MTY_Free(ctx);
 	*cert = NULL;
 }
 
 
-// DTLS
+// TLS, DTLS
 
-static int32_t mty_dtls_verify(int32_t ok, X509_STORE_CTX *ctx)
+static int32_t dtls_verify(int32_t ok, X509_STORE_CTX *ctx)
 {
 	return 1;
 }
 
-MTY_DTLS *MTY_DTLSCreate(MTY_Cert *cert, bool server, uint32_t mtu, const char *peerFingerprint)
+MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const char *peerFingerprint, uint32_t mtu)
 {
 	bool ok = true;
 
-	MTY_DTLS *ctx = MTY_Alloc(1, sizeof(MTY_DTLS));
+	MTY_TLS *ctx = MTY_Alloc(1, sizeof(MTY_TLS));
 
-	if (peerFingerprint)
-		ctx->fp = MTY_Strdup(peerFingerprint);
-
-	ctx->ctx = SSL_CTX_new(DTLS_method());
-	SSL_CTX_set_quiet_shutdown(ctx->ctx, 1);
-	SSL_CTX_set_options(ctx->ctx, SSL_OP_NO_TICKET | SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
-	SSL_CTX_set_verify(ctx->ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, mty_dtls_verify);
-
-	SSL_CTX_set_cipher_list(ctx->ctx,
-		"ECDHE-ECDSA-AES128-GCM-SHA256:"
-		"ECDHE-ECDSA-AES128-SHA:"
-		"ECDHE-ECDSA-AES128-SHA256:"
-		"ECDHE-RSA-AES128-GCM-SHA256:"
-		"ECDHE-RSA-AES128-SHA:"
-		"ECDHE-RSA-AES128-SHA256:"
-		"DHE-RSA-AES128-GCM-SHA256:"
-		"DHE-RSA-AES128-SHA:"
-		"DHE-RSA-AES128-SHA256:"
-	);
-
-	ctx->ssl = SSL_new(ctx->ctx);
+	ctx->ctx = SSL_CTX_new(type == MTY_TLS_TYPE_DTLS ? DTLS_method() : TLS_method());
 	if (!ctx->ssl) {
 		MTY_Log("'SSL_new' failed");
 		ok = false;
 		goto except;
 	}
 
-	SSL_use_certificate(ctx->ssl, cert->cert);
-	SSL_use_RSAPrivateKey(ctx->ssl, cert->key);
+	int32_t e = SSL_set_cipher_list(ctx->ssl, TLS_CIPHER_LIST);
+	if (e != 1) {
+		ok = false;
+		goto except;
+	}
+
+	SSL_set_connect_state(ctx->ssl);
+
+	if (type == MTY_TLS_TYPE_DTLS) {
+		SSL_CTX_set_quiet_shutdown(ctx->ctx, 1);
+		SSL_set_options(ctx->ssl, SSL_OP_NO_TICKET | SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
+		SSL_set_verify(ctx->ssl, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, dtls_verify);
+
+		// This will tell openssl to create larger datagrams
+		SSL_set_options(ctx->ssl, SSL_OP_NO_QUERY_MTU);
+		SSL_ctrl(ctx->ssl, SSL_CTRL_SET_MTU, mtu, NULL);
+
+	} else {
+		// Global lock for internal OpenSSL reference count
+		MTY_GlobalLock(&TLS_GLOCK);
+
+		if (TLS_STORE)
+			SSL_ctrl(ctx->ssl, SSL_CTRL_SET_VERIFY_CERT_STORE, 1, TLS_STORE);
+
+		MTY_GlobalUnlock(&TLS_GLOCK);
+
+		SSL_set_options(ctx->ssl, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_COMPRESSION);
+		SSL_set_verify(ctx->ssl, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
+		SSL_set_verify_depth(ctx->ssl, TLS_VERIFY_DEPTH);
+	}
+
+	if (peerFingerprint)
+		ctx->fp = MTY_Strdup(peerFingerprint);
+
+	if (cert) {
+		SSL_use_certificate(ctx->ssl, cert->cert);
+		SSL_use_RSAPrivateKey(ctx->ssl, cert->key);
+	}
+
+	if (host) {
+		X509_VERIFY_PARAM *param = SSL_get0_param(ctx->ssl);
+		X509_VERIFY_PARAM_set_hostflags(param, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
+		X509_VERIFY_PARAM_set1_host(param, host, 0);
+
+		SSL_ctrl(ctx->ssl, SSL_CTRL_SET_TLSEXT_HOSTNAME, TLSEXT_NAMETYPE_host_name, (char *) host);
+	}
 
 	ctx->bio_in = BIO_new(BIO_s_mem());
 	ctx->bio_out = BIO_new(BIO_s_mem());
 	SSL_set_bio(ctx->ssl, ctx->bio_in, ctx->bio_out);
 
-	if (server) {
-		SSL_set_accept_state(ctx->ssl);
-
-	} else {
-		SSL_set_connect_state(ctx->ssl);
-	}
-
-	// This will tell openssl to create larger datagrams
-	SSL_set_options(ctx->ssl, SSL_OP_NO_QUERY_MTU);
-	SSL_ctrl(ctx->ssl, SSL_CTRL_SET_MTU, mtu, NULL);
-
 	except:
 
 	if (!ok)
-		MTY_DTLSDestroy(&ctx);
+		MTY_TLSDestroy(&ctx);
 
 	return ctx;
 }
 
-void MTY_DTLSDestroy(MTY_DTLS **dtls)
+void MTY_TLSDestroy(MTY_TLS **tls)
 {
-	if (!dtls || !*dtls)
+	if (!tls || !*tls)
 		return;
 
-	MTY_DTLS *ctx = *dtls;
+	MTY_TLS *ctx = *tls;
 
 	if (ctx->ssl) {
-		SSL_shutdown(ctx->ssl);
+		// SSL_shutdown may need to be called twice
+		if (SSL_shutdown(ctx->ssl) == 0)
+			SSL_shutdown(ctx->ssl);
+
+		MTY_GlobalLock(&TLS_GLOCK);
+
 		SSL_free(ctx->ssl);
+
+		MTY_GlobalUnlock(&TLS_GLOCK);
 	}
 
 	if (ctx->ctx)
 		SSL_CTX_free(ctx->ctx);
 
+	MTY_Free(ctx->fp);
+
 	MTY_Free(ctx);
-	*dtls = NULL;
+	*tls = NULL;
 }
 
-static bool mty_dtls_verify_peer_fingerprint(MTY_DTLS *mty_dtls, const char *fingerprint)
+static bool tls_verify_peer_fingerprint(MTY_TLS *tls, const char *fingerprint)
 {
 	if (!fingerprint)
 		return false;
 
-	X509 *peer_cert = SSL_get_peer_certificate(mty_dtls->ssl);
+	X509 *peer_cert = SSL_get_peer_certificate(tls->ssl);
 
 	if (peer_cert) {
 		char found[MTY_FINGERPRINT_MAX];
-		mty_dtls_x509_to_fingerprint(peer_cert, found, MTY_FINGERPRINT_MAX);
+		tls_x509_to_fingerprint(peer_cert, found, MTY_FINGERPRINT_MAX);
 
 		bool match = !strcmp(found, fingerprint);
 
@@ -217,11 +358,11 @@ static bool mty_dtls_verify_peer_fingerprint(MTY_DTLS *mty_dtls, const char *fin
 	return false;
 }
 
-MTY_Async MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size, MTY_DTLSWriteFunc writeFunc, void *opaque)
+MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWriteFunc writeFunc, void *opaque)
 {
 	// If we have incoming data add it to the state machine
-	if (packet && size > 0) {
-		int32_t n = BIO_write(ctx->bio_in, packet, (int32_t) size);
+	if (buf && size > 0) {
+		int32_t n = BIO_write(ctx->bio_in, buf, (int32_t) size);
 
 		if (n != (int32_t) size)
 			return MTY_ASYNC_ERROR;
@@ -252,7 +393,7 @@ MTY_Async MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size, MTY_
 
 	if (SSL_is_init_finished(ctx->ssl)) {
 		if (ctx->fp)
-			return mty_dtls_verify_peer_fingerprint(ctx, ctx->fingerprint) ?
+			return tls_verify_peer_fingerprint(ctx, ctx->fp) ?
 				MTY_ASYNC_OK : MTY_ASYNC_ERROR;
 
 		return MTY_ASYNC_OK;
@@ -261,7 +402,7 @@ MTY_Async MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size, MTY_
 	return MTY_ASYNC_CONTINUE;
 }
 
-bool MTY_DTLSEncrypt(MTY_DTLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *written)
+bool MTY_TLSEncrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *written)
 {
 	// Perform the encryption, outputs to bio_out
 	int32_t n = SSL_write(ctx->ssl, in, (int32_t) inSize);
@@ -301,7 +442,7 @@ bool MTY_DTLSEncrypt(MTY_DTLS *ctx, const void *in, size_t inSize, void *out, si
 	return true;
 }
 
-bool MTY_DTLSDecrypt(MTY_DTLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *read)
+bool MTY_TLSDecrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *read)
 {
 	// Fill bio_in with encrypted data
 	int32_t n = BIO_write(ctx->bio_in, in, (int32_t) inSize);

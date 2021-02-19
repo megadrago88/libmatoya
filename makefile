@@ -41,6 +41,7 @@ OBJS = \
 	src\gfx\render.obj \
 	src\gfx\window-ctx.obj \
 	src\net\http.obj \
+	src\net\sec.obj \
 	src\net\async.obj \
 	src\net\gzip.obj \
 	src\net\net.obj \
@@ -59,8 +60,6 @@ OBJS = $(OBJS) \
 	src\windows\window.obj \
 	src\windows\hid.obj \
 	src\windows\aes-gcm.obj \
-	src\windows\net\sec.obj \
-	src\windows\net\sec-engine.obj \
 	src\windows\net\dtls.obj \
 	src\windows\net\request.obj \
 	src\windows\gfx\gl-ctx.obj \

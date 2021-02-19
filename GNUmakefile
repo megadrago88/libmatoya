@@ -109,13 +109,13 @@ OBJS := $(OBJS) \
 	src/unix/linux/generic/audio.o \
 	src/unix/linux/generic/window.o \
 	src/unix/net/request.o \
+	src/unix/net/dtls.o \
 	src/net/http.o \
 	src/net/async.o \
 	src/net/gzip.o \
 	src/net/net.o \
 	src/net/tcp.o \
 	src/net/sec.o \
-	src/net/dtls.o \
 	src/net/ws.o
 
 ifdef CRYPTO_EXTERNAL
@@ -175,13 +175,13 @@ OBJS := $(OBJS) \
 	src/unix/apple/crypto.o \
 	src/unix/apple/$(TARGET)/window.o \
 	src/unix/net/request.o \
+	src/unix/net/dtls.o \
 	src/net/http.o \
 	src/net/async.o \
 	src/net/gzip.o \
 	src/net/net.o \
 	src/net/tcp.o \
 	src/net/sec.o \
-	src/net/dtls.o \
 	src/net/ws.o
 
 SHADERS := $(SHADERS) \

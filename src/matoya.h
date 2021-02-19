@@ -1570,14 +1570,19 @@ MTY_EXPORT uint16_t
 MTY_WebSocketGetCloseCode(MTY_WebSocket *ctx);
 
 
-// @module dtls
+// @module tls
 
 #define MTY_FINGERPRINT_MAX 512
 
-typedef bool (*MTY_DTLSWriteFunc)(const void *buf, size_t size, void *opaque);
+typedef enum {
+	MTY_TLS_TYPE_TLS  = 1,
+	MTY_TLS_TYPE_DTLS = 2,
+} MTY_TLSType;
+
+typedef bool (*MTY_TLSWriteFunc)(const void *buf, size_t size, void *opaque);
 
 typedef struct MTY_Cert MTY_Cert;
-typedef struct MTY_DTLS MTY_DTLS;
+typedef struct MTY_TLS MTY_TLS;
 
 MTY_EXPORT MTY_Cert *
 MTY_CertCreate(void);
@@ -1588,20 +1593,20 @@ MTY_CertGetFingerprint(MTY_Cert *ctx, char *fingerprint, size_t size);
 MTY_EXPORT void
 MTY_CertDestroy(MTY_Cert **cert);
 
-MTY_EXPORT MTY_DTLS *
-MTY_DTLSCreate(MTY_Cert *cert, bool server, uint32_t mtu, const char *peerFingerprint);
+MTY_EXPORT MTY_TLS *
+MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const char *peerFingerprint, uint32_t mtu);
 
 MTY_EXPORT void
-MTY_DTLSDestroy(MTY_DTLS **dtls);
+MTY_TLSDestroy(MTY_TLS **dtls);
 
 MTY_EXPORT MTY_Async
-MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size, MTY_DTLSWriteFunc writeFunc, void *opaque);
+MTY_TLSHandshake(MTY_TLS *ctx, const void *packet, size_t size, MTY_TLSWriteFunc writeFunc, void *opaque);
 
 MTY_EXPORT bool
-MTY_DTLSEncrypt(MTY_DTLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *written);
+MTY_TLSEncrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *written);
 
 MTY_EXPORT bool
-MTY_DTLSDecrypt(MTY_DTLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *read);
+MTY_TLSDecrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *read);
 
 MTY_EXPORT bool
 MTY_DTLSIsHandshake(const void *packet, size_t size);

@@ -90,10 +90,6 @@ STATIC void FP(RSA_free)(RSA *r);
 
 STATIC SSL *FP(SSL_new)(SSL_CTX *ctx);
 STATIC void FP(SSL_free)(SSL *ssl);
-STATIC int FP(SSL_has_pending)(const SSL *s);
-STATIC int FP(SSL_accept)(SSL *ssl);
-STATIC int FP(SSL_connect)(SSL *ssl);
-STATIC int FP(SSL_set_fd)(SSL *s, int fd);
 STATIC int FP(SSL_shutdown)(SSL *s);
 STATIC int FP(SSL_read)(SSL *ssl, void *buf, int num);
 STATIC int FP(SSL_write)(SSL *ssl, const void *buf, int num);
@@ -107,8 +103,6 @@ STATIC int FP(SSL_set_cipher_list)(SSL *ssl, const char *str);
 STATIC const SSL_METHOD *FP(TLS_method)(void);
 STATIC SSL_CTX *FP(SSL_CTX_new)(const SSL_METHOD *meth);
 STATIC void FP(SSL_CTX_free)(SSL_CTX *);
-STATIC unsigned long FP(SSL_CTX_set_options)(SSL_CTX *ctx, unsigned long op);
-STATIC int FP(SSL_CTX_set_cipher_list)(SSL_CTX *, const char *str);
 
 
 // DTLS
@@ -125,7 +119,6 @@ STATIC int FP(SSL_use_RSAPrivateKey)(SSL *ssl, RSA *rsa);
 
 STATIC const SSL_METHOD *FP(DTLS_method)(void);
 STATIC void FP(SSL_CTX_set_quiet_shutdown)(SSL_CTX *ctx, int mode);
-STATIC void FP(SSL_CTX_set_verify)(SSL_CTX *ctx, int mode, SSL_verify_cb callback);
 
 STATIC BIO *FP(BIO_new)(const BIO_METHOD *type);
 STATIC const BIO_METHOD *FP(BIO_s_mem)(void);
@@ -206,10 +199,6 @@ static bool ssl_dl_global_init(void)
 		// TLS, HTTPS
 		LOAD_SYM(SSL_DL_SO, SSL_new);
 		LOAD_SYM(SSL_DL_SO, SSL_free);
-		LOAD_SYM(SSL_DL_SO, SSL_has_pending);
-		LOAD_SYM(SSL_DL_SO, SSL_accept);
-		LOAD_SYM(SSL_DL_SO, SSL_connect);
-		LOAD_SYM(SSL_DL_SO, SSL_set_fd);
 		LOAD_SYM(SSL_DL_SO, SSL_shutdown);
 		LOAD_SYM(SSL_DL_SO, SSL_read);
 		LOAD_SYM(SSL_DL_SO, SSL_write);
@@ -223,8 +212,6 @@ static bool ssl_dl_global_init(void)
 		LOAD_SYM(SSL_DL_SO, TLS_method);
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_new);
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_free);
-		LOAD_SYM(SSL_DL_SO, SSL_CTX_set_options);
-		LOAD_SYM(SSL_DL_SO, SSL_CTX_set_cipher_list);
 
 		LOAD_SYM(SSL_DL_SO, BIO_new_mem_buf);
 		LOAD_SYM(SSL_DL_SO, BIO_free);
@@ -253,7 +240,6 @@ static bool ssl_dl_global_init(void)
 
 		LOAD_SYM(SSL_DL_SO, DTLS_method);
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_set_quiet_shutdown);
-		LOAD_SYM(SSL_DL_SO, SSL_CTX_set_verify);
 
 		LOAD_SYM(SSL_DL_SO, BIO_new);
 		LOAD_SYM(SSL_DL_SO, BIO_s_mem);
