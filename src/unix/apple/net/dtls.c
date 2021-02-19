@@ -119,7 +119,7 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 		goto except;
 	}
 
-	OSStatus e = SSLSetProtocolVersionMin(ctx->ctx, kTLSProtocol12);
+	OSStatus e = SSLSetProtocolVersionMin(ctx->ctx, type == MTY_TLS_TYPE_DTLS ? kTLSProtocol12 : kDTLSProtocol12);
 	if (e != noErr) {
 		MTY_Log("'SSLSetProtocolVersionMin' failed with error %d", e);
 		r = false;
@@ -147,6 +147,10 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 			r = false;
 			goto except;
 		}
+	}
+
+	if (type == MTY_TLS_TYPE_DTLS) {
+		SSLSetMaxDatagramRecordSize(ctx->ctx, mtu + 64);
 	}
 
 	if (peerFingerprint)
