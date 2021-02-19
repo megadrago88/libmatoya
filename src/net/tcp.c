@@ -135,23 +135,23 @@ TCP_SOCKET tcp_listen(const char *ip, uint16_t port)
 
 TCP_SOCKET tcp_accept(TCP_SOCKET s, uint32_t timeout)
 {
-	if (tcp_poll(s, false, timeout) == MTY_ASYNC_OK) {
-		TCP_SOCKET child = accept(s, NULL, NULL);
+	if (tcp_poll(s, false, timeout) != MTY_ASYNC_OK)
+		return INVALID_SOCKET;
 
-		if (child == INVALID_SOCKET) {
-			MTY_Log("'accept' failed with errno %d", mty_sock_error());
-			return child;
-		}
-
-		if (!sock_set_nonblocking(child)) {
-			tcp_destroy(&child);
-			return child;
-		}
-
-		tcp_set_options(child);
+	TCP_SOCKET child = accept(s, NULL, NULL);
+	if (child == INVALID_SOCKET) {
+		MTY_Log("'accept' failed with errno %d", mty_sock_error());
+		return INVALID_SOCKET;
 	}
 
-	return INVALID_SOCKET;
+	if (sock_set_nonblocking(child)) {
+		tcp_set_options(child);
+
+	} else {
+		tcp_destroy(&child);
+	}
+
+	return child;
 }
 
 void tcp_destroy(TCP_SOCKET *socket)
