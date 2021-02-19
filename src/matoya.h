@@ -1589,14 +1589,13 @@ MTY_EXPORT void
 MTY_CertDestroy(MTY_Cert **cert);
 
 MTY_EXPORT MTY_DTLS *
-MTY_DTLSCreate(MTY_Cert *cert, bool server, uint32_t mtu);
+MTY_DTLSCreate(MTY_Cert *cert, bool server, uint32_t mtu, const char *peerFingerprint);
 
 MTY_EXPORT void
 MTY_DTLSDestroy(MTY_DTLS **dtls);
 
 MTY_EXPORT MTY_Async
-MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size, const char *fingerprint,
-	MTY_DTLSWriteFunc writeFunc, void *opaque);
+MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size, MTY_DTLSWriteFunc writeFunc, void *opaque);
 
 MTY_EXPORT bool
 MTY_DTLSEncrypt(MTY_DTLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *written);

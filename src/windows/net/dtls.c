@@ -52,14 +52,12 @@ void MTY_CertDestroy(MTY_Cert **cert)
 
 // DTLS
 
-MTY_DTLS *MTY_DTLSCreate(MTY_Cert *cert, bool server, uint32_t mtu)
+MTY_DTLS *MTY_DTLSCreate(MTY_Cert *cert, bool server, uint32_t mtu, const char *peerFingerprint)
 {
-	// TODO store fingerprint here
-	// TODO validate peer fingerprint after successful handshake
-	// TODO use random string for CN in cert
+	// TODO send shutdown message
 
 	MTY_DTLS *ctx = MTY_Alloc(1, sizeof(MTY_DTLS));
-	ctx->engine = tls_engine_create(true, NULL, NULL, cert ? cert->ecert : NULL, mtu);
+	ctx->engine = tls_engine_create(true, NULL, peerFingerprint, cert ? cert->ecert : NULL, mtu);
 
 	return ctx;
 }
@@ -77,8 +75,7 @@ void MTY_DTLSDestroy(MTY_DTLS **dtls)
 	*dtls = NULL;
 }
 
-MTY_Async MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size, const char *fingerprint,
-	MTY_DTLSWriteFunc writeFunc, void *opaque)
+MTY_Async MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size, MTY_DTLSWriteFunc writeFunc, void *opaque)
 {
 	return tls_engine_handshake(ctx->engine, packet, size, writeFunc, opaque);
 }

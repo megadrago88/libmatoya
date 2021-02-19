@@ -53,13 +53,18 @@ struct tls_cert *tls_engine_cert_create(void)
 {
 	struct tls_cert *ctx = MTY_Alloc(1, sizeof(struct tls_cert));
 
-	const WCHAR *cn = L"CN=CDD";
+	uint8_t rand_name[16];
+	MTY_RandomBytes(rand_name, 16);
 
-	DWORD x509_size = 0;
-	CertStrToName(X509_ASN_ENCODING, cn, CERT_X500_NAME_STR, NULL, NULL, &x509_size, NULL);
+	char rand_name_hex[64] = "CN=";
+	MTY_BytesToHex(rand_name, 16, rand_name_hex + 3, 61);
 
-	BYTE *x509 = MTY_Alloc(x509_size, 1);
-	CertStrToName(X509_ASN_ENCODING, cn, CERT_X500_NAME_STR, NULL, x509, &x509_size, NULL);
+	WCHAR rand_name_hex_w[64];
+	MTY_MultiToWide(rand_name_hex, rand_name_hex_w, 64);
+
+	BYTE x509[256];
+	DWORD x509_size = 256;
+	CertStrToName(X509_ASN_ENCODING, rand_name_hex_w, CERT_X500_NAME_STR, NULL, x509, &x509_size, NULL);
 
 	CERT_NAME_BLOB name = {0};
 	name.cbData = x509_size;
@@ -70,8 +75,6 @@ struct tls_cert *tls_engine_cert_create(void)
 
 	ctx->cert = CertCreateSelfSignCertificate((HCRYPTPROV_OR_NCRYPT_KEY_HANDLE) NULL,
 		&name, 0, NULL, &algo, NULL, NULL, NULL);
-
-	MTY_Free(x509);
 
 	return ctx;
 }
@@ -90,13 +93,13 @@ void tls_engine_cert_destroy(struct tls_cert **cert)
 	*cert = NULL;
 }
 
-void tls_engine_cert_get_fingerprint(struct tls_cert *cert, char *fingerprint, size_t size)
+static void tls_engine_cert_context_to_fingerprint(const CERT_CONTEXT *cert, char *fingerprint, size_t size)
 {
 	memset(fingerprint, 0, size);
 
 	uint8_t buf[MTY_SHA256_SIZE];
 
-	MTY_CryptoHash(MTY_ALGORITHM_SHA256, cert->cert->pbCertEncoded, cert->cert->cbCertEncoded,
+	MTY_CryptoHash(MTY_ALGORITHM_SHA256, cert->pbCertEncoded, cert->cbCertEncoded,
 		NULL, 0, buf, MTY_SHA256_SIZE);
 
 	MTY_Strcat(fingerprint, size, "sha-256 ");
@@ -109,6 +112,11 @@ void tls_engine_cert_get_fingerprint(struct tls_cert *cert, char *fingerprint, s
 
 	// Remove the trailing ':'
 	fingerprint[strlen(fingerprint) - 1] = '\0';
+}
+
+void tls_engine_cert_get_fingerprint(struct tls_cert *cert, char *fingerprint, size_t size)
+{
+	tls_engine_cert_context_to_fingerprint(cert->cert, fingerprint, size);
 }
 
 
@@ -136,6 +144,9 @@ struct tls_engine *tls_engine_create(bool dtls, const char *host, const char *ve
 {
 	struct tls_engine *ctx = MTY_Alloc(1, sizeof(struct tls_engine));
 	ctx->dtls = dtls;
+
+	// Even if the message is exactly cbMaximumMessage, EncryptMessage can still fail
+	// Give it a bit of extra padding for presumably header/trailer
 	ctx->mtu = mtu + TLS_MTU_PADDING;
 
 	if (host)
@@ -232,6 +243,29 @@ static MTY_Async tls_engine_handshake_init(struct tls_engine *ctx, MTY_DTLSWrite
 	return r;
 }
 
+static bool tls_engine_verify_peer_fingerprint(struct tls_engine *ctx, const char *fingerprint)
+{
+	CERT_CONTEXT *rcert = NULL;
+	SECURITY_STATUS e = QueryContextAttributes(&ctx->ctx, SECPKG_ATTR_REMOTE_CERT_CONTEXT, &rcert);
+	if (e != SEC_E_OK) {
+		MTY_Log("'QueryContextAttributes' failed with error 0x%X", e);
+		return false;
+	}
+
+	if (rcert) {
+		char found[MTY_FINGERPRINT_MAX];
+		tls_engine_cert_context_to_fingerprint(rcert, found, MTY_FINGERPRINT_MAX);
+
+		bool match = !strcmp(found, fingerprint);
+
+		CertFreeCertificateContext(rcert);
+
+		return match;
+	}
+
+	return false;
+}
+
 MTY_Async tls_engine_handshake(struct tls_engine *ctx, const void *buf, size_t size,
 	MTY_DTLSWriteFunc func, void *opaque)
 {
@@ -278,6 +312,10 @@ MTY_Async tls_engine_handshake(struct tls_engine *ctx, const void *buf, size_t s
 			write_ok = func(out[0].pvBuffer, out[0].cbBuffer, opaque);
 
 		r = !write_ok ? MTY_ASYNC_ERROR : e == SEC_E_OK ? MTY_ASYNC_OK : MTY_ASYNC_CONTINUE;
+
+		// Validate peer certificate fingerprint if supplied
+		if (ctx->fp && r == MTY_ASYNC_OK)
+			r = tls_engine_verify_peer_fingerprint(ctx, ctx->fp) ? MTY_ASYNC_OK : MTY_ASYNC_ERROR;
 
 	// Fatal error
 	} else {

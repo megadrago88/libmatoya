@@ -19,6 +19,8 @@ struct MTY_Cert {
 };
 
 struct MTY_DTLS {
+	char *fp;
+
 	SSL *ssl;
 	SSL_CTX *ctx;
 	BIO *bio_in;
@@ -102,6 +104,8 @@ void MTY_CertDestroy(MTY_Cert **cert)
 	if (ctx->cert)
 		X509_free(ctx->cert);
 
+	MTY_Free(ctx->fp);
+
 	MTY_Free(ctx);
 	*cert = NULL;
 }
@@ -114,11 +118,14 @@ static int32_t mty_dtls_verify(int32_t ok, X509_STORE_CTX *ctx)
 	return 1;
 }
 
-MTY_DTLS *MTY_DTLSCreate(MTY_Cert *cert, bool server, uint32_t mtu)
+MTY_DTLS *MTY_DTLSCreate(MTY_Cert *cert, bool server, uint32_t mtu, const char *peerFingerprint)
 {
 	bool ok = true;
 
 	MTY_DTLS *ctx = MTY_Alloc(1, sizeof(MTY_DTLS));
+
+	if (peerFingerprint)
+		ctx->fp = MTY_Strdup(peerFingerprint);
 
 	ctx->ctx = SSL_CTX_new(DTLS_method());
 	SSL_CTX_set_quiet_shutdown(ctx->ctx, 1);
@@ -191,6 +198,9 @@ void MTY_DTLSDestroy(MTY_DTLS **dtls)
 
 static bool mty_dtls_verify_peer_fingerprint(MTY_DTLS *mty_dtls, const char *fingerprint)
 {
+	if (!fingerprint)
+		return false;
+
 	X509 *peer_cert = SSL_get_peer_certificate(mty_dtls->ssl);
 
 	if (peer_cert) {
@@ -207,8 +217,7 @@ static bool mty_dtls_verify_peer_fingerprint(MTY_DTLS *mty_dtls, const char *fin
 	return false;
 }
 
-MTY_Async MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size, const char *fingerprint,
-	MTY_DTLSWriteFunc writeFunc, void *opaque)
+MTY_Async MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size, MTY_DTLSWriteFunc writeFunc, void *opaque)
 {
 	// If we have incoming data add it to the state machine
 	if (packet && size > 0) {
@@ -241,9 +250,13 @@ MTY_Async MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size, cons
 		}
 	}
 
-	if (SSL_is_init_finished(ctx->ssl))
-		return mty_dtls_verify_peer_fingerprint(ctx, fingerprint) ?
-			MTY_ASYNC_OK : MTY_ASYNC_ERROR;
+	if (SSL_is_init_finished(ctx->ssl)) {
+		if (ctx->fp)
+			return mty_dtls_verify_peer_fingerprint(ctx, ctx->fingerprint) ?
+				MTY_ASYNC_OK : MTY_ASYNC_ERROR;
+
+		return MTY_ASYNC_OK;
+	}
 
 	return MTY_ASYNC_CONTINUE;
 }
