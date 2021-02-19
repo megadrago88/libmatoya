@@ -244,6 +244,8 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 	MTY_TLS *ctx = MTY_Alloc(1, sizeof(MTY_TLS));
 
 	ctx->ctx = SSL_CTX_new(type == MTY_TLS_TYPE_DTLS ? DTLS_method() : TLS_method());
+
+	ctx->ssl = SSL_new(ctx->ctx);
 	if (!ctx->ssl) {
 		MTY_Log("'SSL_new' failed");
 		ok = false;

@@ -93,9 +93,11 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 		goto except;
 
 	// Send the request body
-	r = mty_net_write(net, body, bodySize);
-	if (!r)
-		goto except;
+	if (body && bodySize > 0) {
+		r = mty_net_write(net, body, bodySize);
+		if (!r)
+			goto except;
+	}
 
 	// Read the response header
 	hdr = http_read_header(net, timeout);
