@@ -81,7 +81,7 @@ struct tls *tls_connect(TCP_SOCKET socket, const char *host, uint32_t timeout)
 	ctx->buf_size = TLS_PADDING;
 
 	// Initialize schannel engine
-	ctx->engine = tls_engine_create(false, false, host, NULL);
+	ctx->engine = tls_engine_create(false, host, NULL, NULL, 0);
 	if (!ctx->engine) {
 		r = false;
 		goto except;

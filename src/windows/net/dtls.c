@@ -10,12 +10,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "sec-engine.h"
+
 struct MTY_Cert {
-	bool dummy;
+	struct tls_cert *ecert;
 };
 
 struct MTY_DTLS {
-	bool dummy;
+	struct tls_engine *engine;
 };
 
 
@@ -23,11 +25,15 @@ struct MTY_DTLS {
 
 MTY_Cert *MTY_CertCreate(void)
 {
-	return NULL;
+	MTY_Cert *cert = MTY_Alloc(1, sizeof(MTY_Cert));
+	cert->ecert = tls_engine_cert_create();
+
+	return cert;
 }
 
 void MTY_CertGetFingerprint(MTY_Cert *ctx, char *fingerprint, size_t size)
 {
+	tls_engine_cert_get_fingerprint(ctx->ecert, fingerprint, size);
 }
 
 void MTY_CertDestroy(MTY_Cert **cert)
@@ -36,6 +42,8 @@ void MTY_CertDestroy(MTY_Cert **cert)
 		return;
 
 	MTY_Cert *ctx = *cert;
+
+	tls_engine_cert_destroy(&ctx->ecert);
 
 	MTY_Free(ctx);
 	*cert = NULL;
@@ -46,7 +54,13 @@ void MTY_CertDestroy(MTY_Cert **cert)
 
 MTY_DTLS *MTY_DTLSCreate(MTY_Cert *cert, bool server, uint32_t mtu)
 {
-	return NULL;
+	// TODO store fingerprint here
+	// TODO validate peer fingerprint after successful handshake
+
+	MTY_DTLS *ctx = MTY_Alloc(1, sizeof(MTY_DTLS));
+	ctx->engine = tls_engine_create(true, NULL, NULL, cert ? cert->ecert : NULL, mtu);
+
+	return ctx;
 }
 
 void MTY_DTLSDestroy(MTY_DTLS **dtls)
@@ -56,6 +70,8 @@ void MTY_DTLSDestroy(MTY_DTLS **dtls)
 
 	MTY_DTLS *ctx = *dtls;
 
+	tls_engine_destroy(&ctx->engine);
+
 	MTY_Free(ctx);
 	*dtls = NULL;
 }
@@ -63,17 +79,17 @@ void MTY_DTLSDestroy(MTY_DTLS **dtls)
 MTY_Async MTY_DTLSHandshake(MTY_DTLS *ctx, const void *packet, size_t size, const char *fingerprint,
 	MTY_DTLSWriteFunc writeFunc, void *opaque)
 {
-	return MTY_ASYNC_ERROR;
+	return tls_engine_handshake(ctx->engine, packet, size, writeFunc, opaque);
 }
 
 bool MTY_DTLSEncrypt(MTY_DTLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *written)
 {
-	return false;
+	return tls_engine_encrypt(ctx->engine, in, inSize, out, outSize, written);
 }
 
 bool MTY_DTLSDecrypt(MTY_DTLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *read)
 {
-	return false;
+	return tls_engine_decrypt(ctx->engine, in, inSize, out, outSize, read);
 }
 
 bool MTY_DTLSIsHandshake(const void *packet, size_t size)

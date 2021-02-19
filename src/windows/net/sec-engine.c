@@ -15,6 +15,10 @@
 #include <schannel.h>
 #include <sspi.h>
 
+struct tls_cert {
+	const CERT_CONTEXT *cert;
+};
+
 struct tls_engine {
 	WCHAR *host;
 	char *fp;
@@ -22,11 +26,18 @@ struct tls_engine {
 	CredHandle ch;
 	CtxtHandle ctx;
 
+	ULONG mtu;
 	unsigned long flags;
 	bool ctx_init;
+	bool dtls;
 };
 
+#define TLS_MTU_PADDING 64
+
 #define TLS_PROVIDER L"Microsoft Unified Security Protocol Provider"
+
+
+// CACert
 
 bool MTY_HttpSetCACert(const char *cacert, size_t size)
 {
@@ -34,6 +45,74 @@ bool MTY_HttpSetCACert(const char *cacert, size_t size)
 
 	return false;
 }
+
+
+// Self signed cert
+
+struct tls_cert *tls_engine_cert_create(void)
+{
+	struct tls_cert *ctx = MTY_Alloc(1, sizeof(struct tls_cert));
+
+	const WCHAR *cn = L"CN=CDD";
+
+	DWORD x509_size = 0;
+	CertStrToName(X509_ASN_ENCODING, cn, CERT_X500_NAME_STR, NULL, NULL, &x509_size, NULL);
+
+	BYTE *x509 = MTY_Alloc(x509_size, 1);
+	CertStrToName(X509_ASN_ENCODING, cn, CERT_X500_NAME_STR, NULL, x509, &x509_size, NULL);
+
+	CERT_NAME_BLOB name = {0};
+	name.cbData = x509_size;
+	name.pbData = x509;
+
+	CRYPT_ALGORITHM_IDENTIFIER algo = {0};
+	algo.pszObjId = szOID_RSA_SHA256RSA;
+
+	ctx->cert = CertCreateSelfSignCertificate((HCRYPTPROV_OR_NCRYPT_KEY_HANDLE) NULL,
+		&name, 0, NULL, &algo, NULL, NULL, NULL);
+
+	MTY_Free(x509);
+
+	return ctx;
+}
+
+void tls_engine_cert_destroy(struct tls_cert **cert)
+{
+	if (!cert || !*cert)
+		return;
+
+	struct tls_cert *ctx = *cert;
+
+	if (ctx->cert)
+		CertFreeCertificateContext(ctx->cert);
+
+	MTY_Free(ctx);
+	*cert = NULL;
+}
+
+void tls_engine_cert_get_fingerprint(struct tls_cert *cert, char *fingerprint, size_t size)
+{
+	memset(fingerprint, 0, size);
+
+	uint8_t buf[MTY_SHA256_SIZE];
+
+	MTY_CryptoHash(MTY_ALGORITHM_SHA256, cert->cert->pbCertEncoded, cert->cert->cbCertEncoded,
+		NULL, 0, buf, MTY_SHA256_SIZE);
+
+	MTY_Strcat(fingerprint, size, "sha-256 ");
+
+	for (size_t x = 0; x < MTY_SHA256_SIZE; x++) {
+		char append[8];
+		snprintf(append, 8, "%02X:", buf[x]);
+		MTY_Strcat(fingerprint, size, append);
+	}
+
+	// Remove the trailing ':'
+	fingerprint[strlen(fingerprint) - 1] = '\0';
+}
+
+
+// TLS, DTLS
 
 void tls_engine_destroy(struct tls_engine **engine)
 {
@@ -52,9 +131,12 @@ void tls_engine_destroy(struct tls_engine **engine)
 	*engine = NULL;
 }
 
-struct tls_engine *tls_engine_create(bool server, bool dtls, const char *host, const char *verify_fingerprint)
+struct tls_engine *tls_engine_create(bool dtls, const char *host, const char *verify_fingerprint,
+	struct tls_cert *cert, uint32_t mtu)
 {
 	struct tls_engine *ctx = MTY_Alloc(1, sizeof(struct tls_engine));
+	ctx->dtls = dtls;
+	ctx->mtu = mtu + TLS_MTU_PADDING;
 
 	if (host)
 		ctx->host = MTY_MultiToWideD(host);
@@ -70,10 +152,21 @@ struct tls_engine *tls_engine_create(bool server, bool dtls, const char *host, c
 	sc.dwFlags = SCH_USE_STRONG_CRYPTO;
 
 	if (dtls) {
-		sc.grbitEnabledProtocols = server ? SP_PROT_DTLS1_0_SERVER : SP_PROT_DTLS1_0_CLIENT;
+		sc.grbitEnabledProtocols = SP_PROT_DTLS1_2_CLIENT;
+		ctx->flags |= ISC_REQ_DATAGRAM;
+
+		// DTLS uses self signed certificates, so disable certificate validation
+		sc.dwFlags |= SCH_CRED_NO_SERVERNAME_CHECK | SCH_CRED_MANUAL_CRED_VALIDATION;
 
 	} else {
-		sc.grbitEnabledProtocols = server ? SP_PROT_TLS1_2_SERVER : SP_PROT_TLS1_2_CLIENT;
+		sc.grbitEnabledProtocols = SP_PROT_TLS1_2_CLIENT;
+		ctx->flags |= ISC_REQ_STREAM;
+	}
+
+	// Set self signed client cert if provided
+	if (cert) {
+		sc.cCreds = 1;
+		sc.paCred = &cert->cert;
 	}
 
 	SECURITY_STATUS e = AcquireCredentialsHandle(NULL, TLS_PROVIDER, SECPKG_CRED_OUTBOUND,
@@ -110,6 +203,16 @@ static MTY_Async tls_engine_handshake_init(struct tls_engine *ctx, MTY_DTLSWrite
 		MTY_Log("'InitializeSecurityContext' failed with error 0x%X", e);
 		r = MTY_ASYNC_ERROR;
 		goto except;
+	}
+
+	// Set the MTU if DTLS
+	if (ctx->dtls) {
+		e = SetContextAttributes(&ctx->ctx, SECPKG_ATTR_DTLS_MTU, &ctx->mtu, sizeof(ULONG));
+		if (e != SEC_E_OK) {
+			MTY_Log("'SetContextAttributes' failed with error 0x%X", e);
+			r = MTY_ASYNC_ERROR;
+			goto except;
+		}
 	}
 
 	// Write the client hello via the callback
@@ -168,7 +271,7 @@ MTY_Async tls_engine_handshake(struct tls_engine *ctx, const void *buf, size_t s
 		0, 0, &in_desc, 0, NULL, &out_desc, &out_flags, NULL);
 
 	// Call write func if we have output data
-	if (e == SEC_E_OK || e == SEC_I_CONTINUE_NEEDED) {
+	if (e == SEC_E_OK || e == SEC_I_CONTINUE_NEEDED || e == SEC_I_MESSAGE_FRAGMENT) {
 		bool write_ok = true;
 
 		if (out[0].pvBuffer && out[0].cbBuffer > 0)
