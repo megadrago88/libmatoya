@@ -444,7 +444,7 @@ MTY_WebSocket *MTY_WebSocketAccept(MTY_WebSocket *ws, const char * const *origin
 	bool secureOrigin, uint32_t timeout)
 {
 	MTY_WebSocket *ws_child = NULL;
-	struct mty_net *child = mty_net_accept(ws->net, false, timeout);
+	struct mty_net *child = mty_net_accept(ws->net, timeout);
 
 	if (child) {
 		ws_child = MTY_Alloc(1, sizeof(MTY_WebSocket));

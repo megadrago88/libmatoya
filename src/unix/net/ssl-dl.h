@@ -71,23 +71,6 @@ typedef struct ssl_st SSL;
 typedef int (*SSL_verify_cb)(int preverify_ok, X509_STORE_CTX *x509_ctx);
 typedef int pem_password_cb(char *buf, int size, int rwflag, void *userdata);
 
-
-// TLS, HTTPS
-
-STATIC BIO *FP(BIO_new_mem_buf)(const void *buf, int len);
-STATIC int FP(BIO_free)(BIO *a);
-
-STATIC X509 *FP(PEM_read_bio_X509)(BIO *bp, X509 **x, pem_password_cb *cb, void *u);
-STATIC X509_STORE *FP(X509_STORE_new)(void);
-STATIC void FP(X509_STORE_free)(X509_STORE *v);
-STATIC int FP(X509_STORE_add_cert)(X509_STORE *ctx, X509 *x);
-STATIC int FP(X509_VERIFY_PARAM_set1_host)(X509_VERIFY_PARAM *param, const char *name, size_t namelen);
-STATIC void FP(X509_VERIFY_PARAM_set_hostflags)(X509_VERIFY_PARAM *param, unsigned int flags);
-STATIC void FP(X509_free)(X509 *a);
-
-STATIC RSA *FP(PEM_read_bio_RSAPrivateKey)(BIO *bp, RSA **x, pem_password_cb *cb, void *u);
-STATIC void FP(RSA_free)(RSA *r);
-
 STATIC SSL *FP(SSL_new)(SSL_CTX *ctx);
 STATIC void FP(SSL_free)(SSL *ssl);
 STATIC int FP(SSL_shutdown)(SSL *s);
@@ -99,16 +82,7 @@ STATIC int FP(SSL_get_error)(const SSL *s, int ret_code);
 STATIC X509_VERIFY_PARAM *FP(SSL_get0_param)(SSL *ssl);
 STATIC long FP(SSL_ctrl)(SSL *ssl, int cmd, long larg, void *parg);
 STATIC int FP(SSL_set_cipher_list)(SSL *ssl, const char *str);
-
-STATIC const SSL_METHOD *FP(TLS_method)(void);
-STATIC SSL_CTX *FP(SSL_CTX_new)(const SSL_METHOD *meth);
-STATIC void FP(SSL_CTX_free)(SSL_CTX *);
-
-
-// DTLS
-
 STATIC void FP(SSL_set_bio)(SSL *s, BIO *rbio, BIO *wbio);
-STATIC void FP(SSL_set_accept_state)(SSL *s);
 STATIC void FP(SSL_set_connect_state)(SSL *s);
 STATIC int FP(SSL_is_init_finished)(SSL *s);
 STATIC int FP(SSL_do_handshake)(SSL *s);
@@ -117,15 +91,26 @@ STATIC unsigned long FP(SSL_set_options)(SSL *s, unsigned long op);
 STATIC X509 *FP(SSL_get_peer_certificate)(const SSL *s);
 STATIC int FP(SSL_use_RSAPrivateKey)(SSL *ssl, RSA *rsa);
 
+STATIC const SSL_METHOD *FP(TLS_method)(void);
 STATIC const SSL_METHOD *FP(DTLS_method)(void);
+STATIC SSL_CTX *FP(SSL_CTX_new)(const SSL_METHOD *meth);
+STATIC void FP(SSL_CTX_free)(SSL_CTX *);
 STATIC void FP(SSL_CTX_set_quiet_shutdown)(SSL_CTX *ctx, int mode);
 
+STATIC BIO *FP(BIO_new_mem_buf)(const void *buf, int len);
 STATIC BIO *FP(BIO_new)(const BIO_METHOD *type);
+STATIC int FP(BIO_free)(BIO *a);
 STATIC const BIO_METHOD *FP(BIO_s_mem)(void);
 STATIC int FP(BIO_write)(BIO *b, const void *data, int len);
 STATIC size_t FP(BIO_ctrl_pending)(BIO *b);
 STATIC int FP(BIO_read)(BIO *b, void *data, int len);
 
+STATIC X509_STORE *FP(X509_STORE_new)(void);
+STATIC void FP(X509_STORE_free)(X509_STORE *v);
+STATIC int FP(X509_STORE_add_cert)(X509_STORE *ctx, X509 *x);
+STATIC int FP(X509_VERIFY_PARAM_set1_host)(X509_VERIFY_PARAM *param, const char *name, size_t namelen);
+STATIC void FP(X509_VERIFY_PARAM_set_hostflags)(X509_VERIFY_PARAM *param, unsigned int flags);
+STATIC void FP(X509_free)(X509 *a);
 STATIC X509 *FP(X509_new)(void);
 STATIC int FP(X509_set_pubkey)(X509 *x, EVP_PKEY *pkey);
 STATIC int FP(X509_sign)(X509 *x, EVP_PKEY *pkey, const EVP_MD *md);
@@ -149,8 +134,12 @@ STATIC const EVP_MD *FP(EVP_sha256)(void);
 STATIC int FP(EVP_PKEY_assign)(EVP_PKEY *pkey, int type, void *key);
 
 STATIC RSA *FP(RSA_new)(void);
-STATIC int FP(ASN1_INTEGER_set)(ASN1_INTEGER *a, long v);
+STATIC void FP(RSA_free)(RSA *r);
 STATIC int FP(RSA_generate_key_ex)(RSA *rsa, int bits, BIGNUM *e, BN_GENCB *cb);
+
+STATIC X509 *FP(PEM_read_bio_X509)(BIO *bp, X509 **x, pem_password_cb *cb, void *u);
+
+STATIC int FP(ASN1_INTEGER_set)(ASN1_INTEGER *a, long v);
 
 
 // Runtime open
@@ -196,7 +185,6 @@ static bool ssl_dl_global_init(void)
 			name = MTY_SOGetSymbol(so, #name); \
 			if (!name) {r = false; goto except;}
 
-		// TLS, HTTPS
 		LOAD_SYM(SSL_DL_SO, SSL_new);
 		LOAD_SYM(SSL_DL_SO, SSL_free);
 		LOAD_SYM(SSL_DL_SO, SSL_shutdown);
@@ -208,28 +196,7 @@ static bool ssl_dl_global_init(void)
 		LOAD_SYM(SSL_DL_SO, SSL_get0_param);
 		LOAD_SYM(SSL_DL_SO, SSL_ctrl);
 		LOAD_SYM(SSL_DL_SO, SSL_set_cipher_list);
-
-		LOAD_SYM(SSL_DL_SO, TLS_method);
-		LOAD_SYM(SSL_DL_SO, SSL_CTX_new);
-		LOAD_SYM(SSL_DL_SO, SSL_CTX_free);
-
-		LOAD_SYM(SSL_DL_SO, BIO_new_mem_buf);
-		LOAD_SYM(SSL_DL_SO, BIO_free);
-
-		LOAD_SYM(SSL_DL_SO, PEM_read_bio_X509);
-		LOAD_SYM(SSL_DL_SO, X509_STORE_new);
-		LOAD_SYM(SSL_DL_SO, X509_STORE_free);
-		LOAD_SYM(SSL_DL_SO, X509_STORE_add_cert);
-		LOAD_SYM(SSL_DL_SO, X509_VERIFY_PARAM_set1_host);
-		LOAD_SYM(SSL_DL_SO, X509_VERIFY_PARAM_set_hostflags);
-		LOAD_SYM(SSL_DL_SO, X509_free);
-
-		LOAD_SYM(SSL_DL_SO, PEM_read_bio_RSAPrivateKey);
-		LOAD_SYM(SSL_DL_SO, RSA_free);
-
-		// DTLS
 		LOAD_SYM(SSL_DL_SO, SSL_set_bio);
-		LOAD_SYM(SSL_DL_SO, SSL_set_accept_state);
 		LOAD_SYM(SSL_DL_SO, SSL_set_connect_state);
 		LOAD_SYM(SSL_DL_SO, SSL_is_init_finished);
 		LOAD_SYM(SSL_DL_SO, SSL_do_handshake);
@@ -238,16 +205,27 @@ static bool ssl_dl_global_init(void)
 		LOAD_SYM(SSL_DL_SO, SSL_get_peer_certificate);
 		LOAD_SYM(SSL_DL_SO, SSL_use_RSAPrivateKey);
 
+		LOAD_SYM(SSL_DL_SO, TLS_method);
 		LOAD_SYM(SSL_DL_SO, DTLS_method);
+		LOAD_SYM(SSL_DL_SO, SSL_CTX_new);
+		LOAD_SYM(SSL_DL_SO, SSL_CTX_free);
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_set_quiet_shutdown);
 
+		LOAD_SYM(SSL_DL_SO, BIO_new_mem_buf);
 		LOAD_SYM(SSL_DL_SO, BIO_new);
 		LOAD_SYM(SSL_DL_SO, BIO_s_mem);
 		LOAD_SYM(SSL_DL_SO, BIO_write);
 		LOAD_SYM(SSL_DL_SO, BIO_ctrl_pending);
 		LOAD_SYM(SSL_DL_SO, BIO_read);
+		LOAD_SYM(SSL_DL_SO, BIO_free);
 
+		LOAD_SYM(SSL_DL_SO, X509_STORE_new);
+		LOAD_SYM(SSL_DL_SO, X509_STORE_free);
+		LOAD_SYM(SSL_DL_SO, X509_STORE_add_cert);
+		LOAD_SYM(SSL_DL_SO, X509_VERIFY_PARAM_set1_host);
+		LOAD_SYM(SSL_DL_SO, X509_VERIFY_PARAM_set_hostflags);
 		LOAD_SYM(SSL_DL_SO, X509_new);
+		LOAD_SYM(SSL_DL_SO, X509_free);
 		LOAD_SYM(SSL_DL_SO, X509_set_pubkey);
 		LOAD_SYM(SSL_DL_SO, X509_sign);
 		LOAD_SYM(SSL_DL_SO, X509_digest);
@@ -260,6 +238,10 @@ static bool ssl_dl_global_init(void)
 		LOAD_SYM(SSL_DL_SO, X509_gmtime_adj);
 		LOAD_SYM(SSL_DL_SO, X509_NAME_add_entry_by_txt);
 
+		LOAD_SYM(SSL_DL_SO, RSA_new);
+		LOAD_SYM(SSL_DL_SO, RSA_free);
+		LOAD_SYM(SSL_DL_SO, RSA_generate_key_ex);
+
 		LOAD_SYM(SSL_DL_SO, BN_new);
 		LOAD_SYM(SSL_DL_SO, BN_free);
 		LOAD_SYM(SSL_DL_SO, BN_set_word);
@@ -268,9 +250,9 @@ static bool ssl_dl_global_init(void)
 		LOAD_SYM(SSL_DL_SO, EVP_sha256);
 		LOAD_SYM(SSL_DL_SO, EVP_PKEY_assign);
 
-		LOAD_SYM(SSL_DL_SO, RSA_new);
+		LOAD_SYM(SSL_DL_SO, PEM_read_bio_X509);
+
 		LOAD_SYM(SSL_DL_SO, ASN1_INTEGER_set);
-		LOAD_SYM(SSL_DL_SO, RSA_generate_key_ex);
 
 		except:
 

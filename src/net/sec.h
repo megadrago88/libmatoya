@@ -15,7 +15,6 @@
 struct tls;
 
 struct tls *tls_connect(TCP_SOCKET socket, const char *host, uint32_t timeout);
-struct tls *tls_accept(TCP_SOCKET socket, uint32_t timeout);
 void tls_destroy(struct tls **tls);
 
 bool tls_write(struct tls *ctx, const void *buf, size_t size);

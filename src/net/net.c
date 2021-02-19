@@ -79,32 +79,19 @@ struct mty_net *mty_net_listen(const char *ip, uint16_t port)
 	return ctx;
 }
 
-struct mty_net *mty_net_accept(struct mty_net *ctx, bool secure, uint32_t timeout)
+struct mty_net *mty_net_accept(struct mty_net *ctx, uint32_t timeout)
 {
-	bool r = true;
-	struct mty_net *child = MTY_Alloc(1, sizeof(struct mty_net));
-	child->host = MTY_Strdup(ctx->host);
+	TCP_SOCKET s = tcp_accept(ctx->socket, timeout);
 
-	child->socket = tcp_accept(ctx->socket, timeout);
-	if (child->socket == TCP_INVALID_SOCKET) {
-		r = false;
-		goto except;
+	if (s != TCP_INVALID_SOCKET) {
+		struct mty_net *child = MTY_Alloc(1, sizeof(struct mty_net));
+		child->host = MTY_Strdup(ctx->host);
+		child->socket = s;
+
+		return child;
 	}
 
-	if (secure) {
-		child->tls = tls_accept(child->socket, timeout);
-		if (!child->tls) {
-			r = false;
-			goto except;
-		}
-	}
-
-	except:
-
-	if (!r)
-		mty_net_destroy(&child);
-
-	return child;
+	return NULL;
 }
 
 void mty_net_destroy(struct mty_net **net)

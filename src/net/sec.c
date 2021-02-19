@@ -117,13 +117,6 @@ struct tls *tls_connect(TCP_SOCKET socket, const char *host, uint32_t timeout)
 	return ctx;
 }
 
-struct tls *tls_accept(TCP_SOCKET socket, uint32_t timeout)
-{
-	// TODO net_accept currently only supports insecure connections
-
-	return NULL;
-}
-
 bool tls_write(struct tls *ctx, const void *buf, size_t size)
 {
 	// Output buffer will be slightly larger than input
