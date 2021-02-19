@@ -118,11 +118,6 @@ OBJS := $(OBJS) \
 	src/net/sec.o \
 	src/net/ws.o
 
-ifdef CRYPTO_EXTERNAL
-DEFS := $(DEFS) \
-	-DMTY_CRYPTO_EXTERNAL
-endif
-
 TEST_LIBS = \
 	-lc \
 	-lm \
@@ -171,11 +166,11 @@ OBJS := $(OBJS) \
 	src/unix/apple/macosx/aes-gcm.o \
 	src/unix/apple/gfx/metal.o \
 	src/unix/apple/gfx/metal-ui.o \
+	src/unix/apple/net/dtls.o \
 	src/unix/apple/audio.o \
 	src/unix/apple/crypto.o \
 	src/unix/apple/$(TARGET)/window.o \
 	src/unix/net/request.o \
-	src/unix/net/dtls.o \
 	src/net/http.o \
 	src/net/async.o \
 	src/net/gzip.o \

@@ -41,7 +41,7 @@ struct MTY_TLS {
 
 bool MTY_HttpSetCACert(const char *cacert, size_t size)
 {
-	// Unnecessary, always use the Windows' CACert store
+	// Unnecessary, always use the Microsoft's CACert store
 
 	return false;
 }
