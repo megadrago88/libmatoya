@@ -56,6 +56,7 @@ MTY_DTLS *MTY_DTLSCreate(MTY_Cert *cert, bool server, uint32_t mtu)
 {
 	// TODO store fingerprint here
 	// TODO validate peer fingerprint after successful handshake
+	// TODO use random string for CN in cert
 
 	MTY_DTLS *ctx = MTY_Alloc(1, sizeof(MTY_DTLS));
 	ctx->engine = tls_engine_create(true, NULL, NULL, cert ? cert->ecert : NULL, mtu);
