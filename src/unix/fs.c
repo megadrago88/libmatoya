@@ -22,15 +22,15 @@
 #include <dirent.h>
 
 #include "fs.h"
-#include "tls.h"
+#include "tlocal.h"
 #include "procname.h"
 
-static MTY_TLS char FS_CWD[MTY_PATH_MAX];
-static MTY_TLS char FS_HOME[MTY_PATH_MAX];
-static MTY_TLS char FS_PATH[MTY_PATH_MAX];
-static MTY_TLS char FS_EXECUTABLE[MTY_PATH_MAX];
-static MTY_TLS char FS_PROGRAMS[MTY_PATH_MAX];
-static MTY_TLS char FS_FILE_NAME[MTY_PATH_MAX];
+static MTY_TLOCAL char FS_CWD[MTY_PATH_MAX];
+static MTY_TLOCAL char FS_HOME[MTY_PATH_MAX];
+static MTY_TLOCAL char FS_PATH[MTY_PATH_MAX];
+static MTY_TLOCAL char FS_EXECUTABLE[MTY_PATH_MAX];
+static MTY_TLOCAL char FS_PROGRAMS[MTY_PATH_MAX];
+static MTY_TLOCAL char FS_FILE_NAME[MTY_PATH_MAX];
 
 bool MTY_DeleteFile(const char *path)
 {

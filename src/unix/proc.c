@@ -13,11 +13,11 @@
 #include <unistd.h>
 
 #include "dlopen.h"
-#include "tls.h"
+#include "tlocal.h"
 #include "procname.h"
 
-static MTY_TLS char PROC_NAME[MTY_PATH_MAX];
-static MTY_TLS char PROC_HOSTNAME[MTY_PATH_MAX];
+static MTY_TLOCAL char PROC_NAME[MTY_PATH_MAX];
+static MTY_TLOCAL char PROC_HOSTNAME[MTY_PATH_MAX];
 
 MTY_SO *MTY_SOLoad(const char *name)
 {

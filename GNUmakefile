@@ -104,7 +104,7 @@ ifeq ($(UNAME_S), Linux)
 OBJS := $(OBJS) \
 	src/unix/linux/crypto.o \
 	src/unix/linux/aes-gcm.o \
-	src/unix/linux/net/dtls.o \
+	src/unix/linux/net/tls.o \
 	src/unix/linux/generic/gfx/gl-ctx.o \
 	src/unix/linux/generic/hid.o \
 	src/unix/linux/generic/audio.o \
@@ -166,7 +166,7 @@ OBJS := $(OBJS) \
 	src/unix/apple/macosx/aes-gcm.o \
 	src/unix/apple/gfx/metal.o \
 	src/unix/apple/gfx/metal-ui.o \
-	src/unix/apple/net/dtls.o \
+	src/unix/apple/net/tls.o \
 	src/unix/apple/audio.o \
 	src/unix/apple/crypto.o \
 	src/unix/apple/$(TARGET)/window.o \

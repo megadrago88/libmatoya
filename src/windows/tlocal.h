@@ -6,4 +6,4 @@
 
 #pragma once
 
-#define MTY_TLS __declspec(thread)
+#define MTY_TLOCAL __declspec(thread)

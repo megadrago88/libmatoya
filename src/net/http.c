@@ -12,7 +12,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#include "tls.h"
+#include "tlocal.h"
 
 
 // Standard header generators
@@ -318,7 +318,7 @@ bool http_write_request_header(struct mty_net *net, const char *method, const ch
 
 static MTY_Atomic32 HTTP_GLOCK;
 static char HTTP_PROXY[MTY_URL_MAX];
-static MTY_TLS char HTTP_PROXY_TLS[MTY_URL_MAX];
+static MTY_TLOCAL char HTTP_PROXY_TLS[MTY_URL_MAX];
 
 bool MTY_HttpSetProxy(const char *proxy)
 {

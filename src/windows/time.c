@@ -9,10 +9,10 @@
 #include <windows.h>
 #include <timeapi.h>
 
-#include "tls.h"
+#include "tlocal.h"
 
-static MTY_TLS bool TIME_FREQ_INIT;
-static MTY_TLS float TIME_FREQUENCY;
+static MTY_TLOCAL bool TIME_FREQ_INIT;
+static MTY_TLOCAL float TIME_FREQUENCY;
 
 int64_t MTY_Timestamp(void)
 {

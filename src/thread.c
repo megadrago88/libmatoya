@@ -9,7 +9,7 @@
 #include <string.h>
 
 #include "rwlock.h"
-#include "tls.h"
+#include "tlocal.h"
 
 struct MTY_Sync {
 	bool signal;
@@ -214,7 +214,7 @@ struct MTY_RWLock {
 	uint8_t index;
 };
 
-static MTY_TLS struct rwlock_state {
+static MTY_TLOCAL struct rwlock_state {
 	uint16_t taken;
 	bool read;
 	bool write;

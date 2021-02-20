@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "tls.h"
+#include "tlocal.h"
 
 #define LOG_LEN 256
 
@@ -20,9 +20,9 @@ static void log_none(const char *msg, void *opaque)
 static void (*LOG_CALLBACK)(const char *msg, void *opaque) = log_none;
 static void *LOG_OPAQUE;
 
-static MTY_TLS char LOG_MSG[LOG_LEN];
-static MTY_TLS char LOG_FMT[LOG_LEN];
-static MTY_TLS bool LOG_PREVENT_RECURSIVE;
+static MTY_TLOCAL char LOG_MSG[LOG_LEN];
+static MTY_TLOCAL char LOG_FMT[LOG_LEN];
+static MTY_TLOCAL bool LOG_PREVENT_RECURSIVE;
 static MTY_Atomic32 LOG_DISABLED;
 
 static void log_internal(const char *func, const char *msg, va_list args)
