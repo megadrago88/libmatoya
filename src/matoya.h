@@ -1600,7 +1600,7 @@ MTY_EXPORT void
 MTY_TLSDestroy(MTY_TLS **dtls);
 
 MTY_EXPORT MTY_Async
-MTY_TLSHandshake(MTY_TLS *ctx, const void *packet, size_t size, MTY_TLSWriteFunc writeFunc, void *opaque);
+MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWriteFunc writeFunc, void *opaque);
 
 MTY_EXPORT bool
 MTY_TLSEncrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *written);
@@ -1609,10 +1609,10 @@ MTY_EXPORT bool
 MTY_TLSDecrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *read);
 
 MTY_EXPORT bool
-MTY_DTLSIsHandshake(const void *packet, size_t size);
+MTY_TLSIsHandshake(const void *buf, size_t size);
 
 MTY_EXPORT bool
-MTY_DTLSIsApplicationData(const void *packet, size_t size);
+MTY_TLSIsApplicationData(const void *buf, size_t size);
 
 
 #ifdef __cplusplus
