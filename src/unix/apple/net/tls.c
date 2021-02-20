@@ -175,20 +175,22 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 	except:
 
 	if (!r)
-		MTY_TLSDestroy(&ctx, NULL, 0, NULL);
+		MTY_TLSDestroy(&ctx);
 
 	return ctx;
 }
 
-void MTY_TLSDestroy(MTY_TLS **tls, void *buf, size_t size, size_t *written)
+void MTY_TLSDestroy(MTY_TLS **tls)
 {
 	if (!tls || !*tls)
 		return;
 
 	MTY_TLS *ctx = *tls;
 
-	if (ctx->ctx)
+	if (ctx->ctx) {
+		SSLClose(ctx->ctx);
 		CFRelease(ctx->ctx);
+	}
 
 	MTY_Free(ctx->fp);
 
