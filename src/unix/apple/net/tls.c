@@ -110,7 +110,7 @@ static OSStatus tls_write_func(SSLConnectionRef connection, const void *data, si
 	}
 
 	// Handshake
-	return ctx->write_func(data, *dataLength, ctx->opaque) ? noErr : errSSLNetworkTimeout;
+	return ctx->write_func && ctx->write_func(data, *dataLength, ctx->opaque) ? noErr : errSSLNetworkTimeout;
 }
 
 MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const char *peerFingerprint, uint32_t mtu)
@@ -193,6 +193,7 @@ void MTY_TLSDestroy(MTY_TLS **tls)
 	}
 
 	MTY_Free(ctx->fp);
+	MTY_Free(ctx->buf);
 
 	MTY_Free(ctx);
 	*tls = NULL;
@@ -223,6 +224,9 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 	if (e != errSSLWouldBlock && e != noErr)
 		MTY_Log("'SSLHandshake' failed with error %d\n", e);
 
+	ctx->opaque = NULL;
+	ctx->write_func = NULL;
+
 	return e == errSSLWouldBlock ? MTY_ASYNC_CONTINUE : e == noErr ? MTY_ASYNC_OK : MTY_ASYNC_ERROR;
 }
 
@@ -237,6 +241,8 @@ bool MTY_TLSEncrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size
 
 	size_t processed = 0;
 	OSStatus e = SSLWrite(ctx->ctx, in, inSize, &processed);
+
+	ctx->w = NULL;
 
 	return e == noErr;
 }
