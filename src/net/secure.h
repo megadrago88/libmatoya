@@ -12,10 +12,10 @@
 
 #include "tcp.h"
 
-struct tls;
+struct secure;
 
-struct tls *tls_connect(TCP_SOCKET socket, const char *host, uint32_t timeout);
-void tls_destroy(struct tls **tls);
+struct secure *secure_connect(TCP_SOCKET socket, const char *host, uint32_t timeout);
+void secure_destroy(struct secure **secure);
 
-bool tls_write(struct tls *ctx, const void *buf, size_t size);
-bool tls_read(struct tls *ctx, void *buf, size_t size, uint32_t timeout);
+bool secure_write(struct secure *ctx, const void *buf, size_t size);
+bool secure_read(struct secure *ctx, void *buf, size_t size, uint32_t timeout);

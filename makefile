@@ -40,8 +40,8 @@ OBJS = \
 	src\gfx\gl-ui.obj \
 	src\gfx\render.obj \
 	src\gfx\window-ctx.obj \
+	src\net\secure.obj \
 	src\net\http.obj \
-	src\net\sec.obj \
 	src\net\async.obj \
 	src\net\gzip.obj \
 	src\net\net.obj \

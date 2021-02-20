@@ -4,15 +4,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include "net/sec.h"
+#include "secure.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
-#define TLS_PADDING 1024
+#define SECURE_PADDING 1024
 
-struct tls {
+struct secure {
 	TCP_SOCKET socket;
 	MTY_TLS *tls;
 
@@ -24,12 +24,12 @@ struct tls {
 	size_t pending;
 };
 
-void tls_destroy(struct tls **tls)
+void secure_destroy(struct secure **secure)
 {
-	if (!tls || !*tls)
+	if (!secure || !*secure)
 		return;
 
-	struct tls *ctx = *tls;
+	struct secure *ctx = *secure;
 
 	MTY_Free(ctx->buf);
 	MTY_Free(ctx->pbuf);
@@ -37,10 +37,10 @@ void tls_destroy(struct tls **tls)
 	MTY_TLSDestroy(&ctx->tls);
 
 	MTY_Free(ctx);
-	*tls = NULL;
+	*secure = NULL;
 }
 
-static bool tls_read_message(struct tls *ctx, uint32_t timeout, size_t *size)
+static bool secure_read_message(struct secure *ctx, uint32_t timeout, size_t *size)
 {
 	// TLS first 5 bytes contain message type, version, and size
 	if (!tcp_read(ctx->socket, ctx->buf, 5, timeout))
@@ -61,24 +61,24 @@ static bool tls_read_message(struct tls *ctx, uint32_t timeout, size_t *size)
 	return tcp_read(ctx->socket, ctx->buf + 5, len, timeout);
 }
 
-static bool tls_write_callback(const void *buf, size_t size, void *opaque)
+static bool secure_write_callback(const void *buf, size_t size, void *opaque)
 {
-	struct tls *ctx = opaque;
+	struct secure *ctx = opaque;
 
 	return tcp_write(ctx->socket, buf, size);
 }
 
-struct tls *tls_connect(TCP_SOCKET socket, const char *host, uint32_t timeout)
+struct secure *secure_connect(TCP_SOCKET socket, const char *host, uint32_t timeout)
 {
 	bool r = true;
 
-	struct tls *ctx = MTY_Alloc(1, sizeof(struct tls));
+	struct secure *ctx = MTY_Alloc(1, sizeof(struct secure));
 	ctx->socket = socket;
 
-	ctx->buf = MTY_Alloc(TLS_PADDING, 1);
-	ctx->buf_size = TLS_PADDING;
+	ctx->buf = MTY_Alloc(SECURE_PADDING, 1);
+	ctx->buf_size = SECURE_PADDING;
 
-	// Initialize schannel tls
+	// TLS context
 	ctx->tls = MTY_TLSCreate(MTY_TLS_TYPE_TLS, NULL, host, NULL, 0);
 	if (!ctx->tls) {
 		r = false;
@@ -86,7 +86,7 @@ struct tls *tls_connect(TCP_SOCKET socket, const char *host, uint32_t timeout)
 	}
 
 	// Handshake part 1 (->Client Hello) -- Initiate with NULL message
-	MTY_Async a = MTY_TLSHandshake(ctx->tls, NULL, 0, tls_write_callback, ctx);
+	MTY_Async a = MTY_TLSHandshake(ctx->tls, NULL, 0, secure_write_callback, ctx);
 	if (a != MTY_ASYNC_CONTINUE) {
 		r = false;
 		goto except;
@@ -95,11 +95,11 @@ struct tls *tls_connect(TCP_SOCKET socket, const char *host, uint32_t timeout)
 	// Handshake part 2 (<-Server Hello, ...) -- Loop until handshake complete
 	while (true) {
 		size_t size = 0;
-		r = tls_read_message(ctx, timeout, &size);
+		r = secure_read_message(ctx, timeout, &size);
 		if (!r)
 			break;
 
-		a = MTY_TLSHandshake(ctx->tls, ctx->buf, size, tls_write_callback, ctx);
+		a = MTY_TLSHandshake(ctx->tls, ctx->buf, size, secure_write_callback, ctx);
 		if (a == MTY_ASYNC_OK) {
 			break;
 
@@ -112,17 +112,17 @@ struct tls *tls_connect(TCP_SOCKET socket, const char *host, uint32_t timeout)
 	except:
 
 	if (!r)
-		tls_destroy(&ctx);
+		secure_destroy(&ctx);
 
 	return ctx;
 }
 
-bool tls_write(struct tls *ctx, const void *buf, size_t size)
+bool secure_write(struct secure *ctx, const void *buf, size_t size)
 {
 	// Output buffer will be slightly larger than input
-	if (ctx->buf_size < size + TLS_PADDING) {
-		ctx->buf = MTY_Realloc(ctx->buf, size + TLS_PADDING, 1);
-		ctx->buf_size = size + TLS_PADDING;
+	if (ctx->buf_size < size + SECURE_PADDING) {
+		ctx->buf = MTY_Realloc(ctx->buf, size + SECURE_PADDING, 1);
+		ctx->buf_size = size + SECURE_PADDING;
 	}
 
 	// Encrypt
@@ -134,7 +134,7 @@ bool tls_write(struct tls *ctx, const void *buf, size_t size)
 	return tcp_write(ctx->socket, ctx->buf, written);
 }
 
-bool tls_read(struct tls *ctx, void *buf, size_t size, uint32_t timeout)
+bool secure_read(struct secure *ctx, void *buf, size_t size, uint32_t timeout)
 {
 	while (true) {
 		// Check if we have decrypted data in our buffer from a previous read
@@ -149,7 +149,7 @@ bool tls_read(struct tls *ctx, void *buf, size_t size, uint32_t timeout)
 
 		// We need more data, read a TLS message from the socket
 		size_t msg_size = 0;
-		if (!tls_read_message(ctx, timeout, &msg_size))
+		if (!secure_read_message(ctx, timeout, &msg_size))
 			break;
 
 		// Decrypt

@@ -172,14 +172,6 @@ void tcp_destroy(TCP_SOCKET *socket)
 
 // Poll, read, write
 
-MTY_Async tcp_async_state(void)
-{
-	int32_t e = mty_sock_error();
-
-	return e == MTY_SOCK_WOULD_BLOCK ? MTY_ASYNC_CONTINUE :
-		e == MTY_SOCK_BAD_FD ? MTY_ASYNC_ERROR : MTY_ASYNC_OK;
-}
-
 MTY_Async tcp_poll(TCP_SOCKET s, bool out, uint32_t timeout)
 {
 	struct pollfd fd = {0};

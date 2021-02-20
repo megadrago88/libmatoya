@@ -11,13 +11,13 @@
 #include <string.h>
 
 #include "tcp.h"
-#include "sec.h"
 #include "http.h"
+#include "secure.h"
 
 struct mty_net {
 	char *host;
 	TCP_SOCKET socket;
-	struct tls *tls;
+	struct secure *sec;
 };
 
 struct mty_net *mty_net_connect(const char *host, uint16_t port, bool secure, uint32_t timeout)
@@ -52,8 +52,8 @@ struct mty_net *mty_net_connect(const char *host, uint16_t port, bool secure, ui
 
 	// TLS handshake
 	if (secure) {
-		ctx->tls = tls_connect(ctx->socket, ctx->host, timeout);
-		if (!ctx->tls) {
+		ctx->sec = secure_connect(ctx->socket, ctx->host, timeout);
+		if (!ctx->sec) {
 			r = false;
 			goto except;
 		}
@@ -101,7 +101,7 @@ void mty_net_destroy(struct mty_net **net)
 
 	struct mty_net *ctx = *net;
 
-	tls_destroy(&ctx->tls);
+	secure_destroy(&ctx->sec);
 	tcp_destroy(&ctx->socket);
 
 	MTY_Free(ctx->host);
@@ -117,12 +117,12 @@ MTY_Async mty_net_poll(struct mty_net *ctx, uint32_t timeout)
 
 bool mty_net_write(struct mty_net *ctx, const void *buf, size_t size)
 {
-	return ctx->tls ? tls_write(ctx->tls, buf, size) : tcp_write(ctx->socket, buf, size);
+	return ctx->sec ? secure_write(ctx->sec, buf, size) : tcp_write(ctx->socket, buf, size);
 }
 
 bool mty_net_read(struct mty_net *ctx, void *buf, size_t size, uint32_t timeout)
 {
-	return ctx->tls ? tls_read(ctx->tls, buf, size, timeout) : tcp_read(ctx->socket, buf, size, timeout);
+	return ctx->sec ? secure_read(ctx->sec, buf, size, timeout) : tcp_read(ctx->socket, buf, size, timeout);
 }
 
 const char *mty_net_get_host(struct mty_net *ctx)

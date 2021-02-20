@@ -64,8 +64,8 @@ LOCAL_SRC_FILES := \
 	src/net/gzip.c \
 	src/net/net.c \
 	src/net/tcp.c \
-	src/net/sec.c \
 	src/net/ws.c \
+	src/net/secure.c \
 	src/unix/net/dtls.c \
 	src/unix/net/request.c \
 	src/unix/compress.c \
