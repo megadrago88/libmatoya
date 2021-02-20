@@ -1597,7 +1597,7 @@ MTY_EXPORT MTY_TLS *
 MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const char *peerFingerprint, uint32_t mtu);
 
 MTY_EXPORT void
-MTY_TLSDestroy(MTY_TLS **dtls);
+MTY_TLSDestroy(MTY_TLS **tls, void *buf, size_t size, size_t *written);
 
 MTY_EXPORT MTY_Async
 MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWriteFunc writeFunc, void *opaque);

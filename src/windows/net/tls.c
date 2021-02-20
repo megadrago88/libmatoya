@@ -167,29 +167,10 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 
 	if (e != SEC_E_OK) {
 		MTY_Log("'AcquireCredentialsHandle' failed with error 0x%X", e);
-		MTY_TLSDestroy(&ctx);
+		MTY_TLSDestroy(&ctx, NULL, 0, NULL);
 	}
 
 	return ctx;
-}
-
-void MTY_TLSDestroy(MTY_TLS **tls)
-{
-	if (!tls || !*tls)
-		return;
-
-	// TODO send shutdown message
-
-	MTY_TLS *ctx = *tls;
-
-	DeleteSecurityContext(&ctx->ctx);
-	FreeCredentialsHandle(&ctx->ch);
-
-	MTY_Free(ctx->host);
-	MTY_Free(ctx->fp);
-
-	MTY_Free(ctx);
-	*tls = NULL;
 }
 
 static MTY_Async tls_handshake_init(MTY_TLS *ctx, MTY_TLSWriteFunc func, void *opaque)
@@ -429,6 +410,74 @@ bool MTY_TLSDecrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size
 	memmove(out, bufs[1].pvBuffer, *read);
 
 	return true;
+}
+
+static void tls_close_notify(MTY_TLS *ctx, void *buf, size_t size, size_t *written)
+{
+	DWORD shutdown = SCHANNEL_SHUTDOWN;
+
+	SecBuffer sbuf = {0};
+	sbuf.BufferType = SECBUFFER_TOKEN;
+	sbuf.pvBuffer = &shutdown;
+	sbuf.cbBuffer = sizeof(DWORD);
+
+	SecBufferDesc desc = {0};
+	desc.ulVersion = SECBUFFER_VERSION;
+	desc.pBuffers = &sbuf;
+	desc.cBuffers = 1;
+
+	// Set the context status to shutdown
+	SECURITY_STATUS e = ApplyControlToken(&ctx->ctx, &desc);
+	if (e != SEC_E_OK) {
+		MTY_Log("'ApplyControlToken' failed with error 0x%X");
+		return;
+	}
+
+	// Generate the close message
+	memset(&sbuf, 0, sizeof(SecBuffer));
+	sbuf.BufferType = SECBUFFER_EMPTY;
+
+	unsigned long out_flags = 0;
+
+	e = InitializeSecurityContext(&ctx->ch, &ctx->ctx, ctx->host, ctx->flags, 0, 0, NULL, 0,
+		&ctx->ctx, &desc, &out_flags, NULL);
+
+	if (e != SEC_E_OK && e != SEC_I_CONTEXT_EXPIRED) {
+		MTY_Log("'InitializeSecurityContext' failed with error 0x%X", e);
+		return;
+	}
+
+	if (sbuf.pvBuffer && sbuf.cbBuffer > 0) {
+		if (sbuf.cbBuffer <= size) {
+			memcpy(buf, sbuf.pvBuffer, sbuf.cbBuffer);
+			*written = sbuf.cbBuffer;
+
+		} else {
+			MTY_Log("Output buffer was too small for shutdown (%zu < %u)", size, sbuf.cbBuffer);
+		}
+
+		FreeContextBuffer(sbuf.pvBuffer);
+	}
+}
+
+void MTY_TLSDestroy(MTY_TLS **tls, void *buf, size_t size, size_t *written)
+{
+	if (!tls || !*tls)
+		return;
+
+	MTY_TLS *ctx = *tls;
+
+	if (buf && size > 0)
+		tls_close_notify(ctx, buf, size, written);
+
+	DeleteSecurityContext(&ctx->ctx);
+	FreeCredentialsHandle(&ctx->ch);
+
+	MTY_Free(ctx->host);
+	MTY_Free(ctx->fp);
+
+	MTY_Free(ctx);
+	*tls = NULL;
 }
 
 

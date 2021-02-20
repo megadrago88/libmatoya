@@ -306,12 +306,12 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 	except:
 
 	if (!ok)
-		MTY_TLSDestroy(&ctx);
+		MTY_TLSDestroy(&ctx, NULL, 0, NULL);
 
 	return ctx;
 }
 
-void MTY_TLSDestroy(MTY_TLS **tls)
+void MTY_TLSDestroy(MTY_TLS **tls, void *buf, size_t size, size_t *written)
 {
 	if (!tls || !*tls)
 		return;

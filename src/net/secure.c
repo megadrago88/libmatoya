@@ -31,10 +31,15 @@ void secure_destroy(struct secure **secure)
 
 	struct secure *ctx = *secure;
 
+	size_t written = 0;
+	MTY_TLSDestroy(&ctx->tls, ctx->buf, ctx->buf_size, &written);
+
+	// Close notify
+	if (written > 0)
+		tcp_write(ctx->socket, ctx->buf, written);
+
 	MTY_Free(ctx->buf);
 	MTY_Free(ctx->pbuf);
-
-	MTY_TLSDestroy(&ctx->tls);
 
 	MTY_Free(ctx);
 	*secure = NULL;
