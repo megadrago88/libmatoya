@@ -66,7 +66,6 @@ LOCAL_SRC_FILES := \
 	src/net/tcp.c \
 	src/net/ws.c \
 	src/net/secure.c \
-	src/unix/net/dtls.c \
 	src/unix/net/request.c \
 	src/unix/compress.c \
 	src/unix/fs.c \
@@ -76,6 +75,7 @@ LOCAL_SRC_FILES := \
 	src/unix/time.c \
 	src/unix/linux/crypto.c \
 	src/unix/linux/aes-gcm.c \
+	src/unix/linux/net/dtls.c \
 	src/unix/linux/android/gfx/gl-ctx.c \
 	src/unix/linux/android/window.c \
 	src/unix/linux/android/audio.c

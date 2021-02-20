@@ -104,12 +104,12 @@ ifeq ($(UNAME_S), Linux)
 OBJS := $(OBJS) \
 	src/unix/linux/crypto.o \
 	src/unix/linux/aes-gcm.o \
+	src/unix/linux/net/dtls.o \
 	src/unix/linux/generic/gfx/gl-ctx.o \
 	src/unix/linux/generic/hid.o \
 	src/unix/linux/generic/audio.o \
 	src/unix/linux/generic/window.o \
 	src/unix/net/request.o \
-	src/unix/net/dtls.o \
 	src/net/secure.o \
 	src/net/http.o \
 	src/net/async.o \
