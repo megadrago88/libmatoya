@@ -187,10 +187,8 @@ void MTY_TLSDestroy(MTY_TLS **tls)
 
 	MTY_TLS *ctx = *tls;
 
-	if (ctx->ctx) {
-		SSLClose(ctx->ctx);
+	if (ctx->ctx)
 		CFRelease(ctx->ctx);
-	}
 
 	MTY_Free(ctx->fp);
 	MTY_Free(ctx->buf);

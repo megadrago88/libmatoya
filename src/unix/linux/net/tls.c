@@ -261,7 +261,6 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 	SSL_set_connect_state(ctx->ssl);
 
 	if (type == MTY_TLS_TYPE_DTLS) {
-		SSL_CTX_set_quiet_shutdown(ctx->ctx, 1);
 		SSL_set_options(ctx->ssl, SSL_OP_NO_TICKET | SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
 		SSL_set_verify(ctx->ssl, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, dtls_verify);
 
@@ -321,7 +320,6 @@ void MTY_TLSDestroy(MTY_TLS **tls)
 	if (ctx->ssl) {
 		MTY_GlobalLock(&TLS_GLOCK);
 
-		SSL_shutdown(ctx->ssl);
 		SSL_free(ctx->ssl);
 
 		MTY_GlobalUnlock(&TLS_GLOCK);

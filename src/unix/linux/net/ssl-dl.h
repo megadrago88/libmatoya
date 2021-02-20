@@ -73,7 +73,6 @@ typedef int pem_password_cb(char *buf, int size, int rwflag, void *userdata);
 
 STATIC SSL *FP(SSL_new)(SSL_CTX *ctx);
 STATIC void FP(SSL_free)(SSL *ssl);
-STATIC int FP(SSL_shutdown)(SSL *s);
 STATIC int FP(SSL_read)(SSL *ssl, void *buf, int num);
 STATIC int FP(SSL_write)(SSL *ssl, const void *buf, int num);
 STATIC void FP(SSL_set_verify)(SSL *s, int mode, SSL_verify_cb callback);
@@ -95,7 +94,6 @@ STATIC const SSL_METHOD *FP(TLS_method)(void);
 STATIC const SSL_METHOD *FP(DTLS_method)(void);
 STATIC SSL_CTX *FP(SSL_CTX_new)(const SSL_METHOD *meth);
 STATIC void FP(SSL_CTX_free)(SSL_CTX *);
-STATIC void FP(SSL_CTX_set_quiet_shutdown)(SSL_CTX *ctx, int mode);
 
 STATIC BIO *FP(BIO_new_mem_buf)(const void *buf, int len);
 STATIC BIO *FP(BIO_new)(const BIO_METHOD *type);
@@ -187,7 +185,6 @@ static bool ssl_dl_global_init(void)
 
 		LOAD_SYM(SSL_DL_SO, SSL_new);
 		LOAD_SYM(SSL_DL_SO, SSL_free);
-		LOAD_SYM(SSL_DL_SO, SSL_shutdown);
 		LOAD_SYM(SSL_DL_SO, SSL_read);
 		LOAD_SYM(SSL_DL_SO, SSL_write);
 		LOAD_SYM(SSL_DL_SO, SSL_set_verify);
@@ -209,7 +206,6 @@ static bool ssl_dl_global_init(void)
 		LOAD_SYM(SSL_DL_SO, DTLS_method);
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_new);
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_free);
-		LOAD_SYM(SSL_DL_SO, SSL_CTX_set_quiet_shutdown);
 
 		LOAD_SYM(SSL_DL_SO, BIO_new_mem_buf);
 		LOAD_SYM(SSL_DL_SO, BIO_new);
