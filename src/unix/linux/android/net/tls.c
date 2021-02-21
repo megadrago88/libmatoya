@@ -21,8 +21,8 @@ struct MTY_TLS {
 
 	jobject context;
 	jobject engine;
-	jobject obuf;
 
+	uint8_t *obuf;
 	uint8_t *buf;
 	size_t size;
 	size_t offset;
@@ -119,10 +119,7 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 	(*env)->CallVoidMethod(env, ctx->engine, mid, true);
 
 	// Preallocate bufffers
-	cls = (*env)->FindClass(env, "java/nio/ByteBuffer");
-	mid = (*env)->GetStaticMethodID(env, cls, "allocate", "(I)Ljava/nio/ByteBuffer;");
-	ctx->obuf = (*env)->CallStaticObjectMethod(env, cls, mid, TLS_BUF_SIZE);
-	ctx->obuf = (*env)->NewGlobalRef(env, ctx->obuf);
+	ctx->obuf = MTY_Alloc(TLS_BUF_SIZE, 1);
 
 	if (peerFingerprint)
 		ctx->fp = MTY_Strdup(peerFingerprint);
@@ -145,9 +142,7 @@ void MTY_TLSDestroy(MTY_TLS **tls)
 	if (ctx->context)
 		(*env)->DeleteGlobalRef(env, ctx->context);
 
-	if (ctx->obuf)
-		(*env)->DeleteGlobalRef(env, ctx->obuf);
-
+	MTY_Free(ctx->obuf);
 	MTY_Free(ctx->buf);
 	MTY_Free(ctx->fp);
 
@@ -174,6 +169,10 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 	if (buf && size > 0)
 		tls_add_data(ctx, buf, size);
 
+	// Wrap any input data in an ephemeral ByteBuffer
+	jobject jin = (*env)->NewDirectByteBuffer(env, ctx->buf, ctx->offset);
+	jobject jout = (*env)->NewDirectByteBuffer(env, ctx->obuf, TLS_BUF_SIZE);
+
 	bool finished = false;
 
 	for (bool cont = true; cont;) {
@@ -188,20 +187,6 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 		jstring jstr = (*env)->CallObjectMethod(env, status, mid);
 		const char *cstr = (*env)->GetStringUTFChars(env, jstr, NULL);
 
-		// Wrap any input data in an ephemeral ByteBuffer
-		jbyteArray ba = (*env)->NewByteArray(env, ctx->offset);
-		(*env)->SetByteArrayRegion(env, ba, 0, ctx->offset, (jbyte *) ctx->buf);
-
-		// Clear the output buffer, reset positions
-		cls = (*env)->GetObjectClass(env, ctx->obuf);
-		mid = (*env)->GetMethodID(env, cls, "clear", "()Ljava/nio/Buffer;");
-		(*env)->CallObjectMethod(env, ctx->obuf, mid);
-
-		// Wrap the internal input buffer in a java ByteBuffer
-		cls = (*env)->FindClass(env, "java/nio/ByteBuffer");
-		mid = (*env)->GetStaticMethodID(env, cls, "wrap", "([B)Ljava/nio/ByteBuffer;");
-		jobject bb = (*env)->CallStaticObjectMethod(env, cls, mid, ba);
-
 		jobject result = NULL;
 
 		// The handshake produced outbound data
@@ -209,7 +194,7 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 			cls = (*env)->GetObjectClass(env, ctx->engine);
 			mid = (*env)->GetMethodID(env, cls, "wrap", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Ljavax/net/ssl/SSLEngineResult;");
 
-			result = (*env)->CallObjectMethod(env, ctx->engine, mid, bb, ctx->obuf);
+			result = (*env)->CallObjectMethod(env, ctx->engine, mid, jin, jout);
 			if (tls_catch(env))
 				return MTY_ASYNC_ERROR;
 
@@ -218,7 +203,7 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 			cls = (*env)->GetObjectClass(env, ctx->engine);
 			mid = (*env)->GetMethodID(env, cls, "unwrap", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Ljavax/net/ssl/SSLEngineResult;");
 
-			result = (*env)->CallObjectMethod(env, ctx->engine, mid, bb, ctx->obuf);
+			result = (*env)->CallObjectMethod(env, ctx->engine, mid, jin, jout);
 			if (tls_catch(env))
 				return MTY_ASYNC_ERROR;
 
@@ -231,24 +216,19 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 		(*env)->ReleaseStringUTFChars(env, jstr, cstr);
 
 		// If any of our internal buffer has been consumed, adjust
-		cls = (*env)->GetObjectClass(env, bb);
-		mid = (*env)->GetMethodID(env, cls, "position", "()I");
-		jint pos = (*env)->CallIntMethod(env, bb, mid);
+		cls = (*env)->GetObjectClass(env, result);
+		mid = (*env)->GetMethodID(env, cls, "bytesProduced", "()I");
+		jint pos = (*env)->CallIntMethod(env, result, mid);
 
-		ctx->offset -= pos;
-		memmove(ctx->buf, ctx->buf + pos, ctx->offset);
+		mid = (*env)->GetMethodID(env, cls, "bytesConsumed", "()I");
+		jint ipos = (*env)->CallIntMethod(env, result, mid);
+
+		ctx->offset -= ipos;
+		memmove(ctx->buf, ctx->buf + ipos, ctx->offset);
 
 		// If any data has been written to the output buffer, send it via the callback
-		cls = (*env)->GetObjectClass(env, ctx->obuf);
-		mid = (*env)->GetMethodID(env, cls, "array", "()[B");
-		ba = (*env)->CallObjectMethod(env, ctx->obuf, mid);
-		jbyte *b = (*env)->GetByteArrayElements(env, ba, NULL);
-
-		mid = (*env)->GetMethodID(env, cls, "position", "()I");
-		jint ba_size = (*env)->CallIntMethod(env, ctx->obuf, mid);
-
-		if (ba_size > 0)
-			writeFunc(b, ba_size, opaque);
+		if (pos > 0)
+			writeFunc(ctx->obuf, pos, opaque);
 
 		// Get wrap/unwrap handshake status
 		cls = (*env)->GetObjectClass(env, result);
