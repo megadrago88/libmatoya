@@ -217,16 +217,14 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 
 		// If any of our internal buffer has been consumed, adjust
 		cls = (*env)->GetObjectClass(env, result);
-		mid = (*env)->GetMethodID(env, cls, "bytesProduced", "()I");
-		jint pos = (*env)->CallIntMethod(env, result, mid);
-
 		mid = (*env)->GetMethodID(env, cls, "bytesConsumed", "()I");
 		jint ipos = (*env)->CallIntMethod(env, result, mid);
-
 		ctx->offset -= ipos;
 		memmove(ctx->buf, ctx->buf + ipos, ctx->offset);
 
 		// If any data has been written to the output buffer, send it via the callback
+		mid = (*env)->GetMethodID(env, cls, "bytesProduced", "()I");
+		jint pos = (*env)->CallIntMethod(env, result, mid);
 		if (pos > 0)
 			writeFunc(ctx->obuf, pos, opaque);
 
