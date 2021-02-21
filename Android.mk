@@ -75,7 +75,7 @@ LOCAL_SRC_FILES := \
 	src/unix/time.c \
 	src/unix/linux/crypto.c \
 	src/unix/linux/aes-gcm.c \
-	src/unix/linux/net/tls.c \
+	src/unix/linux/android/net/tls.c \
 	src/unix/linux/android/gfx/gl-ctx.c \
 	src/unix/linux/android/window.c \
 	src/unix/linux/android/audio.c
