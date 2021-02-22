@@ -11,17 +11,6 @@
 
 // Interface
 
-#if defined(MTY_SSL_EXTERNAL)
-
-#define FP(sym) sym
-#define STATIC
-
-#else
-
-#define FP(sym) (*sym)
-#define STATIC static
-#endif
-
 #define SSL_ERROR_WANT_READ                           2
 #define SSL_ERROR_WANT_WRITE                          3
 #define SSL_ERROR_ZERO_RETURN                         6
@@ -70,78 +59,71 @@ typedef struct ssl_st SSL;
 typedef int (*SSL_verify_cb)(int preverify_ok, X509_STORE_CTX *x509_ctx);
 typedef int pem_password_cb(char *buf, int size, int rwflag, void *userdata);
 
-STATIC SSL *FP(SSL_new)(SSL_CTX *ctx);
-STATIC void FP(SSL_free)(SSL *ssl);
-STATIC int FP(SSL_read)(SSL *ssl, void *buf, int num);
-STATIC int FP(SSL_write)(SSL *ssl, const void *buf, int num);
-STATIC void FP(SSL_set_verify)(SSL *s, int mode, SSL_verify_cb callback);
-STATIC void FP(SSL_set_verify_depth)(SSL *s, int depth);
-STATIC int FP(SSL_get_error)(const SSL *s, int ret_code);
-STATIC X509_VERIFY_PARAM *FP(SSL_get0_param)(SSL *ssl);
-STATIC long FP(SSL_ctrl)(SSL *ssl, int cmd, long larg, void *parg);
-STATIC void FP(SSL_set_bio)(SSL *s, BIO *rbio, BIO *wbio);
-STATIC void FP(SSL_set_connect_state)(SSL *s);
-STATIC int FP(SSL_is_init_finished)(SSL *s);
-STATIC int FP(SSL_do_handshake)(SSL *s);
-STATIC int FP(SSL_use_certificate)(SSL *ssl, X509 *x);
-STATIC unsigned long FP(SSL_set_options)(SSL *s, unsigned long op);
-STATIC X509 *FP(SSL_get_peer_certificate)(const SSL *s);
-STATIC int FP(SSL_use_RSAPrivateKey)(SSL *ssl, RSA *rsa);
+static SSL *(*SSL_new)(SSL_CTX *ctx);
+static void (*SSL_free)(SSL *ssl);
+static int (*SSL_read)(SSL *ssl, void *buf, int num);
+static int (*SSL_write)(SSL *ssl, const void *buf, int num);
+static void (*SSL_set_verify)(SSL *s, int mode, SSL_verify_cb callback);
+static void (*SSL_set_verify_depth)(SSL *s, int depth);
+static int (*SSL_get_error)(const SSL *s, int ret_code);
+static X509_VERIFY_PARAM *(*SSL_get0_param)(SSL *ssl);
+static long (*SSL_ctrl)(SSL *ssl, int cmd, long larg, void *parg);
+static void (*SSL_set_bio)(SSL *s, BIO *rbio, BIO *wbio);
+static void (*SSL_set_connect_state)(SSL *s);
+static int (*SSL_is_init_finished)(SSL *s);
+static int (*SSL_do_handshake)(SSL *s);
+static int (*SSL_use_certificate)(SSL *ssl, X509 *x);
+static unsigned long (*SSL_set_options)(SSL *s, unsigned long op);
+static X509 *(*SSL_get_peer_certificate)(const SSL *s);
+static int (*SSL_use_RSAPrivateKey)(SSL *ssl, RSA *rsa);
 
-STATIC const SSL_METHOD *FP(TLS_method)(void);
-STATIC const SSL_METHOD *FP(DTLS_method)(void);
-STATIC SSL_CTX *FP(SSL_CTX_new)(const SSL_METHOD *meth);
-STATIC int FP(SSL_CTX_set_default_verify_paths)(SSL_CTX *ctx);
+static const SSL_METHOD *(*TLS_method)(void);
+static const SSL_METHOD *(*DTLS_method)(void);
+static SSL_CTX *(*SSL_CTX_new)(const SSL_METHOD *meth);
+static int (*SSL_CTX_set_default_verify_paths)(SSL_CTX *ctx);
 
-STATIC void FP(SSL_CTX_free)(SSL_CTX *);
+static void (*SSL_CTX_free)(SSL_CTX *);
 
-STATIC BIO *FP(BIO_new)(const BIO_METHOD *type);
-STATIC int FP(BIO_free)(BIO *a);
-STATIC const BIO_METHOD *FP(BIO_s_mem)(void);
-STATIC int FP(BIO_write)(BIO *b, const void *data, int len);
-STATIC size_t FP(BIO_ctrl_pending)(BIO *b);
-STATIC int FP(BIO_read)(BIO *b, void *data, int len);
+static BIO *(*BIO_new)(const BIO_METHOD *type);
+static int (*BIO_free)(BIO *a);
+static const BIO_METHOD *(*BIO_s_mem)(void);
+static int (*BIO_write)(BIO *b, const void *data, int len);
+static size_t (*BIO_ctrl_pending)(BIO *b);
+static int (*BIO_read)(BIO *b, void *data, int len);
 
-STATIC int FP(X509_VERIFY_PARAM_set1_host)(X509_VERIFY_PARAM *param, const char *name, size_t namelen);
-STATIC void FP(X509_VERIFY_PARAM_set_hostflags)(X509_VERIFY_PARAM *param, unsigned int flags);
-STATIC void FP(X509_free)(X509 *a);
-STATIC X509 *FP(X509_new)(void);
-STATIC int FP(X509_set_pubkey)(X509 *x, EVP_PKEY *pkey);
-STATIC int FP(X509_sign)(X509 *x, EVP_PKEY *pkey, const EVP_MD *md);
-STATIC int FP(X509_digest)(const X509 *data, const EVP_MD *type, unsigned char *md, unsigned int *len);
-STATIC ASN1_TIME *FP(X509_getm_notBefore)(const X509 *x);
-STATIC ASN1_TIME *FP(X509_getm_notAfter)(const X509 *x);
-STATIC int FP(X509_set_version)(X509 *x, long version);
-STATIC int FP(X509_set_issuer_name)(X509 *x, X509_NAME *name);
-STATIC X509_NAME *FP(X509_get_subject_name)(const X509 *a);
-STATIC ASN1_INTEGER *FP(X509_get_serialNumber)(X509 *x);
-STATIC ASN1_TIME *FP(X509_gmtime_adj)(ASN1_TIME *s, long adj);
-STATIC int FP(X509_NAME_add_entry_by_txt)(X509_NAME *name, const char *field, int type,
+static int (*X509_VERIFY_PARAM_set1_host)(X509_VERIFY_PARAM *param, const char *name, size_t namelen);
+static void (*X509_VERIFY_PARAM_set_hostflags)(X509_VERIFY_PARAM *param, unsigned int flags);
+static void (*X509_free)(X509 *a);
+static X509 *(*X509_new)(void);
+static int (*X509_set_pubkey)(X509 *x, EVP_PKEY *pkey);
+static int (*X509_sign)(X509 *x, EVP_PKEY *pkey, const EVP_MD *md);
+static int (*X509_digest)(const X509 *data, const EVP_MD *type, unsigned char *md, unsigned int *len);
+static ASN1_TIME *(*X509_getm_notBefore)(const X509 *x);
+static ASN1_TIME *(*X509_getm_notAfter)(const X509 *x);
+static int (*X509_set_version)(X509 *x, long version);
+static int (*X509_set_issuer_name)(X509 *x, X509_NAME *name);
+static X509_NAME *(*X509_get_subject_name)(const X509 *a);
+static ASN1_INTEGER *(*X509_get_serialNumber)(X509 *x);
+static ASN1_TIME *(*X509_gmtime_adj)(ASN1_TIME *s, long adj);
+static int (*X509_NAME_add_entry_by_txt)(X509_NAME *name, const char *field, int type,
 	const unsigned char *bytes, int len, int loc, int set);
 
-STATIC BIGNUM *FP(BN_new)(void);
-STATIC void FP(BN_free)(BIGNUM *a);
-STATIC int FP(BN_set_word)(BIGNUM *a, unsigned long long w);
+static BIGNUM *(*BN_new)(void);
+static void (*BN_free)(BIGNUM *a);
+static int (*BN_set_word)(BIGNUM *a, unsigned long long w);
 
-STATIC EVP_PKEY *FP(EVP_PKEY_new)(void);
-STATIC const EVP_MD *FP(EVP_sha256)(void);
-STATIC int FP(EVP_PKEY_assign)(EVP_PKEY *pkey, int type, void *key);
+static EVP_PKEY *(*EVP_PKEY_new)(void);
+static const EVP_MD *(*EVP_sha256)(void);
+static int (*EVP_PKEY_assign)(EVP_PKEY *pkey, int type, void *key);
 
-STATIC RSA *FP(RSA_new)(void);
-STATIC void FP(RSA_free)(RSA *r);
-STATIC int FP(RSA_generate_key_ex)(RSA *rsa, int bits, BIGNUM *e, BN_GENCB *cb);
+static RSA *(*RSA_new)(void);
+static void (*RSA_free)(RSA *r);
+static int (*RSA_generate_key_ex)(RSA *rsa, int bits, BIGNUM *e, BN_GENCB *cb);
 
-STATIC int FP(ASN1_INTEGER_set)(ASN1_INTEGER *a, long v);
+static int (*ASN1_INTEGER_set)(ASN1_INTEGER *a, long v);
 
 
 // Runtime open
-
-#if defined(MTY_SSL_EXTERNAL)
-
-#define ssl_dl_global_init() true
-#define ssl_dl_global_destroy()
-
-#else
 
 static MTY_Atomic32 SSL_DL_LOCK;
 static MTY_SO *SSL_DL_SO;
@@ -250,5 +232,3 @@ static bool ssl_dl_global_init(void)
 
 	return SSL_DL_INIT;
 }
-
-#endif

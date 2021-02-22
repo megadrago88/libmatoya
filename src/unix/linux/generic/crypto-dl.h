@@ -9,17 +9,6 @@
 
 // Interface
 
-#if defined(MTY_CRYPTO_EXTERNAL)
-
-#define FP(sym) sym
-#define STATIC
-
-#else
-
-#define FP(sym) (*sym)
-#define STATIC static
-#endif
-
 #define EVP_CTRL_AEAD_GET_TAG 0x10
 #define EVP_CTRL_GCM_GET_TAG  EVP_CTRL_AEAD_GET_TAG
 
@@ -31,37 +20,30 @@ typedef struct evp_cipher_st EVP_CIPHER;
 typedef struct evp_cipher_ctx_st EVP_CIPHER_CTX;
 typedef struct evp_md_st EVP_MD;
 
-STATIC const EVP_CIPHER *FP(EVP_aes_128_gcm)(void);
-STATIC EVP_CIPHER_CTX *FP(EVP_CIPHER_CTX_new)(void);
-STATIC void FP(EVP_CIPHER_CTX_free)(EVP_CIPHER_CTX *c);
-STATIC int FP(EVP_CipherInit_ex)(EVP_CIPHER_CTX *ctx, const EVP_CIPHER *cipher, ENGINE *impl,
+static const EVP_CIPHER *(*EVP_aes_128_gcm)(void);
+static EVP_CIPHER_CTX *(*EVP_CIPHER_CTX_new)(void);
+static void (*EVP_CIPHER_CTX_free)(EVP_CIPHER_CTX *c);
+static int (*EVP_CipherInit_ex)(EVP_CIPHER_CTX *ctx, const EVP_CIPHER *cipher, ENGINE *impl,
 	const unsigned char *key, const unsigned char *iv, int enc);
-STATIC int FP(EVP_EncryptUpdate)(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl,
+static int (*EVP_EncryptUpdate)(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl,
 	const unsigned char *in, int inl);
-STATIC int FP(EVP_DecryptUpdate)(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl,
+static int (*EVP_DecryptUpdate)(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl,
 	const unsigned char *in, int inl);
-STATIC int FP(EVP_EncryptFinal_ex)(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl);
-STATIC int FP(EVP_DecryptFinal_ex)(EVP_CIPHER_CTX *ctx, unsigned char *outm, int *outl);
-STATIC int FP(EVP_CIPHER_CTX_ctrl)(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr);
+static int (*EVP_EncryptFinal_ex)(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl);
+static int (*EVP_DecryptFinal_ex)(EVP_CIPHER_CTX *ctx, unsigned char *outm, int *outl);
+static int (*EVP_CIPHER_CTX_ctrl)(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr);
 
-STATIC const EVP_MD *FP(EVP_sha1)(void);
-STATIC const EVP_MD *FP(EVP_sha256)(void);
-STATIC unsigned char *FP(SHA1)(const unsigned char *d, size_t n, unsigned char *md);
-STATIC unsigned char *FP(SHA256)(const unsigned char *d, size_t n, unsigned char *md);
-STATIC unsigned char *FP(HMAC)(const EVP_MD *evp_md, const void *key, int key_len,
+static const EVP_MD *(*EVP_sha1)(void);
+static const EVP_MD *(*EVP_sha256)(void);
+static unsigned char *(*SHA1)(const unsigned char *d, size_t n, unsigned char *md);
+static unsigned char *(*SHA256)(const unsigned char *d, size_t n, unsigned char *md);
+static unsigned char *(*HMAC)(const EVP_MD *evp_md, const void *key, int key_len,
 	const unsigned char *d, size_t n, unsigned char *md, unsigned int *md_len);
 
-STATIC int FP(RAND_bytes)(unsigned char *buf, int num);
+static int (*RAND_bytes)(unsigned char *buf, int num);
 
 
 // Runtime open
-
-#if defined(MTY_CRYPTO_EXTERNAL)
-
-#define crypto_dl_global_init() true
-#define crypto_dl_global_destroy()
-
-#else
 
 static MTY_Atomic32 CRYPTO_DL_LOCK;
 static MTY_SO *CRYPTO_DL_SO;
@@ -123,5 +105,3 @@ static bool crypto_dl_global_init(void)
 
 	return CRYPTO_DL_INIT;
 }
-
-#endif
