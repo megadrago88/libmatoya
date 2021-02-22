@@ -39,16 +39,6 @@ struct MTY_TLS {
 #define TLS_MTU_PADDING 64
 
 
-// CACert
-
-bool MTY_HttpSetCACert(const char *cacert, size_t size)
-{
-	// Unnecessary, always use the Apple's CACert store
-
-	return false;
-}
-
-
 // Cert
 
 MTY_Cert *MTY_CertCreate(void)
@@ -252,33 +242,4 @@ bool MTY_TLSDecrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size
 	OSStatus e = SSLRead(ctx->ctx, out, outSize, read);
 
 	return e == noErr;
-}
-
-
-// 0x14   - Change Cipher Spec
-// 0x16   - Handshake
-// 0x17   - Application Data
-
-// 0xFEFF - DTLS 1.0
-// 0xFEFD - DTLS 1.2
-// 0x0303 - TLS 1.2
-
-bool MTY_TLSIsHandshake(const void *buf, size_t size)
-{
-	const uint8_t *d = buf;
-
-	return size > 2 && (d[0] == 0x14 || d[0] == 0x16) && (
-		(d[1] == 0xFE || d[1] == 0x03) &&
-		(d[2] == 0xFD || d[2] == 0xFF || d[2] == 0x03)
-	);
-}
-
-bool MTY_TLSIsApplicationData(const void *buf, size_t size)
-{
-	const uint8_t *d = buf;
-
-	return size > 2 && d[0] == 0x17 && (
-		(d[1] == 0xFE || d[1] == 0x03) &&
-		(d[2] == 0xFD || d[2] == 0xFF || d[2] == 0x03)
-	);
 }
