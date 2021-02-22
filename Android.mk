@@ -32,13 +32,7 @@ LOCAL_C_INCLUDES := \
 DEFS = \
 	-D_POSIX_C_SOURCE=200112L \
 	-DMTY_GL_ES \
-	-DMTY_SSL_EXTERNAL \
 	-DMTY_GL_EXTERNAL
-
-ifdef CRYPTO_EXTERNAL
-DEFS := $(DEFS) \
-	-DMTY_CRYPTO_EXTERNAL
-endif
 
 LOCAL_CFLAGS = $(DEFS) $(FLAGS)
 
@@ -73,8 +67,8 @@ LOCAL_SRC_FILES := \
 	src/unix/proc.c \
 	src/unix/thread.c \
 	src/unix/time.c \
-	src/unix/linux/crypto.c \
-	src/unix/linux/aes-gcm.c \
+	src/unix/linux/android/crypto.c \
+	src/unix/linux/android/aes-gcm.c \
 	src/unix/linux/android/net/tls.c \
 	src/unix/linux/android/gfx/gl-ctx.c \
 	src/unix/linux/android/window.c \

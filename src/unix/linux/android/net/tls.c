@@ -19,7 +19,6 @@ struct MTY_Cert {
 struct MTY_TLS {
 	char *fp;
 
-	jobject context;
 	jobject engine;
 
 	uint8_t *obuf;
@@ -97,16 +96,15 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 	// Context
 	jclass cls = (*env)->FindClass(env, "javax/net/ssl/SSLContext");
 	jmethodID mid = (*env)->GetStaticMethodID(env, cls, "getInstance", "(Ljava/lang/String;)Ljavax/net/ssl/SSLContext;");
-	ctx->context = (*env)->CallStaticObjectMethod(env, cls, mid, (*env)->NewStringUTF(env, "TLSv1.2"));
-	ctx->context = (*env)->NewGlobalRef(env, ctx->context);
+	jobject context = (*env)->CallStaticObjectMethod(env, cls, mid, (*env)->NewStringUTF(env, "TLSv1.2"));
 
 	// Initialize context
 	mid = (*env)->GetMethodID(env, cls, "init", "([Ljavax/net/ssl/KeyManager;[Ljavax/net/ssl/TrustManager;Ljava/security/SecureRandom;)V");
-	(*env)->CallVoidMethod(env, ctx->context, mid, NULL, NULL, NULL);
+	(*env)->CallVoidMethod(env, context, mid, NULL, NULL, NULL);
 
 	// Create engine, set hostname for verification
 	mid = (*env)->GetMethodID(env, cls, "createSSLEngine", "(Ljava/lang/String;I)Ljavax/net/ssl/SSLEngine;");
-	ctx->engine = (*env)->CallObjectMethod(env, ctx->context, mid, (*env)->NewStringUTF(env, host), 443);
+	ctx->engine = (*env)->CallObjectMethod(env, context, mid, (*env)->NewStringUTF(env, host), 443);
 	ctx->engine = (*env)->NewGlobalRef(env, ctx->engine);
 
 	// Set client mode
@@ -138,9 +136,6 @@ void MTY_TLSDestroy(MTY_TLS **tls)
 
 	if (ctx->engine)
 		(*env)->DeleteGlobalRef(env, ctx->engine);
-
-	if (ctx->context)
-		(*env)->DeleteGlobalRef(env, ctx->context);
 
 	MTY_Free(ctx->obuf);
 	MTY_Free(ctx->buf);

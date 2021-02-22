@@ -102,9 +102,9 @@ else
 ifeq ($(UNAME_S), Linux)
 
 OBJS := $(OBJS) \
-	src/unix/linux/crypto.o \
-	src/unix/linux/aes-gcm.o \
-	src/unix/linux/net/tls.o \
+	src/unix/linux/generic/crypto.o \
+	src/unix/linux/generic/net/tls.o \
+	src/unix/linux/generic/aes-gcm.o \
 	src/unix/linux/generic/gfx/gl-ctx.o \
 	src/unix/linux/generic/hid.o \
 	src/unix/linux/generic/audio.o \
@@ -184,7 +184,6 @@ SHADERS := $(SHADERS) \
 	src/unix/apple/gfx/shaders/metal/ui.h
 
 DEFS := $(DEFS) \
-	-DMTY_SSL_EXTERNAL \
 	-DMTY_GL_EXTERNAL
 
 TEST_LIBS = \
