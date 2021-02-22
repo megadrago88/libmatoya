@@ -201,6 +201,7 @@ static char *app_string_method(MTY_App *ctx, const char *name, const char *sig, 
 		str = MTY_Strdup(cstr);
 
 		(*env)->ReleaseStringUTFChars(env, jstr, cstr);
+		(*env)->DeleteLocalRef(env, jstr);
 	}
 
 	va_end(args);

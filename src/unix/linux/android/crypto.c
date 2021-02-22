@@ -9,7 +9,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <jni.h>
+#include "jnih.h"
 
 // Hash
 
@@ -18,72 +18,44 @@ static void crypto_hash_hmac(const char *alg, const void *input, size_t inputSiz
 {
 	JNIEnv *env = MTY_JNIEnv();
 
-	jstring jalg = (*env)->NewStringUTF(env, alg);
-	jbyteArray jkey = (*env)->NewByteArray(env, keySize);
-	(*env)->SetByteArrayRegion(env, jkey, 0, keySize, key);
+	jstring jalg = jnih_strdup(env, alg);
+	jbyteArray jkey = jnih_dup(env, key, keySize);
+	jbyteArray jin = jnih_dup(env, input, inputSize);
 
-	jbyteArray jin = (*env)->NewByteArray(env, inputSize);
-	(*env)->SetByteArrayRegion(env, jin, 0, inputSize, input);
+	jobject okey = jnih_new(env, "javax/crypto/spec/SecretKeySpec", "([BLjava/lang/String;)V", jkey, jalg);
+	jobject omac = jnih_static_obj(env, "javax/crypto/Mac", "getInstance", "(Ljava/lang/String;)Ljavax/crypto/Mac;", jalg);
 
-	jclass cls = (*env)->FindClass(env, "javax/crypto/spec/SecretKeySpec");
-	jmethodID mid = (*env)->GetMethodID(env, cls, "<init>", "([BLjava/lang/String;)V");
-	jobject obj = (*env)->NewObject(env, cls, mid, jkey, jalg);
+	jnih_void(env, omac, "init", "(Ljava/security/Key;)V", okey);
+	jbyteArray jout = jnih_obj(env, omac, "doFinal", "([B)[B", jin);
 
-	jclass cls2 = (*env)->FindClass(env, "javax/crypto/Mac");
-	mid = (*env)->GetStaticMethodID(env, cls2, "getInstance", "(Ljava/lang/String;)Ljavax/crypto/Mac;");
-	jobject obj2 = (*env)->CallStaticObjectMethod(env, cls2, mid, jalg);
+	jnih_memcpy(env, output, jout, outputSize);
 
-	mid = (*env)->GetMethodID(env, cls2, "init", "(Ljava/security/Key;)V");
-	(*env)->CallVoidMethod(env, cls2, mid, obj);
-
-	mid = (*env)->GetMethodID(env, cls2, "doFinal", "([B)[B");
-	jbyteArray jout = (*env)->CallObjectMethod(env, cls2, mid, jin);
-
-	jsize out_size = (*env)->GetArrayLength(env, jout);
-	jbyte *b = (*env)->GetByteArrayElements(env, jout, NULL);
-
-	outputSize = (size_t) b_size < outputSize ? (size_t) b_size : outputSize;
-	memcpy(output, jb, outputSize);
-
-	(*env)->ReleaseByteArrayElements(env, b, jb, 0);
-
-	(*env)->DeleteLocalRef(env, obj2);
-	(*env)->DeleteLocalRef(env, cls2);
-	(*env)->DeleteLocalRef(env, obj);
-	(*env)->DeleteLocalRef(env, cls);
-	(*env)->DeleteLocalRef(env, jkey);
-	(*env)->DeleteLocalRef(env, jalg);
+	jnih_free(env, jout);
+	jnih_free(env, omac);
+	jnih_free(env, okey);
+	jnih_free(env, jin);
+	jnih_free(env, jkey);
+	jnih_free(env, jalg);
 }
 
 static void crypto_hash(const char *alg, const void *input, size_t inputSize, void *output, size_t outputSize)
 {
 	JNIEnv *env = MTY_JNIEnv();
 
-	jobject bb_in = (*env)->NewDirectByteBuffer(env, (void *) input, inputSize);
-	jstring jalg = (*env)->NewStringUTF(env, alg);
+	jobject bb = jnih_wrap(env, (void *) input, inputSize);
+	jstring jalg = jnih_strdup(env, alg);
 
-	jclass cls = (*env)->FindClass(env, "java/security/MessageDigest");
-	jmethodID mid = (*env)->GetStaticMethodID(env, cls, "getInstance", "(Ljava/lang/String;)Ljava/security/MessageDigest;");
-	jobject obj = (*env)->CallStaticObjectMethod(env, cls, mid, jalg);
+	jobject obj = jnih_static_obj(env, "java/security/MessageDigest", "getInstance", "(Ljava/lang/String;)Ljava/security/MessageDigest;", jalg);
 
-	mid = (*env)->GetMethodID(env, cls, "update", "(Ljava/nio/ByteBuffer;)V");
-	(*env)->CallVoidMethod(env, obj, mid, bb_in);
+	jnih_void(env, obj, "update", "(Ljava/nio/ByteBuffer;)V", bb);
+	jobject b = jnih_obj(env, obj, "digest", "()[B");
 
-	mid = (*env)->GetMethodID(env, cls, "digest", "()[B");
-	jobject b = (*env)->CallObjectMethod(env, obj, mid);
+	jnih_memcpy(env, output, b, outputSize);
 
-	jsize b_size = (*env)->GetArrayLength(env, b);
-	jbyte *jb = (*env)->GetByteArrayElements(env, b, NULL);
-
-	outputSize = (size_t) b_size < outputSize ? (size_t) b_size : outputSize;
-	memcpy(output, jb, outputSize);
-
-	(*env)->ReleaseByteArrayElements(env, b, jb, 0);
-	(*env)->DeleteLocalRef(env, b);
-	(*env)->DeleteLocalRef(env, obj);
-	(*env)->DeleteLocalRef(env, cls);
-	(*env)->DeleteLocalRef(env, jalg);
-	(*env)->DeleteLocalRef(env, bb_in);
+	jnih_free(env, b);
+	jnih_free(env, obj);
+	jnih_free(env, jalg);
+	jnih_free(env, bb);
 }
 
 void MTY_CryptoHash(MTY_Algorithm algo, const void *input, size_t inputSize, const void *key,
@@ -126,20 +98,12 @@ void MTY_RandomBytes(void *output, size_t size)
 {
 	JNIEnv *env = MTY_JNIEnv();
 
-	jbyteArray b = (*env)->NewByteArray(env, size);
+	jbyteArray b = jnih_alloc(env, size);
 
-	jclass cls = (*env)->FindClass(env, "java/security/SecureRandom");
-	jmethodID mid = (*env)->GetMethodID(env, cls, "<init>", "()V");
-	jobject obj = (*env)->NewObject(env, cls, mid);
+	jobject obj = jnih_new(env, "java/security/SecureRandom", "()V");
+	jnih_void(env, obj, "nextBytes", "([B)V", b);
+	jnih_memcpy(env, output, b, size);
 
-	mid = (*env)->GetMethodID(env, cls, "nextBytes", "([B)V");
-	(*env)->CallVoidMethod(env, obj, mid, b);
-
-	jbyte *jb = (*env)->GetByteArrayElements(env, b, NULL);
-	memcpy(output, jb, size);
-
-	(*env)->ReleaseByteArrayElements(env, b, jb, 0);
-	(*env)->DeleteLocalRef(env, b);
-	(*env)->DeleteLocalRef(env, obj);
-	(*env)->DeleteLocalRef(env, cls);
+	jnih_free(env, obj);
+	jnih_free(env, b);
 }

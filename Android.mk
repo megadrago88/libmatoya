@@ -60,13 +60,14 @@ LOCAL_SRC_FILES := \
 	src/net/tcp.c \
 	src/net/ws.c \
 	src/net/secure.c \
-	src/unix/net/request.c \
 	src/unix/compress.c \
 	src/unix/fs.c \
 	src/unix/memory.c \
 	src/unix/proc.c \
 	src/unix/thread.c \
 	src/unix/time.c \
+	src/unix/net/request.c \
+	src/unix/linux/android/jnih.c \
 	src/unix/linux/android/crypto.c \
 	src/unix/linux/android/aes-gcm.c \
 	src/unix/linux/android/net/tls.c \

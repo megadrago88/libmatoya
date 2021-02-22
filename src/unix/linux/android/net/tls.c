@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <jni.h>
+#include "jnih.h"
 
 struct MTY_Cert {
 	bool dummy;
@@ -66,27 +66,6 @@ void MTY_CertDestroy(MTY_Cert **cert)
 
 // TLS, DTLS
 
-static bool tls_catch(JNIEnv *env)
-{
-	jthrowable ex = (*env)->ExceptionOccurred(env);
-	if (ex) {
-		(*env)->ExceptionClear(env);
-
-		jclass cls = (*env)->FindClass(env, "java/lang/Object");
-		jmethodID mid = (*env)->GetMethodID(env, cls, "toString", "()Ljava/lang/String;");
-		jstring jstr = (*env)->CallObjectMethod(env, ex, mid);
-
-		const char *cstr = (*env)->GetStringUTFChars(env, jstr, NULL);
-		MTY_Log("%s", cstr);
-
-		(*env)->ReleaseStringUTFChars(env, jstr, cstr);
-
-		return true;
-	}
-
-	return false;
-}
-
 MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const char *peerFingerprint, uint32_t mtu)
 {
 	MTY_TLS *ctx = MTY_Alloc(1, sizeof(MTY_TLS));
@@ -94,33 +73,32 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 	JNIEnv *env = MTY_JNIEnv();
 
 	// Context
-	jclass cls = (*env)->FindClass(env, "javax/net/ssl/SSLContext");
-	jmethodID mid = (*env)->GetStaticMethodID(env, cls, "getInstance", "(Ljava/lang/String;)Ljavax/net/ssl/SSLContext;");
-	jobject context = (*env)->CallStaticObjectMethod(env, cls, mid, (*env)->NewStringUTF(env, "TLSv1.2"));
+	jstring proto = jnih_strdup(env, "TLSv1.2");
+	jobject context = jnih_static_obj(env, "javax/net/ssl/SSLContext", "getInstance", "(Ljava/lang/String;)Ljavax/net/ssl/SSLContext;", proto);
 
 	// Initialize context
-	mid = (*env)->GetMethodID(env, cls, "init", "([Ljavax/net/ssl/KeyManager;[Ljavax/net/ssl/TrustManager;Ljava/security/SecureRandom;)V");
-	(*env)->CallVoidMethod(env, context, mid, NULL, NULL, NULL);
+	jnih_void(env, context, "init", "([Ljavax/net/ssl/KeyManager;[Ljavax/net/ssl/TrustManager;Ljava/security/SecureRandom;)V", NULL, NULL, NULL);
 
 	// Create engine, set hostname for verification
-	mid = (*env)->GetMethodID(env, cls, "createSSLEngine", "(Ljava/lang/String;I)Ljavax/net/ssl/SSLEngine;");
-	ctx->engine = (*env)->CallObjectMethod(env, context, mid, (*env)->NewStringUTF(env, host), 443);
-	ctx->engine = (*env)->NewGlobalRef(env, ctx->engine);
+	jstring jhost = jnih_strdup(env, host);
+	ctx->engine = jnih_obj(env, context, "createSSLEngine", "(Ljava/lang/String;I)Ljavax/net/ssl/SSLEngine;", jhost, 443);
 
 	// Set client mode
-	cls = (*env)->FindClass(env, "javax/net/ssl/SSLEngine");
-	mid = (*env)->GetMethodID(env, cls, "setUseClientMode", "(Z)V");
-	(*env)->CallVoidMethod(env, ctx->engine, mid, true);
+	jnih_void(env, ctx->engine, "setUseClientMode", "(Z)V", true);
 
 	// Begin handshake
-	mid = (*env)->GetMethodID(env, cls, "beginHandshake", "()V");
-	(*env)->CallVoidMethod(env, ctx->engine, mid, true);
+	jnih_void(env, ctx->engine, "beginHandshake", "()V", true);
 
 	// Preallocate bufffers
 	ctx->obuf = MTY_Alloc(TLS_BUF_SIZE, 1);
 
 	if (peerFingerprint)
 		ctx->fp = MTY_Strdup(peerFingerprint);
+
+	jnih_retain(env, &ctx->engine);
+	jnih_free(env, jhost);
+	jnih_free(env, context);
+	jnih_free(env, proto);
 
 	return ctx;
 }
@@ -134,8 +112,7 @@ void MTY_TLSDestroy(MTY_TLS **tls)
 
 	JNIEnv *env = MTY_JNIEnv();
 
-	if (ctx->engine)
-		(*env)->DeleteGlobalRef(env, ctx->engine);
+	jnih_release(env, &ctx->engine);
 
 	MTY_Free(ctx->obuf);
 	MTY_Free(ctx->buf);
@@ -158,6 +135,8 @@ static void tls_add_data(MTY_TLS *ctx, const void *buf, size_t size)
 
 MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWriteFunc writeFunc, void *opaque)
 {
+	MTY_Async r = MTY_ASYNC_CONTINUE;
+
 	JNIEnv *env = MTY_JNIEnv();
 
 	// If we have input data, add it to our internal buffer
@@ -165,125 +144,123 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 		tls_add_data(ctx, buf, size);
 
 	// Wrap any input data in an ephemeral ByteBuffer
-	jobject jin = (*env)->NewDirectByteBuffer(env, ctx->buf, ctx->offset);
-	jobject jout = (*env)->NewDirectByteBuffer(env, ctx->obuf, TLS_BUF_SIZE);
+	jobject jin = jnih_wrap(env, ctx->buf, ctx->offset);
+	jobject jout = jnih_wrap(env, ctx->obuf, TLS_BUF_SIZE);
 
-	bool finished = false;
-
-	for (bool cont = true; cont;) {
-		// Get handshake status
-		jclass cls = (*env)->GetObjectClass(env, ctx->engine);
-		jmethodID mid = (*env)->GetMethodID(env, cls, "getHandshakeStatus", "()Ljavax/net/ssl/SSLEngineResult$HandshakeStatus;");
-		jobject status = (*env)->CallObjectMethod(env, ctx->engine, mid);
-
-		// Convert the java enum to a string
-		cls = (*env)->GetObjectClass(env, status);
-		mid = (*env)->GetMethodID(env, cls, "toString", "()Ljava/lang/String;");
-		jstring jstr = (*env)->CallObjectMethod(env, status, mid);
-		const char *cstr = (*env)->GetStringUTFChars(env, jstr, NULL);
+	while (true) {
+		// Get handshake status and convert to string
+		char action[32];
+		jobject status = jnih_obj(env, ctx->engine, "getHandshakeStatus", "()Ljavax/net/ssl/SSLEngineResult$HandshakeStatus;");
+		jstring jstr = jnih_obj(env, status, "toString", "()Ljava/lang/String;");
+		jnih_strcpy(env, action, 32, jstr);
+		jnih_free(env, jstr);
+		jnih_free(env, status);
 
 		jobject result = NULL;
 
 		// The handshake produced outbound data
-		if (!strcmp(cstr, "NEED_WRAP")) {
-			cls = (*env)->GetObjectClass(env, ctx->engine);
-			mid = (*env)->GetMethodID(env, cls, "wrap", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Ljavax/net/ssl/SSLEngineResult;");
-
-			result = (*env)->CallObjectMethod(env, ctx->engine, mid, jin, jout);
-			if (tls_catch(env))
-				return MTY_ASYNC_ERROR;
+		if (!strcmp(action, "NEED_WRAP")) {
+			result = jnih_obj(env, ctx->engine, "wrap", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Ljavax/net/ssl/SSLEngineResult;", jin, jout);
+			if (jnih_catch(env)) {
+				r = MTY_ASYNC_ERROR;
+				break;
+			}
 
 		// The handshake wants input data
-		} else if (!strcmp(cstr, "NEED_UNWRAP")) {
-			cls = (*env)->GetObjectClass(env, ctx->engine);
-			mid = (*env)->GetMethodID(env, cls, "unwrap", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Ljavax/net/ssl/SSLEngineResult;");
-
-			result = (*env)->CallObjectMethod(env, ctx->engine, mid, jin, jout);
-			if (tls_catch(env))
-				return MTY_ASYNC_ERROR;
+		} else if (!strcmp(action, "NEED_UNWRAP")) {
+			result = jnih_obj(env, ctx->engine, "unwrap", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Ljavax/net/ssl/SSLEngineResult;", jin, jout);
+			if (jnih_catch(env)) {
+				r = MTY_ASYNC_ERROR;
+				break;
+			}
 
 		// Unexpected handshake status
 		} else {
-			MTY_Log("Handshake in unexpected state '%s'", cstr);
-			return MTY_ASYNC_ERROR;
+			MTY_Log("Handshake in unexpected state '%s'", action);
+			r = MTY_ASYNC_ERROR;
+			break;
 		}
 
-		(*env)->ReleaseStringUTFChars(env, jstr, cstr);
-
 		// If any of our internal buffer has been consumed, adjust
-		cls = (*env)->GetObjectClass(env, result);
-		mid = (*env)->GetMethodID(env, cls, "bytesConsumed", "()I");
-		jint ipos = (*env)->CallIntMethod(env, result, mid);
+		jint ipos = jnih_int(env, result, "bytesConsumed", "()I");
 		ctx->offset -= ipos;
 		memmove(ctx->buf, ctx->buf + ipos, ctx->offset);
 
 		// If any data has been written to the output buffer, send it via the callback
-		mid = (*env)->GetMethodID(env, cls, "bytesProduced", "()I");
-		jint pos = (*env)->CallIntMethod(env, result, mid);
+		jint pos = jnih_int(env, result, "bytesProduced", "()I");
 		if (pos > 0)
 			writeFunc(ctx->obuf, pos, opaque);
 
-		// Get wrap/unwrap handshake status
-		cls = (*env)->GetObjectClass(env, result);
-		mid = (*env)->GetMethodID(env, cls, "getHandshakeStatus", "()Ljavax/net/ssl/SSLEngineResult$HandshakeStatus;");
-		status = (*env)->CallObjectMethod(env, result, mid);
+		// Get wrap/unwrap handshake status and convert to string
+		status = jnih_obj(env, result, "getHandshakeStatus", "()Ljavax/net/ssl/SSLEngineResult$HandshakeStatus;");
+		jstr = jnih_obj(env, status, "toString", "()Ljava/lang/String;");
+		jnih_strcpy(env, action, 32, jstr);
+		jnih_free(env, jstr);
+		jnih_free(env, status);
+		jnih_free(env, result);
 
-		// Convert the java enum to a string
-		cls = (*env)->GetObjectClass(env, status);
-		mid = (*env)->GetMethodID(env, cls, "toString", "()Ljava/lang/String;");
-		jstring rjstr = (*env)->CallObjectMethod(env, status, mid);
-		const char *rcstr = (*env)->GetStringUTFChars(env, rjstr, NULL);
-		bool repeat = !strcmp(rcstr, "NEED_WRAP");
-		finished = !strcmp(rcstr, "FINISHED");
-		(*env)->ReleaseStringUTFChars(env, rjstr, rcstr);
+		if (!strcmp(action, "FINISHED")) {
+			r = MTY_ASYNC_OK;
+			break;
+		}
 
-		if (!repeat)
-			cont = false;
+		if (strcmp(action, "NEED_WRAP")) {
+			r = MTY_ASYNC_CONTINUE;
+			break;
+		}
 	}
 
-	return finished ? MTY_ASYNC_OK : MTY_ASYNC_CONTINUE;
+	return r;
 }
 
 bool MTY_TLSEncrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *written)
 {
+	bool r = true;
 	JNIEnv *env = MTY_JNIEnv();
 
-	jobject jin = (*env)->NewDirectByteBuffer(env, (void *) in, inSize);
-	jobject jout = (*env)->NewDirectByteBuffer(env, out, outSize);
+	jobject jin = jnih_wrap(env, (void *) in, inSize);
+	jobject jout = jnih_wrap(env, out, outSize);
 
-	jclass cls = (*env)->GetObjectClass(env, ctx->engine);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "wrap", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Ljavax/net/ssl/SSLEngineResult;");
+	jobject result = jnih_obj(env, ctx->engine, "wrap", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Ljavax/net/ssl/SSLEngineResult;", jin, jout);
+	if (jnih_catch(env)) {
+		r = false;
+		goto except;
+	}
 
-	jobject result = (*env)->CallObjectMethod(env, ctx->engine, mid, jin, jout);
-	if (tls_catch(env))
-		return false;
+	*written = jnih_int(env, result, "bytesProduced", "()I");
 
-	cls = (*env)->GetObjectClass(env, result);
-	mid = (*env)->GetMethodID(env, cls, "bytesProduced", "()I");
-	*written = (*env)->CallIntMethod(env, result, mid);
+	except:
 
-	return true;
+	jnih_free(env, result);
+	jnih_free(env, jout);
+	jnih_free(env, jin);
+
+	return r;
 }
 
 bool MTY_TLSDecrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *read)
 {
+	bool r = true;
 	JNIEnv *env = MTY_JNIEnv();
 
-	jobject jin = (*env)->NewDirectByteBuffer(env, (void *) in, inSize);
-	jobject jout = (*env)->NewDirectByteBuffer(env, out, outSize);
+	jobject jin = jnih_wrap(env, (void *) in, inSize);
+	jobject jout = jnih_wrap(env, out, outSize);
 
-	jclass cls = (*env)->GetObjectClass(env, ctx->engine);
-	jmethodID mid = (*env)->GetMethodID(env, cls, "unwrap", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Ljavax/net/ssl/SSLEngineResult;");
+	jobject result = jnih_obj(env, ctx->engine, "unwrap", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Ljavax/net/ssl/SSLEngineResult;", jin, jout);
+	if (jnih_catch(env)) {
+		r = false;
+		goto except;
+	}
 
-	jobject result = (*env)->CallObjectMethod(env, ctx->engine, mid, jin, jout);
-	if (tls_catch(env))
-		return false;
+	*read = jnih_int(env, result, "bytesProduced", "()I");
 
-	cls = (*env)->GetObjectClass(env, result);
-	mid = (*env)->GetMethodID(env, cls, "bytesProduced", "()I");
-	*read = (*env)->CallIntMethod(env, result, mid);
+	except:
 
-	return true;
+	jnih_free(env, result);
+	jnih_free(env, jout);
+	jnih_free(env, jin);
+
+	return r;
 }
 
 
