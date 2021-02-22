@@ -53,7 +53,6 @@ typedef struct rsa_st RSA;
 typedef struct bio_st BIO;
 typedef struct bignum_st BIGNUM;
 typedef struct x509_st X509;
-typedef struct x509_store_st X509_STORE;
 typedef struct X509_name_st X509_NAME;
 typedef struct x509_store_ctx_st X509_STORE_CTX;
 typedef struct X509_VERIFY_PARAM_st X509_VERIFY_PARAM;
@@ -80,7 +79,6 @@ STATIC void FP(SSL_set_verify_depth)(SSL *s, int depth);
 STATIC int FP(SSL_get_error)(const SSL *s, int ret_code);
 STATIC X509_VERIFY_PARAM *FP(SSL_get0_param)(SSL *ssl);
 STATIC long FP(SSL_ctrl)(SSL *ssl, int cmd, long larg, void *parg);
-STATIC int FP(SSL_set_cipher_list)(SSL *ssl, const char *str);
 STATIC void FP(SSL_set_bio)(SSL *s, BIO *rbio, BIO *wbio);
 STATIC void FP(SSL_set_connect_state)(SSL *s);
 STATIC int FP(SSL_is_init_finished)(SSL *s);
@@ -93,9 +91,10 @@ STATIC int FP(SSL_use_RSAPrivateKey)(SSL *ssl, RSA *rsa);
 STATIC const SSL_METHOD *FP(TLS_method)(void);
 STATIC const SSL_METHOD *FP(DTLS_method)(void);
 STATIC SSL_CTX *FP(SSL_CTX_new)(const SSL_METHOD *meth);
+STATIC int FP(SSL_CTX_set_default_verify_paths)(SSL_CTX *ctx);
+
 STATIC void FP(SSL_CTX_free)(SSL_CTX *);
 
-STATIC BIO *FP(BIO_new_mem_buf)(const void *buf, int len);
 STATIC BIO *FP(BIO_new)(const BIO_METHOD *type);
 STATIC int FP(BIO_free)(BIO *a);
 STATIC const BIO_METHOD *FP(BIO_s_mem)(void);
@@ -103,9 +102,6 @@ STATIC int FP(BIO_write)(BIO *b, const void *data, int len);
 STATIC size_t FP(BIO_ctrl_pending)(BIO *b);
 STATIC int FP(BIO_read)(BIO *b, void *data, int len);
 
-STATIC X509_STORE *FP(X509_STORE_new)(void);
-STATIC void FP(X509_STORE_free)(X509_STORE *v);
-STATIC int FP(X509_STORE_add_cert)(X509_STORE *ctx, X509 *x);
 STATIC int FP(X509_VERIFY_PARAM_set1_host)(X509_VERIFY_PARAM *param, const char *name, size_t namelen);
 STATIC void FP(X509_VERIFY_PARAM_set_hostflags)(X509_VERIFY_PARAM *param, unsigned int flags);
 STATIC void FP(X509_free)(X509 *a);
@@ -134,8 +130,6 @@ STATIC int FP(EVP_PKEY_assign)(EVP_PKEY *pkey, int type, void *key);
 STATIC RSA *FP(RSA_new)(void);
 STATIC void FP(RSA_free)(RSA *r);
 STATIC int FP(RSA_generate_key_ex)(RSA *rsa, int bits, BIGNUM *e, BN_GENCB *cb);
-
-STATIC X509 *FP(PEM_read_bio_X509)(BIO *bp, X509 **x, pem_password_cb *cb, void *u);
 
 STATIC int FP(ASN1_INTEGER_set)(ASN1_INTEGER *a, long v);
 
@@ -192,7 +186,6 @@ static bool ssl_dl_global_init(void)
 		LOAD_SYM(SSL_DL_SO, SSL_get_error);
 		LOAD_SYM(SSL_DL_SO, SSL_get0_param);
 		LOAD_SYM(SSL_DL_SO, SSL_ctrl);
-		LOAD_SYM(SSL_DL_SO, SSL_set_cipher_list);
 		LOAD_SYM(SSL_DL_SO, SSL_set_bio);
 		LOAD_SYM(SSL_DL_SO, SSL_set_connect_state);
 		LOAD_SYM(SSL_DL_SO, SSL_is_init_finished);
@@ -206,8 +199,8 @@ static bool ssl_dl_global_init(void)
 		LOAD_SYM(SSL_DL_SO, DTLS_method);
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_new);
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_free);
+		LOAD_SYM(SSL_DL_SO, SSL_CTX_set_default_verify_paths);
 
-		LOAD_SYM(SSL_DL_SO, BIO_new_mem_buf);
 		LOAD_SYM(SSL_DL_SO, BIO_new);
 		LOAD_SYM(SSL_DL_SO, BIO_s_mem);
 		LOAD_SYM(SSL_DL_SO, BIO_write);
@@ -215,9 +208,6 @@ static bool ssl_dl_global_init(void)
 		LOAD_SYM(SSL_DL_SO, BIO_read);
 		LOAD_SYM(SSL_DL_SO, BIO_free);
 
-		LOAD_SYM(SSL_DL_SO, X509_STORE_new);
-		LOAD_SYM(SSL_DL_SO, X509_STORE_free);
-		LOAD_SYM(SSL_DL_SO, X509_STORE_add_cert);
 		LOAD_SYM(SSL_DL_SO, X509_VERIFY_PARAM_set1_host);
 		LOAD_SYM(SSL_DL_SO, X509_VERIFY_PARAM_set_hostflags);
 		LOAD_SYM(SSL_DL_SO, X509_new);
@@ -245,8 +235,6 @@ static bool ssl_dl_global_init(void)
 		LOAD_SYM(SSL_DL_SO, EVP_PKEY_new);
 		LOAD_SYM(SSL_DL_SO, EVP_sha256);
 		LOAD_SYM(SSL_DL_SO, EVP_PKEY_assign);
-
-		LOAD_SYM(SSL_DL_SO, PEM_read_bio_X509);
 
 		LOAD_SYM(SSL_DL_SO, ASN1_INTEGER_set);
 

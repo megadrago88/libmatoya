@@ -27,125 +27,14 @@ struct MTY_TLS {
 	BIO *bio_out;
 };
 
-static MTY_Atomic32 TLS_GLOCK;
-static X509_STORE *TLS_STORE;
-
-#define TLS_VERIFY_DEPTH 4
-
-#define TLS_CIPHER_LIST \
-	"ECDHE-ECDSA-AES128-GCM-SHA256:" \
-	"ECDHE-ECDSA-AES256-GCM-SHA384:" \
-	"ECDHE-ECDSA-AES128-SHA:" \
-	"ECDHE-ECDSA-AES256-SHA:" \
-	"ECDHE-ECDSA-AES128-SHA256:" \
-	"ECDHE-ECDSA-AES256-SHA384:" \
-	"ECDHE-RSA-AES128-GCM-SHA256:" \
-	"ECDHE-RSA-AES256-GCM-SHA384:" \
-	"ECDHE-RSA-AES128-SHA:" \
-	"ECDHE-RSA-AES256-SHA:" \
-	"ECDHE-RSA-AES128-SHA256:" \
-	"ECDHE-RSA-AES256-SHA384:" \
-	"DHE-RSA-AES128-GCM-SHA256:" \
-	"DHE-RSA-AES256-GCM-SHA384:" \
-	"DHE-RSA-AES128-SHA:" \
-	"DHE-RSA-AES256-SHA:" \
-	"DHE-RSA-AES128-SHA256:" \
-	"DHE-RSA-AES256-SHA256"
-
 
 // CACert store
 
-static bool tls_add_cacert_to_store(X509_STORE *store, const void *cacert, size_t size)
-{
-	bool r = true;
-
-	BIO *bio = BIO_new_mem_buf(cacert, (int32_t) size);
-
-	if (bio) {
-		X509 *cert = NULL;
-
-		if (PEM_read_bio_X509(bio, &cert, 0, NULL)) {
-			X509_STORE_add_cert(store, cert);
-			X509_free(cert);
-
-		} else {
-			MTY_Log("'PEM_read_bio_X509' failed");
-			r = false;
-		}
-
-		BIO_free(bio);
-	}
-
-	return r;
-}
-
-static bool tls_parse_cacert(X509_STORE *store, const char *raw, size_t size)
-{
-	bool r = true;
-
-	char *cacert = MTY_Strdup(raw);
-
-	char *tok = cacert;
-	char *next = strstr(tok, "\n\n");
-	if (!next)
-		next = strstr(tok, "\r\n\r\n");
-
-	while (next) {
-		r = tls_add_cacert_to_store(store, tok, next - tok);
-		if (!r)
-			break;
-
-		tok = next + 2;
-		next = strstr(tok, "\n\n");
-		if (!next)
-			next = strstr(tok, "\r\n\r\n");
-	}
-
-	MTY_Free(cacert);
-
-	return r;
-}
-
 bool MTY_HttpSetCACert(const char *cacert, size_t size)
 {
-	if (!ssl_dl_global_init())
-		return false;
+	// Rely on Linux's OpenSSL default verify paths
 
-	bool was_set = false;
-
-	MTY_GlobalLock(&TLS_GLOCK);
-
-	// CACert is set to NULL, remove existing
-	if (!cacert) {
-		if (TLS_STORE) {
-			X509_STORE_free(TLS_STORE);
-			TLS_STORE = NULL;
-		}
-
-		goto except;
-	}
-
-	// CACert is already set
-	if (TLS_STORE)
-		goto except;
-
-	// Generate a new store
-	TLS_STORE = X509_STORE_new();
-	if (!TLS_STORE)
-		goto except;
-
-	was_set = tls_parse_cacert(TLS_STORE, cacert, size);
-
-	if (!was_set) {
-		X509_STORE_free(TLS_STORE);
-		TLS_STORE = NULL;
-	}
-
-	except:
-
-	MTY_GlobalUnlock(&TLS_GLOCK);
-
-	return was_set;
+	return false;
 }
 
 
@@ -239,6 +128,9 @@ static int32_t dtls_verify(int32_t ok, X509_STORE_CTX *ctx)
 
 MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const char *peerFingerprint, uint32_t mtu)
 {
+	if (!ssl_dl_global_init())
+		return NULL;
+
 	bool ok = true;
 
 	MTY_TLS *ctx = MTY_Alloc(1, sizeof(MTY_TLS));
@@ -248,12 +140,6 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 	ctx->ssl = SSL_new(ctx->ctx);
 	if (!ctx->ssl) {
 		MTY_Log("'SSL_new' failed");
-		ok = false;
-		goto except;
-	}
-
-	int32_t e = SSL_set_cipher_list(ctx->ssl, TLS_CIPHER_LIST);
-	if (e != 1) {
 		ok = false;
 		goto except;
 	}
@@ -269,17 +155,11 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 		SSL_ctrl(ctx->ssl, SSL_CTRL_SET_MTU, mtu, NULL);
 
 	} else {
-		// Global lock for internal OpenSSL reference count
-		MTY_GlobalLock(&TLS_GLOCK);
-
-		if (TLS_STORE)
-			SSL_ctrl(ctx->ssl, SSL_CTRL_SET_VERIFY_CERT_STORE, 1, TLS_STORE);
-
-		MTY_GlobalUnlock(&TLS_GLOCK);
+		SSL_CTX_set_default_verify_paths(ctx->ctx);
 
 		SSL_set_options(ctx->ssl, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_COMPRESSION);
 		SSL_set_verify(ctx->ssl, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
-		SSL_set_verify_depth(ctx->ssl, TLS_VERIFY_DEPTH);
+		SSL_set_verify_depth(ctx->ssl, 4);
 	}
 
 	if (peerFingerprint)
@@ -317,13 +197,8 @@ void MTY_TLSDestroy(MTY_TLS **tls)
 
 	MTY_TLS *ctx = *tls;
 
-	if (ctx->ssl) {
-		MTY_GlobalLock(&TLS_GLOCK);
-
+	if (ctx->ssl)
 		SSL_free(ctx->ssl);
-
-		MTY_GlobalUnlock(&TLS_GLOCK);
-	}
 
 	if (ctx->ctx)
 		SSL_CTX_free(ctx->ctx);
@@ -455,8 +330,17 @@ bool MTY_TLSDecrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size
 
 	// If SSL_read succeeds, return the number of bytes placed in out, otherwise the ssl error
 	if (n <= 0) {
-		MTY_Log("'SSL_read' failed with error %d:%d", n, SSL_get_error(ctx->ssl, n));
-		return false;
+		int32_t ssle = SSL_get_error(ctx->ssl, n);
+
+		// SSL needs more encrypted until it outputs
+		if (ssle == SSL_ERROR_WANT_READ) {
+			n = 0;
+
+		// Fatal
+		} else {
+			MTY_Log("'SSL_read' failed with error %d:%d", n, ssle);
+			return false;
+		}
 	}
 
 	*read = n;
