@@ -575,23 +575,23 @@ const MTY_WEB_API = {
 		MTY_SetUint32(index, req);
 
 		_MTY.reqs[req] = {
-			waiting: true,
+			async: MTY_ASYNC_CONTINUE,
 			func: func,
 		};
 
-		let scheme = secure ? 'https' : 'http';
-		let method = MTY_StrToJS(cmethod);
-		let host = MTY_StrToJS(chost);
-		let path = MTY_StrToJS(cpath);
-		let headers_str = MTY_StrToJS(cheaders);
-		let body = cbody ? MTY_StrToJS(cbody) : undefined;
-		let url = scheme + '://' + host + path;
+		const scheme = secure ? 'https' : 'http';
+		const method = MTY_StrToJS(cmethod);
+		const host = MTY_StrToJS(chost);
+		const path = MTY_StrToJS(cpath);
+		const headers_str = MTY_StrToJS(cheaders);
+		const body = cbody ? MTY_StrToJS(cbody) : undefined;
+		const url = scheme + '://' + host + path;
 
-		let headers = {};
-		let headers_nl = headers_str.split('\n');
+		const headers = {};
+		const headers_nl = headers_str.split('\n');
 		for (let x = 0; x < headers_nl.length; x++) {
-			let pair = headers_nl[x];
-			let pair_split = pair.split(':');
+			const pair = headers_nl[x];
+			const pair_split = pair.split(':');
 
 			if (pair_split[0] && pair_split[1])
 				headers[pair_split[0]] = pair_split[1];
@@ -610,57 +610,47 @@ const MTY_WEB_API = {
 
 		}).then((body) => {
 			const data = _MTY.reqs[req];
-			data.waiting = false;
-			data.done = true;
-			data.error = false;
 			data.response = new Uint8Array(body);
+			data.async = MTY_ASYNC_OK;
 
 		}).catch((err) => {
 			const data = _MTY.reqs[req];
 			console.error(err);
 			data.status = 0;
-			data.waiting = false;
-			data.done = true;
-			data.error = true;
+			data.async = MTY_ASYNC_ERROR;
 		});
 	},
-	MTY_HttpAsyncPoll: function(req, response, responseSize, code) {
-		if (req == 0)
+	MTY_HttpAsyncPoll: function(index, response, responseSize, code) {
+		const data = _MTY.reqs[index];
+
+		if (data == undefined || data.async == MTY_ASYNC_DONE)
 			return MTY_ASYNC_DONE;
 
-		const data = _MTY.reqs[req];
-
-		if (data == undefined)
-			return MTY_ASYNC_DONE;
-
-		if (data.waiting)
+		if (data.async == MTY_ASYNC_CONTINUE)
 			return MTY_ASYNC_CONTINUE;
 
-		if (data.done) {
-			MTY_SetUint32(code, data.status);
+		MTY_SetUint32(code, data.status);
 
-			if (data.response != undefined) {
-				MTY_SetUint32(responseSize, data.response.length);
+		if (data.response != undefined) {
+			MTY_SetUint32(responseSize, data.response.length);
 
-				if (data.buf == undefined) {
-					data.buf = MTY_Alloc(data.response.length + 1);
-					MTY_Memcpy(data.buf, data.response);
-				}
-
-				MTY_SetUint32(response, data.buf);
-
-				if (!data.error && data.func) {
-					MTY_CFunc(data.func)(data.status, response, responseSize);
-					data.buf = MTY_GetUint32(response);
-				}
+			if (data.buf == undefined) {
+				data.buf = MTY_Alloc(data.response.length + 1);
+				MTY_Memcpy(data.buf, data.response);
 			}
 
-			data.done = false;
+			MTY_SetUint32(response, data.buf);
 
-			return data.error ? MTY_ASYNC_ERROR : MTY_ASYNC_OK;
+			if (data.async == MTY_ASYNC_OK && data.func) {
+				MTY_CFunc(data.func)(data.status, response, responseSize);
+				data.buf = MTY_GetUint32(response);
+			}
 		}
 
-		return MTY_ASYNC_DONE;
+		const r = data.async;
+		data.async = MTY_ASYNC_DONE;
+
+		return r;
 	},
 	MTY_HttpAsyncClear: function (index) {
 		const req = MTY_GetUint32(index);
