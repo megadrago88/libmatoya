@@ -24,7 +24,7 @@ struct secure {
 	size_t pending;
 };
 
-void secure_destroy(struct secure **secure)
+void mty_secure_destroy(struct secure **secure)
 {
 	if (!secure || !*secure)
 		return;
@@ -43,7 +43,7 @@ void secure_destroy(struct secure **secure)
 static bool secure_read_message(struct secure *ctx, uint32_t timeout, size_t *size)
 {
 	// TLS first 5 bytes contain message type, version, and size
-	if (!tcp_read(ctx->socket, ctx->buf, 5, timeout))
+	if (!mty_tcp_read(ctx->socket, ctx->buf, 5, timeout))
 		return false;
 
 	// Size is bytes 3-4 big endian
@@ -58,17 +58,17 @@ static bool secure_read_message(struct secure *ctx, uint32_t timeout, size_t *si
 		ctx->buf = MTY_Realloc(ctx->buf, ctx->buf_size, 1);
 	}
 
-	return tcp_read(ctx->socket, ctx->buf + 5, len, timeout);
+	return mty_tcp_read(ctx->socket, ctx->buf + 5, len, timeout);
 }
 
 static bool secure_write_callback(const void *buf, size_t size, void *opaque)
 {
 	struct secure *ctx = opaque;
 
-	return tcp_write(ctx->socket, buf, size);
+	return mty_tcp_write(ctx->socket, buf, size);
 }
 
-struct secure *secure_connect(intptr_t socket, const char *host, uint32_t timeout)
+struct secure *mty_secure_connect(intptr_t socket, const char *host, uint32_t timeout)
 {
 	bool r = true;
 
@@ -112,12 +112,12 @@ struct secure *secure_connect(intptr_t socket, const char *host, uint32_t timeou
 	except:
 
 	if (!r)
-		secure_destroy(&ctx);
+		mty_secure_destroy(&ctx);
 
 	return ctx;
 }
 
-bool secure_write(struct secure *ctx, const void *buf, size_t size)
+bool mty_secure_write(struct secure *ctx, const void *buf, size_t size)
 {
 	// Output buffer will be slightly larger than input
 	if (ctx->buf_size < size + SECURE_PADDING) {
@@ -131,10 +131,10 @@ bool secure_write(struct secure *ctx, const void *buf, size_t size)
 		return false;
 
 	// Write resulting encrypted message via TCP
-	return tcp_write(ctx->socket, ctx->buf, written);
+	return mty_tcp_write(ctx->socket, ctx->buf, written);
 }
 
-bool secure_read(struct secure *ctx, void *buf, size_t size, uint32_t timeout)
+bool mty_secure_read(struct secure *ctx, void *buf, size_t size, uint32_t timeout)
 {
 	while (true) {
 		// Check if we have decrypted data in our buffer from a previous read

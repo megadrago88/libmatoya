@@ -37,7 +37,7 @@ struct async_state {
 static MTY_Atomic32 ASYNC_GLOCK;
 static MTY_ThreadPool *CTX;
 
-static void mty_http_async_free_state(void *opaque)
+static void http_async_free_state(void *opaque)
 {
 	struct async_state *s = opaque;
 
@@ -65,12 +65,12 @@ void MTY_HttpAsyncDestroy(void)
 {
 	MTY_GlobalLock(&ASYNC_GLOCK);
 
-	MTY_ThreadPoolDestroy(&CTX, mty_http_async_free_state);
+	MTY_ThreadPoolDestroy(&CTX, http_async_free_state);
 
 	MTY_GlobalUnlock(&ASYNC_GLOCK);
 }
 
-static void mty_http_async_thread(void *opaque)
+static void http_async_thread(void *opaque)
 {
 	struct async_state *s = opaque;
 
@@ -92,7 +92,7 @@ void MTY_HttpAsyncRequest(uint32_t *index, const char *host, bool secure, const 
 		return;
 
 	if (*index != 0)
-		MTY_ThreadPoolDetach(CTX, *index, mty_http_async_free_state);
+		MTY_ThreadPoolDetach(CTX, *index, http_async_free_state);
 
 	struct async_state *s = MTY_Alloc(1, sizeof(struct async_state));
 	s->timeout = timeout;
@@ -106,11 +106,11 @@ void MTY_HttpAsyncRequest(uint32_t *index, const char *host, bool secure, const 
 	s->req.headers = headers ? MTY_Strdup(headers) : MTY_Alloc(1, 1);
 	s->req.body = body ? MTY_Dup(body, size) : NULL;
 
-	*index = MTY_ThreadPoolStart(CTX, mty_http_async_thread, s);
+	*index = MTY_ThreadPoolStart(CTX, http_async_thread, s);
 
 	if (*index == 0) {
 		MTY_Log("Failed to start %s%s", host, path);
-		mty_http_async_free_state(s);
+		http_async_free_state(s);
 	}
 }
 
@@ -145,6 +145,6 @@ void MTY_HttpAsyncClear(uint32_t *index)
 	if (!CTX)
 		return;
 
-	MTY_ThreadPoolDetach(CTX, *index, mty_http_async_free_state);
+	MTY_ThreadPoolDetach(CTX, *index, http_async_free_state);
 	*index = 0;
 }

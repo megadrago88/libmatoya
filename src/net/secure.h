@@ -14,8 +14,8 @@
 
 struct secure;
 
-struct secure *secure_connect(intptr_t socket, const char *host, uint32_t timeout);
-void secure_destroy(struct secure **secure);
+struct secure *mty_secure_connect(intptr_t socket, const char *host, uint32_t timeout);
+void mty_secure_destroy(struct secure **secure);
 
-bool secure_write(struct secure *ctx, const void *buf, size_t size);
-bool secure_read(struct secure *ctx, void *buf, size_t size, uint32_t timeout);
+bool mty_secure_write(struct secure *ctx, const void *buf, size_t size);
+bool mty_secure_read(struct secure *ctx, void *buf, size_t size, uint32_t timeout);

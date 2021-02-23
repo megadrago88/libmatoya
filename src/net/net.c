@@ -37,7 +37,7 @@ struct mty_net *mty_net_connect(const char *host, uint16_t port, bool secure, ui
 		goto except;
 
 	// Make the tcp connection
-	ctx->socket = tcp_connect(ip, cport, timeout);
+	ctx->socket = mty_tcp_connect(ip, cport, timeout);
 	if (ctx->socket == -1) {
 		r = false;
 		goto except;
@@ -52,7 +52,7 @@ struct mty_net *mty_net_connect(const char *host, uint16_t port, bool secure, ui
 
 	// TLS handshake
 	if (secure) {
-		ctx->sec = secure_connect(ctx->socket, ctx->host, timeout);
+		ctx->sec = mty_secure_connect(ctx->socket, ctx->host, timeout);
 		if (!ctx->sec) {
 			r = false;
 			goto except;
@@ -72,7 +72,7 @@ struct mty_net *mty_net_listen(const char *ip, uint16_t port)
 	struct mty_net *ctx = MTY_Alloc(1, sizeof(struct mty_net));
 	ctx->host = MTY_Strdup(ip);
 
-	ctx->socket = tcp_listen(ip, port);
+	ctx->socket = mty_tcp_listen(ip, port);
 	if (ctx->socket == -1)
 		mty_net_destroy(&ctx);
 
@@ -81,7 +81,7 @@ struct mty_net *mty_net_listen(const char *ip, uint16_t port)
 
 struct mty_net *mty_net_accept(struct mty_net *ctx, uint32_t timeout)
 {
-	intptr_t s = tcp_accept(ctx->socket, timeout);
+	intptr_t s = mty_tcp_accept(ctx->socket, timeout);
 
 	if (s != -1) {
 		struct mty_net *child = MTY_Alloc(1, sizeof(struct mty_net));
@@ -101,8 +101,8 @@ void mty_net_destroy(struct mty_net **net)
 
 	struct mty_net *ctx = *net;
 
-	secure_destroy(&ctx->sec);
-	tcp_destroy(&ctx->socket);
+	mty_secure_destroy(&ctx->sec);
+	mty_tcp_destroy(&ctx->socket);
 
 	MTY_Free(ctx->host);
 
@@ -112,17 +112,17 @@ void mty_net_destroy(struct mty_net **net)
 
 MTY_Async mty_net_poll(struct mty_net *ctx, uint32_t timeout)
 {
-	return tcp_poll(ctx->socket, false, timeout);
+	return mty_tcp_poll(ctx->socket, false, timeout);
 }
 
 bool mty_net_write(struct mty_net *ctx, const void *buf, size_t size)
 {
-	return ctx->sec ? secure_write(ctx->sec, buf, size) : tcp_write(ctx->socket, buf, size);
+	return ctx->sec ? mty_secure_write(ctx->sec, buf, size) : mty_tcp_write(ctx->socket, buf, size);
 }
 
 bool mty_net_read(struct mty_net *ctx, void *buf, size_t size, uint32_t timeout)
 {
-	return ctx->sec ? secure_read(ctx->sec, buf, size, timeout) : tcp_read(ctx->socket, buf, size, timeout);
+	return ctx->sec ? mty_secure_read(ctx->sec, buf, size, timeout) : mty_tcp_read(ctx->socket, buf, size, timeout);
 }
 
 const char *mty_net_get_host(struct mty_net *ctx)

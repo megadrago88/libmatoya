@@ -45,7 +45,7 @@ static intptr_t tcp_socket(const char *ip, uint16_t port, struct sockaddr_in *ad
 		return s;
 
 	if (!sock_set_nonblocking(s)) {
-		tcp_destroy(&s);
+		mty_tcp_destroy(&s);
 		return s;
 	}
 
@@ -65,7 +65,7 @@ static intptr_t tcp_socket(const char *ip, uint16_t port, struct sockaddr_in *ad
 	return s;
 }
 
-intptr_t tcp_connect(const char *ip, uint16_t port, uint32_t timeout)
+intptr_t mty_tcp_connect(const char *ip, uint16_t port, uint32_t timeout)
 {
 	struct sockaddr_in addr = {0};
 
@@ -85,7 +85,7 @@ intptr_t tcp_connect(const char *ip, uint16_t port, uint32_t timeout)
 	}
 
 	// Wait for socket to be ready to write
-	if (tcp_poll(s, true, timeout) != MTY_ASYNC_OK) {
+	if (mty_tcp_poll(s, true, timeout) != MTY_ASYNC_OK) {
 		r = false;
 		goto except;
 	}
@@ -98,12 +98,12 @@ intptr_t tcp_connect(const char *ip, uint16_t port, uint32_t timeout)
 	except:
 
 	if (!r)
-		tcp_destroy(&s);
+		mty_tcp_destroy(&s);
 
 	return s;
 }
 
-intptr_t tcp_listen(const char *ip, uint16_t port)
+intptr_t mty_tcp_listen(const char *ip, uint16_t port)
 {
 	struct sockaddr_in addr = {0};
 
@@ -128,14 +128,14 @@ intptr_t tcp_listen(const char *ip, uint16_t port)
 	except:
 
 	if (!r)
-		tcp_destroy(&s);
+		mty_tcp_destroy(&s);
 
 	return s;
 }
 
-intptr_t tcp_accept(intptr_t s, uint32_t timeout)
+intptr_t mty_tcp_accept(intptr_t s, uint32_t timeout)
 {
-	if (tcp_poll(s, false, timeout) != MTY_ASYNC_OK)
+	if (mty_tcp_poll(s, false, timeout) != MTY_ASYNC_OK)
 		return INVALID_SOCKET;
 
 	intptr_t child = accept(s, NULL, NULL);
@@ -148,13 +148,13 @@ intptr_t tcp_accept(intptr_t s, uint32_t timeout)
 		tcp_set_options(child);
 
 	} else {
-		tcp_destroy(&child);
+		mty_tcp_destroy(&child);
 	}
 
 	return child;
 }
 
-void tcp_destroy(intptr_t *socket)
+void mty_tcp_destroy(intptr_t *socket)
 {
 	if (!socket)
 		return;
@@ -172,7 +172,7 @@ void tcp_destroy(intptr_t *socket)
 
 // Poll, read, write
 
-MTY_Async tcp_poll(intptr_t s, bool out, uint32_t timeout)
+MTY_Async mty_tcp_poll(intptr_t s, bool out, uint32_t timeout)
 {
 	struct pollfd fd = {0};
 	fd.events = out ? POLLOUT : POLLIN;
@@ -183,7 +183,7 @@ MTY_Async tcp_poll(intptr_t s, bool out, uint32_t timeout)
 	return e == 0 ? MTY_ASYNC_CONTINUE : e < 0 ? MTY_ASYNC_ERROR : MTY_ASYNC_OK;
 }
 
-bool tcp_write(intptr_t s, const void *buf, size_t size)
+bool mty_tcp_write(intptr_t s, const void *buf, size_t size)
 {
 	for (size_t total = 0; total < size;) {
 		int32_t n = send(s, (const char *) buf + total, (int32_t) (size - total), 0);
@@ -197,10 +197,10 @@ bool tcp_write(intptr_t s, const void *buf, size_t size)
 	return true;
 }
 
-bool tcp_read(intptr_t s, void *buf, size_t size, uint32_t timeout)
+bool mty_tcp_read(intptr_t s, void *buf, size_t size, uint32_t timeout)
 {
 	for (size_t total = 0; total < size;) {
-		if (tcp_poll(s, false, timeout) != MTY_ASYNC_OK)
+		if (mty_tcp_poll(s, false, timeout) != MTY_ASYNC_OK)
 			return false;
 
 		int32_t n = recv(s, (char *) buf + total, (int32_t) (size - total), 0);
