@@ -220,7 +220,7 @@ bool mty_tcp_read(intptr_t s, void *buf, size_t size, uint32_t timeout)
 
 // DNS
 
-bool dns_query(const char *host, char *ip, size_t size)
+bool mty_dns_query(const char *host, char *ip, size_t size)
 {
 	bool r = true;
 

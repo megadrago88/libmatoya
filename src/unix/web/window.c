@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-#include "matoya.h"
+#include "app.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -470,13 +470,13 @@ bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 
 // Window Private
 
-void window_set_gfx(MTY_App *app, MTY_Window window, MTY_GFX api, struct gfx_ctx *gfx_ctx)
+void mty_window_set_gfx(MTY_App *app, MTY_Window window, MTY_GFX api, struct gfx_ctx *gfx_ctx)
 {
 	app->api = api;
 	app->gfx_ctx = gfx_ctx;
 }
 
-MTY_GFX window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx_ctx)
+MTY_GFX mty_window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx_ctx)
 {
 	if (gfx_ctx)
 		*gfx_ctx = app->gfx_ctx;
@@ -484,7 +484,7 @@ MTY_GFX window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx_ctx
 	return app->api;
 }
 
-void *window_get_native(MTY_App *app, MTY_Window window)
+void *mty_window_get_native(MTY_App *app, MTY_Window window)
 {
 	return (void *) (uintptr_t) 0xCDD;
 }

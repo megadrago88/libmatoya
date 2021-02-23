@@ -32,7 +32,7 @@ struct mty_net *mty_net_connect(const char *host, uint16_t port, bool secure, ui
 
 	// DNS resolve hostname into an ip address string
 	char ip[64];
-	bool r = dns_query(chost, ip, 64);
+	bool r = mty_dns_query(chost, ip, 64);
 	if (!r)
 		goto except;
 
