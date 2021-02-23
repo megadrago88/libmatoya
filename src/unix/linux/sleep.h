@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include <time.h>
+#include <errno.h>
+
 static void mty_sleep(uint32_t timeout)
 {
 	struct timespec ts = {0};

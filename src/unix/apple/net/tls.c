@@ -116,7 +116,7 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 		goto except;
 	}
 
-	OSStatus e = SSLSetProtocolVersionMin(ctx->ctx, type == MTY_TLS_TYPE_DTLS ? kTLSProtocol12 : kDTLSProtocol12);
+	OSStatus e = SSLSetProtocolVersionMin(ctx->ctx, type == MTY_TLS_TYPE_DTLS ? kDTLSProtocol12 : kTLSProtocol12);
 	if (e != noErr) {
 		MTY_Log("'SSLSetProtocolVersionMin' failed with error %d", e);
 		r = false;
