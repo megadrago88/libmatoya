@@ -430,6 +430,8 @@ const _MTY = {
 	kbMap: null,
 	keysRev: {},
 	wakeLock: null,
+	reqs: {},
+	reqIndex: 0,
 	endFunc: () => {},
 	cursorId: 0,
 	cursorCache: {},
@@ -440,16 +442,14 @@ const _MTY = {
 	action: null,
 };
 
-let REQUESTS = {};
-let REQUEST_ID = 0;
 let CLIPBOARD;
 let KEYS = {};
 let GPS = [false, false, false, false];
 
-const ASYNC_OK = 0;
-const ASYNC_NO_REQUEST = 1;
-const ASYNC_WAITING = 2;
-const ASYNC_ERROR = 3;
+const MTY_ASYNC_OK = 0;
+const MTY_ASYNC_DONE = 1;
+const MTY_ASYNC_CONTINUE = 2;
+const MTY_ASYNC_ERROR = 3;
 
 function get_mods(ev) {
 	let mods = 0;
@@ -568,23 +568,23 @@ const MTY_WEB_API = {
 		// No-op, automatically converted in fetch
 		MTY_StrToC(MTY_StrToJS(src), dst);
 	},
-	MTY_HttpAsyncRequest: function(req_c, host_c, https, method_c,
-		path_c, headers_c, body_c, body_len, timeout_ms, res_cb)
+	MTY_HttpAsyncRequest: function(index, chost, secure, cmethod,
+		cpath, cheaders, cbody, bodySize, timeout, func)
 	{
-		const req = ++REQUEST_ID;
-		MTY_SetUint32(req_c, req);
+		const req = ++_MTY.reqIndex;
+		MTY_SetUint32(index, req);
 
-		REQUESTS[req] = {
+		_MTY.reqs[req] = {
 			waiting: true,
-			res_cb: res_cb,
+			func: func,
 		};
 
-		let scheme = https ? 'https' : 'http';
-		let method = MTY_StrToJS(method_c);
-		let host = MTY_StrToJS(host_c);
-		let path = MTY_StrToJS(path_c);
-		let headers_str = MTY_StrToJS(headers_c);
-		let body = body_c ? MTY_StrToJS(body_c) : undefined;
+		let scheme = secure ? 'https' : 'http';
+		let method = MTY_StrToJS(cmethod);
+		let host = MTY_StrToJS(chost);
+		let path = MTY_StrToJS(cpath);
+		let headers_str = MTY_StrToJS(cheaders);
+		let body = cbody ? MTY_StrToJS(cbody) : undefined;
 		let url = scheme + '://' + host + path;
 
 		let headers = {};
@@ -603,44 +603,44 @@ const MTY_WEB_API = {
 			body: body
 
 		}).then((response) => {
-			const data = REQUESTS[req];
+			const data = _MTY.reqs[req];
 			data.status = response.status;
 
 			return response.arrayBuffer();
 
 		}).then((body) => {
-			const data = REQUESTS[req];
+			const data = _MTY.reqs[req];
 			data.waiting = false;
 			data.done = true;
 			data.error = false;
 			data.response = new Uint8Array(body);
 
 		}).catch((err) => {
-			const data = REQUESTS[req];
+			const data = _MTY.reqs[req];
 			console.error(err);
-			data.status = -900;
+			data.status = 0;
 			data.waiting = false;
 			data.done = true;
 			data.error = true;
 		});
 	},
-	MTY_HttpAsyncPoll: function(req, response, response_len, status_code) {
+	MTY_HttpAsyncPoll: function(req, response, responseSize, code) {
 		if (req == 0)
-			return ASYNC_NO_REQUEST;
+			return MTY_ASYNC_DONE;
 
-		const data = REQUESTS[req];
+		const data = _MTY.reqs[req];
 
 		if (data == undefined)
-			return ASYNC_NO_REQUEST;
+			return MTY_ASYNC_DONE;
 
 		if (data.waiting)
-			return ASYNC_WAITING;
+			return MTY_ASYNC_CONTINUE;
 
 		if (data.done) {
-			MTY_SetUint32(status_code, data.status);
+			MTY_SetUint32(code, data.status);
 
 			if (data.response != undefined) {
-				MTY_SetUint32(response_len, data.response.length);
+				MTY_SetUint32(responseSize, data.response.length);
 
 				if (data.buf == undefined) {
 					data.buf = MTY_Alloc(data.response.length + 1);
@@ -649,30 +649,30 @@ const MTY_WEB_API = {
 
 				MTY_SetUint32(response, data.buf);
 
-				if (!data.error && data.res_cb) {
-					MTY_CFunc(data.res_cb)(data.status, response, response_len);
+				if (!data.error && data.func) {
+					MTY_CFunc(data.func)(data.status, response, responseSize);
 					data.buf = MTY_GetUint32(response);
 				}
 			}
 
 			data.done = false;
 
-			return data.error ? ASYNC_ERROR : ASYNC_OK;
+			return data.error ? MTY_ASYNC_ERROR : MTY_ASYNC_OK;
 		}
 
-		return ASYNC_NO_REQUEST;
+		return MTY_ASYNC_DONE;
 	},
-	MTY_HttpAsyncClear: function (req_c) {
-		const req = MTY_GetUint32(req_c);
-		const data = REQUESTS[req];
+	MTY_HttpAsyncClear: function (index) {
+		const req = MTY_GetUint32(index);
+		const data = _MTY.reqs[req];
 
 		if (data == undefined)
 			return;
 
 		MTY_Free(data.buf);
-		delete REQUESTS[req];
+		delete _MTY.reqs[req];
 
-		MTY_SetUint32(req_c, 0);
+		MTY_SetUint32(index, 0);
 	},
 
 	// crypto
