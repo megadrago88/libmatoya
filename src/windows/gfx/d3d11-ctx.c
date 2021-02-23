@@ -19,7 +19,7 @@ GFX_CTX_PROTOTYPES(_d3d11_)
 
 #define GFX_D3D11_CTX_WAIT 2000
 
-struct gfx_d3d11_ctx {
+struct d3d11_ctx {
 	HWND hwnd;
 	uint32_t width;
 	uint32_t height;
@@ -32,7 +32,7 @@ struct gfx_d3d11_ctx {
 	UINT swflags;
 };
 
-static void gfx_d3d11_ctx_get_size(struct gfx_d3d11_ctx *ctx, uint32_t *width, uint32_t *height)
+static void d3d11_ctx_get_size(struct d3d11_ctx *ctx, uint32_t *width, uint32_t *height)
 {
 	RECT rect = {0};
 	GetClientRect(ctx->hwnd, &rect);
@@ -41,7 +41,7 @@ static void gfx_d3d11_ctx_get_size(struct gfx_d3d11_ctx *ctx, uint32_t *width, u
 	*height = rect.bottom - rect.top;
 }
 
-static void gfx_d3d11_ctx_free(struct gfx_d3d11_ctx *ctx)
+static void d3d11_ctx_free(struct d3d11_ctx *ctx)
 {
 	if (ctx->back_buffer)
 		ID3D11Texture2D_Release(ctx->back_buffer);
@@ -65,7 +65,7 @@ static void gfx_d3d11_ctx_free(struct gfx_d3d11_ctx *ctx)
 	ctx->device = NULL;
 }
 
-static bool gfx_d3d11_ctx_init(struct gfx_d3d11_ctx *ctx)
+static bool d3d11_ctx_init(struct d3d11_ctx *ctx)
 {
 	IDXGIDevice2 *device2 = NULL;
 	IUnknown *unknown = NULL;
@@ -167,14 +167,14 @@ static bool gfx_d3d11_ctx_init(struct gfx_d3d11_ctx *ctx)
 		IDXGIDevice2_Release(device2);
 
 	if (e != S_OK)
-		gfx_d3d11_ctx_free(ctx);
+		d3d11_ctx_free(ctx);
 
 	return e == S_OK;
 }
 
-struct gfx_ctx *gfx_d3d11_ctx_create(void *native_window, bool vsync)
+struct gfx_ctx *mty_d3d11_ctx_create(void *native_window, bool vsync)
 {
-	struct gfx_d3d11_ctx *ctx = MTY_Alloc(1, sizeof(struct gfx_d3d11_ctx));
+	struct d3d11_ctx *ctx = MTY_Alloc(1, sizeof(struct d3d11_ctx));
 	ctx->hwnd = (HWND) native_window;
 	ctx->swflags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
 	ctx->renderer = MTY_RendererCreate();
@@ -182,48 +182,48 @@ struct gfx_ctx *gfx_d3d11_ctx_create(void *native_window, bool vsync)
 	if (vsync)
 		ctx->swflags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 
-	gfx_d3d11_ctx_get_size(ctx, &ctx->width, &ctx->height);
+	d3d11_ctx_get_size(ctx, &ctx->width, &ctx->height);
 
-	if (!gfx_d3d11_ctx_init(ctx))
-		gfx_d3d11_ctx_destroy((struct gfx_ctx **) &ctx);
+	if (!d3d11_ctx_init(ctx))
+		mty_d3d11_ctx_destroy((struct gfx_ctx **) &ctx);
 
 	return (struct gfx_ctx *) ctx;
 }
 
-void gfx_d3d11_ctx_destroy(struct gfx_ctx **gfx_ctx)
+void mty_d3d11_ctx_destroy(struct gfx_ctx **gfx_ctx)
 {
 	if (!gfx_ctx || !*gfx_ctx)
 		return;
 
-	struct gfx_d3d11_ctx *ctx = (struct gfx_d3d11_ctx *) *gfx_ctx;
+	struct d3d11_ctx *ctx = (struct d3d11_ctx *) *gfx_ctx;
 
 	MTY_RendererDestroy(&ctx->renderer);
-	gfx_d3d11_ctx_free(ctx);
+	d3d11_ctx_free(ctx);
 
 	MTY_Free(ctx);
 	*gfx_ctx = NULL;
 }
 
-MTY_Device *gfx_d3d11_ctx_get_device(struct gfx_ctx *gfx_ctx)
+MTY_Device *mty_d3d11_ctx_get_device(struct gfx_ctx *gfx_ctx)
 {
-	struct gfx_d3d11_ctx *ctx = (struct gfx_d3d11_ctx *) gfx_ctx;
+	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
 
 	return (MTY_Device *) ctx->device;
 }
 
-MTY_Context *gfx_d3d11_ctx_get_context(struct gfx_ctx *gfx_ctx)
+MTY_Context *mty_d3d11_ctx_get_context(struct gfx_ctx *gfx_ctx)
 {
-	struct gfx_d3d11_ctx *ctx = (struct gfx_d3d11_ctx *) gfx_ctx;
+	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
 
 	return (MTY_Context *) ctx->context;
 }
 
-static void gfx_d3d11_ctx_refresh(struct gfx_d3d11_ctx *ctx)
+static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 {
 	uint32_t width = ctx->width;
 	uint32_t height = ctx->height;
 
-	gfx_d3d11_ctx_get_size(ctx, &width, &height);
+	d3d11_ctx_get_size(ctx, &width, &height);
 
 	if (ctx->width != width || ctx->height != height) {
 		HRESULT e = IDXGISwapChain2_ResizeBuffers(ctx->swap_chain2, 0, 0, 0,
@@ -236,21 +236,21 @@ static void gfx_d3d11_ctx_refresh(struct gfx_d3d11_ctx *ctx)
 
 		if (DXGI_FATAL(e)) {
 			MTY_Log("'IDXGISwapChain2_ResizeBuffers' failed with HRESULT 0x%X", e);
-			gfx_d3d11_ctx_free(ctx);
-			gfx_d3d11_ctx_init(ctx);
+			d3d11_ctx_free(ctx);
+			d3d11_ctx_init(ctx);
 		}
 	}
 }
 
-MTY_Texture *gfx_d3d11_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
+MTY_Texture *mty_d3d11_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 {
-	struct gfx_d3d11_ctx *ctx = (struct gfx_d3d11_ctx *) gfx_ctx;
+	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
 
 	if (!ctx->swap_chain2)
 		return (MTY_Texture *) ctx->back_buffer;
 
 	if (!ctx->back_buffer) {
-		gfx_d3d11_ctx_refresh(ctx);
+		d3d11_ctx_refresh(ctx);
 
 		HRESULT e = IDXGISwapChain2_GetBuffer(ctx->swap_chain2, 0, &IID_ID3D11Texture2D, &ctx->back_buffer);
 		if (e != S_OK)
@@ -260,9 +260,9 @@ MTY_Texture *gfx_d3d11_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 	return (MTY_Texture *) ctx->back_buffer;
 }
 
-void gfx_d3d11_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
+void mty_d3d11_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 {
-	struct gfx_d3d11_ctx *ctx = (struct gfx_d3d11_ctx *) gfx_ctx;
+	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
 
 	if (ctx->back_buffer) {
 		bool tearing = ctx->swflags & DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
@@ -275,8 +275,8 @@ void gfx_d3d11_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 
 		if (DXGI_FATAL(e)) {
 			MTY_Log("'IDXGISwapChain2_Present' failed with HRESULT 0x%X", e);
-			gfx_d3d11_ctx_free(ctx);
-			gfx_d3d11_ctx_init(ctx);
+			d3d11_ctx_free(ctx);
+			d3d11_ctx_init(ctx);
 
 		} else {
 			DWORD we = WaitForSingleObjectEx(ctx->waitable, GFX_D3D11_CTX_WAIT, TRUE);
@@ -286,11 +286,11 @@ void gfx_d3d11_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 	}
 }
 
-void gfx_d3d11_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const MTY_RenderDesc *desc)
+void mty_d3d11_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const MTY_RenderDesc *desc)
 {
-	struct gfx_d3d11_ctx *ctx = (struct gfx_d3d11_ctx *) gfx_ctx;
+	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
 
-	gfx_d3d11_ctx_get_buffer(gfx_ctx);
+	mty_d3d11_ctx_get_buffer(gfx_ctx);
 
 	if (ctx->back_buffer) {
 		MTY_RenderDesc mutated = *desc;
@@ -302,29 +302,29 @@ void gfx_d3d11_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const M
 	}
 }
 
-void gfx_d3d11_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
+void mty_d3d11_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 {
-	struct gfx_d3d11_ctx *ctx = (struct gfx_d3d11_ctx *) gfx_ctx;
+	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
 
-	gfx_d3d11_ctx_get_buffer(gfx_ctx);
+	mty_d3d11_ctx_get_buffer(gfx_ctx);
 
 	if (ctx->back_buffer)
 		MTY_RendererDrawUI(ctx->renderer, MTY_GFX_D3D11, (MTY_Device *) ctx->device,
 			(MTY_Context *) ctx->context, dd, (MTY_Texture *) ctx->back_buffer);
 }
 
-void gfx_d3d11_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,
+void mty_d3d11_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,
 	uint32_t width, uint32_t height)
 {
-	struct gfx_d3d11_ctx *ctx = (struct gfx_d3d11_ctx *) gfx_ctx;
+	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
 
 	MTY_RendererSetUITexture(ctx->renderer, MTY_GFX_D3D11, (MTY_Device *) ctx->device,
 		(MTY_Context *) ctx->context, id, rgba, width, height);
 }
 
-void *gfx_d3d11_ctx_get_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
+void *mty_d3d11_ctx_get_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
 {
-	struct gfx_d3d11_ctx *ctx = (struct gfx_d3d11_ctx *) gfx_ctx;
+	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
 
 	return MTY_RendererGetUITexture(ctx->renderer, id);
 }

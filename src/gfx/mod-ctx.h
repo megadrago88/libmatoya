@@ -14,36 +14,36 @@
 
 struct gfx_ctx;
 
-#define GFX_CTX_PROTO(func) func
-#define GFX_CTX_FP(func)    (*func)
+#define GFX_CTX_PROTO(api, name) mty##api##ctx_##name
+#define GFX_CTX_FP(api, name)    (*name)
 
 #define GFX_CTX_DECLARE_API(api, wrap) \
-	struct gfx_ctx *wrap(gfx##api##ctx_create)(void *native_window, bool vsync); \
-	void wrap(gfx##api##ctx_destroy)(struct gfx_ctx **gfx_ctx); \
-	void wrap(gfx##api##ctx_present)(struct gfx_ctx *gfx_ctx, uint32_t num_frames); \
-	MTY_Device *wrap(gfx##api##ctx_get_device)(struct gfx_ctx *gfx_ctx); \
-	MTY_Context *wrap(gfx##api##ctx_get_context)(struct gfx_ctx *gfx_ctx); \
-	MTY_Texture *wrap(gfx##api##ctx_get_buffer)(struct gfx_ctx *gfx_ctx); \
-	void wrap(gfx##api##ctx_draw_quad)(struct gfx_ctx *gfx_ctx, const void *image, \
+	struct gfx_ctx *wrap(api, create)(void *native_window, bool vsync); \
+	void wrap(api, destroy)(struct gfx_ctx **gfx_ctx); \
+	void wrap(api, present)(struct gfx_ctx *gfx_ctx, uint32_t num_frames); \
+	MTY_Device *wrap(api, get_device)(struct gfx_ctx *gfx_ctx); \
+	MTY_Context *wrap(api, get_context)(struct gfx_ctx *gfx_ctx); \
+	MTY_Texture *wrap(api, get_buffer)(struct gfx_ctx *gfx_ctx); \
+	void wrap(api, draw_quad)(struct gfx_ctx *gfx_ctx, const void *image, \
 		const MTY_RenderDesc *desc); \
-	void wrap(gfx##api##ctx_draw_ui)(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd); \
-	void wrap(gfx##api##ctx_set_ui_texture)(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba, \
+	void wrap(api, draw_ui)(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd); \
+	void wrap(api, set_ui_texture)(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba, \
 		uint32_t width, uint32_t height); \
-	void *wrap(gfx##api##ctx_get_ui_texture)(struct gfx_ctx *gfx_ctx, uint32_t id);
+	void *wrap(api, get_ui_texture)(struct gfx_ctx *gfx_ctx, uint32_t id);
 
 #define GFX_CTX_PROTOTYPES(api) \
 	GFX_CTX_DECLARE_API(api, GFX_CTX_PROTO)
 
 #define GFX_CTX_DECLARE_ROW(API, api) \
 	[MTY_GFX_##API] = { \
-		gfx##api##ctx_create, \
-		gfx##api##ctx_destroy, \
-		gfx##api##ctx_present, \
-		gfx##api##ctx_get_device, \
-		gfx##api##ctx_get_context, \
-		gfx##api##ctx_get_buffer, \
-		gfx##api##ctx_draw_quad, \
-		gfx##api##ctx_draw_ui, \
-		gfx##api##ctx_set_ui_texture, \
-		gfx##api##ctx_get_ui_texture, \
+		mty##api##ctx_create, \
+		mty##api##ctx_destroy, \
+		mty##api##ctx_present, \
+		mty##api##ctx_get_device, \
+		mty##api##ctx_get_context, \
+		mty##api##ctx_get_buffer, \
+		mty##api##ctx_draw_quad, \
+		mty##api##ctx_draw_ui, \
+		mty##api##ctx_set_ui_texture, \
+		mty##api##ctx_get_ui_texture, \
 	},

@@ -10,7 +10,7 @@ GFX_CTX_PROTOTYPES(_gl_)
 #include "x-dl.h"
 #include "gfx/gl-dl.h"
 
-struct gfx_gl_ctx {
+struct gl_ctx {
 	Display *display;
 	XVisualInfo *vis;
 	Window window;
@@ -21,12 +21,12 @@ struct gfx_gl_ctx {
 	void (*glXSwapIntervalEXT)(Display *dpy, GLXDrawable drawable, int interval);
 };
 
-static void __attribute__((destructor)) gfx_gl_ctx_global_destroy(void)
+static void __attribute__((destructor)) mty_gl_ctx_global_destroy(void)
 {
 	x_dl_global_destroy();
 }
 
-static void gfx_gl_ctx_get_size(struct gfx_gl_ctx *ctx, uint32_t *width, uint32_t *height)
+static void gl_ctx_get_size(struct gl_ctx *ctx, uint32_t *width, uint32_t *height)
 {
 	XWindowAttributes attr = {0};
 	XGetWindowAttributes(ctx->display, ctx->window, &attr);
@@ -35,7 +35,7 @@ static void gfx_gl_ctx_get_size(struct gfx_gl_ctx *ctx, uint32_t *width, uint32_
 	*height = attr.height;
 }
 
-struct gfx_ctx *gfx_gl_ctx_create(void *native_window, bool vsync)
+struct gfx_ctx *mty_gl_ctx_create(void *native_window, bool vsync)
 {
 	if (!x_dl_global_init())
 		return NULL;
@@ -45,7 +45,7 @@ struct gfx_ctx *gfx_gl_ctx_create(void *native_window, bool vsync)
 
 	bool r = true;
 
-	struct gfx_gl_ctx *ctx = MTY_Alloc(1, sizeof(struct gfx_gl_ctx));
+	struct gl_ctx *ctx = MTY_Alloc(1, sizeof(struct gl_ctx));
 	struct xinfo *info = (struct xinfo *) native_window;
 	ctx->display = info->display;
 	ctx->vis = info->vis;
@@ -66,17 +66,17 @@ struct gfx_ctx *gfx_gl_ctx_create(void *native_window, bool vsync)
 	except:
 
 	if (!r)
-		gfx_gl_ctx_destroy((struct gfx_ctx **) &ctx);
+		mty_gl_ctx_destroy((struct gfx_ctx **) &ctx);
 
 	return (struct gfx_ctx *) ctx;
 }
 
-void gfx_gl_ctx_destroy(struct gfx_ctx **gfx_ctx)
+void mty_gl_ctx_destroy(struct gfx_ctx **gfx_ctx)
 {
 	if (!gfx_ctx || !*gfx_ctx)
 		return;
 
-	struct gfx_gl_ctx *ctx = (struct gfx_gl_ctx *) *gfx_ctx;
+	struct gl_ctx *ctx = (struct gl_ctx *) *gfx_ctx;
 
 	MTY_RendererDestroy(&ctx->renderer);
 
@@ -87,14 +87,14 @@ void gfx_gl_ctx_destroy(struct gfx_ctx **gfx_ctx)
 	*gfx_ctx = NULL;
 }
 
-MTY_Device *gfx_gl_ctx_get_device(struct gfx_ctx *gfx_ctx)
+MTY_Device *mty_gl_ctx_get_device(struct gfx_ctx *gfx_ctx)
 {
 	return NULL;
 }
 
-MTY_Context *gfx_gl_ctx_get_context(struct gfx_ctx *gfx_ctx)
+MTY_Context *mty_gl_ctx_get_context(struct gfx_ctx *gfx_ctx)
 {
-	struct gfx_gl_ctx *ctx = (struct gfx_gl_ctx *) gfx_ctx;
+	struct gl_ctx *ctx = (struct gl_ctx *) gfx_ctx;
 
 	if (glXGetCurrentContext() != ctx->gl)
 		glXMakeCurrent(ctx->display, ctx->window, ctx->gl);
@@ -102,16 +102,16 @@ MTY_Context *gfx_gl_ctx_get_context(struct gfx_ctx *gfx_ctx)
 	return (MTY_Context *) ctx->gl;
 }
 
-MTY_Texture *gfx_gl_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
+MTY_Texture *mty_gl_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 {
-	struct gfx_gl_ctx *ctx = (struct gfx_gl_ctx *) gfx_ctx;
+	struct gl_ctx *ctx = (struct gl_ctx *) gfx_ctx;
 
 	return (MTY_Texture *) &ctx->fb0;
 }
 
-void gfx_gl_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
+void mty_gl_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 {
-	struct gfx_gl_ctx *ctx = (struct gfx_gl_ctx *) gfx_ctx;
+	struct gl_ctx *ctx = (struct gl_ctx *) gfx_ctx;
 
 	if (ctx->glXSwapIntervalEXT && interval != ctx->interval) {
 		ctx->glXSwapIntervalEXT(ctx->display, ctx->window, interval);
@@ -122,34 +122,34 @@ void gfx_gl_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 	glFinish();
 }
 
-void gfx_gl_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const MTY_RenderDesc *desc)
+void mty_gl_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const MTY_RenderDesc *desc)
 {
-	struct gfx_gl_ctx *ctx = (struct gfx_gl_ctx *) gfx_ctx;
+	struct gl_ctx *ctx = (struct gl_ctx *) gfx_ctx;
 
 	MTY_RenderDesc mutated = *desc;
-	gfx_gl_ctx_get_size(ctx, &mutated.viewWidth, &mutated.viewHeight);
+	gl_ctx_get_size(ctx, &mutated.viewWidth, &mutated.viewHeight);
 
 	MTY_RendererDrawQuad(ctx->renderer, MTY_GFX_GL, NULL, NULL, image, &mutated, (MTY_Texture *) &ctx->fb0);
 }
 
-void gfx_gl_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
+void mty_gl_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 {
-	struct gfx_gl_ctx *ctx = (struct gfx_gl_ctx *) gfx_ctx;
+	struct gl_ctx *ctx = (struct gl_ctx *) gfx_ctx;
 
 	MTY_RendererDrawUI(ctx->renderer, MTY_GFX_GL, NULL, NULL, dd, (MTY_Texture *) &ctx->fb0);
 }
 
-void gfx_gl_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,
+void mty_gl_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,
 	uint32_t width, uint32_t height)
 {
-	struct gfx_gl_ctx *ctx = (struct gfx_gl_ctx *) gfx_ctx;
+	struct gl_ctx *ctx = (struct gl_ctx *) gfx_ctx;
 
 	MTY_RendererSetUITexture(ctx->renderer, MTY_GFX_GL, NULL, NULL, id, rgba, width, height);
 }
 
-void *gfx_gl_ctx_get_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
+void *mty_gl_ctx_get_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
 {
-	struct gfx_gl_ctx *ctx = (struct gfx_gl_ctx *) gfx_ctx;
+	struct gl_ctx *ctx = (struct gl_ctx *) gfx_ctx;
 
 	return MTY_RendererGetUITexture(ctx->renderer, id);
 }

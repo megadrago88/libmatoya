@@ -17,7 +17,7 @@ GFX_CTX_PROTOTYPES(_d3d9_)
 	(e) == D3DERR_DEVICENOTRESET \
 )
 
-struct gfx_d3d9_ctx {
+struct d3d9_ctx {
 	HWND hwnd;
 	bool vsync;
 	uint32_t width;
@@ -30,7 +30,7 @@ struct gfx_d3d9_ctx {
 	IDirect3DSurface9 *back_buffer;
 };
 
-static void gfx_d3d9_ctx_get_size(struct gfx_d3d9_ctx *ctx, uint32_t *width, uint32_t *height)
+static void d3d9_ctx_get_size(struct d3d9_ctx *ctx, uint32_t *width, uint32_t *height)
 {
 	RECT rect = {0};
 	GetClientRect(ctx->hwnd, &rect);
@@ -39,7 +39,7 @@ static void gfx_d3d9_ctx_get_size(struct gfx_d3d9_ctx *ctx, uint32_t *width, uin
 	*height = rect.bottom - rect.top;
 }
 
-static void gfx_d3d9_ctx_free(struct gfx_d3d9_ctx *ctx)
+static void d3d9_ctx_free(struct d3d9_ctx *ctx)
 {
 	if (ctx->back_buffer)
 		IDirect3DSurface9_Release(ctx->back_buffer);
@@ -63,7 +63,7 @@ static void gfx_d3d9_ctx_free(struct gfx_d3d9_ctx *ctx)
 	ctx->factory = NULL;
 }
 
-static bool gfx_d3d9_ctx_init(struct gfx_d3d9_ctx *ctx)
+static bool d3d9_ctx_init(struct d3d9_ctx *ctx)
 {
 	IDirect3DSwapChain9 *swap_chain = NULL;
 
@@ -120,53 +120,53 @@ static bool gfx_d3d9_ctx_init(struct gfx_d3d9_ctx *ctx)
 		IDirect3DSwapChain9_Release(swap_chain);
 
 	if (e != S_OK)
-		gfx_d3d9_ctx_free(ctx);
+		d3d9_ctx_free(ctx);
 
 	return e == S_OK;
 }
 
-struct gfx_ctx *gfx_d3d9_ctx_create(void *native_window, bool vsync)
+struct gfx_ctx *mty_d3d9_ctx_create(void *native_window, bool vsync)
 {
-	struct gfx_d3d9_ctx *ctx = MTY_Alloc(1, sizeof(struct gfx_d3d9_ctx));
+	struct d3d9_ctx *ctx = MTY_Alloc(1, sizeof(struct d3d9_ctx));
 	ctx->renderer = MTY_RendererCreate();
 	ctx->hwnd = (HWND) native_window;
 	ctx->vsync = vsync;
 
-	gfx_d3d9_ctx_get_size(ctx, &ctx->width, &ctx->height);
+	d3d9_ctx_get_size(ctx, &ctx->width, &ctx->height);
 
-	if (!gfx_d3d9_ctx_init(ctx))
-		gfx_d3d9_ctx_destroy((struct gfx_ctx **) &ctx);
+	if (!d3d9_ctx_init(ctx))
+		mty_d3d9_ctx_destroy((struct gfx_ctx **) &ctx);
 
 	return (struct gfx_ctx *) ctx;
 }
 
-void gfx_d3d9_ctx_destroy(struct gfx_ctx **gfx_ctx)
+void mty_d3d9_ctx_destroy(struct gfx_ctx **gfx_ctx)
 {
 	if (!gfx_ctx || !*gfx_ctx)
 		return;
 
-	struct gfx_d3d9_ctx *ctx = (struct gfx_d3d9_ctx *) *gfx_ctx;
+	struct d3d9_ctx *ctx = (struct d3d9_ctx *) *gfx_ctx;
 
 	MTY_RendererDestroy(&ctx->renderer);
-	gfx_d3d9_ctx_free(ctx);
+	d3d9_ctx_free(ctx);
 
 	MTY_Free(ctx);
 	*gfx_ctx = NULL;
 }
 
-MTY_Device *gfx_d3d9_ctx_get_device(struct gfx_ctx *gfx_ctx)
+MTY_Device *mty_d3d9_ctx_get_device(struct gfx_ctx *gfx_ctx)
 {
-	struct gfx_d3d9_ctx *ctx = (struct gfx_d3d9_ctx *) gfx_ctx;
+	struct d3d9_ctx *ctx = (struct d3d9_ctx *) gfx_ctx;
 
 	return (MTY_Device *) ctx->device_og;
 }
 
-MTY_Context *gfx_d3d9_ctx_get_context(struct gfx_ctx *gfx_ctx)
+MTY_Context *mty_d3d9_ctx_get_context(struct gfx_ctx *gfx_ctx)
 {
 	return NULL;
 }
 
-static void gfx_d3d9_ctx_refresh(struct gfx_d3d9_ctx *ctx)
+static void d3d9_ctx_refresh(struct d3d9_ctx *ctx)
 {
 	// ResetEx will fail if the window is minimized
 	if (IsIconic(ctx->hwnd))
@@ -175,7 +175,7 @@ static void gfx_d3d9_ctx_refresh(struct gfx_d3d9_ctx *ctx)
 	uint32_t width = ctx->width;
 	uint32_t height = ctx->height;
 
-	gfx_d3d9_ctx_get_size(ctx, &width, &height);
+	d3d9_ctx_get_size(ctx, &width, &height);
 
 	if (ctx->width != width || ctx->height != height) {
 		D3DPRESENT_PARAMETERS pp = {0};
@@ -196,21 +196,21 @@ static void gfx_d3d9_ctx_refresh(struct gfx_d3d9_ctx *ctx)
 		}
 
 		if (D3D_FATAL(e)) {
-			gfx_d3d9_ctx_free(ctx);
-			gfx_d3d9_ctx_init(ctx);
+			d3d9_ctx_free(ctx);
+			d3d9_ctx_init(ctx);
 		}
 	}
 }
 
-MTY_Texture *gfx_d3d9_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
+MTY_Texture *mty_d3d9_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 {
-	struct gfx_d3d9_ctx *ctx = (struct gfx_d3d9_ctx *) gfx_ctx;
+	struct d3d9_ctx *ctx = (struct d3d9_ctx *) gfx_ctx;
 
 	if (!ctx->device)
 		return (MTY_Texture *) ctx->back_buffer;
 
 	if (!ctx->back_buffer) {
-		gfx_d3d9_ctx_refresh(ctx);
+		d3d9_ctx_refresh(ctx);
 
 		HRESULT e = IDirect3DSwapChain9Ex_GetBackBuffer(ctx->swap_chain, 0,
 			D3DBACKBUFFER_TYPE_MONO, &ctx->back_buffer);
@@ -238,9 +238,9 @@ MTY_Texture *gfx_d3d9_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 	return (MTY_Texture *) ctx->back_buffer;
 }
 
-void gfx_d3d9_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
+void mty_d3d9_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 {
-	struct gfx_d3d9_ctx *ctx = (struct gfx_d3d9_ctx *) gfx_ctx;
+	struct d3d9_ctx *ctx = (struct d3d9_ctx *) gfx_ctx;
 
 	if (ctx->back_buffer) {
 		HRESULT e = IDirect3DDevice9Ex_EndScene(ctx->device);
@@ -250,8 +250,8 @@ void gfx_d3d9_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 
 			if (D3D_FATAL(e)) {
 				MTY_Log("'IDirect3DDevice9Ex_PresentEx' failed with HRESULT 0x%X", e);
-				gfx_d3d9_ctx_free(ctx);
-				gfx_d3d9_ctx_init(ctx);
+				d3d9_ctx_free(ctx);
+				d3d9_ctx_init(ctx);
 			}
 
 		} else {
@@ -265,11 +265,11 @@ void gfx_d3d9_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
 	}
 }
 
-void gfx_d3d9_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const MTY_RenderDesc *desc)
+void mty_d3d9_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const MTY_RenderDesc *desc)
 {
-	struct gfx_d3d9_ctx *ctx = (struct gfx_d3d9_ctx *) gfx_ctx;
+	struct d3d9_ctx *ctx = (struct d3d9_ctx *) gfx_ctx;
 
-	gfx_d3d9_ctx_get_buffer(gfx_ctx);
+	mty_d3d9_ctx_get_buffer(gfx_ctx);
 
 	if (ctx->back_buffer) {
 		MTY_RenderDesc mutated = *desc;
@@ -281,29 +281,29 @@ void gfx_d3d9_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const MT
 	}
 }
 
-void gfx_d3d9_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
+void mty_d3d9_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 {
-	struct gfx_d3d9_ctx *ctx = (struct gfx_d3d9_ctx *) gfx_ctx;
+	struct d3d9_ctx *ctx = (struct d3d9_ctx *) gfx_ctx;
 
-	gfx_d3d9_ctx_get_buffer(gfx_ctx);
+	mty_d3d9_ctx_get_buffer(gfx_ctx);
 
 	if (ctx->back_buffer)
 		MTY_RendererDrawUI(ctx->renderer, MTY_GFX_D3D9, (MTY_Device *) ctx->device,
 			NULL, dd, (MTY_Texture *) ctx->back_buffer);
 }
 
-void gfx_d3d9_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,
+void mty_d3d9_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,
 	uint32_t width, uint32_t height)
 {
-	struct gfx_d3d9_ctx *ctx = (struct gfx_d3d9_ctx *) gfx_ctx;
+	struct d3d9_ctx *ctx = (struct d3d9_ctx *) gfx_ctx;
 
 	MTY_RendererSetUITexture(ctx->renderer, MTY_GFX_D3D9, (MTY_Device *) ctx->device,
 		NULL, id, rgba, width, height);
 }
 
-void *gfx_d3d9_ctx_get_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
+void *mty_d3d9_ctx_get_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
 {
-	struct gfx_d3d9_ctx *ctx = (struct gfx_d3d9_ctx *) gfx_ctx;
+	struct d3d9_ctx *ctx = (struct d3d9_ctx *) gfx_ctx;
 
 	return MTY_RendererGetUITexture(ctx->renderer, id);
 }
