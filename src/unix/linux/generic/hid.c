@@ -62,11 +62,6 @@ struct hdevice {
 	} ainfo[ABS_CNT];
 };
 
-static void __attribute__((destructor)) mty_hid_global_destroy(void)
-{
-	udev_dl_global_destroy();
-}
-
 static void hid_device_destroy(void *hdevice)
 {
 	if (!hdevice)

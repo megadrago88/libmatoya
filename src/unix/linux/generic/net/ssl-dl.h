@@ -129,7 +129,7 @@ static MTY_Atomic32 SSL_DL_LOCK;
 static MTY_SO *SSL_DL_SO;
 static bool SSL_DL_INIT;
 
-static void ssl_dl_global_destroy(void)
+static void __attribute__((destructor)) ssl_dl_global_destroy(void)
 {
 	MTY_GlobalLock(&SSL_DL_LOCK);
 

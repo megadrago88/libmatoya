@@ -21,11 +21,6 @@ struct gl_ctx {
 	void (*glXSwapIntervalEXT)(Display *dpy, GLXDrawable drawable, int interval);
 };
 
-static void __attribute__((destructor)) mty_gl_ctx_global_destroy(void)
-{
-	x_dl_global_destroy();
-}
-
 static void gl_ctx_get_size(struct gl_ctx *ctx, uint32_t *width, uint32_t *height)
 {
 	XWindowAttributes attr = {0};

@@ -625,7 +625,7 @@ static MTY_SO *X_DL_XCURSOR_SO;
 static MTY_SO *X_DL_SO;
 static bool X_DL_INIT;
 
-static void x_dl_global_destroy(void)
+static void __attribute__((destructor)) x_dl_global_destroy(void)
 {
 	MTY_GlobalLock(&X_DL_LOCK);
 

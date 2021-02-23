@@ -156,7 +156,7 @@ static MTY_Atomic32 ASOUND_DL_LOCK;
 static MTY_SO *ASOUND_DL_SO;
 static bool ASOUND_DL_INIT;
 
-static void asound_dl_global_destroy(void)
+static void __attribute__((destructor)) asound_dl_global_destroy(void)
 {
 	MTY_GlobalLock(&ASOUND_DL_LOCK);
 

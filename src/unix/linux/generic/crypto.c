@@ -9,14 +9,6 @@
 #include "crypto-dl.h"
 
 
-// Global cleanup
-
-static void __attribute__((destructor)) crypto_global_destroy(void)
-{
-	crypto_dl_global_destroy();
-}
-
-
 // Hash
 
 static void crypto_hash(const EVP_MD *md,

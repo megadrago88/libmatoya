@@ -23,11 +23,6 @@ struct MTY_Audio {
 	size_t pos;
 };
 
-static void __attribute__((destructor)) audio_global_destroy(void)
-{
-	asound_dl_global_destroy();
-}
-
 MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t maxBuffer)
 {
 	if (!asound_dl_global_init())

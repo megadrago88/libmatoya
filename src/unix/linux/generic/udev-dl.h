@@ -44,7 +44,7 @@ static MTY_Atomic32 UDEV_DL_LOCK;
 static MTY_SO *UDEV_DL_SO;
 static bool UDEV_DL_INIT;
 
-static void udev_dl_global_destroy(void)
+static void __attribute__((destructor)) udev_dl_global_destroy(void)
 {
 	MTY_GlobalLock(&UDEV_DL_LOCK);
 

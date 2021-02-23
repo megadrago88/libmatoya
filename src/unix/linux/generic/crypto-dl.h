@@ -49,10 +49,14 @@ static MTY_Atomic32 CRYPTO_DL_LOCK;
 static MTY_SO *CRYPTO_DL_SO;
 static bool CRYPTO_DL_INIT;
 
-static void crypto_dl_global_destroy(void)
+static void __attribute__((destructor)) crypto_dl_global_destroy(void)
 {
+	MTY_GlobalLock(&CRYPTO_DL_LOCK);
+
 	MTY_SOUnload(&CRYPTO_DL_SO);
 	CRYPTO_DL_INIT = false;
+
+	MTY_GlobalUnlock(&CRYPTO_DL_LOCK);
 }
 
 static bool crypto_dl_global_init(void)
