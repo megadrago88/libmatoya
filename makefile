@@ -57,7 +57,7 @@ OBJS = $(OBJS) \
 	src\windows\procw.obj \
 	src\windows\threadw.obj \
 	src\windows\time.obj \
-	src\windows\window.obj \
+	src\windows\app.obj \
 	src\windows\hid.obj \
 	src\windows\aes-gcm.obj \
 	src\windows\net\tls.obj \

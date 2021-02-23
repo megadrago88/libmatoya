@@ -1,1 +1,0 @@
-../iphoneos/window.m

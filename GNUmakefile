@@ -85,7 +85,7 @@ ARCH := wasm32
 
 OBJS := $(OBJS) \
 	src/unix/web/gfx/gl-ctx.o \
-	src/unix/web/window.o
+	src/unix/web/app.o
 
 DEFS := $(DEFS) \
 	-DMTY_GLUI_CLEAR_ALPHA=0.0f \
@@ -108,7 +108,7 @@ OBJS := $(OBJS) \
 	src/unix/linux/generic/gfx/gl-ctx.o \
 	src/unix/linux/generic/hid.o \
 	src/unix/linux/generic/audio.o \
-	src/unix/linux/generic/window.o \
+	src/unix/linux/generic/app.o \
 	src/unix/net/request.o \
 	src/net/secure.o \
 	src/net/http.o \
@@ -169,7 +169,7 @@ OBJS := $(OBJS) \
 	src/unix/apple/net/tls.o \
 	src/unix/apple/audio.o \
 	src/unix/apple/crypto.o \
-	src/unix/apple/$(TARGET)/window.o \
+	src/unix/apple/$(TARGET)/app.o \
 	src/unix/net/request.o \
 	src/net/secure.o \
 	src/net/http.o \
