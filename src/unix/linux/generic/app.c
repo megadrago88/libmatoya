@@ -496,40 +496,40 @@ static Cursor app_create_empty_cursor(Display *display)
 
 // App
 
-static void app_hid_connect(struct hdevice *device, void *opaque)
+static void app_mty_hid_connect(struct hdevice *device, void *opaque)
 {
 	MTY_App *ctx = opaque;
 
-	hid_driver_init(device);
+	mty_hid_driver_init(device);
 
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_CONNECT;
-	msg.controller.vid = hid_device_get_vid(device);
-	msg.controller.pid = hid_device_get_pid(device);
-	msg.controller.id = hid_device_get_id(device);
+	msg.controller.vid = mty_hid_device_get_vid(device);
+	msg.controller.pid = mty_hid_device_get_pid(device);
+	msg.controller.id = mty_hid_device_get_id(device);
 
 	ctx->msg_func(&msg, ctx->opaque);
 }
 
-static void app_hid_disconnect(struct hdevice *device, void *opaque)
+static void app_mty_hid_disconnect(struct hdevice *device, void *opaque)
 {
 	MTY_App *ctx = opaque;
 
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_DISCONNECT;
-	msg.controller.vid = hid_device_get_vid(device);
-	msg.controller.pid = hid_device_get_pid(device);
-	msg.controller.id = hid_device_get_id(device);
+	msg.controller.vid = mty_hid_device_get_vid(device);
+	msg.controller.pid = mty_hid_device_get_pid(device);
+	msg.controller.id = mty_hid_device_get_id(device);
 
 	ctx->msg_func(&msg, ctx->opaque);
 }
 
-static void app_hid_report(struct hdevice *device, const void *buf, size_t size, void *opaque)
+static void app_mty_hid_report(struct hdevice *device, const void *buf, size_t size, void *opaque)
 {
 	MTY_App *ctx = opaque;
 
 	MTY_Msg msg = {0};
-	hid_driver_state(device, buf, size, &msg);
+	mty_hid_driver_state(device, buf, size, &msg);
 
 	if (msg.type != MTY_MSG_NONE && MTY_AppIsActive(ctx))
 		ctx->msg_func(&msg, ctx->opaque);
@@ -562,7 +562,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	ctx->class_name = MTY_Strdup(MTY_GetFileName(MTY_ProcessName(), false));
 
 	// This may return NULL
-	ctx->hid = hid_create(app_hid_connect, app_hid_disconnect, app_hid_report, ctx);
+	ctx->hid = mty_hid_create(app_mty_hid_connect, app_mty_hid_disconnect, app_mty_hid_report, ctx);
 
 	ctx->display = XOpenDisplay(NULL);
 	if (!ctx->display) {
@@ -631,7 +631,7 @@ void MTY_AppDestroy(MTY_App **app)
 	if (ctx->display)
 		XCloseDisplay(ctx->display);
 
-	hid_destroy(&ctx->hid);
+	mty_hid_destroy(&ctx->hid);
 
 	MTY_HashDestroy(&ctx->hotkey, NULL);
 	MTY_MutexDestroy(&ctx->mutex);
@@ -871,7 +871,7 @@ void MTY_AppRun(MTY_App *ctx)
 
 		// evdev events
 		if (ctx->hid)
-			hid_poll(ctx->hid);
+			mty_hid_poll(ctx->hid);
 
 		// Fire app func after all events have been processed
 		cont = ctx->app_func(ctx->opaque);
@@ -959,7 +959,7 @@ void MTY_AppActivate(MTY_App *app, bool active)
 void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {
 	if (app->hid)
-		hid_driver_rumble(app->hid, id, low, high);
+		mty_hid_driver_rumble(app->hid, id, low, high);
 }
 
 
@@ -1260,7 +1260,7 @@ bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 
 // Window Private
 
-void mty_mty_window_set_gfx(MTY_App *app, MTY_Window window, MTY_GFX api, struct gfx_ctx *gfx_ctx)
+void mty_window_set_gfx(MTY_App *app, MTY_Window window, MTY_GFX api, struct gfx_ctx *gfx_ctx)
 {
 	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
@@ -1270,7 +1270,7 @@ void mty_mty_window_set_gfx(MTY_App *app, MTY_Window window, MTY_GFX api, struct
 	ctx->gfx_ctx = gfx_ctx;
 }
 
-MTY_GFX mty_mty_window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx_ctx)
+MTY_GFX mty_window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx **gfx_ctx)
 {
 	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
@@ -1282,7 +1282,7 @@ MTY_GFX mty_mty_window_get_gfx(MTY_App *app, MTY_Window window, struct gfx_ctx *
 	return ctx->api;
 }
 
-void *mty_mty_window_get_native(MTY_App *app, MTY_Window window)
+void *mty_window_get_native(MTY_App *app, MTY_Window window)
 {
 	struct window *ctx = app_get_window(app, window);
 	if (!ctx)

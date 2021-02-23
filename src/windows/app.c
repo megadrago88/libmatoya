@@ -991,12 +991,12 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 				app_ri_relative_mouse(app, hwnd, ctx->ri, &wmsg);
 
 			} else if (header->dwType == RIM_TYPEHID) {
-				hid_win32_report(app->hid, (intptr_t) ctx->ri->header.hDevice,
+				mty_hid_win32_report(app->hid, (intptr_t) ctx->ri->header.hDevice,
 					ctx->ri->data.hid.bRawData, ctx->ri->data.hid.dwSizeHid);
 			}
 			break;
 		case WM_INPUT_DEVICE_CHANGE:
-			hid_win32_device_change(app->hid, wparam, lparam);
+			mty_hid_win32_device_change(app->hid, wparam, lparam);
 			break;
 	}
 
@@ -1234,40 +1234,40 @@ bool MTY_AppCanWarpCursor(MTY_App *ctx)
 
 // App
 
-static void app_hid_connect(struct hdevice *device, void *opaque)
+static void app_mty_hid_connect(struct hdevice *device, void *opaque)
 {
 	MTY_App *ctx = opaque;
 
-	hid_driver_init(device);
+	mty_hid_driver_init(device);
 
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_CONNECT;
-	msg.controller.vid = hid_device_get_vid(device);
-	msg.controller.pid = hid_device_get_pid(device);
-	msg.controller.id = hid_device_get_id(device);
+	msg.controller.vid = mty_hid_device_get_vid(device);
+	msg.controller.pid = mty_hid_device_get_pid(device);
+	msg.controller.id = mty_hid_device_get_id(device);
 
 	ctx->msg_func(&msg, ctx->opaque);
 }
 
-static void app_hid_disconnect(struct hdevice *device, void *opaque)
+static void app_mty_hid_disconnect(struct hdevice *device, void *opaque)
 {
 	MTY_App *ctx = opaque;
 
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_DISCONNECT;
-	msg.controller.vid = hid_device_get_vid(device);
-	msg.controller.pid = hid_device_get_pid(device);
-	msg.controller.id = hid_device_get_id(device);
+	msg.controller.vid = mty_hid_device_get_vid(device);
+	msg.controller.pid = mty_hid_device_get_pid(device);
+	msg.controller.id = mty_hid_device_get_id(device);
 
 	ctx->msg_func(&msg, ctx->opaque);
 }
 
-static void app_hid_report(struct hdevice *device, const void *buf, size_t size, void *opaque)
+static void app_mty_hid_report(struct hdevice *device, const void *buf, size_t size, void *opaque)
 {
 	MTY_App *ctx = opaque;
 
 	MTY_Msg msg = {0};
-	hid_driver_state(device, buf, size, &msg);
+	mty_hid_driver_state(device, buf, size, &msg);
 
 	// Prevent gamepad input while in the background
 	if (msg.type == MTY_MSG_CONTROLLER && MTY_AppIsActive(ctx))
@@ -1320,7 +1320,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 
 	ImmDisableIME(0);
 
-	app->hid = hid_create(app_hid_connect, app_hid_disconnect, app_hid_report, app);
+	app->hid = mty_hid_create(app_mty_hid_connect, app_mty_hid_disconnect, app_mty_hid_report, app);
 
 	except:
 
@@ -1354,7 +1354,7 @@ void MTY_AppDestroy(MTY_App **app)
 	if (ctx->instance && ctx->class != 0)
 		UnregisterClass(WINDOW_CLASS_NAME, ctx->instance);
 
-	hid_destroy(&ctx->hid);
+	mty_hid_destroy(&ctx->hid);
 
 	WINDOW_KB_HWND = NULL;
 
@@ -1383,7 +1383,7 @@ void MTY_AppRun(MTY_App *app)
 
 		// XInput
 		if (focus)
-			hid_xinput_state(app->hid, app->msg_func, app->opaque);
+			mty_hid_xinput_state(app->hid, app->msg_func, app->opaque);
 
 		// Tray retry in case of failure
 		app_tray_retry(app, window);
@@ -1495,10 +1495,10 @@ void MTY_AppActivate(MTY_App *app, bool active)
 void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {
 	if (id < 4) {
-		hid_xinput_rumble(app->hid, id, low, high);
+		mty_hid_xinput_rumble(app->hid, id, low, high);
 
 	} else {
-		hid_driver_rumble(app->hid, id, low, high);
+		mty_hid_driver_rumble(app->hid, id, low, high);
 	}
 }
 
@@ -1594,7 +1594,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	if (window == 0) {
 		AddClipboardFormatListener(ctx->hwnd);
-		hid_win32_listen(ctx->hwnd);
+		mty_hid_win32_listen(ctx->hwnd);
 	}
 
 	except:

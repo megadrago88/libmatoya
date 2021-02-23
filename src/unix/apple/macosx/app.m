@@ -1032,40 +1032,40 @@ bool MTY_AppCanWarpCursor(MTY_App *ctx)
 
 // App
 
-static void app_hid_connect(struct hdevice *device, void *opaque)
+static void app_mty_hid_connect(struct hdevice *device, void *opaque)
 {
 	App *ctx = (__bridge App *) opaque;
 
-	hid_driver_init(device);
+	mty_hid_driver_init(device);
 
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_CONNECT;
-	msg.controller.vid = hid_device_get_vid(device);
-	msg.controller.pid = hid_device_get_pid(device);
-	msg.controller.id = hid_device_get_id(device);
+	msg.controller.vid = mty_hid_device_get_vid(device);
+	msg.controller.pid = mty_hid_device_get_pid(device);
+	msg.controller.id = mty_hid_device_get_id(device);
 
 	ctx.msg_func(&msg, ctx.opaque);
 }
 
-static void app_hid_disconnect(struct hdevice *device, void *opaque)
+static void app_mty_hid_disconnect(struct hdevice *device, void *opaque)
 {
 	App *ctx = (__bridge App *) opaque;
 
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_DISCONNECT;
-	msg.controller.vid = hid_device_get_vid(device);
-	msg.controller.pid = hid_device_get_pid(device);
-	msg.controller.id = hid_device_get_id(device);
+	msg.controller.vid = mty_hid_device_get_vid(device);
+	msg.controller.pid = mty_hid_device_get_pid(device);
+	msg.controller.id = mty_hid_device_get_id(device);
 
 	ctx.msg_func(&msg, ctx.opaque);
 }
 
-static void app_hid_report(struct hdevice *device, const void *buf, size_t size, void *opaque)
+static void app_mty_hid_report(struct hdevice *device, const void *buf, size_t size, void *opaque)
 {
 	App *ctx = (__bridge App *) opaque;
 
 	MTY_Msg msg = {0};
-	hid_driver_state(device, buf, size, &msg);
+	mty_hid_driver_state(device, buf, size, &msg);
 
 	if (msg.type != MTY_MSG_NONE && MTY_AppIsActive((MTY_App *) opaque))
 		ctx.msg_func(&msg, ctx.opaque);
@@ -1097,7 +1097,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
 	ctx.cursor_showing = true;
 	ctx.cont = true;
 
-	ctx.hid = hid_create(app_hid_connect, app_hid_disconnect, app_hid_report, app);
+	ctx.hid = mty_hid_create(app_mty_hid_connect, app_mty_hid_disconnect, app_mty_hid_report, app);
 
 	ctx.windows = MTY_Alloc(MTY_WINDOW_MAX, sizeof(void *));
 	ctx.hotkey = MTY_HashCreate(0);
@@ -1129,7 +1129,7 @@ void MTY_AppDestroy(MTY_App **app)
 	MTY_Free(ctx.windows);
 
 	struct hid *hid = ctx.hid;
-	hid_destroy(&hid);
+	mty_hid_destroy(&hid);
 	ctx.hid = NULL;
 
 	MTY_Hash *h = ctx.hotkey;
@@ -1233,7 +1233,7 @@ void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t h
 {
 	App *ctx = (__bridge App *) app;
 
-	hid_driver_rumble(ctx.hid, id, low, high);
+	mty_hid_driver_rumble(ctx.hid, id, low, high);
 }
 
 void MTY_AppEnablePen(MTY_App *app, bool enable)

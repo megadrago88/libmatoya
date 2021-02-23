@@ -52,7 +52,7 @@ struct ps4_state {
 
 // Rumble
 
-static uint32_t hid_ps4_crc32_for_byte(uint32_t r)
+static uint32_t mty_hid_ps4_crc32_for_byte(uint32_t r)
 {
 	for (int32_t i = 0; i < 8; i++)
 		r = (r & 1 ? 0 : (uint32_t) 0xEDB88320L) ^ r >> 1;
@@ -60,17 +60,17 @@ static uint32_t hid_ps4_crc32_for_byte(uint32_t r)
 	return r ^ (uint32_t) 0xFF000000L;
 }
 
-static uint32_t hid_ps4_crc32(uint32_t crc, const void *data, int32_t count)
+static uint32_t mty_hid_ps4_crc32(uint32_t crc, const void *data, int32_t count)
 {
 	for (int32_t i = 0; i < count; i++)
-		crc = hid_ps4_crc32_for_byte((uint8_t) crc ^ ((const uint8_t *) data)[i]) ^ crc >> 8;
+		crc = mty_hid_ps4_crc32_for_byte((uint8_t) crc ^ ((const uint8_t *) data)[i]) ^ crc >> 8;
 
 	return crc;
 }
 
-static void hid_ps4_rumble(struct hdevice *device, uint16_t low, uint16_t high)
+static void mty_hid_ps4_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 {
-	struct ps4_state *ctx = hid_device_get_state(device);
+	struct ps4_state *ctx = mty_hid_device_get_state(device);
 
 	uint8_t data[78] = {0x05, 0x07};
 	uint32_t size = 32;
@@ -95,32 +95,32 @@ static void hid_ps4_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 
 	if (ctx->bluetooth) {
 		uint8_t hdr = 0xA2;
-		uint32_t crc = hid_ps4_crc32(0, &hdr, 1);
-		crc = hid_ps4_crc32(crc, data, size - 4);
+		uint32_t crc = mty_hid_ps4_crc32(0, &hdr, 1);
+		crc = mty_hid_ps4_crc32(crc, data, size - 4);
 		memcpy(data + size - 4, &crc, 4);
 	}
 
-	hid_device_write(device, data, size);
+	mty_hid_device_write(device, data, size);
 }
 
 
 // State Reports
 
-static void hid_ps4_init(struct hdevice *device)
+static void mty_hid_ps4_init(struct hdevice *device)
 {
-	struct ps4_state *ctx = hid_device_get_state(device);
+	struct ps4_state *ctx = mty_hid_device_get_state(device);
 
 	// Bluetooth detection, use the Serial Number feature report
 	size_t n = 0;
 	uint8_t data[65] = {0x12};
 	uint8_t dataz[65] = {0};
-	ctx->bluetooth = !hid_device_feature(device, data, 65, &n) && !memcmp(data + 1, dataz + 1, 64);
+	ctx->bluetooth = !mty_hid_device_feature(device, data, 65, &n) && !memcmp(data + 1, dataz + 1, 64);
 
 	// For lights
-	hid_ps4_rumble(device, 0, 0);
+	mty_hid_ps4_rumble(device, 0, 0);
 }
 
-static void hid_ps4_state(struct hdevice *device, const void *data, size_t dsize, MTY_Msg *wmsg)
+static void mty_hid_ps4_state(struct hdevice *device, const void *data, size_t dsize, MTY_Msg *wmsg)
 {
 	const uint8_t *d8 = data;
 	const struct ps4 *state = NULL;
@@ -140,12 +140,12 @@ static void hid_ps4_state(struct hdevice *device, const void *data, size_t dsize
 	wmsg->type = MTY_MSG_CONTROLLER;
 
 	MTY_Controller *c = &wmsg->controller;
-	c->vid = hid_device_get_vid(device);
-	c->pid = hid_device_get_pid(device);
+	c->vid = mty_hid_device_get_vid(device);
+	c->pid = mty_hid_device_get_pid(device);
 	c->numValues = 7;
 	c->numButtons = 14;
 	c->driver = MTY_HID_DRIVER_PS4;
-	c->id = hid_device_get_id(device);
+	c->id = mty_hid_device_get_id(device);
 
 	c->buttons[MTY_CBUTTON_X] = state->buttons[0] & 0x10;
 	c->buttons[MTY_CBUTTON_A] = state->buttons[0] & 0x20;
@@ -166,25 +166,25 @@ static void hid_ps4_state(struct hdevice *device, const void *data, size_t dsize
 	c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
 	c->values[MTY_CVALUE_THUMB_LX].min = 0;
 	c->values[MTY_CVALUE_THUMB_LX].max = UINT8_MAX;
-	hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_LX], false);
+	mty_hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_LX], false);
 
 	c->values[MTY_CVALUE_THUMB_LY].data = state->leftY;
 	c->values[MTY_CVALUE_THUMB_LY].usage = 0x31;
 	c->values[MTY_CVALUE_THUMB_LY].min = 0;
 	c->values[MTY_CVALUE_THUMB_LY].max = UINT8_MAX;
-	hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_LY], true);
+	mty_hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_LY], true);
 
 	c->values[MTY_CVALUE_THUMB_RX].data = state->rightX;
 	c->values[MTY_CVALUE_THUMB_RX].usage = 0x32;
 	c->values[MTY_CVALUE_THUMB_RX].min = 0;
 	c->values[MTY_CVALUE_THUMB_RX].max = UINT8_MAX;
-	hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_RX], false);
+	mty_hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_RX], false);
 
 	c->values[MTY_CVALUE_THUMB_RY].data = state->rightY;
 	c->values[MTY_CVALUE_THUMB_RY].usage = 0x35;
 	c->values[MTY_CVALUE_THUMB_RY].min = 0;
 	c->values[MTY_CVALUE_THUMB_RY].max = UINT8_MAX;
-	hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_RY], true);
+	mty_hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_RY], true);
 
 	c->values[MTY_CVALUE_TRIGGER_L].data = state->triggerLeft;
 	c->values[MTY_CVALUE_TRIGGER_L].usage = 0x33;

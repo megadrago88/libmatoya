@@ -72,7 +72,7 @@ struct nx_state {
 
 // IO Helpers
 
-static uint8_t hid_nx_incr_command(struct nx_state *ctx)
+static uint8_t mty_hid_nx_incr_command(struct nx_state *ctx)
 {
 	uint8_t v = ctx->cmd;
 	ctx->cmd = (ctx->cmd + 1) & 0x0F;
@@ -80,34 +80,34 @@ static uint8_t hid_nx_incr_command(struct nx_state *ctx)
 	return v;
 }
 
-static void hid_nx_write_hs(struct hdevice *device, uint8_t cmd)
+static void mty_hid_nx_write_hs(struct hdevice *device, uint8_t cmd)
 {
-	struct nx_state *ctx = hid_device_get_state(device);
+	struct nx_state *ctx = mty_hid_device_get_state(device);
 
 	uint8_t buf[HID_NX_OUTPUT_MAX] = {0x80};
 	buf[1] = cmd;
 
-	hid_device_write(device, buf, HID_NX_USB_MAX);
+	mty_hid_device_write(device, buf, HID_NX_USB_MAX);
 
 	ctx->write_ts = MTY_Timestamp();
 	ctx->wready = false;
 }
 
-static void hid_nx_write_command(struct hdevice *device, uint8_t command, const void *data, size_t size)
+static void mty_hid_nx_write_command(struct hdevice *device, uint8_t command, const void *data, size_t size)
 {
-	struct nx_state *ctx = hid_device_get_state(device);
+	struct nx_state *ctx = mty_hid_device_get_state(device);
 
 	uint8_t buf[HID_NX_OUTPUT_MAX] = {0};
 	struct nx_subcommand *out = (struct nx_subcommand *) buf;
 
 	out->common.packetType = 0x01;
-	out->common.packetNumber = hid_nx_incr_command(ctx);
+	out->common.packetNumber = mty_hid_nx_incr_command(ctx);
 	out->common.rumble[0] = ctx->rumble[0];
 	out->common.rumble[1] = ctx->rumble[1];
 	out->subcommandID = command;
 	memcpy(out->subcommandData, data, size);
 
-	hid_device_write(device, buf, ctx->bluetooth ? HID_NX_BT_MAX : HID_NX_USB_MAX);
+	mty_hid_device_write(device, buf, ctx->bluetooth ? HID_NX_BT_MAX : HID_NX_USB_MAX);
 
 	ctx->write_ts = MTY_Timestamp();
 	ctx->wready = false;
@@ -116,7 +116,7 @@ static void hid_nx_write_command(struct hdevice *device, uint8_t command, const 
 
 // Rumble
 
-static void hid_nx_rumble_off(struct nx_rumble *rmb)
+static void mty_hid_nx_rumble_off(struct nx_rumble *rmb)
 {
 	rmb->data[0] = 0x00;
 	rmb->data[1] = 0x01;
@@ -124,7 +124,7 @@ static void hid_nx_rumble_off(struct nx_rumble *rmb)
 	rmb->data[3] = 0x40;
 }
 
-static void hid_nx_rumble_on(struct nx_rumble *rmb)
+static void mty_hid_nx_rumble_on(struct nx_rumble *rmb)
 {
 	rmb->data[0] = 0x74;
 	rmb->data[1] = 0xBE;
@@ -132,18 +132,18 @@ static void hid_nx_rumble_on(struct nx_rumble *rmb)
 	rmb->data[3] = 0x6F;
 }
 
-static void hid_nx_rumble(struct hdevice *device, bool low, bool high)
+static void mty_hid_nx_rumble(struct hdevice *device, bool low, bool high)
 {
-	struct nx_state *ctx = hid_device_get_state(device);
+	struct nx_state *ctx = mty_hid_device_get_state(device);
 
-	hid_nx_rumble_off(&ctx->rumble[0]);
-	hid_nx_rumble_off(&ctx->rumble[1]);
+	mty_hid_nx_rumble_off(&ctx->rumble[0]);
+	mty_hid_nx_rumble_off(&ctx->rumble[1]);
 
 	if (low)
-		hid_nx_rumble_on(&ctx->rumble[0]);
+		mty_hid_nx_rumble_on(&ctx->rumble[0]);
 
 	if (high)
-		hid_nx_rumble_on(&ctx->rumble[1]);
+		mty_hid_nx_rumble_on(&ctx->rumble[1]);
 
 	ctx->rumble_on = low || high;
 	ctx->rumble_set = true;
@@ -152,7 +152,7 @@ static void hid_nx_rumble(struct hdevice *device, bool low, bool high)
 
 // State Reports
 
-static void hid_nx_expand_min_max(int16_t v, struct nx_min_max *mm)
+static void mty_hid_nx_expand_min_max(int16_t v, struct nx_min_max *mm)
 {
 	if (v < mm->min)
 		mm->min = v;
@@ -161,19 +161,19 @@ static void hid_nx_expand_min_max(int16_t v, struct nx_min_max *mm)
 		mm->max = v;
 }
 
-static void hid_nx_full_state(struct hdevice *device, const uint8_t *d, MTY_Msg *wmsg)
+static void mty_hid_nx_full_state(struct hdevice *device, const uint8_t *d, MTY_Msg *wmsg)
 {
-	struct nx_state *ctx = hid_device_get_state(device);
+	struct nx_state *ctx = mty_hid_device_get_state(device);
 
 	wmsg->type = MTY_MSG_CONTROLLER;
 
 	MTY_Controller *c = &wmsg->controller;
-	c->vid = hid_device_get_vid(device);
-	c->pid = hid_device_get_pid(device);
+	c->vid = mty_hid_device_get_vid(device);
+	c->pid = mty_hid_device_get_pid(device);
 	c->numValues = 7;
 	c->numButtons = 14;
 	c->driver = MTY_HID_DRIVER_SWITCH;
-	c->id = hid_device_get_id(device);
+	c->id = mty_hid_device_get_id(device);
 
 	c->buttons[MTY_CBUTTON_X] = d[3] & 0x01;
 	c->buttons[MTY_CBUTTON_A] = d[3] & 0x04;
@@ -195,34 +195,34 @@ static void hid_nx_full_state(struct hdevice *device, const uint8_t *d, MTY_Msg 
 	int16_t rx = (d[9] | ((d[10] & 0x0F) << 8)) - ctx->rx.c;
 	int16_t ry = ((d[10] >> 4) | (d[11] << 4)) - ctx->ry.c;
 
-	hid_nx_expand_min_max(lx, &ctx->lx);
-	hid_nx_expand_min_max(ly, &ctx->ly);
-	hid_nx_expand_min_max(rx, &ctx->rx);
-	hid_nx_expand_min_max(ry, &ctx->ry);
+	mty_hid_nx_expand_min_max(lx, &ctx->lx);
+	mty_hid_nx_expand_min_max(ly, &ctx->ly);
+	mty_hid_nx_expand_min_max(rx, &ctx->rx);
+	mty_hid_nx_expand_min_max(ry, &ctx->ry);
 
 	c->values[MTY_CVALUE_THUMB_LX].data = lx;
 	c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
 	c->values[MTY_CVALUE_THUMB_LX].min = ctx->lx.min;
 	c->values[MTY_CVALUE_THUMB_LX].max = ctx->lx.max;
-	hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_LX]);
+	mty_hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_LX]);
 
 	c->values[MTY_CVALUE_THUMB_LY].data = ly;
 	c->values[MTY_CVALUE_THUMB_LY].usage = 0x31;
 	c->values[MTY_CVALUE_THUMB_LY].min = ctx->ly.min;
 	c->values[MTY_CVALUE_THUMB_LY].max = ctx->ly.max;
-	hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_LY]);
+	mty_hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_LY]);
 
 	c->values[MTY_CVALUE_THUMB_RX].data = rx;
 	c->values[MTY_CVALUE_THUMB_RX].usage = 0x32;
 	c->values[MTY_CVALUE_THUMB_RX].min = ctx->rx.min;
 	c->values[MTY_CVALUE_THUMB_RX].max = ctx->rx.max;
-	hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_RX]);
+	mty_hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_RX]);
 
 	c->values[MTY_CVALUE_THUMB_RY].data = ry;
 	c->values[MTY_CVALUE_THUMB_RY].usage = 0x35;
 	c->values[MTY_CVALUE_THUMB_RY].min = ctx->ry.min;
 	c->values[MTY_CVALUE_THUMB_RY].max = ctx->ry.max;
-	hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_RY]);
+	mty_hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_RY]);
 
 	c->values[MTY_CVALUE_TRIGGER_L].usage = 0x33;
 	c->values[MTY_CVALUE_TRIGGER_L].data = c->buttons[MTY_CBUTTON_LEFT_TRIGGER] ? UINT8_MAX : 0;
@@ -246,19 +246,19 @@ static void hid_nx_full_state(struct hdevice *device, const uint8_t *d, MTY_Msg 
 	c->values[MTY_CVALUE_DPAD].max = 7;
 }
 
-static void hid_nx_simple_state(struct hdevice *device, const uint8_t *d, MTY_Msg *wmsg)
+static void mty_hid_nx_simple_state(struct hdevice *device, const uint8_t *d, MTY_Msg *wmsg)
 {
-	struct nx_state *ctx = hid_device_get_state(device);
+	struct nx_state *ctx = mty_hid_device_get_state(device);
 
 	wmsg->type = MTY_MSG_CONTROLLER;
 
 	MTY_Controller *c = &wmsg->controller;
-	c->vid = hid_device_get_vid(device);
-	c->pid = hid_device_get_pid(device);
+	c->vid = mty_hid_device_get_vid(device);
+	c->pid = mty_hid_device_get_pid(device);
 	c->numValues = 7;
 	c->numButtons = 14;
 	c->driver = MTY_HID_DRIVER_SWITCH;
-	c->id = hid_device_get_id(device);
+	c->id = mty_hid_device_get_id(device);
 
 	c->buttons[MTY_CBUTTON_X] = d[1] & 0x04;
 	c->buttons[MTY_CBUTTON_A] = d[1] & 0x01;
@@ -280,34 +280,34 @@ static void hid_nx_simple_state(struct hdevice *device, const uint8_t *d, MTY_Ms
 	int16_t rx = (d[8] | (d[9] << 8)) - ctx->srx.c;
 	int16_t ry = -((d[10] | (d[11] << 8)) - ctx->sry.c);
 
-	hid_nx_expand_min_max(lx, &ctx->slx);
-	hid_nx_expand_min_max(ly, &ctx->sly);
-	hid_nx_expand_min_max(rx, &ctx->srx);
-	hid_nx_expand_min_max(ry, &ctx->sry);
+	mty_hid_nx_expand_min_max(lx, &ctx->slx);
+	mty_hid_nx_expand_min_max(ly, &ctx->sly);
+	mty_hid_nx_expand_min_max(rx, &ctx->srx);
+	mty_hid_nx_expand_min_max(ry, &ctx->sry);
 
 	c->values[MTY_CVALUE_THUMB_LX].data = lx;
 	c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
 	c->values[MTY_CVALUE_THUMB_LX].min = ctx->slx.min;
 	c->values[MTY_CVALUE_THUMB_LX].max = ctx->slx.max;
-	hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_LX]);
+	mty_hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_LX]);
 
 	c->values[MTY_CVALUE_THUMB_LY].data = ly;
 	c->values[MTY_CVALUE_THUMB_LY].usage = 0x31;
 	c->values[MTY_CVALUE_THUMB_LY].min = ctx->sly.min;
 	c->values[MTY_CVALUE_THUMB_LY].max = ctx->sly.max;
-	hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_LY]);
+	mty_hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_LY]);
 
 	c->values[MTY_CVALUE_THUMB_RX].data = rx;
 	c->values[MTY_CVALUE_THUMB_RX].usage = 0x32;
 	c->values[MTY_CVALUE_THUMB_RX].min = ctx->srx.min;
 	c->values[MTY_CVALUE_THUMB_RX].max = ctx->srx.max;
-	hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_RX]);
+	mty_hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_RX]);
 
 	c->values[MTY_CVALUE_THUMB_RY].data = ry;
 	c->values[MTY_CVALUE_THUMB_RY].usage = 0x35;
 	c->values[MTY_CVALUE_THUMB_RY].min = ctx->sry.min;
 	c->values[MTY_CVALUE_THUMB_RY].max = ctx->sry.max;
-	hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_RY]);
+	mty_hid_s_to_s16(&c->values[MTY_CVALUE_THUMB_RY]);
 
 	c->values[MTY_CVALUE_TRIGGER_L].usage = 0x33;
 	c->values[MTY_CVALUE_TRIGGER_L].data = c->buttons[MTY_CBUTTON_LEFT_TRIGGER] ? UINT8_MAX : 0;
@@ -328,7 +328,7 @@ static void hid_nx_simple_state(struct hdevice *device, const uint8_t *d, MTY_Ms
 
 // Full Stick Calibration Data
 
-static void hid_nx_parse_pair(const uint8_t *data, uint8_t offset, uint16_t *v0, uint16_t *v1)
+static void mty_hid_nx_parse_pair(const uint8_t *data, uint8_t offset, uint16_t *v0, uint16_t *v1)
 {
 	*v0 = ((data[offset + 1] << 8) & 0xF00) | data[offset];
 	*v1 = (data[offset + 2] << 4) | (data[offset + 1] >> 4);
@@ -340,17 +340,17 @@ static void hid_nx_parse_pair(const uint8_t *data, uint8_t offset, uint16_t *v0,
 		*v1 = 0;
 }
 
-static void hid_nx_parse_stick(const struct nx_spi_reply *spi, uint8_t min_offset, uint8_t c_offset, uint8_t max_offset,
+static void mty_hid_nx_parse_stick(const struct nx_spi_reply *spi, uint8_t min_offset, uint8_t c_offset, uint8_t max_offset,
 	struct nx_min_max *x, struct nx_min_max *y)
 {
 	uint16_t xmin = 0, ymin = 0;
-	hid_nx_parse_pair(spi->data, min_offset, &xmin, &ymin);
+	mty_hid_nx_parse_pair(spi->data, min_offset, &xmin, &ymin);
 
 	uint16_t xc = 0, yc = 0;
-	hid_nx_parse_pair(spi->data, c_offset, &xc, &yc);
+	mty_hid_nx_parse_pair(spi->data, c_offset, &xc, &yc);
 
 	uint16_t xmax = 0, ymax = 0;
-	hid_nx_parse_pair(spi->data, max_offset, &xmax, &ymax);
+	mty_hid_nx_parse_pair(spi->data, max_offset, &xmax, &ymax);
 
 	x->min = (int16_t) lrint((float) (xc - xmin - xc) * 0.9f);
 	x->c = xc;
@@ -364,13 +364,13 @@ static void hid_nx_parse_stick(const struct nx_spi_reply *spi, uint8_t min_offse
 
 // IO State Machine
 
-static void hid_nx_init(struct hdevice *device)
+static void mty_hid_nx_init(struct hdevice *device)
 {
-	struct nx_state *ctx = hid_device_get_state(device);
+	struct nx_state *ctx = mty_hid_device_get_state(device);
 
 	// Neutral rumble
-	hid_nx_rumble_off(&ctx->rumble[0]);
-	hid_nx_rumble_off(&ctx->rumble[1]);
+	mty_hid_nx_rumble_off(&ctx->rumble[0]);
+	mty_hid_nx_rumble_off(&ctx->rumble[1]);
 
 	// Simple calibration
 	ctx->slx.c = ctx->sly.c = ctx->srx.c = ctx->sry.c = 0x8000;
@@ -378,12 +378,12 @@ static void hid_nx_init(struct hdevice *device)
 	ctx->slx.max = ctx->sly.max = ctx->srx.max = ctx->sry.max = INT16_MAX / 2;
 
 	// USB init packet (begins handshake)
-	hid_nx_write_hs(device, 0x02);
+	mty_hid_nx_write_hs(device, 0x02);
 }
 
-static void hid_nx_state_machine(struct hdevice *device)
+static void mty_hid_nx_state_machine(struct hdevice *device)
 {
-	struct nx_state *ctx = hid_device_get_state(device);
+	struct nx_state *ctx = mty_hid_device_get_state(device);
 
 	int64_t now = MTY_Timestamp();
 	bool timeout = MTY_TimeDiff(ctx->write_ts, now) > 500.0f;
@@ -401,19 +401,19 @@ static void hid_nx_state_machine(struct hdevice *device)
 		if (ctx->usb) {
 			// Set speed to 3mbit, may timeout on certain devices
 			if (ctx->wready && !ctx->hs0) {
-				hid_nx_write_hs(device, 0x03);
+				mty_hid_nx_write_hs(device, 0x03);
 				ctx->hs0 = true;
 			}
 
 			// Send an additional handshake packet after baud rate
 			if (ctx->wready && !ctx->hs1) {
-				hid_nx_write_hs(device, 0x02);
+				mty_hid_nx_write_hs(device, 0x02);
 				ctx->hs1 = true;
 			}
 
 			// Force USB
 			if (ctx->wready && !ctx->hs2) {
-				hid_nx_write_hs(device, 0x04);
+				mty_hid_nx_write_hs(device, 0x04);
 				ctx->wready = true; // There is no response to this
 				ctx->hs2 = true;
 			}
@@ -422,60 +422,60 @@ static void hid_nx_state_machine(struct hdevice *device)
 		// Calibration (SPI Flash Read)
 		if (ctx->wready && !ctx->calibration) {
 			struct nx_spi_op op = {0x603D, 18};
-			hid_nx_write_command(device, 0x10, &op, sizeof(struct nx_spi_op));
+			mty_hid_nx_write_command(device, 0x10, &op, sizeof(struct nx_spi_op));
 			ctx->calibration = true;
 		}
 
 		// Enable vibration
 		if (ctx->wready && !ctx->vibration) {
 			uint8_t enabled = 1;
-			hid_nx_write_command(device, 0x48, &enabled, 1);
+			mty_hid_nx_write_command(device, 0x48, &enabled, 1);
 			ctx->vibration = true;
 		}
 
 		// Set to full / simple report mode
 		if (ctx->wready && !ctx->mode) {
 			uint8_t mode = ctx->bluetooth ? 0x3F : 0x30;
-			hid_nx_write_command(device, 0x03, &mode, 1);
+			mty_hid_nx_write_command(device, 0x03, &mode, 1);
 			ctx->mode = true;
 		}
 
 		// Home LED
 		if (ctx->wready && !ctx->home_led) {
 			uint8_t buf[4] = {0x01, 0xF0, 0xF0, 0x00};
-			hid_nx_write_command(device, 0x38, buf, 4);
+			mty_hid_nx_write_command(device, 0x38, buf, 4);
 			ctx->home_led = true;
 		}
 
 		// Player Slot LED
 		if (ctx->wready && !ctx->slot_led) {
 			uint8_t data = 0x01; // Always "Player 1" TODO? Generate a real player ID
-			hid_nx_write_command(device, 0x30, &data, 1);
+			mty_hid_nx_write_command(device, 0x30, &data, 1);
 			ctx->slot_led = true;
 		}
 
 		// Periodically refresh rumble
 		if (ctx->wready && ((ctx->rumble_on && MTY_TimeDiff(ctx->rumble_ts, now) > 500.0f) || ctx->rumble_set)) {
 			uint8_t enabled = 1;
-			hid_nx_write_command(device, 0x48, &enabled, 1);
+			mty_hid_nx_write_command(device, 0x48, &enabled, 1);
 			ctx->rumble_ts = now;
 			ctx->rumble_set = false;
 		}
 	}
 }
 
-static void hid_nx_state(struct hdevice *device, const void *data, size_t dsize, MTY_Msg *wmsg)
+static void mty_hid_nx_state(struct hdevice *device, const void *data, size_t dsize, MTY_Msg *wmsg)
 {
-	struct nx_state *ctx = hid_device_get_state(device);
+	struct nx_state *ctx = mty_hid_device_get_state(device);
 	const uint8_t *d = data;
 
 	// State (Full)
 	if (d[0] == 0x30 && ctx->calibrated) {
-		hid_nx_full_state(device, d, wmsg);
+		mty_hid_nx_full_state(device, d, wmsg);
 
 	// State (Simple)
 	} else if (d[0] == 0x3F && ctx->calibrated) {
-		hid_nx_simple_state(device, d, wmsg);
+		mty_hid_nx_simple_state(device, d, wmsg);
 
 	// USB Handshake Response
 	} else if (d[0] == 0x81 && (d[1] == 0x02 || d[1] == 0x03 || d[2] == 0x04)) {
@@ -492,13 +492,13 @@ static void hid_nx_state(struct hdevice *device, const void *data, size_t dsize,
 			// SPI Flash Read
 			case 0x10: {
 				const struct nx_spi_reply *spi = (const struct nx_spi_reply *) payload;
-				hid_nx_parse_stick(spi, 6, 3, 0, &ctx->lx, &ctx->ly);
-				hid_nx_parse_stick(spi, 12, 9, 15, &ctx->rx, &ctx->ry);
+				mty_hid_nx_parse_stick(spi, 6, 3, 0, &ctx->lx, &ctx->ly);
+				mty_hid_nx_parse_stick(spi, 12, 9, 15, &ctx->rx, &ctx->ry);
 				ctx->calibrated = true;
 				break;
 			}
 		}
 	}
 
-	hid_nx_state_machine(device);
+	mty_hid_nx_state_machine(device);
 }

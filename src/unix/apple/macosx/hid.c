@@ -114,7 +114,7 @@ static CFMutableDictionaryRef hid_match_dict(int32_t usage_page, int32_t usage)
 	return dict;
 }
 
-struct hid *hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_REPORT report, void *opaque)
+struct hid *mty_hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_REPORT report, void *opaque)
 {
 	bool r = true;
 
@@ -156,17 +156,17 @@ struct hid *hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_REPOR
 	except:
 
 	if (!r)
-		hid_destroy(&ctx);
+		mty_hid_destroy(&ctx);
 
 	return ctx;
 }
 
-struct hdevice *hid_get_device_by_id(struct hid *ctx, uint32_t id)
+struct hdevice *mty_hid_get_device_by_id(struct hid *ctx, uint32_t id)
 {
 	return MTY_HashGetInt(ctx->devices_rev, id);
 }
 
-void hid_destroy(struct hid **hid)
+void mty_hid_destroy(struct hid **hid)
 {
 	if (!hid || !*hid)
 		return;
@@ -189,7 +189,7 @@ void hid_destroy(struct hid **hid)
 }
 
 
-void hid_device_write(struct hdevice *ctx, const void *buf, size_t size)
+void mty_hid_device_write(struct hdevice *ctx, const void *buf, size_t size)
 {
 	const uint8_t *buf8 = buf;
 
@@ -203,7 +203,7 @@ void hid_device_write(struct hdevice *ctx, const void *buf, size_t size)
 		MTY_Log("'IOHIDDeviceSetReport' failed with error 0x%X", e);
 }
 
-bool hid_device_feature(struct hdevice *ctx, void *buf, size_t size, size_t *size_out)
+bool mty_hid_device_feature(struct hdevice *ctx, void *buf, size_t size, size_t *size_out)
 {
 	const uint8_t *buf8 = buf;
 
@@ -229,7 +229,7 @@ bool hid_device_feature(struct hdevice *ctx, void *buf, size_t size, size_t *siz
 	return false;
 }
 
-void hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Msg *wmsg)
+void mty_hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Msg *wmsg)
 {
 	MTY_Controller *c = &wmsg->controller;
 
@@ -283,36 +283,36 @@ void hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Ms
 	c->id = ctx->id;
 }
 
-void hid_default_rumble(struct hid *ctx, uint32_t id, uint16_t low, uint16_t high)
+void mty_hid_default_rumble(struct hid *ctx, uint32_t id, uint16_t low, uint16_t high)
 {
 }
 
-void *hid_device_get_state(struct hdevice *ctx)
+void *mty_hid_device_get_state(struct hdevice *ctx)
 {
 	return ctx->state;
 }
 
-uint16_t hid_device_get_vid(struct hdevice *ctx)
+uint16_t mty_hid_device_get_vid(struct hdevice *ctx)
 {
 	return ctx->vid;
 }
 
-uint16_t hid_device_get_pid(struct hdevice *ctx)
+uint16_t mty_hid_device_get_pid(struct hdevice *ctx)
 {
 	return ctx->pid;
 }
 
-uint32_t hid_device_get_id(struct hdevice *ctx)
+uint32_t mty_hid_device_get_id(struct hdevice *ctx)
 {
 	return ctx->id;
 }
 
-uint32_t hid_device_get_input_report_size(struct hdevice *ctx)
+uint32_t mty_hid_device_get_input_report_size(struct hdevice *ctx)
 {
 	return ctx->input_size;
 }
 
-bool hid_device_force_default(struct hdevice *ctx)
+bool mty_hid_device_force_default(struct hdevice *ctx)
 {
 	return false;
 }

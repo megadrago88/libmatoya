@@ -25,9 +25,9 @@ struct xbox_state {
 
 // Rumble
 
-static void hid_xbox_rumble(struct hdevice *device, uint16_t low, uint16_t high)
+static void mty_hid_xbox_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 {
-	struct xbox_state *ctx = hid_device_get_state(device);
+	struct xbox_state *ctx = mty_hid_device_get_state(device);
 
 	if (low != ctx->low || high != ctx->high) {
 		ctx->low = low;
@@ -36,9 +36,9 @@ static void hid_xbox_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 	}
 }
 
-static void hid_xbox_do_rumble(struct hdevice *device)
+static void mty_hid_xbox_do_rumble(struct hdevice *device)
 {
-	struct xbox_state *ctx = hid_device_get_state(device);
+	struct xbox_state *ctx = mty_hid_device_get_state(device);
 
 	uint64_t ts = MTY_Timestamp();
 	float diff = MTY_TimeDiff(ctx->rumble_ts, ts);
@@ -59,7 +59,7 @@ static void hid_xbox_do_rumble(struct hdevice *device)
 		rumble[4] = ctx->low >> 8;
 		rumble[5] = ctx->high >> 8;
 
-		hid_device_write(device, rumble, 9);
+		mty_hid_device_write(device, rumble, 9);
 		ctx->rumble_ts = ts;
 		ctx->rumble = false;
 	}
@@ -68,28 +68,28 @@ static void hid_xbox_do_rumble(struct hdevice *device)
 
 // State Reports
 
-static void hid_xbox_init(struct hdevice *device)
+static void mty_hid_xbox_init(struct hdevice *device)
 {
-	struct xbox_state *ctx = hid_device_get_state(device);
-	ctx->series_x = hid_device_get_pid(device) == 0x0B13;
+	struct xbox_state *ctx = mty_hid_device_get_state(device);
+	ctx->series_x = mty_hid_device_get_pid(device) == 0x0B13;
 	ctx->rumble = true;
 }
 
-static void hid_xbox_state(struct hdevice *device, const void *data, size_t dsize, MTY_Msg *wmsg)
+static void mty_hid_xbox_state(struct hdevice *device, const void *data, size_t dsize, MTY_Msg *wmsg)
 {
-	struct xbox_state *ctx = hid_device_get_state(device);
+	struct xbox_state *ctx = mty_hid_device_get_state(device);
 	const uint8_t *d8 = data;
 
 	if (d8[0] == 0x01) {
 		wmsg->type = MTY_MSG_CONTROLLER;
 
 		MTY_Controller *c = &wmsg->controller;
-		c->vid = hid_device_get_vid(device);
-		c->pid = hid_device_get_pid(device);
+		c->vid = mty_hid_device_get_vid(device);
+		c->pid = mty_hid_device_get_pid(device);
 		c->numValues = 7;
 		c->numButtons = 14;
 		c->driver = MTY_HID_DRIVER_XBOX;
-		c->id = hid_device_get_id(device);
+		c->id = mty_hid_device_get_id(device);
 
 		if (ctx->proto == XBOX_PROTO_UNKNOWN && d8[15] & 0x10)
 			ctx->proto = XBOX_PROTO_V2;
@@ -155,5 +155,5 @@ static void hid_xbox_state(struct hdevice *device, const void *data, size_t dsiz
 		ctx->guide = d8[1] & 0x01;
 	}
 
-	hid_xbox_do_rumble(device);
+	mty_hid_xbox_do_rumble(device);
 }

@@ -11,7 +11,7 @@
 
 // Helpers
 
-static void hid_u_to_s16(MTY_Value *v, bool invert)
+static void mty_hid_u_to_s16(MTY_Value *v, bool invert)
 {
 	if (v->max == 0 && v->min == 0)
 		return;
@@ -34,7 +34,7 @@ static void hid_u_to_s16(MTY_Value *v, bool invert)
 	v->max = INT16_MAX;
 }
 
-static void hid_s_to_s16(MTY_Value *v)
+static void mty_hid_s_to_s16(MTY_Value *v)
 {
 	if (v->data < 0)
 		v->data = (int16_t) lrint((float) v->data / (float) v->min * (float) INT16_MIN);
@@ -46,7 +46,7 @@ static void hid_s_to_s16(MTY_Value *v)
 	v->max = INT16_MAX;
 }
 
-static void hid_u_to_u8(MTY_Value *v)
+static void mty_hid_u_to_u8(MTY_Value *v)
 {
 	if (v->max == 0 && v->min == 0)
 		return;
@@ -72,7 +72,7 @@ static void hid_u_to_u8(MTY_Value *v)
 
 // Default mapping
 
-static bool hid_default_swap_value(MTY_Value *values, MTY_CValue a, MTY_CValue b)
+static bool mty_hid_default_swap_value(MTY_Value *values, MTY_CValue a, MTY_CValue b)
 {
 	if (a != b && values[a].usage != values[b].usage) {
 		MTY_Value tmp = values[b];
@@ -84,7 +84,7 @@ static bool hid_default_swap_value(MTY_Value *values, MTY_CValue a, MTY_CValue b
 	return false;
 }
 
-static void hid_default_move_value(MTY_Controller *c, MTY_Value *v, uint16_t usage,
+static void mty_hid_default_move_value(MTY_Controller *c, MTY_Value *v, uint16_t usage,
 	int16_t data, int16_t min, int16_t max)
 {
 	if (v->usage != usage && c->numValues < MTY_CVALUE_MAX) {
@@ -107,7 +107,7 @@ static void hid_default_move_value(MTY_Controller *c, MTY_Value *v, uint16_t usa
 	}
 }
 
-static void hid_default_map_values(MTY_Controller *c)
+static void mty_hid_default_map_values(MTY_Controller *c)
 {
 	// Make sure there is enough room for the standard CVALUEs
 	if (c->numValues < MTY_CVALUE_DPAD + 1)
@@ -119,31 +119,31 @@ static void hid_default_map_values(MTY_Controller *c)
 
 		switch (c->values[x].usage) {
 			case 0x30: // X -> Left Stick X
-				if (hid_default_swap_value(c->values, x, MTY_CVALUE_THUMB_LX))
+				if (mty_hid_default_swap_value(c->values, x, MTY_CVALUE_THUMB_LX))
 					goto retry;
 				break;
 			case 0x31: // Y -> Left Stick Y
-				if (hid_default_swap_value(c->values, x, MTY_CVALUE_THUMB_LY))
+				if (mty_hid_default_swap_value(c->values, x, MTY_CVALUE_THUMB_LY))
 					goto retry;
 				break;
 			case 0x32: // Z -> Right Stick X
-				if (hid_default_swap_value(c->values, x, MTY_CVALUE_THUMB_RX))
+				if (mty_hid_default_swap_value(c->values, x, MTY_CVALUE_THUMB_RX))
 					goto retry;
 				break;
 			case 0x35: // Rz -> Right Stick Y
-				if (hid_default_swap_value(c->values, x, MTY_CVALUE_THUMB_RY))
+				if (mty_hid_default_swap_value(c->values, x, MTY_CVALUE_THUMB_RY))
 					goto retry;
 				break;
 			case 0x33: // Rx -> Left Trigger
-				if (hid_default_swap_value(c->values, x, MTY_CVALUE_TRIGGER_L))
+				if (mty_hid_default_swap_value(c->values, x, MTY_CVALUE_TRIGGER_L))
 					goto retry;
 				break;
 			case 0x34: // Ry -> Right Trigger
-				if (hid_default_swap_value(c->values, x, MTY_CVALUE_TRIGGER_R))
+				if (mty_hid_default_swap_value(c->values, x, MTY_CVALUE_TRIGGER_R))
 					goto retry;
 				break;
 			case 0x39: // Hat -> DPAD
-				if (hid_default_swap_value(c->values, x, MTY_CVALUE_DPAD))
+				if (mty_hid_default_swap_value(c->values, x, MTY_CVALUE_DPAD))
 					goto retry;
 				break;
 		}
@@ -154,13 +154,13 @@ static void hid_default_map_values(MTY_Controller *c)
 		MTY_Value *v = &c->values[x];
 
 		switch (x) {
-			case MTY_CVALUE_THUMB_LX:  hid_default_move_value(c, v, 0x30, 0, INT16_MIN, INT16_MAX); break;
-			case MTY_CVALUE_THUMB_LY:  hid_default_move_value(c, v, 0x31, 0, INT16_MIN, INT16_MAX); break;
-			case MTY_CVALUE_THUMB_RX:  hid_default_move_value(c, v, 0x32, 0, INT16_MIN, INT16_MAX); break;
-			case MTY_CVALUE_THUMB_RY:  hid_default_move_value(c, v, 0x35, 0, INT16_MIN, INT16_MAX); break;
-			case MTY_CVALUE_TRIGGER_L: hid_default_move_value(c, v, 0x33, 0, 0, UINT8_MAX); break;
-			case MTY_CVALUE_TRIGGER_R: hid_default_move_value(c, v, 0x34, 0, 0, UINT8_MAX); break;
-			case MTY_CVALUE_DPAD:      hid_default_move_value(c, v, 0x39, 8, 0, 7); break;
+			case MTY_CVALUE_THUMB_LX:  mty_hid_default_move_value(c, v, 0x30, 0, INT16_MIN, INT16_MAX); break;
+			case MTY_CVALUE_THUMB_LY:  mty_hid_default_move_value(c, v, 0x31, 0, INT16_MIN, INT16_MAX); break;
+			case MTY_CVALUE_THUMB_RX:  mty_hid_default_move_value(c, v, 0x32, 0, INT16_MIN, INT16_MAX); break;
+			case MTY_CVALUE_THUMB_RY:  mty_hid_default_move_value(c, v, 0x35, 0, INT16_MIN, INT16_MAX); break;
+			case MTY_CVALUE_TRIGGER_L: mty_hid_default_move_value(c, v, 0x33, 0, 0, UINT8_MAX); break;
+			case MTY_CVALUE_TRIGGER_R: mty_hid_default_move_value(c, v, 0x34, 0, 0, UINT8_MAX); break;
+			case MTY_CVALUE_DPAD:      mty_hid_default_move_value(c, v, 0x39, 8, 0, 7); break;
 		}
 	}
 
@@ -171,18 +171,18 @@ static void hid_default_map_values(MTY_Controller *c)
 		switch (v->usage) {
 			case 0x30: // X -> Left Stick X
 			case 0x32: // Z -> Right Stick X
-				hid_u_to_s16(v, false);
+				mty_hid_u_to_s16(v, false);
 				break;
 			case 0x31: // Y -> Left Stick Y
 			case 0x35: // Rz -> Right Stick Y
-				hid_u_to_s16(v, true);
+				mty_hid_u_to_s16(v, true);
 				break;
 			case 0x33: // Rx -> Left Trigger
 			case 0x34: // Ry -> Right Trigger
 			case 0x36: // Slider
 			case 0x37: // Dial
 			case 0x38: // Wheel
-				hid_u_to_u8(v);
+				mty_hid_u_to_u8(v);
 				break;
 		}
 	}
@@ -197,13 +197,13 @@ static void hid_default_map_values(MTY_Controller *c)
 #include "xbox.h"
 #include "xboxw.h"
 
-static MTY_HIDDriver hid_driver(struct hdevice *device)
+static MTY_HIDDriver mty_hid_driver(struct hdevice *device)
 {
-	if (hid_device_force_default(device))
+	if (mty_hid_device_force_default(device))
 		return MTY_HID_DRIVER_DEFAULT;
 
-	uint16_t vid = hid_device_get_vid(device);
-	uint16_t pid = hid_device_get_pid(device);
+	uint16_t vid = mty_hid_device_get_vid(device);
+	uint16_t pid = mty_hid_device_get_pid(device);
 	uint32_t id = ((uint32_t) vid << 16) | pid;
 
 	switch (id) {
@@ -251,67 +251,67 @@ static MTY_HIDDriver hid_driver(struct hdevice *device)
 	return MTY_HID_DRIVER_DEFAULT;
 }
 
-static void hid_driver_init(struct hdevice *device)
+static void mty_hid_driver_init(struct hdevice *device)
 {
-	switch (hid_driver(device)) {
+	switch (mty_hid_driver(device)) {
 		case MTY_HID_DRIVER_SWITCH:
-			hid_nx_init(device);
+			mty_hid_nx_init(device);
 			break;
 		case MTY_HID_DRIVER_PS4:
-			hid_ps4_init(device);
+			mty_hid_ps4_init(device);
 			break;
 		case MTY_HID_DRIVER_XBOX:
-			hid_xbox_init(device);
+			mty_hid_xbox_init(device);
 			break;
 	}
 }
 
-static void hid_driver_state(struct hdevice *device, const void *buf, size_t size, MTY_Msg *wmsg)
+static void mty_hid_driver_state(struct hdevice *device, const void *buf, size_t size, MTY_Msg *wmsg)
 {
-	switch (hid_driver(device)) {
+	switch (mty_hid_driver(device)) {
 		case MTY_HID_DRIVER_SWITCH:
-			hid_nx_state(device, buf, size, wmsg);
+			mty_hid_nx_state(device, buf, size, wmsg);
 			break;
 		case MTY_HID_DRIVER_PS4:
-			hid_ps4_state(device, buf, size, wmsg);
+			mty_hid_ps4_state(device, buf, size, wmsg);
 			break;
 		case MTY_HID_DRIVER_PS5:
-			hid_ps5_state(device, buf, size, wmsg);
+			mty_hid_ps5_state(device, buf, size, wmsg);
 			break;
 		case MTY_HID_DRIVER_XBOX:
-			hid_xbox_state(device, buf, size, wmsg);
+			mty_hid_xbox_state(device, buf, size, wmsg);
 			break;
 		case MTY_HID_DRIVER_XBOXW:
-			hid_xboxw_state(device, buf, size, wmsg);
+			mty_hid_xboxw_state(device, buf, size, wmsg);
 			break;
 		case MTY_HID_DRIVER_DEFAULT:
-			hid_default_state(device, buf, size, wmsg);
-			hid_default_map_values(&wmsg->controller);
+			mty_hid_default_state(device, buf, size, wmsg);
+			mty_hid_default_map_values(&wmsg->controller);
 			break;
 	}
 }
 
-static void hid_driver_rumble(struct hid *hid, uint32_t id, uint16_t low, uint16_t high)
+static void mty_hid_driver_rumble(struct hid *hid, uint32_t id, uint16_t low, uint16_t high)
 {
-	struct hdevice *device = hid_get_device_by_id(hid, id);
+	struct hdevice *device = mty_hid_get_device_by_id(hid, id);
 	if (!device)
 		return;
 
-	switch (hid_driver(device)) {
+	switch (mty_hid_driver(device)) {
 		case MTY_HID_DRIVER_SWITCH:
-			hid_nx_rumble(device, low > 0, high > 0);
+			mty_hid_nx_rumble(device, low > 0, high > 0);
 			break;
 		case MTY_HID_DRIVER_PS4:
-			hid_ps4_rumble(device, low, high);
+			mty_hid_ps4_rumble(device, low, high);
 			break;
 		case MTY_HID_DRIVER_PS5:
-			hid_ps5_rumble(device, low, high);
+			mty_hid_ps5_rumble(device, low, high);
 			break;
 		case MTY_HID_DRIVER_XBOX:
-			hid_xbox_rumble(device, low, high);
+			mty_hid_xbox_rumble(device, low, high);
 			break;
 		case MTY_HID_DRIVER_DEFAULT:
-			hid_default_rumble(hid, id, low, high);
+			mty_hid_default_rumble(hid, id, low, high);
 			break;
 	}
 }

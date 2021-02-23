@@ -151,7 +151,7 @@ static struct hdevice *hid_device_create(HANDLE device)
 	return ctx;
 }
 
-struct hid *hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_REPORT report, void *opaque)
+struct hid *mty_hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_REPORT report, void *opaque)
 {
 	struct hid *ctx = MTY_Alloc(1, sizeof(struct hid));
 	ctx->devices = MTY_HashCreate(0);
@@ -191,12 +191,12 @@ struct hid *hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_REPOR
 	return ctx;
 }
 
-struct hdevice *hid_get_device_by_id(struct hid *ctx, uint32_t id)
+struct hdevice *mty_hid_get_device_by_id(struct hid *ctx, uint32_t id)
 {
 	return MTY_HashGetInt(ctx->devices_rev, id);
 }
 
-void hid_destroy(struct hid **hid)
+void mty_hid_destroy(struct hid **hid)
 {
 	if (!hid || !*hid)
 		return;
@@ -213,7 +213,7 @@ void hid_destroy(struct hid **hid)
 	*hid = NULL;
 }
 
-void hid_device_write(struct hdevice *ctx, const void *buf, size_t size)
+void mty_hid_device_write(struct hdevice *ctx, const void *buf, size_t size)
 {
 	OVERLAPPED ov = {0};
 	ov.hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
@@ -252,7 +252,7 @@ void hid_device_write(struct hdevice *ctx, const void *buf, size_t size)
 		CloseHandle(device);
 }
 
-bool hid_device_feature(struct hdevice *ctx, void *buf, size_t size, size_t *size_out)
+bool mty_hid_device_feature(struct hdevice *ctx, void *buf, size_t size, size_t *size_out)
 {
 	bool r = true;
 
@@ -295,37 +295,37 @@ bool hid_device_feature(struct hdevice *ctx, void *buf, size_t size, size_t *siz
 	return r;
 }
 
-void *hid_device_get_state(struct hdevice *ctx)
+void *mty_hid_device_get_state(struct hdevice *ctx)
 {
 	return ctx->state;
 }
 
-uint16_t hid_device_get_vid(struct hdevice *ctx)
+uint16_t mty_hid_device_get_vid(struct hdevice *ctx)
 {
 	return (uint16_t) ctx->di.hid.dwVendorId;
 }
 
-uint16_t hid_device_get_pid(struct hdevice *ctx)
+uint16_t mty_hid_device_get_pid(struct hdevice *ctx)
 {
 	return (uint16_t) ctx->di.hid.dwProductId;
 }
 
-uint32_t hid_device_get_id(struct hdevice *ctx)
+uint32_t mty_hid_device_get_id(struct hdevice *ctx)
 {
 	return ctx->id;
 }
 
-uint32_t hid_device_get_input_report_size(struct hdevice *ctx)
+uint32_t mty_hid_device_get_input_report_size(struct hdevice *ctx)
 {
 	return ctx->caps.InputReportByteLength;
 }
 
-bool hid_device_force_default(struct hdevice *ctx)
+bool mty_hid_device_force_default(struct hdevice *ctx)
 {
 	return false;
 }
 
-void hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Msg *wmsg)
+void mty_hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Msg *wmsg)
 {
 	MTY_Controller *c = &wmsg->controller;
 
@@ -389,14 +389,14 @@ void hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Ms
 	c->id = ctx->id;
 }
 
-void hid_default_rumble(struct hid *ctx, uint32_t id, uint16_t low, uint16_t high)
+void mty_hid_default_rumble(struct hid *ctx, uint32_t id, uint16_t low, uint16_t high)
 {
 }
 
 
 // Win32 RAWINPUT interop
 
-void hid_win32_report(struct hid *ctx, intptr_t device, const void *buf, size_t size)
+void mty_hid_win32_report(struct hid *ctx, intptr_t device, const void *buf, size_t size)
 {
 	struct hdevice *dev = MTY_HashGetInt(ctx->devices, device);
 
@@ -404,7 +404,7 @@ void hid_win32_report(struct hid *ctx, intptr_t device, const void *buf, size_t 
 		ctx->report(dev, buf, size, ctx->opaque);
 }
 
-void hid_win32_device_change(struct hid *ctx, intptr_t wparam, intptr_t lparam)
+void mty_hid_win32_device_change(struct hid *ctx, intptr_t wparam, intptr_t lparam)
 {
 	if (wparam == GIDC_ARRIVAL) {
 		for (uint8_t x = 0; x < 4; x++)
@@ -413,7 +413,7 @@ void hid_win32_device_change(struct hid *ctx, intptr_t wparam, intptr_t lparam)
 		struct hdevice *dev = hid_device_create((HANDLE) lparam);
 		if (dev) {
 			dev->id = ctx->id++;
-			hid_destroy(MTY_HashSetInt(ctx->devices, lparam, dev));
+			mty_hid_destroy(MTY_HashSetInt(ctx->devices, lparam, dev));
 			MTY_HashSetInt(ctx->devices_rev, dev->id, dev);
 
 			if (!dev->is_xinput)
@@ -432,7 +432,7 @@ void hid_win32_device_change(struct hid *ctx, intptr_t wparam, intptr_t lparam)
 	}
 }
 
-void hid_win32_listen(void *hwnd)
+void mty_hid_win32_listen(void *hwnd)
 {
 	RAWINPUTDEVICE rid[3] = {
 		{0x01, 0x04, RIDEV_DEVNOTIFY | RIDEV_INPUTSINK, (HWND) hwnd},
@@ -508,7 +508,7 @@ static void hid_xinput_to_mty(const XINPUT_STATE *xstate, MTY_Msg *wmsg)
 	c->values[MTY_CVALUE_DPAD].max = 7;
 }
 
-void hid_xinput_rumble(struct hid *ctx, uint32_t id, uint16_t low, uint16_t high)
+void mty_hid_xinput_rumble(struct hid *ctx, uint32_t id, uint16_t low, uint16_t high)
 {
 	if (id >= 4)
 		return;
@@ -524,7 +524,7 @@ void hid_xinput_rumble(struct hid *ctx, uint32_t id, uint16_t low, uint16_t high
 	}
 }
 
-void hid_xinput_state(struct hid *ctx, MTY_MsgFunc func, void *opaque)
+void mty_hid_xinput_state(struct hid *ctx, MTY_MsgFunc func, void *opaque)
 {
 	for (uint8_t x = 0; x < 4; x++) {
 		struct xip *xip = &ctx->xinput[x];

@@ -13,9 +13,9 @@ struct ps5_state {
 	bool bluetooth;
 };
 
-static void hid_ps5_rumble(struct hdevice *device, uint16_t low, uint16_t high)
+static void mty_hid_ps5_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 {
-	struct ps5_state *ctx = hid_device_get_state(device);
+	struct ps5_state *ctx = mty_hid_device_get_state(device);
 
 	uint8_t buf[PS5_OUTPUT_SIZE] = {0};
 	uint32_t size = 48;
@@ -39,31 +39,31 @@ static void hid_ps5_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 
 	if (ctx->bluetooth) {
 		uint8_t hdr = 0xA2;
-		uint32_t crc = hid_ps4_crc32(0, &hdr, 1);
-		crc = hid_ps4_crc32(crc, buf, size - 4);
+		uint32_t crc = mty_hid_ps4_crc32(0, &hdr, 1);
+		crc = mty_hid_ps4_crc32(crc, buf, size - 4);
 		memcpy(buf + size - 4, &crc, 4);
 	}
 
-	hid_device_write(device, buf, size);
+	mty_hid_device_write(device, buf, size);
 }
 
-static void hid_ps5_init(struct hdevice *device)
+static void mty_hid_ps5_init(struct hdevice *device)
 {
-	struct ps5_state *ctx = hid_device_get_state(device);
-	ctx->bluetooth = hid_device_get_input_report_size(device) == 78;
+	struct ps5_state *ctx = mty_hid_device_get_state(device);
+	ctx->bluetooth = mty_hid_device_get_input_report_size(device) == 78;
 
 	// Writing a bluetooth output report with id 0x31 will make the DS start sending
 	// 0x31 id input reports
-	hid_ps5_rumble(device, 0, 0);
+	mty_hid_ps5_rumble(device, 0, 0);
 }
 
-static void hid_ps5_state(struct hdevice *device, const void *data, size_t dsize, MTY_Msg *wmsg)
+static void mty_hid_ps5_state(struct hdevice *device, const void *data, size_t dsize, MTY_Msg *wmsg)
 {
-	struct ps5_state *ctx = hid_device_get_state(device);
+	struct ps5_state *ctx = mty_hid_device_get_state(device);
 
 	// First write must come after reports start coming in
 	if (!ctx->init) {
-		hid_ps5_init(device);
+		mty_hid_ps5_init(device);
 		ctx->init = true;
 
 	} else {
@@ -90,12 +90,12 @@ static void hid_ps5_state(struct hdevice *device, const void *data, size_t dsize
 		wmsg->type = MTY_MSG_CONTROLLER;
 
 		MTY_Controller *c = &wmsg->controller;
-		c->vid = hid_device_get_vid(device);
-		c->pid = hid_device_get_pid(device);
+		c->vid = mty_hid_device_get_vid(device);
+		c->pid = mty_hid_device_get_pid(device);
 		c->numValues = 7;
 		c->numButtons = 15;
 		c->driver = MTY_HID_DRIVER_PS5;
-		c->id = hid_device_get_id(device);
+		c->id = mty_hid_device_get_id(device);
 
 		c->buttons[MTY_CBUTTON_X] = b[5] & 0x10;
 		c->buttons[MTY_CBUTTON_A] = b[5] & 0x20;
@@ -121,25 +121,25 @@ static void hid_ps5_state(struct hdevice *device, const void *data, size_t dsize
 		c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
 		c->values[MTY_CVALUE_THUMB_LX].min = 0;
 		c->values[MTY_CVALUE_THUMB_LX].max = UINT8_MAX;
-		hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_LX], false);
+		mty_hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_LX], false);
 
 		c->values[MTY_CVALUE_THUMB_LY].data = a[2];
 		c->values[MTY_CVALUE_THUMB_LY].usage = 0x31;
 		c->values[MTY_CVALUE_THUMB_LY].min = 0;
 		c->values[MTY_CVALUE_THUMB_LY].max = UINT8_MAX;
-		hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_LY], true);
+		mty_hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_LY], true);
 
 		c->values[MTY_CVALUE_THUMB_RX].data = a[3];
 		c->values[MTY_CVALUE_THUMB_RX].usage = 0x32;
 		c->values[MTY_CVALUE_THUMB_RX].min = 0;
 		c->values[MTY_CVALUE_THUMB_RX].max = UINT8_MAX;
-		hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_RX], false);
+		mty_hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_RX], false);
 
 		c->values[MTY_CVALUE_THUMB_RY].data = a[4];
 		c->values[MTY_CVALUE_THUMB_RY].usage = 0x35;
 		c->values[MTY_CVALUE_THUMB_RY].min = 0;
 		c->values[MTY_CVALUE_THUMB_RY].max = UINT8_MAX;
-		hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_RY], true);
+		mty_hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_RY], true);
 
 		c->values[MTY_CVALUE_TRIGGER_L].data = t[8];
 		c->values[MTY_CVALUE_TRIGGER_L].usage = 0x33;
