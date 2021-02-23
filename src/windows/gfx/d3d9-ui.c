@@ -14,28 +14,28 @@ GFX_UI_PROTOTYPES(_d3d9_)
 
 #define D3DFVF_CUSTOMVERTEX (D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1)
 
-struct gfx_d3d9_ui {
+struct d3d9_ui {
 	IDirect3DVertexBuffer9 *vb;
 	IDirect3DIndexBuffer9 *ib;
 	uint32_t vb_len;
 	uint32_t idx_len;
 };
 
-struct gfx_d3d9_ui_vtx {
+struct d3d9_ui_vtx {
 	float pos[3];
 	D3DCOLOR col;
 	float uv[2];
 };
 
-struct gfx_ui *gfx_d3d9_ui_create(MTY_Device *device)
+struct gfx_ui *mty_d3d9_ui_create(MTY_Device *device)
 {
-	return MTY_Alloc(1, sizeof(struct gfx_d3d9_ui));
+	return MTY_Alloc(1, sizeof(struct d3d9_ui));
 }
 
-bool gfx_d3d9_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *context,
+bool mty_d3d9_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *context,
 	const MTY_DrawData *dd, MTY_Hash *cache, MTY_Texture *dest)
 {
-	struct gfx_d3d9_ui *ctx = (struct gfx_d3d9_ui *) gfx_ui;
+	struct d3d9_ui *ctx = (struct d3d9_ui *) gfx_ui;
 	IDirect3DDevice9 *_device = (IDirect3DDevice9 *) device;
 	IDirect3DSurface9 *_dest = (IDirect3DSurface9 *) dest;
 
@@ -50,7 +50,7 @@ bool gfx_d3d9_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *
 			ctx->vb = NULL;
 		}
 
-		HRESULT e = IDirect3DDevice9_CreateVertexBuffer(_device, (dd->vtxTotalLength + GFX_UI_VTX_INCR) * sizeof(struct gfx_d3d9_ui_vtx),
+		HRESULT e = IDirect3DDevice9_CreateVertexBuffer(_device, (dd->vtxTotalLength + GFX_UI_VTX_INCR) * sizeof(struct d3d9_ui_vtx),
 			D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, D3DFVF_CUSTOMVERTEX, D3DPOOL_DEFAULT, &ctx->vb, NULL);
 		if (e != D3D_OK) {
 			MTY_Log("'IDirect3DDevice9_CreateVertexBuffer' failed with HRESULT 0x%X", e);
@@ -77,8 +77,8 @@ bool gfx_d3d9_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *
 	}
 
 	// Lock both vertex and index buffers and bulk copy the data
-	struct gfx_d3d9_ui_vtx *vtx_dst = NULL;
-	HRESULT e = IDirect3DVertexBuffer9_Lock(ctx->vb, 0, (UINT) (dd->vtxTotalLength * sizeof(struct gfx_d3d9_ui_vtx)),
+	struct d3d9_ui_vtx *vtx_dst = NULL;
+	HRESULT e = IDirect3DVertexBuffer9_Lock(ctx->vb, 0, (UINT) (dd->vtxTotalLength * sizeof(struct d3d9_ui_vtx)),
 		(void **) &vtx_dst, D3DLOCK_DISCARD);
 	if (e != D3D_OK) {
 		MTY_Log("'IDirect3DVertexBuffer9_Lock' failed with HRESULT 0x%X", e);
@@ -164,7 +164,7 @@ bool gfx_d3d9_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *
 
 	IDirect3DDevice9_SetPixelShader(_device, NULL);
 	IDirect3DDevice9_SetVertexShader(_device, NULL);
-	IDirect3DDevice9_SetStreamSource(_device, 0, ctx->vb, 0, sizeof(struct gfx_d3d9_ui_vtx));
+	IDirect3DDevice9_SetStreamSource(_device, 0, ctx->vb, 0, sizeof(struct d3d9_ui_vtx));
 	IDirect3DDevice9_SetIndices(_device, ctx->ib);
 	IDirect3DDevice9_SetFVF(_device, D3DFVF_CUSTOMVERTEX);
 	IDirect3DDevice9_SetTransform(_device, D3DTS_WORLD, &mat_identity);
@@ -228,7 +228,7 @@ bool gfx_d3d9_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *
 	return true;
 }
 
-void *gfx_d3d9_ui_create_texture(MTY_Device *device, const void *rgba, uint32_t width, uint32_t height)
+void *mty_d3d9_ui_create_texture(MTY_Device *device, const void *rgba, uint32_t width, uint32_t height)
 {
 	IDirect3DDevice9 *_device = (IDirect3DDevice9 *) device;
 
@@ -272,7 +272,7 @@ void *gfx_d3d9_ui_create_texture(MTY_Device *device, const void *rgba, uint32_t 
 	return texture;
 }
 
-void gfx_d3d9_ui_destroy_texture(void **texture)
+void mty_d3d9_ui_destroy_texture(void **texture)
 {
 	if (!texture || !*texture)
 		return;
@@ -283,12 +283,12 @@ void gfx_d3d9_ui_destroy_texture(void **texture)
 	*texture = NULL;
 }
 
-void gfx_d3d9_ui_destroy(struct gfx_ui **gfx_ui)
+void mty_d3d9_ui_destroy(struct gfx_ui **gfx_ui)
 {
 	if (!gfx_ui || !*gfx_ui)
 		return;
 
-	struct gfx_d3d9_ui *ctx = (struct gfx_d3d9_ui *) *gfx_ui;
+	struct d3d9_ui *ctx = (struct d3d9_ui *) *gfx_ui;
 
 	if (ctx->vb)
 		IDirect3DVertexBuffer9_Release(ctx->vb);

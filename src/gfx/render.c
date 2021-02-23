@@ -48,14 +48,14 @@ static void render_destroy_api(MTY_Renderer *ctx)
 	if (ctx->api == MTY_GFX_NONE)
 		return;
 
-	GFX_API[ctx->api].gfx_destroy(&ctx->gfx);
-	GFX_UI_API[ctx->api].gfx_ui_destroy(&ctx->gfx_ui);
+	GFX_API[ctx->api].destroy(&ctx->gfx);
+	GFX_UI_API[ctx->api].destroy(&ctx->gfx_ui);
 
 	uint64_t i = 0;
 	int64_t id = 0;
 	while (MTY_HashNextKeyInt(ctx->textures, &i, &id)) {
 		void *texture = MTY_HashPopInt(ctx->textures, id);
-		GFX_UI_API[ctx->api].gfx_ui_destroy_texture(&texture);
+		GFX_UI_API[ctx->api].destroy_texture(&texture);
 	}
 
 	ctx->api = MTY_GFX_NONE;
@@ -75,8 +75,8 @@ static bool render_create_api(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device
 	ctx->api = api;
 	ctx->device = device;
 
-	ctx->gfx = GFX_API[api].gfx_create(device);
-	ctx->gfx_ui = GFX_UI_API[api].gfx_ui_create(device);
+	ctx->gfx = GFX_API[api].create(device);
+	ctx->gfx_ui = GFX_UI_API[api].create(device);
 
 	if (!ctx->gfx || !ctx->gfx_ui) {
 		render_destroy_api(ctx);
@@ -103,7 +103,7 @@ bool MTY_RendererDrawQuad(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device, MT
 	if (!renderer_begin(ctx, api, context, device))
 		return false;
 
-	return GFX_API[api].gfx_render(ctx->gfx, device, context, image, desc, dest);
+	return GFX_API[api].render(ctx->gfx, device, context, image, desc, dest);
 }
 
 bool MTY_RendererDrawUI(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device,
@@ -112,7 +112,7 @@ bool MTY_RendererDrawUI(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device,
 	if (!renderer_begin(ctx, api, context, device))
 		return false;
 
-	return GFX_UI_API[api].gfx_ui_render(ctx->gfx_ui, device, context, dd, ctx->textures, dest);
+	return GFX_UI_API[api].render(ctx->gfx_ui, device, context, dd, ctx->textures, dest);
 }
 
 void *MTY_RendererSetUITexture(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device,
@@ -123,10 +123,10 @@ void *MTY_RendererSetUITexture(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *devic
 
 	void *texture = MTY_HashPopInt(ctx->textures, id);
 	if (texture)
-		GFX_UI_API[api].gfx_ui_destroy_texture(&texture);
+		GFX_UI_API[api].destroy_texture(&texture);
 
 	if (rgba) {
-		texture = GFX_UI_API[api].gfx_ui_create_texture(device, rgba, width, height);
+		texture = GFX_UI_API[api].create_texture(device, rgba, width, height);
 		MTY_HashSetInt(ctx->textures, id, texture);
 	}
 
@@ -154,7 +154,7 @@ MTY_RenderState *MTY_GetRenderState(MTY_GFX api, MTY_Device *device, MTY_Context
 	MTY_RenderState *state = MTY_Alloc(1, sizeof(MTY_RenderState));
 
 	state->api = api;
-	state->opaque = GFX_API[api].gfx_get_state(device, context);
+	state->opaque = GFX_API[api].get_state(device, context);
 
 	return state;
 }
@@ -165,7 +165,7 @@ void MTY_SetRenderState(MTY_GFX api, MTY_Device *device, MTY_Context *context,
 	if (!state || !state->opaque || state->api != api)
 		return;
 
-	GFX_API[api].gfx_set_state(device, context, state->opaque);
+	GFX_API[api].set_state(device, context, state->opaque);
 }
 
 void MTY_FreeRenderState(MTY_RenderState **state)
@@ -175,7 +175,7 @@ void MTY_FreeRenderState(MTY_RenderState **state)
 
 	MTY_RenderState *s = *state;
 
-	GFX_API[s->api].gfx_free_state(&s->opaque);
+	GFX_API[s->api].free_state(&s->opaque);
 
 	MTY_Free(s);
 	*state = NULL;

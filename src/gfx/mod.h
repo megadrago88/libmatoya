@@ -14,27 +14,27 @@
 
 struct gfx;
 
-#define GFX_PROTO(func) func
-#define GFX_FP(func)    (*func)
+#define GFX_PROTO(api, name) mty##api##name
+#define GFX_FP(api, name)    (*name)
 
 #define GFX_DECLARE_API(api, wrap) \
-	struct gfx *wrap(gfx##api##create)(MTY_Device *device); \
-	void wrap(gfx##api##destroy)(struct gfx **gfx); \
-	bool wrap(gfx##api##render)(struct gfx *gfx, MTY_Device *device, MTY_Context *context, \
+	struct gfx *wrap(api, create)(MTY_Device *device); \
+	void wrap(api, destroy)(struct gfx **gfx); \
+	bool wrap(api, render)(struct gfx *gfx, MTY_Device *device, MTY_Context *context, \
 		const void *image, const MTY_RenderDesc *desc, MTY_Texture *dest); \
-	void *wrap(gfx##api##get_state)(MTY_Device *device, MTY_Context *context); \
-	void wrap(gfx##api##set_state)(MTY_Device *device, MTY_Context *context, void *state); \
-	void wrap(gfx##api##free_state)(void **state);
+	void *wrap(api, get_state)(MTY_Device *device, MTY_Context *context); \
+	void wrap(api, set_state)(MTY_Device *device, MTY_Context *context, void *state); \
+	void wrap(api, free_state)(void **state);
 
 #define GFX_PROTOTYPES(api) \
 	GFX_DECLARE_API(api, GFX_PROTO)
 
 #define GFX_DECLARE_ROW(API, api) \
 	[MTY_GFX_##API] = { \
-		gfx##api##create, \
-		gfx##api##destroy, \
-		gfx##api##render, \
-		gfx##api##get_state, \
-		gfx##api##set_state, \
-		gfx##api##free_state, \
+		mty##api##create, \
+		mty##api##destroy, \
+		mty##api##render, \
+		mty##api##get_state, \
+		mty##api##set_state, \
+		mty##api##free_state, \
 	},

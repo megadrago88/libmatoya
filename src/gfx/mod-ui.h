@@ -17,27 +17,27 @@ struct gfx_ui;
 #define GFX_UI_VTX_INCR (1024 * 5)
 #define GFX_UI_IDX_INCR (1024 * 10)
 
-#define GFX_UI_PROTO(func) func
-#define GFX_UI_FP(func)    (*func)
+#define GFX_UI_PROTO(api, name) mty##api##ui_##name
+#define GFX_UI_FP(api, name)    (*name)
 
 #define GFX_UI_DECLARE_API(api, wrap) \
-	struct gfx_ui *wrap(gfx##api##ui_create)(MTY_Device *device); \
-	void wrap(gfx##api##ui_destroy)(struct gfx_ui **gfx_ui); \
-	bool wrap(gfx##api##ui_render)(struct gfx_ui *gfx_ui, MTY_Device *device, \
+	struct gfx_ui *wrap(api, create)(MTY_Device *device); \
+	void wrap(api, destroy)(struct gfx_ui **gfx_ui); \
+	bool wrap(api, render)(struct gfx_ui *gfx_ui, MTY_Device *device, \
 		MTY_Context *context, const MTY_DrawData *dd, MTY_Hash *cache, \
 		MTY_Texture *dest); \
-	void *wrap(gfx##api##ui_create_texture)(MTY_Device *device, const void *rgba, \
+	void *wrap(api, create_texture)(MTY_Device *device, const void *rgba, \
 		uint32_t width, uint32_t height); \
-	void wrap(gfx##api##ui_destroy_texture)(void **texture);
+	void wrap(api, destroy_texture)(void **texture);
 
 #define GFX_UI_PROTOTYPES(api) \
 	GFX_UI_DECLARE_API(api, GFX_UI_PROTO)
 
 #define GFX_UI_DECLARE_ROW(API, api) \
 	[MTY_GFX_##API] = { \
-		gfx##api##ui_create, \
-		gfx##api##ui_destroy, \
-		gfx##api##ui_render, \
-		gfx##api##ui_create_texture, \
-		gfx##api##ui_destroy_texture, \
+		mty##api##ui_create, \
+		mty##api##ui_destroy, \
+		mty##api##ui_render, \
+		mty##api##ui_create_texture, \
+		mty##api##ui_destroy_texture, \
 	},

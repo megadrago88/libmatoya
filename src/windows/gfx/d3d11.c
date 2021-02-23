@@ -31,7 +31,7 @@ struct psvars {
 	uint32_t __pad[1]; // Constant buffers must be in increments of 16 bytes
 };
 
-struct gfx_d3d11_res {
+struct d3d11_res {
 	DXGI_FORMAT format;
 	ID3D11Texture2D *texture;
 	ID3D11Resource *resource;
@@ -40,9 +40,9 @@ struct gfx_d3d11_res {
 	uint32_t height;
 };
 
-struct gfx_d3d11 {
+struct d3d11 {
 	MTY_ColorFormat format;
-	struct gfx_d3d11_res staging[NUM_STAGING];
+	struct d3d11_res staging[NUM_STAGING];
 	ID3D11VertexShader *vs;
 	ID3D11PixelShader *ps;
 	ID3D11Buffer *vb;
@@ -56,9 +56,9 @@ struct gfx_d3d11 {
 	ID3D11DepthStencilState *dss;
 };
 
-struct gfx *gfx_d3d11_create(MTY_Device *device)
+struct gfx *mty_d3d11_create(MTY_Device *device)
 {
-	struct gfx_d3d11 *ctx = MTY_Alloc(1, sizeof(struct gfx_d3d11));
+	struct d3d11 *ctx = MTY_Alloc(1, sizeof(struct d3d11));
 	ID3D11Device *_device = (ID3D11Device *) device;
 
 	HRESULT e = ID3D11Device_CreateVertexShader(_device, vs, sizeof(vs), NULL, &ctx->vs);
@@ -178,12 +178,12 @@ struct gfx *gfx_d3d11_create(MTY_Device *device)
 	except:
 
 	if (e != S_OK)
-		gfx_d3d11_destroy((struct gfx **) &ctx);
+		mty_d3d11_destroy((struct gfx **) &ctx);
 
 	return (struct gfx *) ctx;
 }
 
-static void gfx_d3d11_destroy_resource(struct gfx_d3d11_res *res)
+static void d3d11_destroy_resource(struct d3d11_res *res)
 {
 	if (res->srv)
 		ID3D11ShaderResourceView_Release(res->srv);
@@ -194,10 +194,10 @@ static void gfx_d3d11_destroy_resource(struct gfx_d3d11_res *res)
 	if (res->texture)
 		ID3D11Texture2D_Release(res->texture);
 
-	memset(res, 0, sizeof(struct gfx_d3d11_res));
+	memset(res, 0, sizeof(struct d3d11_res));
 }
 
-static HRESULT gfx_d3d11_refresh_resource(struct gfx_d3d11_res *res, ID3D11Device *device,
+static HRESULT d3d11_refresh_resource(struct d3d11_res *res, ID3D11Device *device,
 	DXGI_FORMAT format, uint32_t width, uint32_t height)
 {
 	HRESULT e = S_OK;
@@ -205,7 +205,7 @@ static HRESULT gfx_d3d11_refresh_resource(struct gfx_d3d11_res *res, ID3D11Devic
 	if (!res->texture || !res->srv || !res->resource || width != res->width ||
 		height != res->height || format != res->format)
 	{
-		gfx_d3d11_destroy_resource(res);
+		d3d11_destroy_resource(res);
 
 		D3D11_TEXTURE2D_DESC desc = {0};
 		desc.Width = width;
@@ -249,12 +249,12 @@ static HRESULT gfx_d3d11_refresh_resource(struct gfx_d3d11_res *res, ID3D11Devic
 	except:
 
 	if (e != S_OK)
-		gfx_d3d11_destroy_resource(res);
+		d3d11_destroy_resource(res);
 
 	return e;
 }
 
-static HRESULT gfx_d3d11_crop_copy(ID3D11DeviceContext *context, ID3D11Resource *texture,
+static HRESULT d3d11_crop_copy(ID3D11DeviceContext *context, ID3D11Resource *texture,
 	const uint8_t *image, uint32_t w, uint32_t h, int32_t fullWidth, uint8_t bpp)
 {
 	D3D11_MAPPED_SUBRESOURCE res;
@@ -272,41 +272,41 @@ static HRESULT gfx_d3d11_crop_copy(ID3D11DeviceContext *context, ID3D11Resource 
 	return e;
 }
 
-static HRESULT gfx_d3d11_reload_textures(struct gfx_d3d11 *ctx, ID3D11Device *device, ID3D11DeviceContext *context,
+static HRESULT d3d11_reload_textures(struct d3d11 *ctx, ID3D11Device *device, ID3D11DeviceContext *context,
 	const void *image, const MTY_RenderDesc *desc)
 {
 	switch (desc->format) {
 		case MTY_COLOR_FORMAT_RGBA: {
 			// RGBA
-			HRESULT e = gfx_d3d11_refresh_resource(&ctx->staging[0], device, DXGI_FORMAT_R8G8B8A8_UNORM, desc->cropWidth, desc->cropHeight);
+			HRESULT e = d3d11_refresh_resource(&ctx->staging[0], device, DXGI_FORMAT_R8G8B8A8_UNORM, desc->cropWidth, desc->cropHeight);
 			if (e != S_OK) return e;
 
-			e = gfx_d3d11_crop_copy(context, ctx->staging[0].resource, image, desc->cropWidth, desc->cropHeight, desc->imageWidth, 4);
+			e = d3d11_crop_copy(context, ctx->staging[0].resource, image, desc->cropWidth, desc->cropHeight, desc->imageWidth, 4);
 			if (e != S_OK) return e;
 			break;
 		}
 		case MTY_COLOR_FORMAT_RGB565: {
 			// RGBA
-			HRESULT e = gfx_d3d11_refresh_resource(&ctx->staging[0], device, DXGI_FORMAT_B5G6R5_UNORM, desc->cropWidth, desc->cropHeight);
+			HRESULT e = d3d11_refresh_resource(&ctx->staging[0], device, DXGI_FORMAT_B5G6R5_UNORM, desc->cropWidth, desc->cropHeight);
 			if (e != S_OK) return e;
 
-			e = gfx_d3d11_crop_copy(context, ctx->staging[0].resource, image, desc->cropWidth, desc->cropHeight, desc->imageWidth, 2);
+			e = d3d11_crop_copy(context, ctx->staging[0].resource, image, desc->cropWidth, desc->cropHeight, desc->imageWidth, 2);
 			if (e != S_OK) return e;
 			break;
 		}
 		case MTY_COLOR_FORMAT_NV12: {
 			// Y
-			HRESULT e = gfx_d3d11_refresh_resource(&ctx->staging[0], device, DXGI_FORMAT_R8_UNORM, desc->cropWidth, desc->cropHeight);
+			HRESULT e = d3d11_refresh_resource(&ctx->staging[0], device, DXGI_FORMAT_R8_UNORM, desc->cropWidth, desc->cropHeight);
 			if (e != S_OK) return e;
 
-			e = gfx_d3d11_crop_copy(context, ctx->staging[0].resource, image, desc->cropWidth, desc->cropHeight, desc->imageWidth, 1);
+			e = d3d11_crop_copy(context, ctx->staging[0].resource, image, desc->cropWidth, desc->cropHeight, desc->imageWidth, 1);
 			if (e != S_OK) return e;
 
 			// UV
-			e = gfx_d3d11_refresh_resource(&ctx->staging[1], device, DXGI_FORMAT_R8G8_UNORM, desc->cropWidth / 2, desc->cropHeight / 2);
+			e = d3d11_refresh_resource(&ctx->staging[1], device, DXGI_FORMAT_R8G8_UNORM, desc->cropWidth / 2, desc->cropHeight / 2);
 			if (e != S_OK) return e;
 
-			e = gfx_d3d11_crop_copy(context, ctx->staging[1].resource, (uint8_t *) image + desc->imageWidth * desc->imageHeight, desc->cropWidth / 2, desc->cropHeight / 2, desc->imageWidth / 2, 2);
+			e = d3d11_crop_copy(context, ctx->staging[1].resource, (uint8_t *) image + desc->imageWidth * desc->imageHeight, desc->cropWidth / 2, desc->cropHeight / 2, desc->imageWidth / 2, 2);
 			if (e != S_OK) return e;
 			break;
 		}
@@ -315,26 +315,26 @@ static HRESULT gfx_d3d11_reload_textures(struct gfx_d3d11 *ctx, ID3D11Device *de
 			uint32_t div = desc->format == MTY_COLOR_FORMAT_I420 ? 2 : 1;
 
 			// Y
-			HRESULT e = gfx_d3d11_refresh_resource(&ctx->staging[0], device, DXGI_FORMAT_R8_UNORM, desc->cropWidth, desc->cropHeight);
+			HRESULT e = d3d11_refresh_resource(&ctx->staging[0], device, DXGI_FORMAT_R8_UNORM, desc->cropWidth, desc->cropHeight);
 			if (e != S_OK) return e;
 
-			e = gfx_d3d11_crop_copy(context, ctx->staging[0].resource, image, desc->cropWidth, desc->cropHeight, desc->imageWidth, 1);
+			e = d3d11_crop_copy(context, ctx->staging[0].resource, image, desc->cropWidth, desc->cropHeight, desc->imageWidth, 1);
 			if (e != S_OK) return e;
 
 			// U
 			uint8_t *p = (uint8_t *) image + desc->imageWidth * desc->imageHeight;
-			e = gfx_d3d11_refresh_resource(&ctx->staging[1], device, DXGI_FORMAT_R8_UNORM, desc->cropWidth / div, desc->cropHeight / div);
+			e = d3d11_refresh_resource(&ctx->staging[1], device, DXGI_FORMAT_R8_UNORM, desc->cropWidth / div, desc->cropHeight / div);
 			if (e != S_OK) return e;
 
-			e = gfx_d3d11_crop_copy(context, ctx->staging[1].resource, p, desc->cropWidth / div, desc->cropHeight / div, desc->imageWidth / div, 1);
+			e = d3d11_crop_copy(context, ctx->staging[1].resource, p, desc->cropWidth / div, desc->cropHeight / div, desc->imageWidth / div, 1);
 			if (e != S_OK) return e;
 
 			// V
 			p += (desc->imageWidth / div) * (desc->imageHeight / div);
-			e = gfx_d3d11_refresh_resource(&ctx->staging[2], device, DXGI_FORMAT_R8_UNORM, desc->cropWidth / div, desc->cropHeight / div);
+			e = d3d11_refresh_resource(&ctx->staging[2], device, DXGI_FORMAT_R8_UNORM, desc->cropWidth / div, desc->cropHeight / div);
 			if (e != S_OK) return e;
 
-			e = gfx_d3d11_crop_copy(context, ctx->staging[2].resource, p, desc->cropWidth / div, desc->cropHeight / div, desc->imageWidth / div, 1);
+			e = d3d11_crop_copy(context, ctx->staging[2].resource, p, desc->cropWidth / div, desc->cropHeight / div, desc->imageWidth / div, 1);
 			if (e != S_OK) return e;
 			break;
 		}
@@ -343,10 +343,10 @@ static HRESULT gfx_d3d11_reload_textures(struct gfx_d3d11 *ctx, ID3D11Device *de
 	return S_OK;
 }
 
-bool gfx_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
+bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	const void *image, const MTY_RenderDesc *desc, MTY_Texture *dest)
 {
-	struct gfx_d3d11 *ctx = (struct gfx_d3d11 *) gfx;
+	struct d3d11 *ctx = (struct d3d11 *) gfx;
 	ID3D11Device *_device = (ID3D11Device *) device;
 	ID3D11DeviceContext *_context = (ID3D11DeviceContext *) context;
 	ID3D11Texture2D *_dest = (ID3D11Texture2D *) dest;
@@ -360,7 +360,7 @@ bool gfx_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 
 	// Refresh textures and load texture data
 	// If format == MTY_COLOR_FORMAT_UNKNOWN, texture refreshing/loading is skipped and the previous frame is rendered
-	HRESULT e = gfx_d3d11_reload_textures(ctx, _device, _context, image, desc);
+	HRESULT e = d3d11_reload_textures(ctx, _device, _context, image, desc);
 	if (e != S_OK)
 		return false;
 
@@ -450,15 +450,15 @@ bool gfx_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	return e == S_OK;
 }
 
-void gfx_d3d11_destroy(struct gfx **gfx)
+void mty_d3d11_destroy(struct gfx **gfx)
 {
 	if (!gfx || !*gfx)
 		return;
 
-	struct gfx_d3d11 *ctx = (struct gfx_d3d11 *) *gfx;
+	struct d3d11 *ctx = (struct d3d11 *) *gfx;
 
 	for (uint8_t x = 0; x < NUM_STAGING; x++)
-		gfx_d3d11_destroy_resource(&ctx->staging[x]);
+		d3d11_destroy_resource(&ctx->staging[x]);
 
 	if (ctx->rs)
 		ID3D11RasterizerState_Release(ctx->rs);
@@ -500,7 +500,7 @@ void gfx_d3d11_destroy(struct gfx **gfx)
 
 // State
 
-struct gfx_d3d11_state {
+struct d3d11_state {
 	UINT sr_count;
 	UINT vp_count;
 	D3D11_RECT sr[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE];
@@ -533,9 +533,9 @@ struct gfx_d3d11_state {
 	ID3D11InputLayout *il;
 };
 
-void *gfx_d3d11_get_state(MTY_Device *device, MTY_Context *context)
+void *mty_d3d11_get_state(MTY_Device *device, MTY_Context *context)
 {
-	struct gfx_d3d11_state *s = MTY_Alloc(1, sizeof(struct gfx_d3d11_state));
+	struct d3d11_state *s = MTY_Alloc(1, sizeof(struct d3d11_state));
 	ID3D11DeviceContext *_context = (ID3D11DeviceContext *) context;
 
 	s->sr_count = s->vp_count = D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE;
@@ -561,9 +561,9 @@ void *gfx_d3d11_get_state(MTY_Device *device, MTY_Context *context)
 	return s;
 }
 
-void gfx_d3d11_set_state(MTY_Device *device, MTY_Context *context, void *state)
+void mty_d3d11_set_state(MTY_Device *device, MTY_Context *context, void *state)
 {
-	struct gfx_d3d11_state *s = state;
+	struct d3d11_state *s = state;
 	ID3D11DeviceContext *_context = (ID3D11DeviceContext *) context;
 
 	ID3D11DeviceContext_IASetInputLayout(_context, s->il);
@@ -585,12 +585,12 @@ void gfx_d3d11_set_state(MTY_Device *device, MTY_Context *context, void *state)
 	ID3D11DeviceContext_RSSetScissorRects(_context, s->sr_count, s->sr);
 }
 
-void gfx_d3d11_free_state(void **state)
+void mty_d3d11_free_state(void **state)
 {
 	if (!state || !*state)
 		return;
 
-	struct gfx_d3d11_state *s = *state;
+	struct d3d11_state *s = *state;
 
 	if (s->il)
 		ID3D11InputLayout_Release(s->il);

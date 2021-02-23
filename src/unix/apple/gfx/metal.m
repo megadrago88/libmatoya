@@ -14,7 +14,7 @@ GFX_PROTOTYPES(_metal_)
 
 #define NUM_STAGING 3
 
-struct gfx_metal_cb {
+struct metal_cb {
 	float width;
 	float height;
 	float vp_height;
@@ -24,17 +24,17 @@ struct gfx_metal_cb {
 	uint32_t rotation;
 };
 
-struct gfx_metal_res {
+struct metal_res {
 	MTLPixelFormat format;
 	id<MTLTexture> texture;
 	uint32_t width;
 	uint32_t height;
 };
 
-struct gfx_metal {
+struct metal {
 	MTY_ColorFormat format;
-	struct gfx_metal_cb fcb;
-	struct gfx_metal_res staging[NUM_STAGING];
+	struct metal_cb fcb;
+	struct metal_res staging[NUM_STAGING];
 	id<MTLLibrary> library;
 	id<MTLFunction> fs;
 	id<MTLFunction> vs;
@@ -46,9 +46,9 @@ struct gfx_metal {
 	id<MTLTexture> niltex;
 };
 
-struct gfx *gfx_metal_create(MTY_Device *device)
+struct gfx *mty_metal_create(MTY_Device *device)
 {
-	struct gfx_metal *ctx = MTY_Alloc(1, sizeof(struct gfx_metal));
+	struct metal *ctx = MTY_Alloc(1, sizeof(struct metal));
 	id<MTLDevice> _device = (__bridge id<MTLDevice>) device;
 
 	bool r = true;
@@ -127,12 +127,12 @@ struct gfx *gfx_metal_create(MTY_Device *device)
 	except:
 
 	if (!r)
-		gfx_metal_destroy((struct gfx **) &ctx);
+		mty_metal_destroy((struct gfx **) &ctx);
 
 	return (struct gfx *) ctx;
 }
 
-static void gfx_metal_refresh_resource(struct gfx_metal_res *res, id<MTLDevice> device,
+static void metal_refresh_resource(struct metal_res *res, id<MTLDevice> device,
 	MTLPixelFormat format, uint32_t width, uint32_t height)
 {
 	if (!res->texture || width != res->width || height != res->height || format != res->format) {
@@ -152,11 +152,11 @@ static void gfx_metal_refresh_resource(struct gfx_metal_res *res, id<MTLDevice> 
 	}
 }
 
-static void gfx_metal_reload_textures(struct gfx_metal *ctx, id<MTLDevice> device, const void *image, const MTY_RenderDesc *desc)
+static void metal_reload_textures(struct metal *ctx, id<MTLDevice> device, const void *image, const MTY_RenderDesc *desc)
 {
 	switch (desc->format) {
 		case MTY_COLOR_FORMAT_RGBA: {
-			gfx_metal_refresh_resource(&ctx->staging[0], device, MTLPixelFormatRGBA8Unorm, desc->cropWidth, desc->cropHeight);
+			metal_refresh_resource(&ctx->staging[0], device, MTLPixelFormatRGBA8Unorm, desc->cropWidth, desc->cropHeight);
 
 			MTLRegion region = MTLRegionMake2D(0, 0, desc->cropWidth, desc->cropHeight);
 			[ctx->staging[0].texture replaceRegion:region mipmapLevel:0 withBytes:image bytesPerRow:4 * desc->imageWidth];
@@ -167,13 +167,13 @@ static void gfx_metal_reload_textures(struct gfx_metal *ctx, id<MTLDevice> devic
 			uint32_t div = desc->format == MTY_COLOR_FORMAT_NV12 ? 2 : 1;
 
 			// Y
-			gfx_metal_refresh_resource(&ctx->staging[0], device, MTLPixelFormatR8Unorm, desc->cropWidth, desc->cropHeight);
+			metal_refresh_resource(&ctx->staging[0], device, MTLPixelFormatR8Unorm, desc->cropWidth, desc->cropHeight);
 
 			MTLRegion region = MTLRegionMake2D(0, 0, desc->cropWidth, desc->cropHeight);
 			[ctx->staging[0].texture replaceRegion:region mipmapLevel:0 withBytes:image bytesPerRow:desc->imageWidth];
 
 			// UV
-			gfx_metal_refresh_resource(&ctx->staging[1], device, MTLPixelFormatRG8Unorm, desc->cropWidth / 2, desc->cropHeight / div);
+			metal_refresh_resource(&ctx->staging[1], device, MTLPixelFormatRG8Unorm, desc->cropWidth / 2, desc->cropHeight / div);
 
 			region = MTLRegionMake2D(0, 0, desc->cropWidth / 2, desc->cropHeight / div);
 			[ctx->staging[1].texture replaceRegion:region mipmapLevel:0 withBytes:(uint8_t *) image + desc->imageWidth * desc->imageHeight bytesPerRow:desc->imageWidth];
@@ -184,21 +184,21 @@ static void gfx_metal_reload_textures(struct gfx_metal *ctx, id<MTLDevice> devic
 			uint32_t div = desc->format == MTY_COLOR_FORMAT_I420 ? 2 : 1;
 
 			// Y
-			gfx_metal_refresh_resource(&ctx->staging[0], device, MTLPixelFormatR8Unorm, desc->cropWidth, desc->cropHeight);
+			metal_refresh_resource(&ctx->staging[0], device, MTLPixelFormatR8Unorm, desc->cropWidth, desc->cropHeight);
 
 			MTLRegion region = MTLRegionMake2D(0, 0, desc->cropWidth, desc->cropHeight);
 			[ctx->staging[0].texture replaceRegion:region mipmapLevel:0 withBytes:image bytesPerRow:desc->imageWidth];
 
 			// U
 			uint8_t *p = (uint8_t *) image + desc->imageWidth * desc->imageHeight;
-			gfx_metal_refresh_resource(&ctx->staging[1], device, MTLPixelFormatR8Unorm, desc->cropWidth / div, desc->cropHeight / div);
+			metal_refresh_resource(&ctx->staging[1], device, MTLPixelFormatR8Unorm, desc->cropWidth / div, desc->cropHeight / div);
 
 			region = MTLRegionMake2D(0, 0, desc->cropWidth / div, desc->cropHeight / div);
 			[ctx->staging[1].texture replaceRegion:region mipmapLevel:0 withBytes:p bytesPerRow:desc->imageWidth / div];
 
 			// V
 			p += (desc->imageWidth / div) * (desc->imageHeight / div);
-			gfx_metal_refresh_resource(&ctx->staging[2], device, MTLPixelFormatR8Unorm, desc->cropWidth / div, desc->cropHeight / div);
+			metal_refresh_resource(&ctx->staging[2], device, MTLPixelFormatR8Unorm, desc->cropWidth / div, desc->cropHeight / div);
 
 			region = MTLRegionMake2D(0, 0, desc->cropWidth / div, desc->cropHeight / div);
 			[ctx->staging[2].texture replaceRegion:region mipmapLevel:0 withBytes:p bytesPerRow:desc->imageWidth / div];
@@ -207,10 +207,10 @@ static void gfx_metal_reload_textures(struct gfx_metal *ctx, id<MTLDevice> devic
 	}
 }
 
-bool gfx_metal_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
+bool mty_metal_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	const void *image, const MTY_RenderDesc *desc, MTY_Texture *dest)
 {
-	struct gfx_metal *ctx = (struct gfx_metal *) gfx;
+	struct metal *ctx = (struct metal *) gfx;
 	id<MTLDevice> _device = (__bridge id<MTLDevice>) device;
 	id<MTLCommandQueue> cq = (__bridge id<MTLCommandQueue>) context;
 	id<MTLTexture> _dest = (__bridge id<MTLTexture>) dest;
@@ -222,7 +222,7 @@ bool gfx_metal_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	if (ctx->format == MTY_COLOR_FORMAT_UNKNOWN)
 		return true;
 
-	gfx_metal_reload_textures(ctx, _device, image, desc);
+	metal_reload_textures(ctx, _device, image, desc);
 
 	// Begin render pass
 	MTLRenderPassDescriptor *rpd = [MTLRenderPassDescriptor new];
@@ -270,7 +270,7 @@ bool gfx_metal_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	ctx->fcb.height = desc->cropHeight;
 	ctx->fcb.rotation = desc->rotation;
 	ctx->fcb.vp_height = vph;
-	[re setFragmentBytes:&ctx->fcb length:sizeof(struct gfx_metal_cb) atIndex:0];
+	[re setFragmentBytes:&ctx->fcb length:sizeof(struct metal_cb) atIndex:0];
 
 	// Draw
 	[re drawIndexedPrimitives:MTLPrimitiveTypeTriangleStrip indexCount:6
@@ -282,12 +282,12 @@ bool gfx_metal_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	return true;
 }
 
-void gfx_metal_destroy(struct gfx **gfx)
+void mty_metal_destroy(struct gfx **gfx)
 {
 	if (!gfx || !*gfx)
 		return;
 
-	struct gfx_metal *ctx = (struct gfx_metal *) *gfx;
+	struct metal *ctx = (struct metal *) *gfx;
 
 	for (uint8_t x = 0; x < NUM_STAGING; x++)
 		ctx->staging[x].texture = nil;
@@ -309,15 +309,15 @@ void gfx_metal_destroy(struct gfx **gfx)
 
 // State
 
-void *gfx_metal_get_state(MTY_Device *device, MTY_Context *context)
+void *mty_metal_get_state(MTY_Device *device, MTY_Context *context)
 {
 	return NULL;
 }
 
-void gfx_metal_set_state(MTY_Device *device, MTY_Context *context, void *state)
+void mty_metal_set_state(MTY_Device *device, MTY_Context *context, void *state)
 {
 }
 
-void gfx_metal_free_state(void **state)
+void mty_metal_free_state(void **state)
 {
 }

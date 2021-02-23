@@ -20,7 +20,7 @@ static
 
 #define NUM_STAGING 3
 
-struct gfx_d3d9_res {
+struct d3d9_res {
 	D3DFORMAT format;
 	IDirect3DTexture9 *texture;
 	IDirect3DBaseTexture9 *base;
@@ -28,9 +28,9 @@ struct gfx_d3d9_res {
 	uint32_t height;
 };
 
-struct gfx_d3d9 {
+struct d3d9 {
 	MTY_ColorFormat format;
-	struct gfx_d3d9_res staging[NUM_STAGING];
+	struct d3d9_res staging[NUM_STAGING];
 	IDirect3DPixelShader9 *ps;
 	IDirect3DVertexShader9 *vs;
 	IDirect3DVertexBuffer9 *vb;
@@ -38,9 +38,9 @@ struct gfx_d3d9 {
 	IDirect3DIndexBuffer9 *ib;
 };
 
-struct gfx *gfx_d3d9_create(MTY_Device *device)
+struct gfx *mty_d3d9_create(MTY_Device *device)
 {
-	struct gfx_d3d9 *ctx = MTY_Alloc(1, sizeof(struct gfx_d3d9));
+	struct d3d9 *ctx = MTY_Alloc(1, sizeof(struct d3d9));
 	IDirect3DDevice9 *_device = (IDirect3DDevice9 *) device;
 
 	HRESULT e = IDirect3DDevice9_CreateVertexShader(_device, (DWORD *) vs, &ctx->vs);
@@ -131,12 +131,12 @@ struct gfx *gfx_d3d9_create(MTY_Device *device)
 	except:
 
 	if (e != D3D_OK)
-		gfx_d3d9_destroy((struct gfx **) &ctx);
+		mty_d3d9_destroy((struct gfx **) &ctx);
 
 	return (struct gfx *) ctx;
 }
 
-static void gfx_d3d9_destroy_resource(struct gfx_d3d9_res *res)
+static void d3d9_destroy_resource(struct d3d9_res *res)
 {
 	if (res->base) {
 		IDirect3DBaseTexture9_Release(res->base);
@@ -148,10 +148,10 @@ static void gfx_d3d9_destroy_resource(struct gfx_d3d9_res *res)
 		res->texture = NULL;
 	}
 
-	memset(res, 0, sizeof(struct gfx_d3d9_res));
+	memset(res, 0, sizeof(struct d3d9_res));
 }
 
-static HRESULT gfx_d3d9_refresh_resource(struct gfx_d3d9_res *res, IDirect3DDevice9 *device,
+static HRESULT d3d9_refresh_resource(struct d3d9_res *res, IDirect3DDevice9 *device,
 	D3DFORMAT format, uint32_t width, uint32_t height)
 {
 	HRESULT e = D3D_OK;
@@ -159,7 +159,7 @@ static HRESULT gfx_d3d9_refresh_resource(struct gfx_d3d9_res *res, IDirect3DDevi
 	if (!res->texture || !res->base || width != res->width ||
 		height != res->height || format != res->format)
 	{
-		gfx_d3d9_destroy_resource(res);
+		d3d9_destroy_resource(res);
 
 		e = IDirect3DDevice9_CreateTexture(device, width, height, 1, D3DUSAGE_DYNAMIC,
 			format, D3DPOOL_DEFAULT, &res->texture, NULL);
@@ -183,12 +183,12 @@ static HRESULT gfx_d3d9_refresh_resource(struct gfx_d3d9_res *res, IDirect3DDevi
 	except:
 
 	if (e != D3D_OK)
-		gfx_d3d9_destroy_resource(res);
+		d3d9_destroy_resource(res);
 
 	return e;
 }
 
-static HRESULT gfx_d3d9_crop_copy(IDirect3DDevice9 *device, IDirect3DTexture9 *texture,
+static HRESULT d3d9_crop_copy(IDirect3DDevice9 *device, IDirect3DTexture9 *texture,
 	const uint8_t *image, uint32_t w, uint32_t h, int32_t fullWidth, uint8_t bpp)
 {
 	D3DLOCKED_RECT rect;
@@ -210,32 +210,32 @@ static HRESULT gfx_d3d9_crop_copy(IDirect3DDevice9 *device, IDirect3DTexture9 *t
 	return D3D_OK;
 }
 
-static HRESULT gfx_d3d9_reload_textures(struct gfx_d3d9 *ctx, IDirect3DDevice9 *device,
+static HRESULT d3d9_reload_textures(struct d3d9 *ctx, IDirect3DDevice9 *device,
 	const void *image, const MTY_RenderDesc *desc)
 {
 	switch (desc->format) {
 		case MTY_COLOR_FORMAT_RGBA: {
 			// RGBA
-			HRESULT e = gfx_d3d9_refresh_resource(&ctx->staging[0], device, D3DFMT_A8R8G8B8, desc->cropWidth, desc->cropHeight);
+			HRESULT e = d3d9_refresh_resource(&ctx->staging[0], device, D3DFMT_A8R8G8B8, desc->cropWidth, desc->cropHeight);
 			if (e != D3D_OK) return e;
 
-			e = gfx_d3d9_crop_copy(device, ctx->staging[0].texture, image, desc->cropWidth, desc->cropHeight, desc->imageWidth, 4);
+			e = d3d9_crop_copy(device, ctx->staging[0].texture, image, desc->cropWidth, desc->cropHeight, desc->imageWidth, 4);
 			if (e != D3D_OK) return e;
 			break;
 		}
 		case MTY_COLOR_FORMAT_NV12: {
 			// Y
-			HRESULT e = gfx_d3d9_refresh_resource(&ctx->staging[0], device, D3DFMT_L8, desc->cropWidth, desc->cropHeight);
+			HRESULT e = d3d9_refresh_resource(&ctx->staging[0], device, D3DFMT_L8, desc->cropWidth, desc->cropHeight);
 			if (e != D3D_OK) return e;
 
-			e = gfx_d3d9_crop_copy(device, ctx->staging[0].texture, image, desc->cropWidth, desc->cropHeight, desc->imageWidth, 1);
+			e = d3d9_crop_copy(device, ctx->staging[0].texture, image, desc->cropWidth, desc->cropHeight, desc->imageWidth, 1);
 			if (e != D3D_OK) return e;
 
 			// UV
-			e = gfx_d3d9_refresh_resource(&ctx->staging[1], device, D3DFMT_A8L8, desc->cropWidth / 2, desc->cropHeight / 2);
+			e = d3d9_refresh_resource(&ctx->staging[1], device, D3DFMT_A8L8, desc->cropWidth / 2, desc->cropHeight / 2);
 			if (e != D3D_OK) return e;
 
-			e = gfx_d3d9_crop_copy(device, ctx->staging[1].texture, (uint8_t *) image + desc->imageWidth * desc->imageHeight, desc->cropWidth / 2, desc->cropHeight / 2, desc->imageWidth / 2, 2);
+			e = d3d9_crop_copy(device, ctx->staging[1].texture, (uint8_t *) image + desc->imageWidth * desc->imageHeight, desc->cropWidth / 2, desc->cropHeight / 2, desc->imageWidth / 2, 2);
 			if (e != D3D_OK) return e;
 			break;
 		}
@@ -244,26 +244,26 @@ static HRESULT gfx_d3d9_reload_textures(struct gfx_d3d9 *ctx, IDirect3DDevice9 *
 			uint32_t div = desc->format == MTY_COLOR_FORMAT_I420 ? 2 : 1;
 
 			// Y
-			HRESULT e = gfx_d3d9_refresh_resource(&ctx->staging[0], device, D3DFMT_L8, desc->cropWidth, desc->cropHeight);
+			HRESULT e = d3d9_refresh_resource(&ctx->staging[0], device, D3DFMT_L8, desc->cropWidth, desc->cropHeight);
 			if (e != D3D_OK) return e;
 
-			e = gfx_d3d9_crop_copy(device, ctx->staging[0].texture, image, desc->cropWidth, desc->cropHeight, desc->imageWidth, 1);
+			e = d3d9_crop_copy(device, ctx->staging[0].texture, image, desc->cropWidth, desc->cropHeight, desc->imageWidth, 1);
 			if (e != D3D_OK) return e;
 
 			// U
 			uint8_t *p = (uint8_t *) image + desc->imageWidth * desc->imageHeight;
-			e = gfx_d3d9_refresh_resource(&ctx->staging[1], device, D3DFMT_L8, desc->cropWidth / div, desc->cropHeight / div);
+			e = d3d9_refresh_resource(&ctx->staging[1], device, D3DFMT_L8, desc->cropWidth / div, desc->cropHeight / div);
 			if (e != D3D_OK) return e;
 
-			e = gfx_d3d9_crop_copy(device, ctx->staging[1].texture, p, desc->cropWidth / div, desc->cropHeight / div, desc->imageWidth / div, 1);
+			e = d3d9_crop_copy(device, ctx->staging[1].texture, p, desc->cropWidth / div, desc->cropHeight / div, desc->imageWidth / div, 1);
 			if (e != D3D_OK) return e;
 
 			// V
 			p += (desc->imageWidth / div) * (desc->imageHeight / div);
-			e = gfx_d3d9_refresh_resource(&ctx->staging[2], device, D3DFMT_L8, desc->cropWidth / div, desc->cropHeight / div);
+			e = d3d9_refresh_resource(&ctx->staging[2], device, D3DFMT_L8, desc->cropWidth / div, desc->cropHeight / div);
 			if (e != D3D_OK) return e;
 
-			e = gfx_d3d9_crop_copy(device, ctx->staging[2].texture, p, desc->cropWidth / div, desc->cropHeight / div, desc->imageWidth / div, 1);
+			e = d3d9_crop_copy(device, ctx->staging[2].texture, p, desc->cropWidth / div, desc->cropHeight / div, desc->imageWidth / div, 1);
 			if (e != D3D_OK) return e;
 			break;
 		}
@@ -272,10 +272,10 @@ static HRESULT gfx_d3d9_reload_textures(struct gfx_d3d9 *ctx, IDirect3DDevice9 *
 	return D3D_OK;
 }
 
-bool gfx_d3d9_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
+bool mty_d3d9_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	const void *image, const MTY_RenderDesc *desc, MTY_Texture *dest)
 {
-	struct gfx_d3d9 *ctx = (struct gfx_d3d9 *) gfx;
+	struct d3d9 *ctx = (struct d3d9 *) gfx;
 	IDirect3DDevice9 *_device = (IDirect3DDevice9 *) device;
 	IDirect3DSurface9 *_dest = (IDirect3DSurface9 *) dest;
 
@@ -288,7 +288,7 @@ bool gfx_d3d9_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 
 	// Refresh textures and load texture data
 	// If format == MTY_COLOR_FORMAT_UNKNOWN, texture refreshing/loading is skipped and the previous frame is rendered
-	HRESULT e = gfx_d3d9_reload_textures(ctx, _device, image, desc);
+	HRESULT e = d3d9_reload_textures(ctx, _device, image, desc);
 	if (e != D3D_OK) return false;
 
 	// Begin render pass (set destination texture if available)
@@ -414,15 +414,15 @@ bool gfx_d3d9_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	return e == D3D_OK;
 }
 
-void gfx_d3d9_destroy(struct gfx **gfx)
+void mty_d3d9_destroy(struct gfx **gfx)
 {
 	if (!gfx || !*gfx)
 		return;
 
-	struct gfx_d3d9 *ctx = (struct gfx_d3d9 *) *gfx;
+	struct d3d9 *ctx = (struct d3d9 *) *gfx;
 
 	for (uint8_t x = 0; x < NUM_STAGING; x++)
-		gfx_d3d9_destroy_resource(&ctx->staging[x]);
+		d3d9_destroy_resource(&ctx->staging[x]);
 
 	if (ctx->ib)
 		IDirect3DIndexBuffer9_Release(ctx->ib);
@@ -446,16 +446,16 @@ void gfx_d3d9_destroy(struct gfx **gfx)
 
 // State
 
-struct gfx_d3d9s {
+struct d3d9s {
 	IDirect3DStateBlock9 *block;
 	D3DMATRIX world;
 	D3DMATRIX view;
 	D3DMATRIX proj;
 };
 
-void *gfx_d3d9_get_state(MTY_Device *device, MTY_Context *context)
+void *mty_d3d9_get_state(MTY_Device *device, MTY_Context *context)
 {
-	struct gfx_d3d9s *state = MTY_Alloc(1, sizeof(struct gfx_d3d9s));
+	struct d3d9s *state = MTY_Alloc(1, sizeof(struct d3d9s));
 
 	IDirect3DDevice9 *_device = (IDirect3DDevice9 *) device;
 
@@ -472,14 +472,14 @@ void *gfx_d3d9_get_state(MTY_Device *device, MTY_Context *context)
 	except:
 
 	if (e != D3D_OK)
-		gfx_d3d9_free_state((void **) &state);
+		mty_d3d9_free_state((void **) &state);
 
 	return state;
 }
 
-void gfx_d3d9_set_state(MTY_Device *device, MTY_Context *context, void *state)
+void mty_d3d9_set_state(MTY_Device *device, MTY_Context *context, void *state)
 {
-	struct gfx_d3d9s *s = state;
+	struct d3d9s *s = state;
 	IDirect3DDevice9 *_device = (IDirect3DDevice9 *) device;
 
 	IDirect3DDevice9_SetTransform(_device, D3DTS_WORLD, &s->world);
@@ -489,12 +489,12 @@ void gfx_d3d9_set_state(MTY_Device *device, MTY_Context *context, void *state)
 	IDirect3DStateBlock9_Apply(s->block);
 }
 
-void gfx_d3d9_free_state(void **state)
+void mty_d3d9_free_state(void **state)
 {
 	if (!state || !*state)
 		return;
 
-	struct gfx_d3d9s *s = *state;
+	struct d3d9s *s = *state;
 
 	IDirect3DStateBlock9_Release(s->block);
 

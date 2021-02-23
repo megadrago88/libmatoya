@@ -20,7 +20,7 @@ GFX_UI_PROTOTYPES(_gl_)
 #include "shaders/gl/vsui.h"
 #include "shaders/gl/fsui.h"
 
-struct gfx_gl_ui {
+struct gl_ui {
 	GLuint prog;
 	GLuint vs;
 	GLuint fs;
@@ -33,7 +33,7 @@ struct gfx_gl_ui {
 	GLuint eb;
 };
 
-static void gfx_gl_ui_log_shader_errors(GLuint shader)
+static void gl_ui_log_shader_errors(GLuint shader)
 {
 	GLint n = 0;
 	glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &n);
@@ -47,12 +47,12 @@ static void gfx_gl_ui_log_shader_errors(GLuint shader)
 	}
 }
 
-struct gfx_ui *gfx_gl_ui_create(MTY_Device *device)
+struct gfx_ui *mty_gl_ui_create(MTY_Device *device)
 {
 	if (!gl_dl_global_init())
 		return NULL;
 
-	struct gfx_gl_ui *ctx = MTY_Alloc(1, sizeof(struct gfx_gl_ui));
+	struct gl_ui *ctx = MTY_Alloc(1, sizeof(struct gl_ui));
 
 	bool r = true;
 
@@ -64,7 +64,7 @@ struct gfx_ui *gfx_gl_ui_create(MTY_Device *device)
 	glCompileShader(ctx->vs);
 	glGetShaderiv(ctx->vs, GL_COMPILE_STATUS, &status);
 	if (status == GL_FALSE) {
-		gfx_gl_ui_log_shader_errors(ctx->vs);
+		gl_ui_log_shader_errors(ctx->vs);
 		r = false;
 		goto except;
 	}
@@ -75,7 +75,7 @@ struct gfx_ui *gfx_gl_ui_create(MTY_Device *device)
 	glCompileShader(ctx->fs);
 	glGetShaderiv(ctx->fs, GL_COMPILE_STATUS, &status);
 	if (status == GL_FALSE) {
-		gfx_gl_ui_log_shader_errors(ctx->fs);
+		gl_ui_log_shader_errors(ctx->fs);
 		r = false;
 		goto except;
 	}
@@ -113,15 +113,15 @@ struct gfx_ui *gfx_gl_ui_create(MTY_Device *device)
 	except:
 
 	if (!r)
-		gfx_gl_ui_destroy((struct gfx_ui **) &ctx);
+		mty_gl_ui_destroy((struct gfx_ui **) &ctx);
 
 	return (struct gfx_ui *) ctx;
 }
 
-bool gfx_gl_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *context,
+bool mty_gl_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *context,
 	const MTY_DrawData *dd, MTY_Hash *cache, MTY_Texture *dest)
 {
-	struct gfx_gl_ui *ctx = (struct gfx_gl_ui *) gfx_ui;
+	struct gl_ui *ctx = (struct gl_ui *) gfx_ui;
 	GLuint _dest = dest ? *((GLuint *) dest) : 0;
 
 	int32_t fb_width = lrint(dd->displaySize.x);
@@ -217,7 +217,7 @@ bool gfx_gl_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *co
 	return true;
 }
 
-void *gfx_gl_ui_create_texture(MTY_Device *device, const void *rgba, uint32_t width, uint32_t height)
+void *mty_gl_ui_create_texture(MTY_Device *device, const void *rgba, uint32_t width, uint32_t height)
 {
 	GLuint texture = 0;
 
@@ -232,7 +232,7 @@ void *gfx_gl_ui_create_texture(MTY_Device *device, const void *rgba, uint32_t wi
 	return (void *) (uintptr_t) texture;
 }
 
-void gfx_gl_ui_destroy_texture(void **texture)
+void mty_gl_ui_destroy_texture(void **texture)
 {
 	if (!texture || !*texture)
 		return;
@@ -243,12 +243,12 @@ void gfx_gl_ui_destroy_texture(void **texture)
 	*texture = NULL;
 }
 
-void gfx_gl_ui_destroy(struct gfx_ui **gfx_ui)
+void mty_gl_ui_destroy(struct gfx_ui **gfx_ui)
 {
 	if (!gfx_ui || !*gfx_ui)
 		return;
 
-	struct gfx_gl_ui *ctx = (struct gfx_gl_ui *) *gfx_ui;
+	struct gl_ui *ctx = (struct gl_ui *) *gfx_ui;
 
 	if (ctx->vb)
 		glDeleteBuffers(1, &ctx->vb);
