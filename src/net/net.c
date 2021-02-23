@@ -28,7 +28,7 @@ struct mty_net *mty_net_connect(const char *host, uint16_t port, bool secure, ui
 	// Check global HTTP proxy settings
 	const char *chost = ctx->host;
 	uint16_t cport = port;
-	bool use_proxy = http_should_proxy(&chost, &cport);
+	bool use_proxy = mty_http_should_proxy(&chost, &cport);
 
 	// DNS resolve hostname into an ip address string
 	char ip[64];
@@ -45,7 +45,7 @@ struct mty_net *mty_net_connect(const char *host, uint16_t port, bool secure, ui
 
 	// HTTP proxy CONNECT request
 	if (use_proxy) {
-		r = http_proxy_connect(ctx, port, timeout);
+		r = mty_http_proxy_connect(ctx, port, timeout);
 		if (!r)
 			goto except;
 	}

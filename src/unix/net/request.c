@@ -78,17 +78,17 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 	}
 
 	// Set request headers
-	req = http_set_header_str(req, "User-Agent", "mty-http/v4");
-	req = http_set_header_str(req, "Connection", "close");
+	req = mty_http_set_header_str(req, "User-Agent", "mty-http/v4");
+	req = mty_http_set_header_str(req, "Connection", "close");
 
 	if (headers)
-		req = http_set_all_headers(req, headers);
+		req = mty_http_set_all_headers(req, headers);
 
 	if (bodySize)
-		req = http_set_header_int(req, "Content-Length", bodySize);
+		req = mty_http_set_header_int(req, "Content-Length", bodySize);
 
 	// Send the request header
-	r = http_write_request_header(net, method, path, req);
+	r = mty_http_write_request_header(net, method, path, req);
 	if (!r)
 		goto except;
 
@@ -100,27 +100,27 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 	}
 
 	// Read the response header
-	hdr = http_read_header(net, timeout);
+	hdr = mty_http_read_header(net, timeout);
 	if (!hdr) {
 		r = false;
 		goto except;
 	}
 
 	// Get the status code
-	r = http_get_status_code(hdr, status);
+	r = mty_http_get_status_code(hdr, status);
 	if (!r)
 		goto except;
 
 	// Read response body -- either fixed content length or chunked
 	const char *val = NULL;
-	if (http_get_header_int(hdr, "Content-Length", (int32_t *) responseSize) && *responseSize > 0) {
+	if (mty_http_get_header_int(hdr, "Content-Length", (int32_t *) responseSize) && *responseSize > 0) {
 		*response = MTY_Alloc(*responseSize + 1, 1);
 
 		r = mty_net_read(net, *response, *responseSize, timeout);
 		if (!r)
 			goto except;
 
-	} else if (http_get_header_str(hdr, "Transfer-Encoding", &val) && !MTY_Strcasecmp(val, "chunked")) {
+	} else if (mty_http_get_header_str(hdr, "Transfer-Encoding", &val) && !MTY_Strcasecmp(val, "chunked")) {
 		r = http_read_chunked(net, response, responseSize, timeout);
 		if (!r)
 			goto except;
@@ -128,7 +128,7 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 
 	// Check for content-encoding header and attempt to uncompress
 	if (*response && *responseSize > 0) {
-		if (http_get_header_str(hdr, "Content-Encoding", &val) && !MTY_Strcasecmp(val, "gzip")) {
+		if (mty_http_get_header_str(hdr, "Content-Encoding", &val) && !MTY_Strcasecmp(val, "gzip")) {
 			size_t zlen = 0;
 			void *z = mty_gzip_decompress(*response, *responseSize, &zlen);
 			if (!z) {
@@ -145,7 +145,7 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 	except:
 
 	MTY_Free(req);
-	http_header_destroy(&hdr);
+	mty_http_header_destroy(&hdr);
 	mty_net_destroy(&net);
 
 	if (!r) {

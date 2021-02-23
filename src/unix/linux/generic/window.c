@@ -72,7 +72,7 @@ static void __attribute__((destructor)) app_global_destroy(void)
 	x_dl_global_destroy();
 }
 
-struct window *app_get_window(MTY_App *ctx, MTY_Window window)
+static struct window *app_get_window(MTY_App *ctx, MTY_Window window)
 {
 	return window < 0 ? NULL : ctx->windows[window];
 }

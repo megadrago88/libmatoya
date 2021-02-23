@@ -42,7 +42,7 @@ bool MTY_HttpRequest(const char *_host, bool secure, const char *_method, const 
 		_snwprintf_s(headers, 512, _TRUNCATE, L"%hs", _headers);
 
 	// Proxy
-	const char *proxy = http_get_proxy();
+	const char *proxy = mty_http_get_proxy();
 	DWORD access_type = WINHTTP_ACCESS_TYPE_NO_PROXY;
 	WCHAR *wproxy = WINHTTP_NO_PROXY_NAME;
 	WCHAR wproxy_buf[512];

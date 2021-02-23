@@ -86,7 +86,7 @@ struct http_header {
 	uint32_t npairs;
 };
 
-struct http_header *http_parse_header(const char *header)
+struct http_header *mty_http_parse_header(const char *header)
 {
 	struct http_header *h = MTY_Alloc(1, sizeof(struct http_header));
 	char *dup = MTY_Strdup(header);
@@ -134,7 +134,7 @@ struct http_header *http_parse_header(const char *header)
 	return h;
 }
 
-void http_header_destroy(struct http_header **header)
+void mty_http_header_destroy(struct http_header **header)
 {
 	if (!header || !*header)
 		return;
@@ -153,7 +153,7 @@ void http_header_destroy(struct http_header **header)
 	*header = NULL;
 }
 
-bool http_get_status_code(struct http_header *h, uint16_t *status_code)
+bool mty_http_get_status_code(struct http_header *h, uint16_t *status_code)
 {
 	bool r = true;
 	char *tmp = MTY_Strdup(h->first_line);
@@ -180,7 +180,7 @@ bool http_get_status_code(struct http_header *h, uint16_t *status_code)
 	return r;
 }
 
-bool http_get_header_int(struct http_header *h, const char *key, int32_t *val)
+bool mty_http_get_header_int(struct http_header *h, const char *key, int32_t *val)
 {
 	for (uint32_t x = 0; x < h->npairs; x++) {
 		if (!MTY_Strcasecmp(key, h->pairs[x].key)) {
@@ -194,7 +194,7 @@ bool http_get_header_int(struct http_header *h, const char *key, int32_t *val)
 	return false;
 }
 
-bool http_get_header_str(struct http_header *h, const char *key, const char **val)
+bool mty_http_get_header_str(struct http_header *h, const char *key, const char **val)
 {
 	for (uint32_t x = 0; x < h->npairs; x++) {
 		if (!MTY_Strcasecmp(key, h->pairs[x].key)) {
@@ -206,7 +206,7 @@ bool http_get_header_str(struct http_header *h, const char *key, const char **va
 	return false;
 }
 
-char *http_set_header_int(char *header, const char *name, int32_t val)
+char *mty_http_set_header_int(char *header, const char *name, int32_t val)
 {
 	size_t len = header ? strlen(header) : 0;
 	size_t new_len = len + strlen(name) + 2 + 10 + 3;
@@ -217,7 +217,7 @@ char *http_set_header_int(char *header, const char *name, int32_t val)
 	return header;
 }
 
-char *http_set_header_str(char *header, const char *name, const char *val)
+char *mty_http_set_header_str(char *header, const char *name, const char *val)
 {
 	size_t len = header ? strlen(header) : 0;
 	size_t new_len = len + strlen(name) + 2 + strlen(val) + 3;
@@ -228,7 +228,7 @@ char *http_set_header_str(char *header, const char *name, const char *val)
 	return header;
 }
 
-char *http_set_all_headers(char *header, const char *all)
+char *mty_http_set_all_headers(char *header, const char *all)
 {
 	char *dup = MTY_Strdup(all);
 
@@ -243,7 +243,7 @@ char *http_set_all_headers(char *header, const char *all)
 		if (!key || !val)
 			break;
 
-		header = http_set_header_str(header, key, val);
+		header = mty_http_set_header_str(header, key, val);
 
 		tok = MTY_Strtok(NULL, "\n", &ptr);
 	}
@@ -281,19 +281,19 @@ static char *http_read_header_io(struct mty_net *net, uint32_t timeout)
 	return h;
 }
 
-struct http_header *http_read_header(struct mty_net *net, uint32_t timeout)
+struct http_header *mty_http_read_header(struct mty_net *net, uint32_t timeout)
 {
 	char *header = http_read_header_io(net, timeout);
 	if (!header)
 		return NULL;
 
-	struct http_header *h = http_parse_header(header);
+	struct http_header *h = mty_http_parse_header(header);
 	MTY_Free(header);
 
 	return h;
 }
 
-bool http_write_response_header(struct mty_net *net, const char *code, const char *reason, const char *headers)
+bool mty_http_write_response_header(struct mty_net *net, const char *code, const char *reason, const char *headers)
 {
 	char *hstr = http_response(code, reason, headers);
 	bool r = mty_net_write(net, hstr, strlen(hstr));
@@ -303,7 +303,7 @@ bool http_write_response_header(struct mty_net *net, const char *code, const cha
 	return r;
 }
 
-bool http_write_request_header(struct mty_net *net, const char *method, const char *path, const char *headers)
+bool mty_http_write_request_header(struct mty_net *net, const char *method, const char *path, const char *headers)
 {
 	char *hstr = http_request(method, mty_net_get_host(net), path, headers);
 	bool r = mty_net_write(net, hstr, strlen(hstr));
@@ -341,7 +341,7 @@ bool MTY_HttpSetProxy(const char *proxy)
 	return was_set;
 }
 
-const char *http_get_proxy(void)
+const char *mty_http_get_proxy(void)
 {
 	const char *proxy = NULL;
 
@@ -357,9 +357,9 @@ const char *http_get_proxy(void)
 	return proxy;
 }
 
-bool http_should_proxy(const char **host, uint16_t *port)
+bool mty_http_should_proxy(const char **host, uint16_t *port)
 {
-	const char *proxy = http_get_proxy();
+	const char *proxy = mty_http_get_proxy();
 	if (!proxy)
 		return false;
 
@@ -368,7 +368,7 @@ bool http_should_proxy(const char **host, uint16_t *port)
 	char *phost = NULL;
 	char *ppath = NULL;
 
-	if (http_parse_url(proxy, &psecure, &phost, port, &ppath)) {
+	if (mty_http_parse_url(proxy, &psecure, &phost, port, &ppath)) {
 		if (phost && phost[0]) {
 			snprintf(HTTP_PROXY_TLS, MTY_URL_MAX, "%s", phost);
 			*host = HTTP_PROXY_TLS;
@@ -382,7 +382,7 @@ bool http_should_proxy(const char **host, uint16_t *port)
 	return r;
 }
 
-bool http_proxy_connect(struct mty_net *net, uint16_t port, uint32_t timeout)
+bool mty_http_proxy_connect(struct mty_net *net, uint16_t port, uint32_t timeout)
 {
 	struct http_header *hdr = NULL;
 	char *h = http_connect(mty_net_get_host(net), port, NULL);
@@ -395,7 +395,7 @@ bool http_proxy_connect(struct mty_net *net, uint16_t port, uint32_t timeout)
 		goto except;
 
 	//read the response header
-	hdr = http_read_header(net, timeout);
+	hdr = mty_http_read_header(net, timeout);
 	if (!hdr) {
 		r = false;
 		goto except;
@@ -403,7 +403,7 @@ bool http_proxy_connect(struct mty_net *net, uint16_t port, uint32_t timeout)
 
 	//get the status code
 	uint16_t status_code = 0;
-	r = http_get_status_code(hdr, &status_code);
+	r = mty_http_get_status_code(hdr, &status_code);
 	if (!r)
 		goto except;
 
@@ -415,7 +415,7 @@ bool http_proxy_connect(struct mty_net *net, uint16_t port, uint32_t timeout)
 	except:
 
 	if (hdr)
-		http_header_destroy(&hdr);
+		mty_http_header_destroy(&hdr);
 
 	return r;
 }
@@ -423,7 +423,7 @@ bool http_proxy_connect(struct mty_net *net, uint16_t port, uint32_t timeout)
 
 // URL utilities
 
-bool http_parse_url(const char *url, bool *secure, char **host, uint16_t *port, char **path)
+bool mty_http_parse_url(const char *url, bool *secure, char **host, uint16_t *port, char **path)
 {
 	if (!url || !url[0])
 		return false;
@@ -517,7 +517,7 @@ bool MTY_HttpParseUrl(const char *url, char *host, size_t hostSize, char *path, 
 	char *phost = NULL;
 	char *ppath = NULL;
 
-	if (http_parse_url(url, &secure, &phost, &port, &ppath)) {
+	if (mty_http_parse_url(url, &secure, &phost, &port, &ppath)) {
 		snprintf(host, hostSize, "%s", phost);
 		snprintf(path, pathSize, "%s", ppath);
 		r = true;

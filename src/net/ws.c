@@ -221,29 +221,29 @@ static bool ws_connect(MTY_WebSocket *ws, const char *path, const char *headers,
 
 	// Obligatory websocket headers
 	char *sec_key = ws_create_key();
-	req = http_set_header_str(req, "Upgrade", "websocket");
-	req = http_set_header_str(req, "Connection", "Upgrade");
-	req = http_set_header_str(req, "Sec-WebSocket-Key", sec_key);
-	req = http_set_header_str(req, "Sec-WebSocket-Version", "13");
+	req = mty_http_set_header_str(req, "Upgrade", "websocket");
+	req = mty_http_set_header_str(req, "Connection", "Upgrade");
+	req = mty_http_set_header_str(req, "Sec-WebSocket-Key", sec_key);
+	req = mty_http_set_header_str(req, "Sec-WebSocket-Version", "13");
 
 	// Optional headers
 	if (headers)
-		req = http_set_all_headers(req, headers);
+		req = mty_http_set_all_headers(req, headers);
 
 	// Write the header
-	bool r = http_write_request_header(ws->net, "GET", path, req);
+	bool r = mty_http_write_request_header(ws->net, "GET", path, req);
 	if (!r)
 		goto except;
 
 	// We expect a 101 response code from the server
-	hdr = http_read_header(ws->net, timeout);
+	hdr = mty_http_read_header(ws->net, timeout);
 	if (!hdr) {
 		r = false;
 		goto except;
 	}
 
 	// Make sure we have a 101 from the server
-	r = http_get_status_code(hdr, upgrade_status);
+	r = mty_http_get_status_code(hdr, upgrade_status);
 	if (!r)
 		goto except;
 
@@ -253,7 +253,7 @@ static bool ws_connect(MTY_WebSocket *ws, const char *path, const char *headers,
 
 	// Validate the security key response
 	const char *server_sec_key = NULL;
-	r = http_get_header_str(hdr, "Sec-WebSocket-Accept", &server_sec_key);
+	r = mty_http_get_header_str(hdr, "Sec-WebSocket-Accept", &server_sec_key);
 	if (!r)
 		goto except;
 
@@ -266,7 +266,7 @@ static bool ws_connect(MTY_WebSocket *ws, const char *path, const char *headers,
 
 	except:
 
-	http_header_destroy(&hdr);
+	mty_http_header_destroy(&hdr);
 	MTY_Free(sec_key);
 	MTY_Free(req);
 
@@ -281,7 +281,7 @@ static bool ws_accept(MTY_WebSocket *ws, const char * const *origins, uint32_t n
 	struct http_header *hdr = NULL;
 
 	// Wait for the client's request header
-	hdr = http_read_header(ws->net, timeout);
+	hdr = mty_http_read_header(ws->net, timeout);
 	if (!hdr) {
 		r = false;
 		goto except;
@@ -289,7 +289,7 @@ static bool ws_accept(MTY_WebSocket *ws, const char * const *origins, uint32_t n
 
 	// Check the origin header against the whitelist
 	const char *origin = NULL;
-	r = http_get_header_str(hdr, "Origin", &origin);
+	r = mty_http_get_header_str(hdr, "Origin", &origin);
 	if (!r)
 		goto except;
 
@@ -312,20 +312,20 @@ static bool ws_accept(MTY_WebSocket *ws, const char * const *origins, uint32_t n
 
 	// Read the key and set a compliant response header
 	const char *sec_key = NULL;
-	r = http_get_header_str(hdr, "Sec-WebSocket-Key", &sec_key);
+	r = mty_http_get_header_str(hdr, "Sec-WebSocket-Key", &sec_key);
 	if (!r)
 		goto except;
 
 	char *accept_key = ws_create_accept_key(sec_key);
-	res = http_set_header_str(res, "Sec-WebSocket-Accept", accept_key);
+	res = mty_http_set_header_str(res, "Sec-WebSocket-Accept", accept_key);
 	MTY_Free(accept_key);
 
 	// Set obligatory headers
-	res = http_set_header_str(res, "Upgrade", "websocket");
-	res = http_set_header_str(res, "Connection", "Upgrade");
+	res = mty_http_set_header_str(res, "Upgrade", "websocket");
+	res = mty_http_set_header_str(res, "Connection", "Upgrade");
 
 	// Write the response header
-	r = http_write_response_header(ws->net, "101", "Switching Protocols", res);
+	r = mty_http_write_response_header(ws->net, "101", "Switching Protocols", res);
 	if (!r)
 		goto except;
 
@@ -335,7 +335,7 @@ static bool ws_accept(MTY_WebSocket *ws, const char * const *origins, uint32_t n
 	except:
 
 	MTY_Free(res);
-	http_header_destroy(&hdr);
+	mty_http_header_destroy(&hdr);
 
 	return r;
 }
