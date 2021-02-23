@@ -8,7 +8,6 @@
 
 #include "tlocal.h"
 #include "timestamp.h"
-#include "sleepms.h"
 
 static MTY_TLOCAL bool TIME_FREQ_INIT;
 static MTY_TLOCAL float TIME_FREQUENCY;
@@ -30,9 +29,12 @@ float MTY_TimeDiff(int64_t begin, int64_t end)
 
 void MTY_Sleep(uint32_t timeout)
 {
-	// When targeting the web, emscripten will treat nanosleep
-	// as a blocking busy wait on the main thread (NOT what we want)
-	mty_sleep_ms(timeout);
+	struct timespec ts = {0};
+	ts.tv_sec = timeout / 1000;
+	ts.tv_nsec = (timeout % 1000) * 1000 * 1000;
+
+	if (nanosleep(&ts, NULL) != 0)
+		MTY_Log("'nanosleep' failed with errno %d", errno);
 }
 
 void MTY_SetTimerResolution(uint32_t res)
