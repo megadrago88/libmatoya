@@ -17,6 +17,7 @@
 #include <android/input.h>
 
 #include "keymap.h"
+#include "gfx/gl-ctx.h"
 
 static struct MTY_App {
 	MTY_MsgFunc msg_func;
@@ -98,16 +99,6 @@ static const MTY_Controller APP_ZEROED_CTRL = {
 // MTY android assumes a main entrypoint is defined
 
 int main(int argc, char **argv);
-
-
-// From GFX module
-
-void gfx_global_init(void);
-void gfx_global_destroy(void);
-bool gfx_is_ready(void);
-uint32_t gfx_width(void);
-uint32_t gfx_height(void);
-MTY_GFXState gfx_state(void);
 
 
 // JNI helpers
@@ -294,7 +285,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1start(JNIEnv *env, jobject
 	jclass cls = (*env)->GetObjectClass(env, CTX.obj);
 	CTX.cls = (*env)->NewGlobalRef(env, cls);
 
-	gfx_global_init();
+	mty_gfx_global_init();
 
 	CTX.events = MTY_QueueCreate(500, sizeof(MTY_Msg));
 	CTX.ctrls = MTY_HashCreate(0);
@@ -326,7 +317,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1stop(JNIEnv *env, jobject 
 	MTY_HashDestroy(&CTX.ctrls, MTY_Free);
 	MTY_QueueDestroy(&CTX.events);
 
-	gfx_global_destroy();
+	mty_gfx_global_destroy();
 
 	(*env)->DeleteGlobalRef(env, CTX.obj);
 	(*env)->DeleteGlobalRef(env, CTX.cls);
@@ -860,7 +851,7 @@ static bool app_check_focus(MTY_App *ctx, bool was_ready)
 {
 	MTY_Msg msg = {0};
 	msg.type = MTY_MSG_FOCUS;
-	msg.focus = gfx_is_ready();
+	msg.focus = mty_gfx_is_ready();
 
 	if ((!was_ready && msg.focus) || (was_ready && !msg.focus))
 		ctx->msg_func(&msg, ctx->opaque);
@@ -922,7 +913,7 @@ void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 
 bool MTY_AppIsActive(MTY_App *ctx)
 {
-	return gfx_is_ready();
+	return mty_gfx_is_ready();
 }
 
 void MTY_AppShowSoftKeyboard(MTY_App *app, bool show)
@@ -1007,8 +998,7 @@ bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 
 bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
 {
-	*width = gfx_width();
-	*height = gfx_height();
+	mty_gfx_size(width, height);
 
 	return true;
 }
@@ -1020,12 +1010,12 @@ float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
 
 bool MTY_WindowIsVisible(MTY_App *app, MTY_Window window)
 {
-	return gfx_is_ready();
+	return mty_gfx_is_ready();
 }
 
 bool MTY_WindowIsActive(MTY_App *app, MTY_Window window)
 {
-	return gfx_is_ready();
+	return mty_gfx_is_ready();
 }
 
 bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
@@ -1040,7 +1030,7 @@ bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 
 MTY_GFXState MTY_WindowGFXState(MTY_App *app, MTY_Window window)
 {
-	return gfx_state();
+	return mty_gfx_state();
 }
 
 

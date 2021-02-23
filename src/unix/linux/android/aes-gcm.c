@@ -38,23 +38,23 @@ MTY_AESGCM *MTY_AESGCMCreate(const void *key)
 	JNIEnv *env = MTY_JNIEnv();
 
 	// The cipher handle
-	jstring jalg = jnih_strdup(env, "AES/GCM/NoPadding");
-	ctx->gcm = jnih_static_obj(env, "javax/crypto/Cipher", "getInstance",
+	jstring jalg = mty_jni_strdup(env, "AES/GCM/NoPadding");
+	ctx->gcm = mty_jni_static_obj(env, "javax/crypto/Cipher", "getInstance",
 		"(Ljava/lang/String;)Ljavax/crypto/Cipher;", jalg);
-	jnih_retain(env, &ctx->gcm);
+	mty_jni_retain(env, &ctx->gcm);
 
 	// 128 bit AES key
-	jbyteArray jkey = jnih_dup(env, key, 16);
-	jstring jalg_key = jnih_strdup(env, "AES");
-	ctx->key = jnih_new(env, "javax/crypto/spec/SecretKeySpec", "([BLjava/lang/String;)V", jkey, jalg_key);
-	jnih_retain(env, &ctx->key);
+	jbyteArray jkey = mty_jni_dup(env, key, 16);
+	jstring jalg_key = mty_jni_strdup(env, "AES");
+	ctx->key = mty_jni_new(env, "javax/crypto/spec/SecretKeySpec", "([BLjava/lang/String;)V", jkey, jalg_key);
+	mty_jni_retain(env, &ctx->key);
 
 	// Preload classes for performance, these need global references so the method IDs are valid
 	ctx->cls_gps = (*env)->FindClass(env, "javax/crypto/spec/GCMParameterSpec");
-	jnih_retain(env, &ctx->cls_gps);
+	mty_jni_retain(env, &ctx->cls_gps);
 
 	ctx->cls_cipher = (*env)->FindClass(env, "javax/crypto/Cipher");
-	jnih_retain(env, &ctx->cls_cipher);
+	mty_jni_retain(env, &ctx->cls_cipher);
 
 	// Preload methods for performance
 	ctx->m_gps_constructor = (*env)->GetMethodID(env, ctx->cls_gps, "<init>", "(I[BII)V");
@@ -66,12 +66,12 @@ MTY_AESGCM *MTY_AESGCMCreate(const void *key)
 	// Preallocate byte buffers
 	for (uint8_t x = 0; x < AES_GCM_NUM_BUFS; x++) {
 		ctx->buf[x] = (*env)->NewByteArray(env, AES_GCM_MAX);
-		jnih_retain(env, &ctx->buf[x]);
+		mty_jni_retain(env, &ctx->buf[x]);
 	}
 
-	jnih_free(env, jalg_key);
-	jnih_free(env, jkey);
-	jnih_free(env, jalg);
+	mty_jni_free(env, jalg_key);
+	mty_jni_free(env, jkey);
+	mty_jni_free(env, jalg);
 
 	return ctx;
 }
@@ -90,7 +90,7 @@ bool MTY_AESGCMEncrypt(MTY_AESGCM *ctx, const void *nonce, const void *plainText
 
 	(*env)->CallVoidMethod(env, ctx->gcm, ctx->m_cipher_init, AES_GCM_ENCRYPT, ctx->key, spec);
 	(*env)->CallIntMethod(env, ctx->gcm, ctx->m_cipher_do_final, ctx->buf[1], 0, size, ctx->buf[2]);
-	if (jnih_catch(env)) {
+	if (mty_jni_catch(env)) {
 		r = false;
 		goto except;
 	}
@@ -100,7 +100,7 @@ bool MTY_AESGCMEncrypt(MTY_AESGCM *ctx, const void *nonce, const void *plainText
 
 	except:
 
-	jnih_free(env, spec);
+	mty_jni_free(env, spec);
 
 	return r;
 }
@@ -120,7 +120,7 @@ bool MTY_AESGCMDecrypt(MTY_AESGCM *ctx, const void *nonce, const void *cipherTex
 
 	(*env)->CallVoidMethod(env, ctx->gcm, ctx->m_cipher_init, AES_GCM_DECRYPT, ctx->key, spec);
 	(*env)->CallIntMethod(env, ctx->gcm, ctx->m_cipher_do_final, ctx->buf[4], 0, size + 16, ctx->buf[5]);
-	if (jnih_catch(env)) {
+	if (mty_jni_catch(env)) {
 		r = false;
 		goto except;
 	}
@@ -129,7 +129,7 @@ bool MTY_AESGCMDecrypt(MTY_AESGCM *ctx, const void *nonce, const void *cipherTex
 
 	except:
 
-	jnih_free(env, spec);
+	mty_jni_free(env, spec);
 
 	return r;
 }
@@ -144,12 +144,12 @@ void MTY_AESGCMDestroy(MTY_AESGCM **aesgcm)
 	JNIEnv *env = MTY_JNIEnv();
 
 	for (uint8_t x = 0; x < AES_GCM_NUM_BUFS; x++)
-		jnih_release(env, &ctx->buf[x]);
+		mty_jni_release(env, &ctx->buf[x]);
 
-	jnih_release(env, &ctx->cls_gps);
-	jnih_release(env, &ctx->cls_cipher);
-	jnih_release(env, &ctx->key);
-	jnih_release(env, &ctx->gcm);
+	mty_jni_release(env, &ctx->cls_gps);
+	mty_jni_release(env, &ctx->cls_cipher);
+	mty_jni_release(env, &ctx->key);
+	mty_jni_release(env, &ctx->gcm);
 
 	MTY_Free(ctx);
 	*aesgcm = NULL;

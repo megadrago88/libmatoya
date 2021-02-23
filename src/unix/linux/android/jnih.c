@@ -10,16 +10,16 @@
 #include <string.h>
 #include <stdio.h>
 
-void jnih_retain(JNIEnv *env, jobject *ref)
+void mty_jni_retain(JNIEnv *env, jobject *ref)
 {
 	jobject old = *ref;
 
 	*ref = (*env)->NewGlobalRef(env, old);
 
-	jnih_free(env, old);
+	mty_jni_free(env, old);
 }
 
-void jnih_release(JNIEnv *env, jobject *ref)
+void mty_jni_release(JNIEnv *env, jobject *ref)
 {
 	if (!ref || !*ref)
 		return;
@@ -28,12 +28,12 @@ void jnih_release(JNIEnv *env, jobject *ref)
 	*ref = NULL;
 }
 
-jbyteArray jnih_alloc(JNIEnv *env, size_t size)
+jbyteArray mty_jni_alloc(JNIEnv *env, size_t size)
 {
 	return (*env)->NewByteArray(env, size);
 }
 
-void jnih_free(JNIEnv *env, jobject ref)
+void mty_jni_free(JNIEnv *env, jobject ref)
 {
 	if (!ref)
 		return;
@@ -41,7 +41,7 @@ void jnih_free(JNIEnv *env, jobject ref)
 	(*env)->DeleteLocalRef(env, ref);
 }
 
-void jnih_log(JNIEnv *env, jstring str)
+void mty_jni_log(JNIEnv *env, jstring str)
 {
 	const char *cstr = (*env)->GetStringUTFChars(env, str, NULL);
 
@@ -50,7 +50,7 @@ void jnih_log(JNIEnv *env, jstring str)
 	(*env)->ReleaseStringUTFChars(env, str, cstr);
 }
 
-void jnih_strcpy(JNIEnv *env, char *buf, size_t size, jstring str)
+void mty_jni_strcpy(JNIEnv *env, char *buf, size_t size, jstring str)
 {
 	const char *cstr = (*env)->GetStringUTFChars(env, str, NULL);
 
@@ -59,19 +59,19 @@ void jnih_strcpy(JNIEnv *env, char *buf, size_t size, jstring str)
 	(*env)->ReleaseStringUTFChars(env, str, cstr);
 }
 
-bool jnih_catch(JNIEnv *env)
+bool mty_jni_catch(JNIEnv *env)
 {
 	jthrowable ex = (*env)->ExceptionOccurred(env);
 
 	if (ex) {
 		(*env)->ExceptionClear(env);
 
-		jstring jstr = jnih_obj(env, ex, "toString", "()Ljava/lang/String;");
+		jstring jstr = mty_jni_obj(env, ex, "toString", "()Ljava/lang/String;");
 
-		jnih_log(env, jstr);
-		jnih_free(env, jstr);
+		mty_jni_log(env, jstr);
+		mty_jni_free(env, jstr);
 
-		jnih_free(env, ex);
+		mty_jni_free(env, ex);
 
 		return true;
 	}
@@ -79,7 +79,7 @@ bool jnih_catch(JNIEnv *env)
 	return false;
 }
 
-jbyteArray jnih_dup(JNIEnv *env, const void *buf, size_t size)
+jbyteArray mty_jni_dup(JNIEnv *env, const void *buf, size_t size)
 {
 	jbyteArray dup = (*env)->NewByteArray(env, size);
 	(*env)->SetByteArrayRegion(env, dup, 0, size, buf);
@@ -87,17 +87,17 @@ jbyteArray jnih_dup(JNIEnv *env, const void *buf, size_t size)
 	return dup;
 }
 
-jobject jnih_wrap(JNIEnv *env, void *buf, size_t size)
+jobject mty_jni_wrap(JNIEnv *env, void *buf, size_t size)
 {
 	return (*env)->NewDirectByteBuffer(env, buf, size);
 }
 
-jstring jnih_strdup(JNIEnv *env, const char *str)
+jstring mty_jni_strdup(JNIEnv *env, const char *str)
 {
 	return (*env)->NewStringUTF(env, str);
 }
 
-void jnih_memcpy(JNIEnv *env, void *dst, jbyteArray jsrc, size_t size)
+void mty_jni_memcpy(JNIEnv *env, void *dst, jbyteArray jsrc, size_t size)
 {
 	jsize jsize = (*env)->GetArrayLength(env, jsrc);
 	jbyte *src = (*env)->GetByteArrayElements(env, jsrc, NULL);
@@ -107,7 +107,7 @@ void jnih_memcpy(JNIEnv *env, void *dst, jbyteArray jsrc, size_t size)
 	(*env)->ReleaseByteArrayElements(env, jsrc, src, 0);
 }
 
-jobject jnih_new(JNIEnv *env, const char *name, const char *sig, ...)
+jobject mty_jni_new(JNIEnv *env, const char *name, const char *sig, ...)
 {
 	va_list args;
 	va_start(args, sig);
@@ -118,12 +118,12 @@ jobject jnih_new(JNIEnv *env, const char *name, const char *sig, ...)
 
 	va_end(args);
 
-	jnih_free(env, cls);
+	mty_jni_free(env, cls);
 
 	return obj;
 }
 
-jobject jnih_static_obj(JNIEnv *env, const char *name, const char *func, const char *sig, ...)
+jobject mty_jni_static_obj(JNIEnv *env, const char *name, const char *func, const char *sig, ...)
 {
 	va_list args;
 	va_start(args, sig);
@@ -134,12 +134,12 @@ jobject jnih_static_obj(JNIEnv *env, const char *name, const char *func, const c
 
 	va_end(args);
 
-	jnih_free(env, cls);
+	mty_jni_free(env, cls);
 
 	return obj;
 }
 
-void jnih_void(JNIEnv *env, jobject obj, const char *name, const char *sig, ...)
+void mty_jni_void(JNIEnv *env, jobject obj, const char *name, const char *sig, ...)
 {
 	va_list args;
 	va_start(args, sig);
@@ -151,10 +151,10 @@ void jnih_void(JNIEnv *env, jobject obj, const char *name, const char *sig, ...)
 
 	va_end(args);
 
-	jnih_free(env, cls);
+	mty_jni_free(env, cls);
 }
 
-jobject jnih_obj(JNIEnv *env, jobject obj, const char *name, const char *sig, ...)
+jobject mty_jni_obj(JNIEnv *env, jobject obj, const char *name, const char *sig, ...)
 {
 	va_list args;
 	va_start(args, sig);
@@ -165,12 +165,12 @@ jobject jnih_obj(JNIEnv *env, jobject obj, const char *name, const char *sig, ..
 
 	va_end(args);
 
-	jnih_free(env, cls);
+	mty_jni_free(env, cls);
 
 	return r;
 }
 
-jint jnih_int(JNIEnv *env, jobject obj, const char *name, const char *sig, ...)
+jint mty_jni_int(JNIEnv *env, jobject obj, const char *name, const char *sig, ...)
 {
 	va_list args;
 	va_start(args, sig);
@@ -181,7 +181,7 @@ jint jnih_int(JNIEnv *env, jobject obj, const char *name, const char *sig, ...)
 
 	va_end(args);
 
-	jnih_free(env, cls);
+	mty_jni_free(env, cls);
 
 	return r;
 }

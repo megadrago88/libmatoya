@@ -34,7 +34,7 @@ static struct gl_ctx {
 
 // JNI
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_1dims(JNIEnv *env, jobject obj,
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_gfx_1dims(JNIEnv *env, jobject obj,
 	jint w, jint h)
 {
 	CTX.width = w;
@@ -43,7 +43,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_1dims(JNIEnv *env, jobject obj,
 	MTY_Atomic32Set(&CTX.state_ctr, 2);
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_1set_1surface(JNIEnv *env, jobject obj,
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_gfx_1set_1surface(JNIEnv *env, jobject obj,
 	jobject surface)
 {
 	MTY_MutexLock(CTX.mutex);
@@ -58,7 +58,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_1set_1surface(JNIEnv *env, jobj
 	MTY_MutexUnlock(CTX.mutex);
 }
 
-JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_1unset_1surface(JNIEnv *env, jobject obj)
+JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_gfx_1unset_1surface(JNIEnv *env, jobject obj)
 {
 	MTY_MutexLock(CTX.mutex);
 
@@ -77,34 +77,30 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_1unset_1surface(JNIEnv *env, jo
 	MTY_MutexUnlock(CTX.mutex);
 }
 
-void mty_global_init(void)
+void mty_gfx_global_init(void)
 {
 	CTX.mutex = MTY_MutexCreate();
 }
 
-void mty_global_destroy(void)
+void mty_gfx_global_destroy(void)
 {
 	MTY_MutexDestroy(&CTX.mutex);
 
 	memset(&CTX, 0, sizeof(struct gl_ctx));
 }
 
-bool gfx_is_ready(void)
+bool mty_gfx_is_ready(void)
 {
 	return CTX.ready;
 }
 
-uint32_t gfx_width(void)
+void mty_gfx_size(uint32_t *width, uint32_t *height)
 {
-	return CTX.width;
+	*width = CTX.width;
+	*height = CTX.height;
 }
 
-uint32_t gfx_height(void)
-{
-	return CTX.height;
-}
-
-MTY_GFXState gfx_state(void)
+MTY_GFXState mty_gfx_state(void)
 {
 	MTY_GFXState state = MTY_GFX_STATE_NORMAL;
 
@@ -183,7 +179,7 @@ static bool gl_ctx_check(struct gl_ctx *ctx)
 		return true;
 
 	MTY_RendererDestroy(&ctx->renderer);
-	mty_gl_ctx_destroy_context(ctx);
+	gl_ctx_destroy_context(ctx);
 
 	gl_ctx_create_context(ctx);
 	ctx->renderer = MTY_RendererCreate();
@@ -208,7 +204,7 @@ void mty_gl_ctx_destroy(struct gfx_ctx **gfx_ctx)
 	MTY_MutexLock(ctx->mutex);
 
 	MTY_RendererDestroy(&ctx->renderer);
-	mty_gl_ctx_destroy_context(ctx);
+	gl_ctx_destroy_context(ctx);
 
 	MTY_MutexUnlock(ctx->mutex);
 

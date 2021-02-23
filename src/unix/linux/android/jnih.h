@@ -12,25 +12,25 @@
 
 #include <jni.h>
 
-void jnih_free(JNIEnv *env, jobject ref);
-void jnih_retain(JNIEnv *env, jobject *ref);
-void jnih_release(JNIEnv *env, jobject *ref);
+void mty_jni_free(JNIEnv *env, jobject ref);
+void mty_jni_retain(JNIEnv *env, jobject *ref);
+void mty_jni_release(JNIEnv *env, jobject *ref);
 
-jbyteArray jnih_alloc(JNIEnv *env, size_t size);
-jbyteArray jnih_dup(JNIEnv *env, const void *buf, size_t size);
-jobject jnih_wrap(JNIEnv *env, void *buf, size_t size);
-jstring jnih_strdup(JNIEnv *env, const char *str);
+jbyteArray mty_jni_alloc(JNIEnv *env, size_t size);
+jbyteArray mty_jni_dup(JNIEnv *env, const void *buf, size_t size);
+jobject mty_jni_wrap(JNIEnv *env, void *buf, size_t size);
+jstring mty_jni_strdup(JNIEnv *env, const char *str);
 
-void jnih_log(JNIEnv *env, jstring str);
-bool jnih_catch(JNIEnv *env);
+void mty_jni_log(JNIEnv *env, jstring str);
+bool mty_jni_catch(JNIEnv *env);
 
-void jnih_memcpy(JNIEnv *env, void *dst, jbyteArray jsrc, size_t size);
-void jnih_strcpy(JNIEnv *env, char *buf, size_t size, jstring str);
+void mty_jni_memcpy(JNIEnv *env, void *dst, jbyteArray jsrc, size_t size);
+void mty_jni_strcpy(JNIEnv *env, char *buf, size_t size, jstring str);
 
-jobject jnih_new(JNIEnv *env, const char *name, const char *sig, ...);
+jobject mty_jni_new(JNIEnv *env, const char *name, const char *sig, ...);
 
-jobject jnih_static_obj(JNIEnv *env, const char *name, const char *func, const char *sig, ...);
+jobject mty_jni_static_obj(JNIEnv *env, const char *name, const char *func, const char *sig, ...);
 
-void jnih_void(JNIEnv *env, jobject obj, const char *name, const char *sig, ...);
-jobject jnih_obj(JNIEnv *env, jobject obj, const char *name, const char *sig, ...);
-jint jnih_int(JNIEnv *env, jobject obj, const char *name, const char *sig, ...);
+void mty_jni_void(JNIEnv *env, jobject obj, const char *name, const char *sig, ...);
+jobject mty_jni_obj(JNIEnv *env, jobject obj, const char *name, const char *sig, ...);
+jint mty_jni_int(JNIEnv *env, jobject obj, const char *name, const char *sig, ...);

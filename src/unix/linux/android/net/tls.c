@@ -63,21 +63,21 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 	JNIEnv *env = MTY_JNIEnv();
 
 	// Context
-	jstring proto = jnih_strdup(env, "TLSv1.2");
-	jobject context = jnih_static_obj(env, "javax/net/ssl/SSLContext", "getInstance", "(Ljava/lang/String;)Ljavax/net/ssl/SSLContext;", proto);
+	jstring proto = mty_jni_strdup(env, "TLSv1.2");
+	jobject context = mty_jni_static_obj(env, "javax/net/ssl/SSLContext", "getInstance", "(Ljava/lang/String;)Ljavax/net/ssl/SSLContext;", proto);
 
 	// Initialize context
-	jnih_void(env, context, "init", "([Ljavax/net/ssl/KeyManager;[Ljavax/net/ssl/TrustManager;Ljava/security/SecureRandom;)V", NULL, NULL, NULL);
+	mty_jni_void(env, context, "init", "([Ljavax/net/ssl/KeyManager;[Ljavax/net/ssl/TrustManager;Ljava/security/SecureRandom;)V", NULL, NULL, NULL);
 
 	// Create engine, set hostname for verification
-	jstring jhost = jnih_strdup(env, host);
-	ctx->engine = jnih_obj(env, context, "createSSLEngine", "(Ljava/lang/String;I)Ljavax/net/ssl/SSLEngine;", jhost, 443);
+	jstring jhost = mty_jni_strdup(env, host);
+	ctx->engine = mty_jni_obj(env, context, "createSSLEngine", "(Ljava/lang/String;I)Ljavax/net/ssl/SSLEngine;", jhost, 443);
 
 	// Set client mode
-	jnih_void(env, ctx->engine, "setUseClientMode", "(Z)V", true);
+	mty_jni_void(env, ctx->engine, "setUseClientMode", "(Z)V", true);
 
 	// Begin handshake
-	jnih_void(env, ctx->engine, "beginHandshake", "()V", true);
+	mty_jni_void(env, ctx->engine, "beginHandshake", "()V", true);
 
 	// Preallocate bufffers
 	ctx->obuf = MTY_Alloc(TLS_BUF_SIZE, 1);
@@ -85,10 +85,10 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 	if (peerFingerprint)
 		ctx->fp = MTY_Strdup(peerFingerprint);
 
-	jnih_retain(env, &ctx->engine);
-	jnih_free(env, jhost);
-	jnih_free(env, context);
-	jnih_free(env, proto);
+	mty_jni_retain(env, &ctx->engine);
+	mty_jni_free(env, jhost);
+	mty_jni_free(env, context);
+	mty_jni_free(env, proto);
 
 	return ctx;
 }
@@ -102,7 +102,7 @@ void MTY_TLSDestroy(MTY_TLS **tls)
 
 	JNIEnv *env = MTY_JNIEnv();
 
-	jnih_release(env, &ctx->engine);
+	mty_jni_release(env, &ctx->engine);
 
 	MTY_Free(ctx->obuf);
 	MTY_Free(ctx->buf);
@@ -134,32 +134,32 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 		tls_add_data(ctx, buf, size);
 
 	// Wrap any input data in an ephemeral ByteBuffer
-	jobject jin = jnih_wrap(env, ctx->buf, ctx->offset);
-	jobject jout = jnih_wrap(env, ctx->obuf, TLS_BUF_SIZE);
+	jobject jin = mty_jni_wrap(env, ctx->buf, ctx->offset);
+	jobject jout = mty_jni_wrap(env, ctx->obuf, TLS_BUF_SIZE);
 
 	while (true) {
 		// Get handshake status and convert to string
 		char action[32];
-		jobject status = jnih_obj(env, ctx->engine, "getHandshakeStatus", "()Ljavax/net/ssl/SSLEngineResult$HandshakeStatus;");
-		jstring jstr = jnih_obj(env, status, "toString", "()Ljava/lang/String;");
-		jnih_strcpy(env, action, 32, jstr);
-		jnih_free(env, jstr);
-		jnih_free(env, status);
+		jobject status = mty_jni_obj(env, ctx->engine, "getHandshakeStatus", "()Ljavax/net/ssl/SSLEngineResult$HandshakeStatus;");
+		jstring jstr = mty_jni_obj(env, status, "toString", "()Ljava/lang/String;");
+		mty_jni_strcpy(env, action, 32, jstr);
+		mty_jni_free(env, jstr);
+		mty_jni_free(env, status);
 
 		jobject result = NULL;
 
 		// The handshake produced outbound data
 		if (!strcmp(action, "NEED_WRAP")) {
-			result = jnih_obj(env, ctx->engine, "wrap", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Ljavax/net/ssl/SSLEngineResult;", jin, jout);
-			if (jnih_catch(env)) {
+			result = mty_jni_obj(env, ctx->engine, "wrap", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Ljavax/net/ssl/SSLEngineResult;", jin, jout);
+			if (mty_jni_catch(env)) {
 				r = MTY_ASYNC_ERROR;
 				break;
 			}
 
 		// The handshake wants input data
 		} else if (!strcmp(action, "NEED_UNWRAP")) {
-			result = jnih_obj(env, ctx->engine, "unwrap", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Ljavax/net/ssl/SSLEngineResult;", jin, jout);
-			if (jnih_catch(env)) {
+			result = mty_jni_obj(env, ctx->engine, "unwrap", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Ljavax/net/ssl/SSLEngineResult;", jin, jout);
+			if (mty_jni_catch(env)) {
 				r = MTY_ASYNC_ERROR;
 				break;
 			}
@@ -172,22 +172,22 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 		}
 
 		// If any of our internal buffer has been consumed, adjust
-		jint ipos = jnih_int(env, result, "bytesConsumed", "()I");
+		jint ipos = mty_jni_int(env, result, "bytesConsumed", "()I");
 		ctx->offset -= ipos;
 		memmove(ctx->buf, ctx->buf + ipos, ctx->offset);
 
 		// If any data has been written to the output buffer, send it via the callback
-		jint pos = jnih_int(env, result, "bytesProduced", "()I");
+		jint pos = mty_jni_int(env, result, "bytesProduced", "()I");
 		if (pos > 0)
 			writeFunc(ctx->obuf, pos, opaque);
 
 		// Get wrap/unwrap handshake status and convert to string
-		status = jnih_obj(env, result, "getHandshakeStatus", "()Ljavax/net/ssl/SSLEngineResult$HandshakeStatus;");
-		jstr = jnih_obj(env, status, "toString", "()Ljava/lang/String;");
-		jnih_strcpy(env, action, 32, jstr);
-		jnih_free(env, jstr);
-		jnih_free(env, status);
-		jnih_free(env, result);
+		status = mty_jni_obj(env, result, "getHandshakeStatus", "()Ljavax/net/ssl/SSLEngineResult$HandshakeStatus;");
+		jstr = mty_jni_obj(env, status, "toString", "()Ljava/lang/String;");
+		mty_jni_strcpy(env, action, 32, jstr);
+		mty_jni_free(env, jstr);
+		mty_jni_free(env, status);
+		mty_jni_free(env, result);
 
 		if (!strcmp(action, "FINISHED")) {
 			r = MTY_ASYNC_OK;
@@ -208,22 +208,22 @@ bool MTY_TLSEncrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size
 	bool r = true;
 	JNIEnv *env = MTY_JNIEnv();
 
-	jobject jin = jnih_wrap(env, (void *) in, inSize);
-	jobject jout = jnih_wrap(env, out, outSize);
+	jobject jin = mty_jni_wrap(env, (void *) in, inSize);
+	jobject jout = mty_jni_wrap(env, out, outSize);
 
-	jobject result = jnih_obj(env, ctx->engine, "wrap", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Ljavax/net/ssl/SSLEngineResult;", jin, jout);
-	if (jnih_catch(env)) {
+	jobject result = mty_jni_obj(env, ctx->engine, "wrap", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Ljavax/net/ssl/SSLEngineResult;", jin, jout);
+	if (mty_jni_catch(env)) {
 		r = false;
 		goto except;
 	}
 
-	*written = jnih_int(env, result, "bytesProduced", "()I");
+	*written = mty_jni_int(env, result, "bytesProduced", "()I");
 
 	except:
 
-	jnih_free(env, result);
-	jnih_free(env, jout);
-	jnih_free(env, jin);
+	mty_jni_free(env, result);
+	mty_jni_free(env, jout);
+	mty_jni_free(env, jin);
 
 	return r;
 }
@@ -233,22 +233,22 @@ bool MTY_TLSDecrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size
 	bool r = true;
 	JNIEnv *env = MTY_JNIEnv();
 
-	jobject jin = jnih_wrap(env, (void *) in, inSize);
-	jobject jout = jnih_wrap(env, out, outSize);
+	jobject jin = mty_jni_wrap(env, (void *) in, inSize);
+	jobject jout = mty_jni_wrap(env, out, outSize);
 
-	jobject result = jnih_obj(env, ctx->engine, "unwrap", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Ljavax/net/ssl/SSLEngineResult;", jin, jout);
-	if (jnih_catch(env)) {
+	jobject result = mty_jni_obj(env, ctx->engine, "unwrap", "(Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)Ljavax/net/ssl/SSLEngineResult;", jin, jout);
+	if (mty_jni_catch(env)) {
 		r = false;
 		goto except;
 	}
 
-	*read = jnih_int(env, result, "bytesProduced", "()I");
+	*read = mty_jni_int(env, result, "bytesProduced", "()I");
 
 	except:
 
-	jnih_free(env, result);
-	jnih_free(env, jout);
-	jnih_free(env, jin);
+	mty_jni_free(env, result);
+	mty_jni_free(env, jout);
+	mty_jni_free(env, jin);
 
 	return r;
 }
