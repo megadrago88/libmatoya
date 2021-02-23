@@ -13,7 +13,7 @@
 #define SECURE_PADDING 1024
 
 struct secure {
-	TCP_SOCKET socket;
+	intptr_t socket;
 	MTY_TLS *tls;
 
 	uint8_t *buf;
@@ -53,9 +53,9 @@ static bool secure_read_message(struct secure *ctx, uint32_t timeout, size_t *si
 
 	// Grow buf to handle message
 	*size = len + 5;
-	if (*size > ctx->buf_size) {
-		ctx->buf = MTY_Realloc(ctx->buf, *size, 1);
+	if (ctx->buf_size < *size) {
 		ctx->buf_size = *size;
+		ctx->buf = MTY_Realloc(ctx->buf, ctx->buf_size, 1);
 	}
 
 	return tcp_read(ctx->socket, ctx->buf + 5, len, timeout);
@@ -68,7 +68,7 @@ static bool secure_write_callback(const void *buf, size_t size, void *opaque)
 	return tcp_write(ctx->socket, buf, size);
 }
 
-struct secure *secure_connect(TCP_SOCKET socket, const char *host, uint32_t timeout)
+struct secure *secure_connect(intptr_t socket, const char *host, uint32_t timeout)
 {
 	bool r = true;
 
@@ -121,8 +121,8 @@ bool secure_write(struct secure *ctx, const void *buf, size_t size)
 {
 	// Output buffer will be slightly larger than input
 	if (ctx->buf_size < size + SECURE_PADDING) {
-		ctx->buf = MTY_Realloc(ctx->buf, size + SECURE_PADDING, 1);
 		ctx->buf_size = size + SECURE_PADDING;
+		ctx->buf = MTY_Realloc(ctx->buf, ctx->buf_size, 1);
 	}
 
 	// Encrypt
@@ -158,7 +158,7 @@ bool secure_read(struct secure *ctx, void *buf, size_t size, uint32_t timeout)
 			break;
 
 		// Append any decrypted data to pbuf (pending)
-		if (ctx->pending + read > ctx->pbuf_size) {
+		if (ctx->pbuf_size < ctx->pending + read) {
 			ctx->pbuf_size = ctx->pending + read;
 			ctx->pbuf = MTY_Realloc(ctx->pbuf, ctx->pbuf_size, 1);
 		}

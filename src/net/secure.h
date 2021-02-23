@@ -14,7 +14,7 @@
 
 struct secure;
 
-struct secure *secure_connect(TCP_SOCKET socket, const char *host, uint32_t timeout);
+struct secure *secure_connect(intptr_t socket, const char *host, uint32_t timeout);
 void secure_destroy(struct secure **secure);
 
 bool secure_write(struct secure *ctx, const void *buf, size_t size);

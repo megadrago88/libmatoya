@@ -12,18 +12,13 @@
 
 #include "matoya.h"
 
-// This is OK for both winsock and unix sockets
-#define TCP_INVALID_SOCKET (-1)
+intptr_t tcp_connect(const char *ip, uint16_t port, uint32_t timeout);
+intptr_t tcp_listen(const char *ip, uint16_t port);
+intptr_t tcp_accept(intptr_t s, uint32_t timeout);
+void tcp_destroy(intptr_t *socket);
 
-typedef intptr_t TCP_SOCKET;
-
-TCP_SOCKET tcp_connect(const char *ip, uint16_t port, uint32_t timeout);
-TCP_SOCKET tcp_listen(const char *ip, uint16_t port);
-TCP_SOCKET tcp_accept(TCP_SOCKET s, uint32_t timeout);
-void tcp_destroy(TCP_SOCKET *socket);
-
-MTY_Async tcp_poll(TCP_SOCKET s, bool out, uint32_t timeout);
-bool tcp_write(TCP_SOCKET s, const void *buf, size_t size);
-bool tcp_read(TCP_SOCKET s, void *buf, size_t size, uint32_t timeout);
+MTY_Async tcp_poll(intptr_t s, bool out, uint32_t timeout);
+bool tcp_write(intptr_t s, const void *buf, size_t size);
+bool tcp_read(intptr_t s, void *buf, size_t size, uint32_t timeout);
 
 bool dns_query(const char *host, char *ip, size_t size);
