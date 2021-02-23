@@ -1563,11 +1563,11 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 		y = rect.top;
 
 	} else {
-		wsize_client(desc, scale, desktop_height, &x, &y, &width, &height);
+		mty_wsize_client(desc, scale, desktop_height, &x, &y, &width, &height);
 		window_client_to_full(&width, &height);
 
 		if (desc->position == MTY_POSITION_CENTER)
-			wsize_center(rect.left, rect.top, desktop_width, desktop_height, &x, &y, &width, &height);
+			mty_wsize_center(rect.left, rect.top, desktop_width, desktop_height, &x, &y, &width, &height);
 	}
 
 	titlew = MTY_MultiToWideD(title);

@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-static void wsize_client(const MTY_WindowDesc *desc, float scale, int32_t screen_h,
+static void mty_wsize_client(const MTY_WindowDesc *desc, float scale, int32_t screen_h,
 	int32_t *x, int32_t *y, int32_t *w, int32_t *h)
 {
 	if (desc->maxHeight > 0.0f && (float) desc->height * scale >
@@ -20,7 +20,7 @@ static void wsize_client(const MTY_WindowDesc *desc, float scale, int32_t screen
 	}
 }
 
-static void wsize_center(int32_t screen_x, int32_t screen_y, int32_t screen_w, int32_t screen_h,
+static void mty_wsize_center(int32_t screen_x, int32_t screen_y, int32_t screen_w, int32_t screen_h,
 	int32_t *x, int32_t *y, int32_t *w, int32_t *h)
 {
 	if (screen_w > *w) {
