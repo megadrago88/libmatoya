@@ -7,6 +7,7 @@
 #include "matoya.h"
 
 #include "tlocal.h"
+#include "sleep.h"
 #include "timestamp.h"
 
 static MTY_TLOCAL bool TIME_FREQ_INIT;
@@ -29,12 +30,7 @@ float MTY_TimeDiff(int64_t begin, int64_t end)
 
 void MTY_Sleep(uint32_t timeout)
 {
-	struct timespec ts = {0};
-	ts.tv_sec = timeout / 1000;
-	ts.tv_nsec = (timeout % 1000) * 1000 * 1000;
-
-	if (nanosleep(&ts, NULL) != 0)
-		MTY_Log("'nanosleep' failed with errno %d", errno);
+	mty_sleep(timeout);
 }
 
 void MTY_SetTimerResolution(uint32_t res)

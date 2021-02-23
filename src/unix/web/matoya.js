@@ -63,6 +63,10 @@ function MTY_SetUint32(ptr, value) {
 	mem_view().setUint32(ptr, value, true);
 }
 
+function MTY_SetUint16(ptr, value) {
+	mem_view().setUint16(ptr, value, true);
+}
+
 function MTY_SetInt32(ptr, value) {
 	mem_view().setInt32(ptr, value, true);
 }
@@ -436,9 +440,16 @@ const _MTY = {
 	action: null,
 };
 
+let REQUESTS = {};
+let REQUEST_ID = 0;
 let CLIPBOARD;
 let KEYS = {};
 let GPS = [false, false, false, false];
+
+const ASYNC_OK = 0;
+const ASYNC_NO_REQUEST = 1;
+const ASYNC_WAITING = 2;
+const ASYNC_ERROR = 3;
 
 function get_mods(ev) {
 	let mods = 0;
@@ -530,7 +541,143 @@ function poll_gamepads(app, controller) {
 }
 
 const MTY_WEB_API = {
+	// net
+	MTY_HttpAsyncCreate: function (num_threads) {
+	},
+	MTY_HttpAsyncDestroy: function () {
+	},
+	MTY_HttpParseUrl: function (url_c, host_c_out, host_size, path_c_out, path_size) {
+		const url = MTY_StrToJS(url_c);
+
+		try {
+			const url_obj = new URL(url);
+			const path = url_obj.pathname + url_obj.search;
+
+			MTY_StrToC(url_obj.host, host_c_out);
+			MTY_StrToC(path, path_c_out);
+
+			return true;
+
+		} catch (err) {
+			console.error(err);
+		}
+
+		return false;
+	},
+	MTY_HttpEncodeUrl: function(src, dst, dst_len) {
+		// No-op, automatically converted in fetch
+		MTY_StrToC(MTY_StrToJS(src), dst);
+	},
+	MTY_HttpAsyncRequest: function(req_c, host_c, https, method_c,
+		path_c, headers_c, body_c, body_len, timeout_ms, res_cb)
+	{
+		const req = ++REQUEST_ID;
+		MTY_SetUint32(req_c, req);
+
+		REQUESTS[req] = {
+			waiting: true,
+			res_cb: res_cb,
+		};
+
+		let scheme = https ? 'https' : 'http';
+		let method = MTY_StrToJS(method_c);
+		let host = MTY_StrToJS(host_c);
+		let path = MTY_StrToJS(path_c);
+		let headers_str = MTY_StrToJS(headers_c);
+		let body = body_c ? MTY_StrToJS(body_c) : undefined;
+		let url = scheme + '://' + host + path;
+
+		let headers = {};
+		let headers_nl = headers_str.split('\n');
+		for (let x = 0; x < headers_nl.length; x++) {
+			let pair = headers_nl[x];
+			let pair_split = pair.split(':');
+
+			if (pair_split[0] && pair_split[1])
+				headers[pair_split[0]] = pair_split[1];
+		}
+
+		fetch(url, {
+			method: method,
+			headers: headers,
+			body: body
+
+		}).then((response) => {
+			const data = REQUESTS[req];
+			data.status = response.status;
+
+			return response.arrayBuffer();
+
+		}).then((body) => {
+			const data = REQUESTS[req];
+			data.waiting = false;
+			data.done = true;
+			data.error = false;
+			data.response = new Uint8Array(body);
+
+		}).catch((err) => {
+			const data = REQUESTS[req];
+			console.error(err);
+			data.status = -900;
+			data.waiting = false;
+			data.done = true;
+			data.error = true;
+		});
+	},
+	MTY_HttpAsyncPoll: function(req, response, response_len, status_code) {
+		if (req == 0)
+			return ASYNC_NO_REQUEST;
+
+		const data = REQUESTS[req];
+
+		if (data == undefined)
+			return ASYNC_NO_REQUEST;
+
+		if (data.waiting)
+			return ASYNC_WAITING;
+
+		if (data.done) {
+			MTY_SetUint32(status_code, data.status);
+
+			if (data.response != undefined) {
+				MTY_SetUint32(response_len, data.response.length);
+
+				if (data.buf == undefined) {
+					data.buf = MTY_Alloc(data.response.length + 1);
+					MTY_Memcpy(data.buf, data.response);
+				}
+
+				MTY_SetUint32(response, data.buf);
+
+				if (!data.error && data.res_cb) {
+					MTY_CFunc(data.res_cb)(data.status, response, response_len);
+					data.buf = MTY_GetUint32(response);
+				}
+			}
+
+			data.done = false;
+
+			return data.error ? ASYNC_ERROR : ASYNC_OK;
+		}
+
+		return ASYNC_NO_REQUEST;
+	},
+	MTY_HttpAsyncClear: function (req_c) {
+		const req = MTY_GetUint32(req_c);
+		const data = REQUESTS[req];
+
+		if (data == undefined)
+			return;
+
+		MTY_Free(data.buf);
+		delete REQUESTS[req];
+
+		MTY_SetUint32(req_c, 0);
+	},
+
 	// crypto
+	MTY_CryptoHash: function(algo, input, inputSize, key, keySize, output, outputSize) {
+	},
 	MTY_RandomBytes: function (cbuf, size) {
 		const buf = new Uint8Array(mem(), size);
 		Crypto.getRandomValues(buf);
