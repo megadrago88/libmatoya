@@ -1512,7 +1512,7 @@ typedef void (*MTY_HttpAsyncFunc)(uint16_t code, void **body, size_t *size);
 
 typedef struct MTY_WebSocket MTY_WebSocket;
 
-MTY_EXPORT bool
+MTY_EXPORT void
 MTY_HttpSetProxy(const char *proxy);
 
 MTY_EXPORT bool

@@ -314,27 +314,20 @@ bool mty_http_write_request_header(struct net *net, const char *method, const ch
 
 static MTY_Atomic32 HTTP_GLOCK;
 static char HTTP_PROXY[MTY_URL_MAX];
-static MTY_TLOCAL char HTTP_PROXY_TLS[MTY_URL_MAX];
+static MTY_TLOCAL char HTTP_PROXY_TLOCAL[MTY_URL_MAX];
 
-bool MTY_HttpSetProxy(const char *proxy)
+void MTY_HttpSetProxy(const char *proxy)
 {
 	MTY_GlobalLock(&HTTP_GLOCK);
 
-	bool was_set = HTTP_PROXY[0];
-
 	if (proxy) {
-		if (!was_set) {
-			snprintf(HTTP_PROXY, MTY_URL_MAX, "%s", proxy);
-			was_set = true;
-		}
+		snprintf(HTTP_PROXY, MTY_URL_MAX, "%s", proxy);
 
 	} else {
 		HTTP_PROXY[0] = '\0';
 	}
 
 	MTY_GlobalUnlock(&HTTP_GLOCK);
-
-	return was_set;
 }
 
 const char *mty_http_get_proxy(void)
@@ -344,8 +337,8 @@ const char *mty_http_get_proxy(void)
 	MTY_GlobalLock(&HTTP_GLOCK);
 
 	if (HTTP_PROXY[0]) {
-		snprintf(HTTP_PROXY_TLS, MTY_URL_MAX, "%s", HTTP_PROXY);
-		proxy = HTTP_PROXY_TLS;
+		snprintf(HTTP_PROXY_TLOCAL, MTY_URL_MAX, "%s", HTTP_PROXY);
+		proxy = HTTP_PROXY_TLOCAL;
 	}
 
 	MTY_GlobalUnlock(&HTTP_GLOCK);
@@ -366,8 +359,8 @@ bool mty_http_should_proxy(const char **host, uint16_t *port)
 
 	if (mty_http_parse_url(proxy, &psecure, &phost, port, &ppath)) {
 		if (phost && phost[0]) {
-			snprintf(HTTP_PROXY_TLS, MTY_URL_MAX, "%s", phost);
-			*host = HTTP_PROXY_TLS;
+			snprintf(HTTP_PROXY_TLOCAL, MTY_URL_MAX, "%s", phost);
+			*host = HTTP_PROXY_TLOCAL;
 			r = true;
 		}
 
@@ -383,21 +376,21 @@ bool mty_http_proxy_connect(struct net *net, uint16_t port, uint32_t timeout)
 	struct http_header *hdr = NULL;
 	char *h = http_connect(mty_net_get_host(net), port, NULL);
 
-	//write the header to the HTTP client/server
+	// Write the header to the HTTP client/server
 	bool r = mty_net_write(net, h, strlen(h));
 	MTY_Free(h);
 
 	if (!r)
 		goto except;
 
-	//read the response header
+	// Read the response header
 	hdr = mty_http_read_header(net, timeout);
 	if (!hdr) {
 		r = false;
 		goto except;
 	}
 
-	//get the status code
+	// Get the status code
 	uint16_t status_code = 0;
 	r = mty_http_get_status_code(hdr, &status_code);
 	if (!r)
@@ -410,8 +403,7 @@ bool mty_http_proxy_connect(struct net *net, uint16_t port, uint32_t timeout)
 
 	except:
 
-	if (hdr)
-		mty_http_header_destroy(&hdr);
+	mty_http_header_destroy(&hdr);
 
 	return r;
 }
@@ -527,16 +519,16 @@ bool MTY_HttpParseUrl(const char *url, char *host, size_t hostSize, char *path, 
 
 void MTY_HttpEncodeUrl(const char *src, char *dst, size_t size)
 {
-	char table[256];
-	dst[0] = '\0';
+	memset(dst, 0, size);
 
+	char table[256];
 	for (int32_t i = 0; i < 256; i++)
 		table[i] = (char) (isalnum(i) || i == '*' || i == '-' || i == '.' || i == '_' ?
-			i : (i == ' ') ? '+' : 0);
+			i : (i == ' ') ? '+' : '\0');
 
 	for (size_t x = 0; x < strlen(src); x++){
 		int32_t c = src[x];
-		int32_t inc = 1;
+		size_t inc = 1;
 
 		if (table[c]) {
 			snprintf(dst, size, "%c", table[c]);
