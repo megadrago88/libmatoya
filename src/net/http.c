@@ -404,7 +404,7 @@ void MTY_HttpEncodeUrl(const char *src, char *dst, size_t size)
 
 	char table[256];
 	for (int32_t c = 0; c < 256; c++)
-		table[c] = (char) (isalnum(c) || c == '*' || c == '-' || c == '.' || c == '_' ? c : (c == ' ') ? '+' : '\0');
+		table[c] = isalnum(c) || c == '*' || c == '-' || c == '.' || c == '_' ? (char) c : (c == ' ') ? '+' : '\0';
 
 	for (size_t x = 0; x < strlen(src); x++) {
 		int32_t c = src[x];
