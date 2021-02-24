@@ -258,7 +258,7 @@ char *mty_http_set_all_headers(char *header, const char *all)
 
 #define HTTP_HEADER_MAX (16 * 1024)
 
-static char *http_read_header_io(struct mty_net *net, uint32_t timeout)
+static char *http_read_header_io(struct net *net, uint32_t timeout)
 {
 	bool r = false;
 	char *h = MTY_Alloc(HTTP_HEADER_MAX, 1);
@@ -281,7 +281,7 @@ static char *http_read_header_io(struct mty_net *net, uint32_t timeout)
 	return h;
 }
 
-struct http_header *mty_http_read_header(struct mty_net *net, uint32_t timeout)
+struct http_header *mty_http_read_header(struct net *net, uint32_t timeout)
 {
 	char *header = http_read_header_io(net, timeout);
 	if (!header)
@@ -293,7 +293,7 @@ struct http_header *mty_http_read_header(struct mty_net *net, uint32_t timeout)
 	return h;
 }
 
-bool mty_http_write_response_header(struct mty_net *net, const char *code, const char *reason, const char *headers)
+bool mty_http_write_response_header(struct net *net, const char *code, const char *reason, const char *headers)
 {
 	char *hstr = http_response(code, reason, headers);
 	bool r = mty_net_write(net, hstr, strlen(hstr));
@@ -303,7 +303,7 @@ bool mty_http_write_response_header(struct mty_net *net, const char *code, const
 	return r;
 }
 
-bool mty_http_write_request_header(struct mty_net *net, const char *method, const char *path, const char *headers)
+bool mty_http_write_request_header(struct net *net, const char *method, const char *path, const char *headers)
 {
 	char *hstr = http_request(method, mty_net_get_host(net), path, headers);
 	bool r = mty_net_write(net, hstr, strlen(hstr));
@@ -382,7 +382,7 @@ bool mty_http_should_proxy(const char **host, uint16_t *port)
 	return r;
 }
 
-bool mty_http_proxy_connect(struct mty_net *net, uint16_t port, uint32_t timeout)
+bool mty_http_proxy_connect(struct net *net, uint16_t port, uint32_t timeout)
 {
 	struct http_header *hdr = NULL;
 	char *h = http_connect(mty_net_get_host(net), port, NULL);
@@ -490,7 +490,7 @@ bool mty_http_parse_url(const char *url, bool *secure, char **host, uint16_t *po
 	if (tok2) { // We have a port
 		*port = (uint16_t) atoi(tok2);
 	} else {
-		*port = *secure ? MTY_NET_PORT_S : MTY_NET_PORT;
+		*port = *secure ? HTTP_PORT_S : HTTP_PORT;
 	}
 
 	// Path

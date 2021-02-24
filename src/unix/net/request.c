@@ -13,7 +13,7 @@
 #include "net/http.h"
 #include "net/gzip.h"
 
-static bool http_read_chunk_len(struct mty_net *net, uint32_t timeout, size_t *len)
+static bool http_read_chunk_len(struct net *net, uint32_t timeout, size_t *len)
 {
 	*len = 0;
 	char len_buf[64] = {0};
@@ -33,7 +33,7 @@ static bool http_read_chunk_len(struct mty_net *net, uint32_t timeout, size_t *l
 	return false;
 }
 
-static bool http_read_chunked(struct mty_net *net, void **res, size_t *size, uint32_t timeout)
+static bool http_read_chunked(struct net *net, void **res, size_t *size, uint32_t timeout)
 {
 	size_t chunk_len = 0;
 
@@ -71,7 +71,7 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 	struct http_header *hdr = NULL;
 
 	// Make the TCP/TLS connection
-	struct mty_net *net = mty_net_connect(host, secure ? MTY_NET_PORT_S : MTY_NET_PORT, secure, timeout);
+	struct net *net = mty_net_connect(host, secure ? HTTP_PORT_S : HTTP_PORT, secure, timeout);
 	if (!net) {
 		r = false;
 		goto except;

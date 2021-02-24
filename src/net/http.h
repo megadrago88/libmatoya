@@ -11,8 +11,8 @@
 
 #include "net.h"
 
-#define MTY_NET_PORT   80
-#define MTY_NET_PORT_S 443
+#define HTTP_PORT   80
+#define HTTP_PORT_S 443
 
 struct http_header;
 
@@ -25,12 +25,12 @@ char *mty_http_set_header_int(char *header, const char *name, int32_t val);
 char *mty_http_set_header_str(char *header, const char *name, const char *val);
 char *mty_http_set_all_headers(char *header, const char *all);
 
-struct http_header *mty_http_read_header(struct mty_net *net, uint32_t timeout);
-bool mty_http_write_response_header(struct mty_net *net, const char *code, const char *reason, const char *headers);
-bool mty_http_write_request_header(struct mty_net *net, const char *method, const char *path, const char *headers);
+struct http_header *mty_http_read_header(struct net *net, uint32_t timeout);
+bool mty_http_write_response_header(struct net *net, const char *code, const char *reason, const char *headers);
+bool mty_http_write_request_header(struct net *net, const char *method, const char *path, const char *headers);
 
 const char *mty_http_get_proxy(void);
 bool mty_http_should_proxy(const char **host, uint16_t *port);
-bool mty_http_proxy_connect(struct mty_net *net, uint16_t port, uint32_t timeout);
+bool mty_http_proxy_connect(struct net *net, uint16_t port, uint32_t timeout);
 
 bool mty_http_parse_url(const char *url, bool *secure, char **host, uint16_t *port, char **path);

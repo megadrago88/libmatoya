@@ -14,15 +14,15 @@
 #include "http.h"
 #include "secure.h"
 
-struct mty_net {
+struct net {
 	char *host;
 	TCP_SOCKET socket;
 	struct secure *sec;
 };
 
-struct mty_net *mty_net_connect(const char *host, uint16_t port, bool secure, uint32_t timeout)
+struct net *mty_net_connect(const char *host, uint16_t port, bool secure, uint32_t timeout)
 {
-	struct mty_net *ctx = MTY_Alloc(1, sizeof(struct mty_net));
+	struct net *ctx = MTY_Alloc(1, sizeof(struct net));
 	ctx->host = MTY_Strdup(host);
 
 	// Check global HTTP proxy settings
@@ -67,9 +67,9 @@ struct mty_net *mty_net_connect(const char *host, uint16_t port, bool secure, ui
 	return ctx;
 }
 
-struct mty_net *mty_net_listen(const char *ip, uint16_t port)
+struct net *mty_net_listen(const char *ip, uint16_t port)
 {
-	struct mty_net *ctx = MTY_Alloc(1, sizeof(struct mty_net));
+	struct net *ctx = MTY_Alloc(1, sizeof(struct net));
 	ctx->host = MTY_Strdup(ip);
 
 	ctx->socket = mty_tcp_listen(ip, port);
@@ -79,12 +79,12 @@ struct mty_net *mty_net_listen(const char *ip, uint16_t port)
 	return ctx;
 }
 
-struct mty_net *mty_net_accept(struct mty_net *ctx, uint32_t timeout)
+struct net *mty_net_accept(struct net *ctx, uint32_t timeout)
 {
 	TCP_SOCKET s = mty_tcp_accept(ctx->socket, timeout);
 
 	if (s != TCP_INVALID_SOCKET) {
-		struct mty_net *child = MTY_Alloc(1, sizeof(struct mty_net));
+		struct net *child = MTY_Alloc(1, sizeof(struct net));
 		child->host = MTY_Strdup(ctx->host);
 		child->socket = s;
 
@@ -94,12 +94,12 @@ struct mty_net *mty_net_accept(struct mty_net *ctx, uint32_t timeout)
 	return NULL;
 }
 
-void mty_net_destroy(struct mty_net **net)
+void mty_net_destroy(struct net **net)
 {
 	if (!net || !*net)
 		return;
 
-	struct mty_net *ctx = *net;
+	struct net *ctx = *net;
 
 	mty_secure_destroy(&ctx->sec);
 	mty_tcp_destroy(&ctx->socket);
@@ -110,24 +110,24 @@ void mty_net_destroy(struct mty_net **net)
 	*net = NULL;
 }
 
-MTY_Async mty_net_poll(struct mty_net *ctx, uint32_t timeout)
+MTY_Async mty_net_poll(struct net *ctx, uint32_t timeout)
 {
 	return mty_tcp_poll(ctx->socket, false, timeout);
 }
 
-bool mty_net_write(struct mty_net *ctx, const void *buf, size_t size)
+bool mty_net_write(struct net *ctx, const void *buf, size_t size)
 {
 	return ctx->sec ? mty_secure_write(ctx->sec, ctx->socket, buf, size) :
 		mty_tcp_write(ctx->socket, buf, size);
 }
 
-bool mty_net_read(struct mty_net *ctx, void *buf, size_t size, uint32_t timeout)
+bool mty_net_read(struct net *ctx, void *buf, size_t size, uint32_t timeout)
 {
 	return ctx->sec ? mty_secure_read(ctx->sec, ctx->socket, buf, size, timeout) :
 		mty_tcp_read(ctx->socket, buf, size, timeout);
 }
 
-const char *mty_net_get_host(struct mty_net *ctx)
+const char *mty_net_get_host(struct net *ctx)
 {
 	return ctx->host;
 }

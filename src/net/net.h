@@ -10,15 +10,15 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-struct mty_net;
+struct net;
 
-struct mty_net *mty_net_connect(const char *host, uint16_t port, bool secure, uint32_t timeout);
-struct mty_net *mty_net_listen(const char *ip, uint16_t port);
-struct mty_net *mty_net_accept(struct mty_net *ctx, uint32_t timeout);
-void mty_net_destroy(struct mty_net **net);
+struct net *mty_net_connect(const char *host, uint16_t port, bool secure, uint32_t timeout);
+struct net *mty_net_listen(const char *ip, uint16_t port);
+struct net *mty_net_accept(struct net *ctx, uint32_t timeout);
+void mty_net_destroy(struct net **net);
 
-MTY_Async mty_net_poll(struct mty_net *ctx, uint32_t timeout);
-bool mty_net_write(struct mty_net *ctx, const void *buf, size_t size);
-bool mty_net_read(struct mty_net *ctx, void *buf, size_t size, uint32_t timeout);
+MTY_Async mty_net_poll(struct net *ctx, uint32_t timeout);
+bool mty_net_write(struct net *ctx, const void *buf, size_t size);
+bool mty_net_read(struct net *ctx, void *buf, size_t size, uint32_t timeout);
 
-const char *mty_net_get_host(struct mty_net *ctx);
+const char *mty_net_get_host(struct net *ctx);
