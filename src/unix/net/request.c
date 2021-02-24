@@ -78,14 +78,14 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 	}
 
 	// Set request headers
-	req = mty_http_set_header_str(req, "User-Agent", "mty-http/v4");
-	req = mty_http_set_header_str(req, "Connection", "close");
+	mty_http_set_header_str(&req, "User-Agent", "mty-http/v4");
+	mty_http_set_header_str(&req, "Connection", "close");
 
 	if (headers)
-		req = mty_http_set_all_headers(req, headers);
+		mty_http_set_all_headers(&req, headers);
 
 	if (bodySize)
-		req = mty_http_set_header_int(req, "Content-Length", bodySize);
+		mty_http_set_header_int(&req, "Content-Length", bodySize);
 
 	// Send the request header
 	r = mty_http_write_request_header(net, method, path, req);

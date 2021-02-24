@@ -156,10 +156,10 @@ void mty_http_header_destroy(struct http_header **header)
 bool mty_http_get_status_code(struct http_header *h, uint16_t *status_code)
 {
 	bool r = true;
-	char *tmp = MTY_Strdup(h->first_line);
+	char *dup = MTY_Strdup(h->first_line);
 
 	char *ptr = NULL;
-	char *tok = MTY_Strtok(tmp, " ", &ptr);
+	char *tok = MTY_Strtok(dup, " ", &ptr);
 	if (!tok) {
 		r = false;
 		goto except;
@@ -175,7 +175,7 @@ bool mty_http_get_status_code(struct http_header *h, uint16_t *status_code)
 
 	except:
 
-	MTY_Free(tmp);
+	MTY_Free(dup);
 
 	return r;
 }
@@ -206,29 +206,25 @@ bool mty_http_get_header_str(struct http_header *h, const char *key, const char 
 	return false;
 }
 
-char *mty_http_set_header_int(char *header, const char *name, int32_t val)
+void mty_http_set_header_int(char **header, const char *name, int32_t val)
 {
-	size_t len = header ? strlen(header) : 0;
-	size_t new_len = len + strlen(name) + 2 + 10 + 3;
+	size_t len = *header ? strlen(*header) : 0;
+	size_t new_len = len + strlen(name) + 32;
 
-	header = MTY_Realloc(header, new_len, 1);
-	snprintf(header + len, new_len, "%s: %d\r\n", name, val);
-
-	return header;
+	*header = MTY_Realloc(*header, new_len, 1);
+	snprintf(*header + len, new_len, "%s: %d\r\n", name, val);
 }
 
-char *mty_http_set_header_str(char *header, const char *name, const char *val)
+void mty_http_set_header_str(char **header, const char *name, const char *val)
 {
-	size_t len = header ? strlen(header) : 0;
-	size_t new_len = len + strlen(name) + 2 + strlen(val) + 3;
+	size_t len = *header ? strlen(*header) : 0;
+	size_t new_len = len + strlen(name) + strlen(val) + 32;
 
-	header = MTY_Realloc(header, new_len, 1);
-	snprintf(header + len, new_len, "%s: %s\r\n", name, val);
-
-	return header;
+	*header = MTY_Realloc(*header, new_len, 1);
+	snprintf(*header + len, new_len, "%s: %s\r\n", name, val);
 }
 
-char *mty_http_set_all_headers(char *header, const char *all)
+void mty_http_set_all_headers(char **header, const char *all)
 {
 	char *dup = MTY_Strdup(all);
 
@@ -238,19 +234,19 @@ char *mty_http_set_all_headers(char *header, const char *all)
 	while (tok) {
 		char *ptr2 = NULL;
 		char *key = MTY_Strtok(tok, " :", &ptr2);
-		char *val = key ? MTY_Strtok(NULL, "", &ptr2) : NULL;
-
-		if (!key || !val)
+		if (!key)
 			break;
 
-		header = mty_http_set_header_str(header, key, val);
+		char *val = MTY_Strtok(NULL, "", &ptr2);
+		if (!val)
+			break;
+
+		mty_http_set_header_str(header, key, val);
 
 		tok = MTY_Strtok(NULL, "\n", &ptr);
 	}
 
 	MTY_Free(dup);
-
-	return header;
 }
 
 

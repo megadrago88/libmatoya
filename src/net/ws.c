@@ -221,14 +221,14 @@ static bool ws_connect(MTY_WebSocket *ws, const char *path, const char *headers,
 
 	// Obligatory websocket headers
 	char *sec_key = ws_create_key();
-	req = mty_http_set_header_str(req, "Upgrade", "websocket");
-	req = mty_http_set_header_str(req, "Connection", "Upgrade");
-	req = mty_http_set_header_str(req, "Sec-WebSocket-Key", sec_key);
-	req = mty_http_set_header_str(req, "Sec-WebSocket-Version", "13");
+	mty_http_set_header_str(&req, "Upgrade", "websocket");
+	mty_http_set_header_str(&req, "Connection", "Upgrade");
+	mty_http_set_header_str(&req, "Sec-WebSocket-Key", sec_key);
+	mty_http_set_header_str(&req, "Sec-WebSocket-Version", "13");
 
 	// Optional headers
 	if (headers)
-		req = mty_http_set_all_headers(req, headers);
+		mty_http_set_all_headers(&req, headers);
 
 	// Write the header
 	bool r = mty_http_write_request_header(ws->net, "GET", path, req);
@@ -317,12 +317,12 @@ static bool ws_accept(MTY_WebSocket *ws, const char * const *origins, uint32_t n
 		goto except;
 
 	char *accept_key = ws_create_accept_key(sec_key);
-	res = mty_http_set_header_str(res, "Sec-WebSocket-Accept", accept_key);
+	mty_http_set_header_str(&res, "Sec-WebSocket-Accept", accept_key);
 	MTY_Free(accept_key);
 
 	// Set obligatory headers
-	res = mty_http_set_header_str(res, "Upgrade", "websocket");
-	res = mty_http_set_header_str(res, "Connection", "Upgrade");
+	mty_http_set_header_str(&res, "Upgrade", "websocket");
+	mty_http_set_header_str(&res, "Connection", "Upgrade");
 
 	// Write the response header
 	r = mty_http_write_response_header(ws->net, "101", "Switching Protocols", res);
