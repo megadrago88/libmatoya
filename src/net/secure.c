@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define SECURE_PADDING 1024
+#define SECURE_PADDING (32 * 1024)
 
 struct secure {
 	MTY_TLS *tls;
@@ -144,8 +144,8 @@ bool mty_secure_read(struct secure *ctx, TCP_SOCKET socket, void *buf, size_t si
 			break;
 
 		// Resize the pending buffer, decrypted data can not be larger than msg_size
-		if (ctx->pbuf_size < ctx->pending + msg_size) {
-			ctx->pbuf_size = ctx->pending + msg_size;
+		if (ctx->pbuf_size < ctx->pending + SECURE_PADDING) {
+			ctx->pbuf_size = ctx->pending + SECURE_PADDING;
 			ctx->pbuf = MTY_Realloc(ctx->pbuf, ctx->pbuf_size, 1);
 		}
 
