@@ -69,14 +69,17 @@ struct net *mty_net_connect(const char *host, uint16_t port, bool secure, uint32
 
 struct net *mty_net_listen(const char *ip, uint16_t port)
 {
-	struct net *ctx = MTY_Alloc(1, sizeof(struct net));
-	ctx->host = MTY_Strdup(ip);
+	TCP_SOCKET s = mty_tcp_listen(ip, port);
 
-	ctx->socket = mty_tcp_listen(ip, port);
-	if (ctx->socket == TCP_INVALID_SOCKET)
-		mty_net_destroy(&ctx);
+	if (s != TCP_INVALID_SOCKET) {
+		struct net *ctx = MTY_Alloc(1, sizeof(struct net));
+		ctx->host = MTY_Strdup(ip);
+		ctx->socket = s;
 
-	return ctx;
+		return ctx;
+	}
+
+	return NULL;
 }
 
 struct net *mty_net_accept(struct net *ctx, uint32_t timeout)
