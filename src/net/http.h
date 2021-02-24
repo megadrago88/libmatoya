@@ -32,5 +32,3 @@ bool mty_http_write_request_header(struct net *net, const char *method, const ch
 const char *mty_http_get_proxy(void);
 bool mty_http_should_proxy(const char **host, uint16_t *port);
 bool mty_http_proxy_connect(struct net *net, uint16_t port, uint32_t timeout);
-
-bool mty_http_parse_url(const char *url, bool *secure, char **host, uint16_t *port, char **path);
