@@ -6,9 +6,25 @@
 
 #include "matoya.h"
 
+#include <string.h>
+
 #include <CommonCrypto/CommonCryptor.h>
 
-#include "CommonCryptorSPI.h"
+
+// Private interface -- These are not compaible with the App Store!
+
+enum {
+	kCCModeGCM = 11,
+};
+
+CCCryptorStatus CCCryptorGCMReset(CCCryptorRef cryptorRef);
+CCCryptorStatus CCCryptorGCMAddIV(CCCryptorRef cryptorRef, const void *iv, size_t ivLen);
+CCCryptorStatus CCCryptorGCMEncrypt(CCCryptorRef cryptorRef, const void *dataIn, size_t dataInLength, void *dataOut);
+CCCryptorStatus CCCryptorGCMDecrypt(CCCryptorRef cryptorRef, const void *dataIn, size_t dataInLength, void *dataOut);
+CCCryptorStatus CCCryptorGCMFinal(CCCryptorRef cryptorRef, void *tagOut, size_t *tagLength);
+
+
+// AESGCM
 
 struct MTY_AESGCM {
 	CCCryptorRef dec;
