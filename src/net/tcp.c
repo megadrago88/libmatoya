@@ -79,7 +79,7 @@ TCP_SOCKET mty_tcp_connect(const char *ip, uint16_t port, uint32_t timeout)
 	connect(s, (struct sockaddr *) &addr, sizeof(struct sockaddr_in));
 
 	// Initial socket state must be 'in progress' for nonblocking connect
-	if (mty_sock_error() != MTY_SOCK_IN_PROGRESS) {
+	if (SOCK_ERROR != SOCK_IN_PROGRESS) {
 		r = false;
 		goto except;
 	}
@@ -114,13 +114,13 @@ TCP_SOCKET mty_tcp_listen(const char *ip, uint16_t port)
 	bool r = true;
 
 	if (bind(s, (struct sockaddr *) &addr, sizeof(struct sockaddr_in)) != 0) {
-		MTY_Log("'bind' failed with errno %d", mty_sock_error());
+		MTY_Log("'bind' failed with errno %d", SOCK_ERROR);
 		r = false;
 		goto except;
 	}
 
 	if (listen(s, SOMAXCONN) != 0) {
-		MTY_Log("'listen' failed with errno %d", mty_sock_error());
+		MTY_Log("'listen' failed with errno %d", SOCK_ERROR);
 		r = false;
 		goto except;
 	}
@@ -140,7 +140,7 @@ TCP_SOCKET mty_tcp_accept(TCP_SOCKET s, uint32_t timeout)
 
 	TCP_SOCKET child = accept(s, NULL, NULL);
 	if (child == INVALID_SOCKET) {
-		MTY_Log("'accept' failed with errno %d", mty_sock_error());
+		MTY_Log("'accept' failed with errno %d", SOCK_ERROR);
 		return INVALID_SOCKET;
 	}
 
@@ -206,7 +206,7 @@ bool mty_tcp_read(TCP_SOCKET s, void *buf, size_t size, uint32_t timeout)
 		int32_t n = recv(s, (char *) buf + total, (int32_t) (size - total), 0);
 
 		if (n <= 0) {
-			if (mty_sock_error() != MTY_SOCK_WOULD_BLOCK)
+			if (SOCK_ERROR != SOCK_WOULD_BLOCK)
 				return false;
 
 		} else {

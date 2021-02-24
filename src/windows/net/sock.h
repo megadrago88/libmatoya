@@ -9,13 +9,12 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
-#define mty_sock_error()     WSAGetLastError()
-#define MTY_SOCK_WOULD_BLOCK WSAEWOULDBLOCK
-#define MTY_SOCK_IN_PROGRESS WSAEWOULDBLOCK
-#define MTY_SOCK_BAD_FD      WSAENOTSOCK
+#define SOCK_ERROR       WSAGetLastError()
+#define SOCK_WOULD_BLOCK WSAEWOULDBLOCK
+#define SOCK_IN_PROGRESS WSAEWOULDBLOCK
 
-#define poll                 WSAPoll
-#define SHUT_RDWR            2
+#define poll             WSAPoll
+#define SHUT_RDWR        2
 
 typedef int32_t socklen_t;
 
