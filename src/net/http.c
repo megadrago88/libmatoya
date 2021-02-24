@@ -403,11 +403,10 @@ void MTY_HttpEncodeUrl(const char *src, char *dst, size_t size)
 	memset(dst, 0, size);
 
 	char table[256];
-	for (int32_t i = 0; i < 256; i++)
-		table[i] = (char) (isalnum(i) || i == '*' || i == '-' || i == '.' || i == '_' ?
-			i : (i == ' ') ? '+' : '\0');
+	for (int32_t c = 0; c < 256; c++)
+		table[c] = (char) (isalnum(c) || c == '*' || c == '-' || c == '.' || c == '_' ? c : (c == ' ') ? '+' : '\0');
 
-	for (size_t x = 0; x < strlen(src); x++){
+	for (size_t x = 0; x < strlen(src); x++) {
 		int32_t c = src[x];
 		size_t inc = 1;
 
