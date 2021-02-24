@@ -13,7 +13,6 @@
 #define SECURE_PADDING 1024
 
 struct secure {
-	TCP_SOCKET socket;
 	MTY_TLS *tls;
 
 	uint8_t *buf;
@@ -40,10 +39,10 @@ void mty_secure_destroy(struct secure **secure)
 	*secure = NULL;
 }
 
-static bool secure_read_message(struct secure *ctx, uint32_t timeout, size_t *size)
+static bool secure_read_message(struct secure *ctx, TCP_SOCKET socket, uint32_t timeout, size_t *size)
 {
 	// TLS first 5 bytes contain message type, version, and size
-	if (!mty_tcp_read(ctx->socket, ctx->buf, 5, timeout))
+	if (!mty_tcp_read(socket, ctx->buf, 5, timeout))
 		return false;
 
 	// Size is bytes 3-4 big endian
@@ -58,14 +57,12 @@ static bool secure_read_message(struct secure *ctx, uint32_t timeout, size_t *si
 		ctx->buf = MTY_Realloc(ctx->buf, ctx->buf_size, 1);
 	}
 
-	return mty_tcp_read(ctx->socket, ctx->buf + 5, len, timeout);
+	return mty_tcp_read(socket, ctx->buf + 5, len, timeout);
 }
 
-static bool secure_write_callback(const void *buf, size_t size, void *opaque)
+static bool secure_write_callback(const void *buf, size_t size, void *socket)
 {
-	struct secure *ctx = opaque;
-
-	return mty_tcp_write(ctx->socket, buf, size);
+	return mty_tcp_write((TCP_SOCKET) socket, buf, size);
 }
 
 struct secure *mty_secure_connect(TCP_SOCKET socket, const char *host, uint32_t timeout)
@@ -73,7 +70,6 @@ struct secure *mty_secure_connect(TCP_SOCKET socket, const char *host, uint32_t 
 	bool r = true;
 
 	struct secure *ctx = MTY_Alloc(1, sizeof(struct secure));
-	ctx->socket = socket;
 
 	ctx->buf = MTY_Alloc(SECURE_PADDING, 1);
 	ctx->buf_size = SECURE_PADDING;
@@ -86,7 +82,7 @@ struct secure *mty_secure_connect(TCP_SOCKET socket, const char *host, uint32_t 
 	}
 
 	// Handshake part 1 (->Client Hello) -- Initiate with NULL message
-	MTY_Async a = MTY_TLSHandshake(ctx->tls, NULL, 0, secure_write_callback, ctx);
+	MTY_Async a = MTY_TLSHandshake(ctx->tls, NULL, 0, secure_write_callback, (void *) socket);
 	if (a != MTY_ASYNC_CONTINUE) {
 		r = false;
 		goto except;
@@ -95,11 +91,11 @@ struct secure *mty_secure_connect(TCP_SOCKET socket, const char *host, uint32_t 
 	// Handshake part 2 (<-Server Hello, ...) -- Loop until handshake complete
 	while (true) {
 		size_t size = 0;
-		r = secure_read_message(ctx, timeout, &size);
+		r = secure_read_message(ctx, socket, timeout, &size);
 		if (!r)
 			break;
 
-		a = MTY_TLSHandshake(ctx->tls, ctx->buf, size, secure_write_callback, ctx);
+		a = MTY_TLSHandshake(ctx->tls, ctx->buf, size, secure_write_callback, (void *) socket);
 		if (a == MTY_ASYNC_OK) {
 			break;
 
@@ -117,7 +113,7 @@ struct secure *mty_secure_connect(TCP_SOCKET socket, const char *host, uint32_t 
 	return ctx;
 }
 
-bool mty_secure_write(struct secure *ctx, const void *buf, size_t size)
+bool mty_secure_write(struct secure *ctx, TCP_SOCKET socket, const void *buf, size_t size)
 {
 	// Output buffer will be slightly larger than input
 	if (ctx->buf_size < size + SECURE_PADDING) {
@@ -131,10 +127,10 @@ bool mty_secure_write(struct secure *ctx, const void *buf, size_t size)
 		return false;
 
 	// Write resulting encrypted message via TCP
-	return mty_tcp_write(ctx->socket, ctx->buf, written);
+	return mty_tcp_write(socket, ctx->buf, written);
 }
 
-bool mty_secure_read(struct secure *ctx, void *buf, size_t size, uint32_t timeout)
+bool mty_secure_read(struct secure *ctx, TCP_SOCKET socket, void *buf, size_t size, uint32_t timeout)
 {
 	while (true) {
 		// Check if we have decrypted data in our buffer from a previous read
@@ -149,7 +145,7 @@ bool mty_secure_read(struct secure *ctx, void *buf, size_t size, uint32_t timeou
 
 		// We need more data, read a TLS message from the socket
 		size_t msg_size = 0;
-		if (!secure_read_message(ctx, timeout, &msg_size))
+		if (!secure_read_message(ctx, socket, timeout, &msg_size))
 			break;
 
 		// Resize the pending buffer, decrypted data can not be larger than msg_size

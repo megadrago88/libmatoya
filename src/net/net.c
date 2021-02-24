@@ -117,12 +117,14 @@ MTY_Async mty_net_poll(struct mty_net *ctx, uint32_t timeout)
 
 bool mty_net_write(struct mty_net *ctx, const void *buf, size_t size)
 {
-	return ctx->sec ? mty_secure_write(ctx->sec, buf, size) : mty_tcp_write(ctx->socket, buf, size);
+	return ctx->sec ? mty_secure_write(ctx->sec, ctx->socket, buf, size) :
+		mty_tcp_write(ctx->socket, buf, size);
 }
 
 bool mty_net_read(struct mty_net *ctx, void *buf, size_t size, uint32_t timeout)
 {
-	return ctx->sec ? mty_secure_read(ctx->sec, buf, size, timeout) : mty_tcp_read(ctx->socket, buf, size, timeout);
+	return ctx->sec ? mty_secure_read(ctx->sec, ctx->socket, buf, size, timeout) :
+		mty_tcp_read(ctx->socket, buf, size, timeout);
 }
 
 const char *mty_net_get_host(struct mty_net *ctx)
