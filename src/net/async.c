@@ -7,10 +7,7 @@
 #include "matoya.h"
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
-
-#include "matoya.h"
 
 struct async_state {
 	MTY_Async status;
@@ -35,7 +32,7 @@ struct async_state {
 };
 
 static MTY_Atomic32 ASYNC_GLOCK;
-static MTY_ThreadPool *CTX;
+static MTY_ThreadPool *ASYNC_CTX;
 
 static void http_async_free_state(void *opaque)
 {
@@ -55,8 +52,8 @@ void MTY_HttpAsyncCreate(uint32_t maxThreads)
 {
 	MTY_GlobalLock(&ASYNC_GLOCK);
 
-	if (!CTX)
-		CTX = MTY_ThreadPoolCreate(maxThreads);
+	if (!ASYNC_CTX)
+		ASYNC_CTX = MTY_ThreadPoolCreate(maxThreads);
 
 	MTY_GlobalUnlock(&ASYNC_GLOCK);
 }
@@ -65,7 +62,7 @@ void MTY_HttpAsyncDestroy(void)
 {
 	MTY_GlobalLock(&ASYNC_GLOCK);
 
-	MTY_ThreadPoolDestroy(&CTX, http_async_free_state);
+	MTY_ThreadPoolDestroy(&ASYNC_CTX, http_async_free_state);
 
 	MTY_GlobalUnlock(&ASYNC_GLOCK);
 }
@@ -88,11 +85,11 @@ void MTY_HttpAsyncRequest(uint32_t *index, const char *host, bool secure, const 
 	const char *path, const char *headers, const void *body, size_t size, uint32_t timeout,
 	MTY_HttpAsyncFunc func)
 {
-	if (!CTX)
+	if (!ASYNC_CTX)
 		return;
 
 	if (*index != 0)
-		MTY_ThreadPoolDetach(CTX, *index, http_async_free_state);
+		MTY_ThreadPoolDetach(ASYNC_CTX, *index, http_async_free_state);
 
 	struct async_state *s = MTY_Alloc(1, sizeof(struct async_state));
 	s->timeout = timeout;
@@ -106,7 +103,7 @@ void MTY_HttpAsyncRequest(uint32_t *index, const char *host, bool secure, const 
 	s->req.headers = headers ? MTY_Strdup(headers) : MTY_Alloc(1, 1);
 	s->req.body = body ? MTY_Dup(body, size) : NULL;
 
-	*index = MTY_ThreadPoolStart(CTX, http_async_thread, s);
+	*index = MTY_ThreadPoolStart(ASYNC_CTX, http_async_thread, s);
 
 	if (*index == 0) {
 		MTY_Log("Failed to start %s%s", host, path);
@@ -116,7 +113,7 @@ void MTY_HttpAsyncRequest(uint32_t *index, const char *host, bool secure, const 
 
 MTY_Async MTY_HttpAsyncPoll(uint32_t index, void **response, size_t *size, uint16_t *status)
 {
-	if (!CTX)
+	if (!ASYNC_CTX)
 		return MTY_ASYNC_ERROR;
 
 	if (index == 0)
@@ -124,7 +121,7 @@ MTY_Async MTY_HttpAsyncPoll(uint32_t index, void **response, size_t *size, uint1
 
 	struct async_state *s = NULL;
 	MTY_Async r = MTY_ASYNC_DONE;
-	MTY_ThreadState pstatus = MTY_ThreadPoolState(CTX, index, (void **) &s);
+	MTY_ThreadState pstatus = MTY_ThreadPoolState(ASYNC_CTX, index, (void **) &s);
 
 	if (pstatus == MTY_THREAD_STATE_DONE) {
 		*response = s->res.body;
@@ -142,9 +139,9 @@ MTY_Async MTY_HttpAsyncPoll(uint32_t index, void **response, size_t *size, uint1
 
 void MTY_HttpAsyncClear(uint32_t *index)
 {
-	if (!CTX)
+	if (!ASYNC_CTX)
 		return;
 
-	MTY_ThreadPoolDetach(CTX, *index, http_async_free_state);
+	MTY_ThreadPoolDetach(ASYNC_CTX, *index, http_async_free_state);
 	*index = 0;
 }
