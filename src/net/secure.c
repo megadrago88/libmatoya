@@ -127,21 +127,11 @@ bool mty_secure_write(struct secure *ctx, TCP_SOCKET socket, const void *buf, si
 
 bool mty_secure_read(struct secure *ctx, TCP_SOCKET socket, void *buf, size_t size, uint32_t timeout)
 {
-	while (true) {
-		// Check if we have decrypted data in our buffer from a previous read
-		if (ctx->pending >= size) {
-			memcpy(buf, ctx->pbuf, size);
-			ctx->pending -= size;
-
-			memmove(ctx->pbuf, ctx->pbuf + size, ctx->pending);
-
-			return true;
-		}
-
+	while (ctx->pending < size) {
 		// We need more data, read a TLS message from the socket
 		size_t msize = 0;
 		if (!secure_read_message(ctx, socket, timeout, &msize))
-			break;
+			return false;
 
 		// Resize the pending buffer
 		if (ctx->pbuf_size < ctx->pending + SECURE_PADDING) {
@@ -153,10 +143,16 @@ bool mty_secure_read(struct secure *ctx, TCP_SOCKET socket, void *buf, size_t si
 		size_t read = 0;
 		if (!MTY_TLSDecrypt(ctx->tls, ctx->buf, msize, ctx->pbuf + ctx->pending,
 			ctx->pbuf_size - ctx->pending, &read))
-			break;
+			return false;
 
 		ctx->pending += read;
 	}
 
-	return false;
+	// We have enough data to fill the buffer
+	memcpy(buf, ctx->pbuf, size);
+	ctx->pending -= size;
+
+	memmove(ctx->pbuf, ctx->pbuf + size, ctx->pending);
+
+	return true;
 }
