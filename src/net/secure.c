@@ -139,11 +139,11 @@ bool mty_secure_read(struct secure *ctx, TCP_SOCKET socket, void *buf, size_t si
 		}
 
 		// We need more data, read a TLS message from the socket
-		size_t msg_size = 0;
-		if (!secure_read_message(ctx, socket, timeout, &msg_size))
+		size_t msize = 0;
+		if (!secure_read_message(ctx, socket, timeout, &msize))
 			break;
 
-		// Resize the pending buffer, decrypted data can not be larger than msg_size
+		// Resize the pending buffer, decrypted data can not be larger than msize
 		if (ctx->pbuf_size < ctx->pending + SECURE_PADDING) {
 			ctx->pbuf_size = ctx->pending + SECURE_PADDING;
 			ctx->pbuf = MTY_Realloc(ctx->pbuf, ctx->pbuf_size, 1);
@@ -151,7 +151,7 @@ bool mty_secure_read(struct secure *ctx, TCP_SOCKET socket, void *buf, size_t si
 
 		// Decrypt
 		size_t read = 0;
-		if (!MTY_TLSDecrypt(ctx->tls, ctx->buf, msg_size, ctx->pbuf + ctx->pending,
+		if (!MTY_TLSDecrypt(ctx->tls, ctx->buf, msize, ctx->pbuf + ctx->pending,
 			ctx->pbuf_size - ctx->pending, &read))
 			break;
 
