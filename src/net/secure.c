@@ -143,7 +143,7 @@ bool mty_secure_read(struct secure *ctx, TCP_SOCKET socket, void *buf, size_t si
 		if (!secure_read_message(ctx, socket, timeout, &msize))
 			break;
 
-		// Resize the pending buffer, decrypted data can not be larger than msize
+		// Resize the pending buffer
 		if (ctx->pbuf_size < ctx->pending + SECURE_PADDING) {
 			ctx->pbuf_size = ctx->pending + SECURE_PADDING;
 			ctx->pbuf = MTY_Realloc(ctx->pbuf, ctx->pbuf_size, 1);
