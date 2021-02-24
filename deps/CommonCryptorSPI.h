@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifndef	_CC_CryptorSPI_H_
+#ifndef _CC_CryptorSPI_H_
 #define _CC_CryptorSPI_H_
 
 #include <sys/types.h>
@@ -29,10 +29,10 @@
 
 #include <string.h>
 #ifdef KERNEL
-#include <machine/limits.h>
+	#include <machine/limits.h>
 #else
-#include <limits.h>
-#include <stdlib.h>
+	#include <limits.h>
+	#include <stdlib.h>
 #endif /* KERNEL */
 #include <Availability.h>
 
@@ -41,8 +41,8 @@ extern "C" {
 #endif
 
 #if defined(_WIN32)
-    //remove after rdar://problem/28144944
-    int timingsafe_bcmp(const void *b1, const void *b2, size_t n);
+//remove after rdar://problem/28144944
+int timingsafe_bcmp(const void *b1, const void *b2, size_t n);
 #endif
 /*
 	This is an SPI header.  It includes some work in progress implementation notes that
@@ -56,39 +56,36 @@ extern "C" {
 /* Lion SPI name for no padding.  Defining for compatibility.  Is now
    ccNoPadding in CommonCryptor.h
  */
-    
+
 enum {
-    ccDefaultPadding			= 0,
+	ccDefaultPadding = 0,
 };
 
 
-enum {
-	kCCAlgorithmAES128NoHardware = 20,
-	kCCAlgorithmAES128WithHardware = 21
-};
+enum { kCCAlgorithmAES128NoHardware = 20, kCCAlgorithmAES128WithHardware = 21 };
 
 /*
  	Private Modes
  */
 enum {
-	kCCModeGCM		= 11,
-	kCCModeCCM		= 12,
+	kCCModeGCM = 11,
+	kCCModeCCM = 12,
 };
 
 /*
  	Private Paddings
  */
 enum {
-    ccCBCCTS1			= 10,
-    ccCBCCTS2			= 11,
-    ccCBCCTS3			= 12,
+	ccCBCCTS1 = 10,
+	ccCBCCTS2 = 11,
+	ccCBCCTS3 = 12,
 };
 
 /*
     Private Cryptor direction (op)
  */
 enum {
-    kCCBoth		= 3,
+	kCCBoth = 3,
 };
 
 
@@ -102,23 +99,15 @@ enum {
 
 /* User supplied space for the CryptorRef */
 
-CCCryptorStatus CCCryptorCreateFromDataWithMode(
-	CCOperation 	op,				/* kCCEncrypt, kCCEncrypt, kCCBoth (default for BlockMode) */
-	CCMode			mode,
-	CCAlgorithm		alg,
-	CCPadding		padding,		
-	const void 		*iv,			/* optional initialization vector */
-	const void 		*key,			/* raw key material */
-	size_t 			keyLength,	
-	const void 		*tweak,			/* raw tweak material */
-	size_t 			tweakLength,	
-	int				numRounds,
-	CCModeOptions 	options,
-	const void		*data,			/* caller-supplied memory */
-	size_t			dataLength,		/* length of data in bytes */
-	CCCryptorRef	*cryptorRef,	/* RETURNED */
-	size_t			*dataUsed)		/* optional, RETURNED */
-__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+CCCryptorStatus CCCryptorCreateFromDataWithMode(CCOperation op,                 /* kCCEncrypt, kCCEncrypt, kCCBoth (default for BlockMode) */
+	CCMode mode, CCAlgorithm alg, CCPadding padding, const void *iv,            /* optional initialization vector */
+	const void *key,                                                            /* raw key material */
+	size_t keyLength, const void *tweak,                                        /* raw tweak material */
+	size_t tweakLength, int numRounds, CCModeOptions options, const void *data, /* caller-supplied memory */
+	size_t dataLength,                                                          /* length of data in bytes */
+	CCCryptorRef *cryptorRef,                                                   /* RETURNED */
+	size_t *dataUsed)                                                           /* optional, RETURNED */
+	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 
 /*
@@ -134,22 +123,10 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 	int mode_decrypt_tweaked(const unsigned char *ct, unsigned long len, unsigned char *pt, const unsigned char *tweak, mode_context *ctx);
 */
 
-CCCryptorStatus CCCryptorEncryptDataBlock(
-	CCCryptorRef cryptorRef,
-	const void *iv,
-	const void *dataIn,
-	size_t dataInLength,
-	void *dataOut)
-__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+CCCryptorStatus CCCryptorEncryptDataBlock(CCCryptorRef cryptorRef, const void *iv, const void *dataIn, size_t dataInLength, void *dataOut) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 
-CCCryptorStatus CCCryptorDecryptDataBlock(
-	CCCryptorRef cryptorRef,
-	const void *iv,
-	const void *dataIn,
-	size_t dataInLength,
-	void *dataOut)
-__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+CCCryptorStatus CCCryptorDecryptDataBlock(CCCryptorRef cryptorRef, const void *iv, const void *dataIn, size_t dataInLength, void *dataOut) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 /*
 	Assuming we can use the existing CCCryptorRelease() interface for 
@@ -162,34 +139,23 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 	int mode_setiv(const unsigned char *IV, unsigned long len, mode_context *ctx);
 	int mode_getiv(const unsigned char *IV, unsigned long *len, mode_context *ctx);
 */
-    
+
 /*
     DES key utilities
 */
-    
-CCCryptorStatus CCDesIsWeakKey(
-                               void *key,
-                               size_t Length)
-__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
-void CCDesSetOddParity(
-                       void *key,
-                       size_t Length)
-__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+CCCryptorStatus CCDesIsWeakKey(void *key, size_t Length) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
-uint32_t CCDesCBCCksum(void *input, void *output,
-                       size_t length, void *key, size_t keylen,
-                       void *ivec)
-__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
-    
+void CCDesSetOddParity(void *key, size_t Length) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+
+uint32_t CCDesCBCCksum(void *input, void *output, size_t length, void *key, size_t keylen, void *ivec) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+
 
 /*
  * returns a cipher blocksize length iv in the provided iv buffer.
  */
-    
-CCCryptorStatus
-CCCryptorGetIV(CCCryptorRef cryptorRef, void *iv)
-__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+
+CCCryptorStatus CCCryptorGetIV(CCCryptorRef cryptorRef, void *iv) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 /*
     GCM Support Interfaces
@@ -205,12 +171,8 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 	CCCryptorRef. You can call this function as many times as required to
 	process the entire IV.
 */
-    
-CCCryptorStatus
-CCCryptorGCMAddIV(CCCryptorRef cryptorRef,
-                	const void 		*iv,
-                    size_t ivLen)
-__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
+
+CCCryptorStatus CCCryptorGCMAddIV(CCCryptorRef cryptorRef, const void *iv, size_t ivLen) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
 
 /*
 	Additional Authentication Data
@@ -222,41 +184,19 @@ __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
     to adding IV data until the state has been reset.
 */
 
-CCCryptorStatus
-CCCryptorGCMAddAAD(CCCryptorRef cryptorRef,
-                   const void 		*aData,
-                   size_t aDataLen)
-__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
+CCCryptorStatus CCCryptorGCMAddAAD(CCCryptorRef cryptorRef, const void *aData, size_t aDataLen) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
 
 // Maintain the old symbol with incorrect camel-case for now.
-CCCryptorStatus
-CCCryptorGCMaddAAD(CCCryptorRef cryptorRef,
-                	const void 		*aData,
-                    size_t aDataLen)
-__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
+CCCryptorStatus CCCryptorGCMaddAAD(CCCryptorRef cryptorRef, const void *aData, size_t aDataLen) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
 
 // This is for old iOS5 clients
-CCCryptorStatus
-CCCryptorGCMAddADD(CCCryptorRef cryptorRef,
-                   const void 		*aData,
-                   size_t aDataLen)
-__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
+CCCryptorStatus CCCryptorGCMAddADD(CCCryptorRef cryptorRef, const void *aData, size_t aDataLen) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
 
 
-CCCryptorStatus CCCryptorGCMEncrypt(
-	CCCryptorRef cryptorRef,
-	const void *dataIn,
-	size_t dataInLength,
-	void *dataOut)
-__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
+CCCryptorStatus CCCryptorGCMEncrypt(CCCryptorRef cryptorRef, const void *dataIn, size_t dataInLength, void *dataOut) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
 
 
-CCCryptorStatus CCCryptorGCMDecrypt(
-	CCCryptorRef cryptorRef,
-	const void *dataIn,
-	size_t dataInLength,
-	void *dataOut)
-__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
+CCCryptorStatus CCCryptorGCMDecrypt(CCCryptorRef cryptorRef, const void *dataIn, size_t dataInLength, void *dataOut) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
 
 /*
 	This terminates the GCM state gcm and stores the tag in tag of length
@@ -269,20 +209,14 @@ __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
 
 */
 
-CCCryptorStatus CCCryptorGCMFinal(
-	CCCryptorRef cryptorRef,
-	void   *tagOut,
-	size_t *tagLength)
-__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
+CCCryptorStatus CCCryptorGCMFinal(CCCryptorRef cryptorRef, void *tagOut, size_t *tagLength) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
 
 /*
 	This will reset the GCM CCCryptorRef to the state that CCCryptorCreateWithMode() 
     left it. The user would then call CCCryptorGCMAddIV(), CCCryptorGCMaddAAD(), etc.
 */
 
-CCCryptorStatus CCCryptorGCMReset(
-	CCCryptorRef cryptorRef)
-__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
+CCCryptorStatus CCCryptorGCMReset(CCCryptorRef cryptorRef) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
 
 /*
 	This will initialize the GCM state with the given key, IV and AAD value 
@@ -299,29 +233,14 @@ __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
 
 */
 
-CCCryptorStatus CCCryptorGCM(
-	CCOperation 	op,				/* kCCEncrypt, kCCDecrypt */
-	CCAlgorithm		alg,
-	const void 		*key,			/* raw key material */
-	size_t 			keyLength,	
-	const void 		*iv,
-	size_t 			ivLen,
-	const void 		*aData,
-	size_t 			aDataLen,
-	const void 		*dataIn,
-	size_t 			dataInLength,
-  	void 			*dataOut,
-	void 		    *tagOut,
-	size_t 			*tagLength)
-__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
-    
+CCCryptorStatus CCCryptorGCM(CCOperation op, /* kCCEncrypt, kCCDecrypt */
+	CCAlgorithm alg, const void *key,        /* raw key material */
+	size_t keyLength, const void *iv, size_t ivLen, const void *aData, size_t aDataLen, const void *dataIn, size_t dataInLength, void *dataOut, void *tagOut, size_t *tagLength) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
 
-void CC_RC4_set_key(void *ctx, int len, const unsigned char *data)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
-void CC_RC4(void *ctx, unsigned long len, const unsigned char *indata,
-                unsigned char *outdata)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
+void CC_RC4_set_key(void *ctx, int len, const unsigned char *data) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
+
+void CC_RC4(void *ctx, unsigned long len, const unsigned char *indata, unsigned char *outdata) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 /*
 GCM interface can then be easily bolt on the rest of standard CCCryptor interface; typically following sequence can be used:
@@ -337,41 +256,41 @@ CCCryptorRelease()
 */
 
 enum {
-    /*
+	/*
         Initialization vector - cryptor input parameter, typically
         needs to have the same length as block size, but in some cases
         (GCM) it can be arbitrarily long and even might be called
         multiple times.
     */
-    kCCParameterIV,
+	kCCParameterIV,
 
-    /*
+	/*
         Authentication data - cryptor input parameter, input for
         authenticating encryption modes like GCM.  If supported, can
         be called multiple times before encryption starts.
     */
-    kCCParameterAuthData,
+	kCCParameterAuthData,
 
-    /*
+	/*
         Mac Size - cryptor input parameter, input for
         authenticating encryption modes like CCM. Specifies the size of
         the AuthTag the algorithm is expected to produce.
     */
-    kCCMacSize,
+	kCCMacSize,
 
-    /*
+	/*
         Data Size - cryptor input parameter, input for
         authenticating encryption modes like CCM. Specifies the amount of
         data the algorithm is expected to process.
     */
-    kCCDataSize,
+	kCCDataSize,
 
-    /*
+	/*
         Authentication tag - cryptor output parameter, output from
         authenticating encryption modes like GCM.  If supported,
         should be retrieved after the encryption finishes.
     */
-    kCCParameterAuthTag,
+	kCCParameterAuthTag,
 };
 typedef uint32_t CCParameter;
 
@@ -383,11 +302,7 @@ typedef uint32_t CCParameter;
     data length or format).
 */
 
-CCCryptorStatus CCCryptorAddParameter(
-    CCCryptorRef cryptorRef,
-    CCParameter parameter,
-    const void *data,
-    size_t dataSize);
+CCCryptorStatus CCCryptorAddParameter(CCCryptorRef cryptorRef, CCParameter parameter, const void *data, size_t dataSize);
 
 
 /*
@@ -398,11 +313,7 @@ CCCryptorStatus CCCryptorAddParameter(
     argument is set to the requested size of data).
 */
 
-CCCryptorStatus CCCryptorGetParameter(
-    CCCryptorRef cryptorRef,
-    CCParameter parameter,
-    void *data,
-    size_t *dataSize);
+CCCryptorStatus CCCryptorGetParameter(CCCryptorRef cryptorRef, CCParameter parameter, void *data, size_t *dataSize);
 
 
 #ifdef __cplusplus

@@ -7,7 +7,7 @@
 #include "matoya.h"
 #include "gzip.h"
 
-#include "miniz/miniz.c"
+#include "miniz.h"
 
 #define GZIP_CHUNK_SIZE (256 * 1024)
 

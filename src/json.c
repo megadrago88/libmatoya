@@ -14,18 +14,7 @@
 #include <limits.h>
 #include <math.h>
 
-#if defined(_WIN32)
-	#pragma warning(push)
-	#pragma warning(disable: 4996) // _CRT_SECURE_NO_WARNINGS
-#else
-	#pragma GCC diagnostic ignored "-Wunused-function"
-#endif
-
-#include "cJSON/cJSON.c"
-
-#if defined(_WIN32)
-	#pragma warning(pop)
-#endif
+#include "cJSON.h"
 
 MTY_JSON *MTY_JSONParse(const char *input)
 {

@@ -31,8 +31,8 @@
 #define STBIW_FREE(ptr)          MTY_Free(ptr)
 #define STBIW_ASSERT(x)
 
-#include "stb/stb_image.h"
-#include "stb/stb_image_write.h"
+#include "stb_image.h"
+#include "stb_image_write.h"
 
 struct image_write {
 	void *output;
