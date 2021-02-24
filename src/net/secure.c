@@ -13,7 +13,7 @@
 #define SECURE_PADDING 1024
 
 struct secure {
-	intptr_t socket;
+	TCP_SOCKET socket;
 	MTY_TLS *tls;
 
 	uint8_t *buf;
@@ -68,7 +68,7 @@ static bool secure_write_callback(const void *buf, size_t size, void *opaque)
 	return mty_tcp_write(ctx->socket, buf, size);
 }
 
-struct secure *mty_secure_connect(intptr_t socket, const char *host, uint32_t timeout)
+struct secure *mty_secure_connect(TCP_SOCKET socket, const char *host, uint32_t timeout)
 {
 	bool r = true;
 

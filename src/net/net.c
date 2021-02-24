@@ -16,7 +16,7 @@
 
 struct mty_net {
 	char *host;
-	intptr_t socket;
+	TCP_SOCKET socket;
 	struct secure *sec;
 };
 
@@ -38,7 +38,7 @@ struct mty_net *mty_net_connect(const char *host, uint16_t port, bool secure, ui
 
 	// Make the tcp connection
 	ctx->socket = mty_tcp_connect(ip, cport, timeout);
-	if (ctx->socket == -1) {
+	if (ctx->socket == TCP_INVALID_SOCKET) {
 		r = false;
 		goto except;
 	}
@@ -73,7 +73,7 @@ struct mty_net *mty_net_listen(const char *ip, uint16_t port)
 	ctx->host = MTY_Strdup(ip);
 
 	ctx->socket = mty_tcp_listen(ip, port);
-	if (ctx->socket == -1)
+	if (ctx->socket == TCP_INVALID_SOCKET)
 		mty_net_destroy(&ctx);
 
 	return ctx;
@@ -81,9 +81,9 @@ struct mty_net *mty_net_listen(const char *ip, uint16_t port)
 
 struct mty_net *mty_net_accept(struct mty_net *ctx, uint32_t timeout)
 {
-	intptr_t s = mty_tcp_accept(ctx->socket, timeout);
+	TCP_SOCKET s = mty_tcp_accept(ctx->socket, timeout);
 
-	if (s != -1) {
+	if (s != TCP_INVALID_SOCKET) {
 		struct mty_net *child = MTY_Alloc(1, sizeof(struct mty_net));
 		child->host = MTY_Strdup(ctx->host);
 		child->socket = s;

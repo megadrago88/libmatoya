@@ -14,7 +14,7 @@
 
 // Connect, accept
 
-static bool tcp_socket_ok(intptr_t s)
+static bool tcp_socket_ok(TCP_SOCKET s)
 {
 	int32_t opt = 0;
 	socklen_t size = sizeof(int32_t);
@@ -23,12 +23,12 @@ static bool tcp_socket_ok(intptr_t s)
 	return e == 0 && opt == 0;
 }
 
-static void tcp_set_sockopt(intptr_t s, int32_t level, int32_t opt_name, int32_t val)
+static void tcp_set_sockopt(TCP_SOCKET s, int32_t level, int32_t opt_name, int32_t val)
 {
 	setsockopt(s, level, opt_name, (const char *) &val, sizeof(int32_t));
 }
 
-static void tcp_set_options(intptr_t s)
+static void tcp_set_options(TCP_SOCKET s)
 {
 	tcp_set_sockopt(s, SOL_SOCKET, SO_RCVBUF, 64 * 1024);
 	tcp_set_sockopt(s, SOL_SOCKET, SO_SNDBUF, 64 * 1024);
@@ -38,9 +38,9 @@ static void tcp_set_options(intptr_t s)
 	tcp_set_sockopt(s, IPPROTO_TCP, TCP_NODELAY, 1);
 }
 
-static intptr_t tcp_socket(const char *ip, uint16_t port, struct sockaddr_in *addr)
+static TCP_SOCKET tcp_socket(const char *ip, uint16_t port, struct sockaddr_in *addr)
 {
-	intptr_t s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	TCP_SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (s == INVALID_SOCKET)
 		return s;
 
@@ -65,11 +65,11 @@ static intptr_t tcp_socket(const char *ip, uint16_t port, struct sockaddr_in *ad
 	return s;
 }
 
-intptr_t mty_tcp_connect(const char *ip, uint16_t port, uint32_t timeout)
+TCP_SOCKET mty_tcp_connect(const char *ip, uint16_t port, uint32_t timeout)
 {
 	struct sockaddr_in addr = {0};
 
-	intptr_t s = tcp_socket(ip, port, &addr);
+	TCP_SOCKET s = tcp_socket(ip, port, &addr);
 	if (s == INVALID_SOCKET)
 		return s;
 
@@ -103,11 +103,11 @@ intptr_t mty_tcp_connect(const char *ip, uint16_t port, uint32_t timeout)
 	return s;
 }
 
-intptr_t mty_tcp_listen(const char *ip, uint16_t port)
+TCP_SOCKET mty_tcp_listen(const char *ip, uint16_t port)
 {
 	struct sockaddr_in addr = {0};
 
-	intptr_t s = tcp_socket(ip, port, &addr);
+	TCP_SOCKET s = tcp_socket(ip, port, &addr);
 	if (s == INVALID_SOCKET)
 		return s;
 
@@ -133,12 +133,12 @@ intptr_t mty_tcp_listen(const char *ip, uint16_t port)
 	return s;
 }
 
-intptr_t mty_tcp_accept(intptr_t s, uint32_t timeout)
+TCP_SOCKET mty_tcp_accept(TCP_SOCKET s, uint32_t timeout)
 {
 	if (mty_tcp_poll(s, false, timeout) != MTY_ASYNC_OK)
 		return INVALID_SOCKET;
 
-	intptr_t child = accept(s, NULL, NULL);
+	TCP_SOCKET child = accept(s, NULL, NULL);
 	if (child == INVALID_SOCKET) {
 		MTY_Log("'accept' failed with errno %d", mty_sock_error());
 		return INVALID_SOCKET;
@@ -154,12 +154,12 @@ intptr_t mty_tcp_accept(intptr_t s, uint32_t timeout)
 	return child;
 }
 
-void mty_tcp_destroy(intptr_t *socket)
+void mty_tcp_destroy(TCP_SOCKET *socket)
 {
 	if (!socket)
 		return;
 
-	intptr_t s = *socket;
+	TCP_SOCKET s = *socket;
 
 	if (s != INVALID_SOCKET) {
 		shutdown(s, SHUT_RDWR);
@@ -172,7 +172,7 @@ void mty_tcp_destroy(intptr_t *socket)
 
 // Poll, read, write
 
-MTY_Async mty_tcp_poll(intptr_t s, bool out, uint32_t timeout)
+MTY_Async mty_tcp_poll(TCP_SOCKET s, bool out, uint32_t timeout)
 {
 	struct pollfd fd = {0};
 	fd.events = out ? POLLOUT : POLLIN;
@@ -183,7 +183,7 @@ MTY_Async mty_tcp_poll(intptr_t s, bool out, uint32_t timeout)
 	return e == 0 ? MTY_ASYNC_CONTINUE : e < 0 ? MTY_ASYNC_ERROR : MTY_ASYNC_OK;
 }
 
-bool mty_tcp_write(intptr_t s, const void *buf, size_t size)
+bool mty_tcp_write(TCP_SOCKET s, const void *buf, size_t size)
 {
 	for (size_t total = 0; total < size;) {
 		int32_t n = send(s, (const char *) buf + total, (int32_t) (size - total), 0);
@@ -197,7 +197,7 @@ bool mty_tcp_write(intptr_t s, const void *buf, size_t size)
 	return true;
 }
 
-bool mty_tcp_read(intptr_t s, void *buf, size_t size, uint32_t timeout)
+bool mty_tcp_read(TCP_SOCKET s, void *buf, size_t size, uint32_t timeout)
 {
 	for (size_t total = 0; total < size;) {
 		if (mty_tcp_poll(s, false, timeout) != MTY_ASYNC_OK)
