@@ -89,20 +89,15 @@ struct secure *mty_secure_connect(TCP_SOCKET socket, const char *host, uint32_t 
 	}
 
 	// Handshake part 2 (<-Server Hello, ...) -- Loop until handshake complete
-	while (true) {
+	while (a == MTY_ASYNC_CONTINUE) {
 		size_t size = 0;
 		r = secure_read_message(ctx, socket, timeout, &size);
 		if (!r)
 			break;
 
 		a = MTY_TLSHandshake(ctx->tls, ctx->buf, size, secure_write_callback, (void *) socket);
-		if (a == MTY_ASYNC_OK) {
-			break;
-
-		} else if (a == MTY_ASYNC_ERROR) {
+		if (a == MTY_ASYNC_ERROR)
 			r = false;
-			break;
-		}
 	}
 
 	except:
@@ -156,7 +151,8 @@ bool mty_secure_read(struct secure *ctx, TCP_SOCKET socket, void *buf, size_t si
 
 		// Decrypt
 		size_t read = 0;
-		if (!MTY_TLSDecrypt(ctx->tls, ctx->buf, msg_size, ctx->pbuf + ctx->pending, ctx->pbuf_size, &read))
+		if (!MTY_TLSDecrypt(ctx->tls, ctx->buf, msg_size, ctx->pbuf + ctx->pending,
+			ctx->pbuf_size - ctx->pending, &read))
 			break;
 
 		ctx->pending += read;
