@@ -12,6 +12,9 @@
 
 #include "matoya.h"
 
+// On Windows, a SOCKET is really a HANDLE, and is the size of size_t
+// The invalid socket value is -1 on Unix, ~0 on Windows, essentially the same
+
 #define TCP_INVALID_SOCKET (-1)
 
 typedef intptr_t TCP_SOCKET;

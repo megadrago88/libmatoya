@@ -152,18 +152,17 @@ bool mty_secure_read(struct secure *ctx, void *buf, size_t size, uint32_t timeou
 		if (!secure_read_message(ctx, timeout, &msg_size))
 			break;
 
-		// Decrypt
-		size_t read = 0;
-		if (!MTY_TLSDecrypt(ctx->tls, ctx->buf, msg_size, ctx->buf, ctx->buf_size, &read))
-			break;
-
-		// Append any decrypted data to pbuf (pending)
-		if (ctx->pbuf_size < ctx->pending + read) {
-			ctx->pbuf_size = ctx->pending + read;
+		// Resize the pending buffer, decrypted data can not be larger than msg_size
+		if (ctx->pbuf_size < ctx->pending + msg_size) {
+			ctx->pbuf_size = ctx->pending + msg_size;
 			ctx->pbuf = MTY_Realloc(ctx->pbuf, ctx->pbuf_size, 1);
 		}
 
-		memcpy(ctx->pbuf + ctx->pending, ctx->buf, read);
+		// Decrypt
+		size_t read = 0;
+		if (!MTY_TLSDecrypt(ctx->tls, ctx->buf, msg_size, ctx->pbuf + ctx->pending, ctx->pbuf_size, &read))
+			break;
+
 		ctx->pending += read;
 	}
 
