@@ -23,35 +23,27 @@ bool MTY_HttpRequest(const char *_host, bool secure, const char *_method, const 
 	*response = NULL;
 
 	bool r = true;
+	bool gzip = false;
+
 	HINTERNET session = NULL;
 	HINTERNET connect = NULL;
 	HINTERNET request = NULL;
 
-	// WCHAR conversion
-	WCHAR host[512];
-	_snwprintf_s(host, 512, _TRUNCATE, L"%hs", _host);
+	WCHAR *host = MTY_MultiToWideD(_host);
+	WCHAR *path = MTY_MultiToWideD(_path);
+	WCHAR *method = MTY_MultiToWideD(_method);
+	WCHAR *headers = _headers ? MTY_MultiToWideD(_headers) : WINHTTP_NO_ADDITIONAL_HEADERS;
 
-	WCHAR path[512];
-	_snwprintf_s(path, 512, _TRUNCATE, L"%hs", _path);
-
-	WCHAR method[32];
-	_snwprintf_s(method, 32, _TRUNCATE, L"%hs", _method);
-
-	WCHAR headers[512];
-	if (_headers)
-		_snwprintf_s(headers, 512, _TRUNCATE, L"%hs", _headers);
+	INTERNET_PORT port = secure ? INTERNET_DEFAULT_HTTPS_PORT : INTERNET_DEFAULT_HTTP_PORT;
 
 	// Proxy
 	const char *proxy = mty_http_get_proxy();
 	DWORD access_type = WINHTTP_ACCESS_TYPE_NO_PROXY;
 	WCHAR *wproxy = WINHTTP_NO_PROXY_NAME;
-	WCHAR wproxy_buf[512];
 
 	if (proxy) {
 		access_type = WINHTTP_ACCESS_TYPE_NAMED_PROXY;
-
-		_snwprintf_s(wproxy_buf, 512, _TRUNCATE, L"%hs", proxy);
-		wproxy = wproxy_buf;
+		wproxy = MTY_MultiToWideD(proxy);
 	}
 
 	// Context initialization
@@ -70,7 +62,7 @@ bool MTY_HttpRequest(const char *_host, bool secure, const char *_method, const 
 	DWORD opt = WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2;
 	WinHttpSetOption(session, WINHTTP_OPTION_SECURE_PROTOCOLS, &opt, sizeof(DWORD));
 
-	connect = WinHttpConnect(session, host, secure ? INTERNET_DEFAULT_HTTPS_PORT : INTERNET_DEFAULT_HTTP_PORT, 0);
+	connect = WinHttpConnect(session, host, port, 0);
 	if (!connect) {
 		r = false;
 		goto except;
@@ -85,8 +77,8 @@ bool MTY_HttpRequest(const char *_host, bool secure, const char *_method, const 
 	}
 
 	// Write headers and body
-	r = WinHttpSendRequest(request, _headers ? headers : WINHTTP_NO_ADDITIONAL_HEADERS,
-		_headers ? -1L : 0, (void *) body, (DWORD) bodySize, (DWORD) bodySize, 0);
+	r = WinHttpSendRequest(request, headers, _headers ? -1L : 0,
+		(void *) body, (DWORD) bodySize, (DWORD) bodySize, 0);
 	if (!r)
 		goto except;
 
@@ -96,18 +88,18 @@ bool MTY_HttpRequest(const char *_host, bool secure, const char *_method, const 
 		goto except;
 
 	// Status code query
-	WCHAR header_wstr[128];
+	WCHAR wheader[128];
 	DWORD buf_len = 128 * sizeof(WCHAR);
-	r = WinHttpQueryHeaders(request, WINHTTP_QUERY_STATUS_CODE, NULL, header_wstr, &buf_len, NULL);
+	r = WinHttpQueryHeaders(request, WINHTTP_QUERY_STATUS_CODE, NULL, wheader, &buf_len, NULL);
 	if (!r)
 		goto except;
 
-	*status = (uint16_t) _wtoi(header_wstr);
+	*status = (uint16_t) _wtoi(wheader);
 
 	// Content encoding query
 	buf_len = 128 * sizeof(WCHAR);
-	bool gzipped = WinHttpQueryHeaders(request, WINHTTP_QUERY_CONTENT_ENCODING, NULL, header_wstr, &buf_len, NULL) &&
-		!wcscmp(header_wstr, L"gzip");
+	if (WinHttpQueryHeaders(request, WINHTTP_QUERY_CONTENT_ENCODING, NULL, wheader, &buf_len, NULL))
+		gzip = !wcscmp(wheader, L"gzip");
 
 	// Receive response body
 	while (true) {
@@ -133,7 +125,7 @@ bool MTY_HttpRequest(const char *_host, bool secure, const char *_method, const 
 	}
 
 	// Optionally uncompress
-	if (gzipped && *response && *responseSize > 0) {
+	if (gzip && *response && *responseSize > 0) {
 		size_t zlen = 0;
 		void *z = mty_gzip_decompress(*response, *responseSize, &zlen);
 		if (!z) {
@@ -156,6 +148,16 @@ bool MTY_HttpRequest(const char *_host, bool secure, const char *_method, const 
 
 	if (session)
 		WinHttpCloseHandle(session);
+
+	if (wproxy != WINHTTP_NO_PROXY_NAME)
+		MTY_Free(wproxy);
+
+	if (headers != WINHTTP_NO_ADDITIONAL_HEADERS)
+		MTY_Free(headers);
+
+	MTY_Free(method);
+	MTY_Free(path);
+	MTY_Free(host);
 
 	if (!r) {
 		MTY_Free(*response);
