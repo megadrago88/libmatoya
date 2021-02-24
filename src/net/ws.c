@@ -14,23 +14,23 @@
 #include "http.h"
 
 enum {
-	MTY_NET_WSOP_CONTINUE = 0x0,
-	MTY_NET_WSOP_TEXT     = 0x1,
-	MTY_NET_WSOP_BINARY   = 0x2,
-	MTY_NET_WSOP_CLOSE    = 0x8,
-	MTY_NET_WSOP_PING     = 0x9,
-	MTY_NET_WSOP_PONG     = 0xA,
+	WS_OPCODE_CONTINUE = 0x0,
+	WS_OPCODE_TEXT     = 0x1,
+	WS_OPCODE_BINARY   = 0x2,
+	WS_OPCODE_CLOSE    = 0x8,
+	WS_OPCODE_PING     = 0x9,
+	WS_OPCODE_PONG     = 0xA,
 };
 
 struct MTY_WebSocket {
 	struct net *net;
 	bool connected;
+	bool mask;
 
 	int64_t last_ping;
 	int64_t last_pong;
 	uint16_t close_code;
 
-	bool mask;
 	uint8_t *buf;
 	size_t size;
 };
@@ -54,9 +54,9 @@ static void ws_create_accept_key(const char *key, char *akey, size_t size)
 	MTY_BytesToBase64(sha1, MTY_SHA1_SIZE, akey, size);
 }
 
-static void ws_mask(const uint8_t *in, size_t buf_len, const uint8_t *mask, uint8_t *out)
+static void ws_mask(const uint8_t *in, size_t size, const uint8_t *mask, uint8_t *out)
 {
-	for (size_t x = 0; x < buf_len; x++)
+	for (size_t x = 0; x < size; x++)
 		out[x] = in[x] ^ mask[x % 4];
 }
 
@@ -91,13 +91,14 @@ static bool ws_connect(MTY_WebSocket *ws, const char *path, const char *headers,
 	if (!r)
 		goto except;
 
-	// We expect a 101 response code from the server
+	// Read response headers
 	hdr = mty_http_read_header(ws->net, timeout);
 	if (!hdr) {
 		r = false;
 		goto except;
 	}
 
+	// We expect a 101 response code from the server
 	r = mty_http_get_status_code(hdr, upgrade_status);
 	if (!r)
 		goto except;
@@ -369,7 +370,7 @@ void MTY_WebSocketDestroy(MTY_WebSocket **ws)
 
 	if (ctx->connected) {
 		uint16_t code_be = MTY_SwapToBE16(1000);
-		ws_write(ctx, &code_be, 2, MTY_NET_WSOP_CLOSE);
+		ws_write(ctx, &code_be, 2, WS_OPCODE_CLOSE);
 	}
 
 	mty_net_destroy(&ctx->net);
@@ -386,7 +387,7 @@ MTY_Async MTY_WebSocketRead(MTY_WebSocket *ws, char *msg, size_t size, uint32_t 
 	int64_t now = MTY_Timestamp();
 
 	if (MTY_TimeDiff(ws->last_ping, now) > WS_PING_INTERVAL) {
-		if (!ws_write(ws, "ping", 4, MTY_NET_WSOP_PING))
+		if (!ws_write(ws, "ping", 4, WS_OPCODE_PING))
 			return MTY_ASYNC_ERROR;
 
 		ws->last_ping = now;
@@ -396,40 +397,34 @@ MTY_Async MTY_WebSocketRead(MTY_WebSocket *ws, char *msg, size_t size, uint32_t 
 	MTY_Async r = mty_net_poll(ws->net, timeout);
 
 	if (r == MTY_ASYNC_OK) {
-		uint8_t opcode = MTY_NET_WSOP_CONTINUE;
+		uint8_t opcode = WS_OPCODE_CONTINUE;
 		memset(msg, 0, size);
 
 		size_t read = 0;
-		if (ws_read(ws, msg, size - 1, &opcode, 1000, &read)) {
-			switch (opcode) {
-				case MTY_NET_WSOP_PING:
-					r = ws_write(ws, msg, read, MTY_NET_WSOP_PONG) ? MTY_ASYNC_CONTINUE : MTY_ASYNC_ERROR;
-					break;
+		if (!ws_read(ws, msg, size - 1, &opcode, 1000, &read))
+			return MTY_ASYNC_ERROR;
 
-				case MTY_NET_WSOP_PONG:
-					ws->last_pong = MTY_Timestamp();
+		switch (opcode) {
+			case WS_OPCODE_PING:
+				r = ws_write(ws, msg, read, WS_OPCODE_PONG) ? MTY_ASYNC_CONTINUE : MTY_ASYNC_ERROR;
+				break;
+			case WS_OPCODE_PONG:
+				ws->last_pong = MTY_Timestamp();
+				r = MTY_ASYNC_CONTINUE;
+				break;
+			case WS_OPCODE_TEXT:
+				if (read == 0)
 					r = MTY_ASYNC_CONTINUE;
-					break;
-
-				case MTY_NET_WSOP_TEXT:
-					if (read == 0)
-						r = MTY_ASYNC_CONTINUE;
-					break;
-
-				case MTY_NET_WSOP_CLOSE: {
-					memcpy(&ws->close_code, msg, 2);
-					ws->close_code = MTY_SwapFromBE16(ws->close_code);
-
-					r = MTY_ASYNC_DONE;
-					break;
-				}
-
-				default:
-					r = MTY_ASYNC_CONTINUE;
-					break;
+				break;
+			case WS_OPCODE_CLOSE: {
+				r = MTY_ASYNC_DONE;
+				memcpy(&ws->close_code, msg, 2);
+				ws->close_code = MTY_SwapFromBE16(ws->close_code);
+				break;
 			}
-		} else {
-			r = MTY_ASYNC_ERROR;
+			default:
+				r = MTY_ASYNC_CONTINUE;
+				break;
 		}
 	}
 
@@ -442,7 +437,7 @@ MTY_Async MTY_WebSocketRead(MTY_WebSocket *ws, char *msg, size_t size, uint32_t 
 
 bool MTY_WebSocketWrite(MTY_WebSocket *ws, const char *msg)
 {
-	return ws_write(ws, msg, strlen(msg), MTY_NET_WSOP_TEXT);
+	return ws_write(ws, msg, strlen(msg), WS_OPCODE_TEXT);
 }
 
 uint16_t MTY_WebSocketGetCloseCode(MTY_WebSocket *ctx)
