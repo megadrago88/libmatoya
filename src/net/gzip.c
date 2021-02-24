@@ -9,7 +9,7 @@
 
 #include "miniz/miniz.c"
 
-#define MTY_GZIP_CHUNK_SIZE (256 * 1024)
+#define GZIP_CHUNK_SIZE (256 * 1024)
 
 void *mty_gzip_decompress(const void *in, size_t inSize, size_t *outSize)
 {
@@ -27,14 +27,14 @@ void *mty_gzip_decompress(const void *in, size_t inSize, size_t *outSize)
 	strm.next_in = in;
 
 	while (e == Z_OK) {
-		out = MTY_Realloc(out, *outSize + MTY_GZIP_CHUNK_SIZE, 1);
+		out = MTY_Realloc(out, *outSize + GZIP_CHUNK_SIZE, 1);
 
-		strm.avail_out = MTY_GZIP_CHUNK_SIZE;
+		strm.avail_out = GZIP_CHUNK_SIZE;
 		strm.next_out = (Bytef *) out + *outSize;
 
 		e = inflate(&strm, Z_NO_FLUSH);
 
-		*outSize += MTY_GZIP_CHUNK_SIZE - strm.avail_out;
+		*outSize += GZIP_CHUNK_SIZE - strm.avail_out;
 	}
 
 	if (e != Z_STREAM_END) {
