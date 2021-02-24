@@ -66,19 +66,20 @@ MTY_Cert *MTY_CertCreate(void)
 	ctx->cert = CertCreateSelfSignCertificate((HCRYPTPROV_OR_NCRYPT_KEY_HANDLE) NULL,
 		&name, 0, NULL, &algo, NULL, NULL, NULL);
 
+	if (!ctx->cert)
+		MTY_Log("'CertCreateSelfSignCertificate' failed with error 0x%X", GetLastError());
+
 	return ctx;
 }
 
 static void tls_cert_context_to_fingerprint(const CERT_CONTEXT *cert, char *fingerprint, size_t size)
 {
-	memset(fingerprint, 0, size);
+	snprintf(fingerprint, size, "sha-256 ");
 
 	uint8_t buf[MTY_SHA256_SIZE];
 
 	MTY_CryptoHash(MTY_ALGORITHM_SHA256, cert->pbCertEncoded, cert->cbCertEncoded,
 		NULL, 0, buf, MTY_SHA256_SIZE);
-
-	MTY_Strcat(fingerprint, size, "sha-256 ");
 
 	for (size_t x = 0; x < MTY_SHA256_SIZE; x++) {
 		char append[8];
@@ -92,6 +93,11 @@ static void tls_cert_context_to_fingerprint(const CERT_CONTEXT *cert, char *fing
 
 void MTY_CertGetFingerprint(MTY_Cert *ctx, char *fingerprint, size_t size)
 {
+	if (!ctx->cert) {
+		memset(fingerprint, 0, size);
+		return;
+	}
+
 	tls_cert_context_to_fingerprint(ctx->cert, fingerprint, size);
 }
 
@@ -299,6 +305,7 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 		if (out[0].pvBuffer && out[0].cbBuffer > 0)
 			write_ok = writeFunc(out[0].pvBuffer, out[0].cbBuffer, opaque);
 
+		// SEC_E_OK means we're done
 		r = !write_ok ? MTY_ASYNC_ERROR : e == SEC_E_OK ? MTY_ASYNC_OK : MTY_ASYNC_CONTINUE;
 
 		// Validate peer certificate fingerprint if supplied
@@ -321,6 +328,8 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 
 bool MTY_TLSEncrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *written)
 {
+	// https://docs.microsoft.com/en-us/windows/win32/secauthn/encrypting-a-message
+
 	// Query sizes
 	SecPkgContext_StreamSizes sizes = {0};
 	SECURITY_STATUS e = QueryContextAttributes(&ctx->ctx, SECPKG_ATTR_STREAM_SIZES, &sizes);
@@ -382,6 +391,8 @@ bool MTY_TLSEncrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size
 
 bool MTY_TLSDecrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *read)
 {
+	// https://docs.microsoft.com/en-us/windows/win32/secauthn/decrypting-a-message
+
 	// Bounds check
 	if (outSize < inSize) {
 		MTY_Log("Output buffer is too small (%zu < %zu)", outSize, inSize);
@@ -406,6 +417,7 @@ bool MTY_TLSDecrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size
 	// These buffers may overlap
 	memmove(out, in, inSize);
 
+	// This function may succeed and return 0 bytes, simply continue to read and decrypt
 	SECURITY_STATUS e = DecryptMessage(&ctx->ctx, &desc, 0, NULL);
 	if (e != SEC_E_OK) {
 		MTY_Log("'DecryptMessage' failed with error 0x%X", e);
