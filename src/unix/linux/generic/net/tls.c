@@ -47,6 +47,10 @@ MTY_Cert *MTY_CertCreate(void)
 	cert->cert = X509_new();
 	X509_set_version(cert->cert, 2);
 	ASN1_INTEGER_set(X509_get_serialNumber(cert->cert), MTY_RandomUInt(1000000000, 2000000000));
+
+	// TODO libssl.1.0.0 does not have these functions, it required access to the cert
+	// struct itself. Only required for DTLS, so punt for now
+	//
 	// X509_gmtime_adj(X509_getm_notBefore(cert->cert), -24 * 3600);    // 1 day ago
 	// X509_gmtime_adj(X509_getm_notAfter(cert->cert), 30 * 24 * 3600); // 30 days out
 
@@ -121,28 +125,28 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 	if (!ssl_dl_global_init())
 		return NULL;
 
-	bool ok = true;
+	bool r = true;
 
 	MTY_TLS *ctx = MTY_Alloc(1, sizeof(MTY_TLS));
 
 	const SSL_METHOD *method = type == MTY_TLS_TYPE_DTLS ? DTLS_method() : TLSv1_2_method();
 	if  (!method) {
 		MTY_Log("TLS 1.2 is unsupported");
-		ok = false;
+		r = false;
 		goto except;
 	}
 
 	ctx->ctx = SSL_CTX_new(method);
 	if (!ctx->ctx) {
 		MTY_Log("'SSL_CTX_new' failed");
-		ok = false;
+		r = false;
 		goto except;
 	}
 
 	ctx->ssl = SSL_new(ctx->ctx);
 	if (!ctx->ssl) {
 		MTY_Log("'SSL_new' failed");
-		ok = false;
+		r = false;
 		goto except;
 	}
 
@@ -167,11 +171,13 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 	if (peerFingerprint)
 		ctx->fp = MTY_Strdup(peerFingerprint);
 
+	// Use cert if supplied
 	if (cert) {
 		SSL_use_certificate(ctx->ssl, cert->cert);
 		SSL_use_RSAPrivateKey(ctx->ssl, cert->key);
 	}
 
+	// Hostname verification
 	if (host) {
 		X509_VERIFY_PARAM *param = SSL_get0_param(ctx->ssl);
 		X509_VERIFY_PARAM_set_hostflags(param, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS);
@@ -186,7 +192,7 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 
 	except:
 
-	if (!ok)
+	if (!r)
 		MTY_TLSDestroy(&ctx);
 
 	return ctx;
@@ -311,7 +317,7 @@ bool MTY_TLSEncrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size
 	}
 
 	// The pending data exceeds the size of our output buffer
-	if ((int32_t) pending > (int32_t) outSize) {
+	if (pending > (int32_t) outSize) {
 		MTY_Log("'BIO_ctrl_pending' with return value %d", pending);
 		return false;
 	}
