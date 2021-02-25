@@ -275,7 +275,8 @@ bool MTY_RWTryLockReader(MTY_RWLock *ctx)
 		rw->read = true;
 	}
 
-	rw->taken++;
+	if (r)
+		rw->taken++;
 
 	return r;
 }
