@@ -52,4 +52,5 @@ typedef struct pthread_rwlockattr_t {
 #define pthread_rwlock_unlock(rw) 0
 #define pthread_rwlock_lock(rw) 0
 #define pthread_rwlock_rdlock(rw) 0
+#define pthread_rwlock_tryrdlock(rw) 0
 #define pthread_rwlock_wrlock(rw) 0

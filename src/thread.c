@@ -233,6 +233,13 @@ static uint8_t rwlock_index(void)
 	return 0;
 }
 
+static void rwlock_yield(MTY_RWLock *ctx)
+{
+	// Ensure that readers will yield to writers in a tight loop
+	while (MTY_Atomic32Get(&ctx->yield) > 0)
+		MTY_Sleep(0);
+}
+
 MTY_RWLock *MTY_RWLockCreate(void)
 {
 	MTY_RWLock *ctx = MTY_Alloc(1, sizeof(MTY_RWLock));
@@ -248,15 +255,29 @@ void MTY_RWLockReader(MTY_RWLock *ctx)
 	struct rwlock_state *rw = &RWLOCK_STATE[ctx->index];
 
 	if (rw->taken == 0) {
-		// Ensure that readers will yield to writers in a tight loop
-		while (MTY_Atomic32Get(&ctx->yield) > 0)
-			MTY_Sleep(0);
-
+		rwlock_yield(ctx);
 		mty_rwlock_reader(&ctx->rwlock);
 		rw->read = true;
 	}
 
 	rw->taken++;
+}
+
+bool MTY_RWTryLockReader(MTY_RWLock *ctx)
+{
+	struct rwlock_state *rw = &RWLOCK_STATE[ctx->index];
+
+	bool r = true;
+
+	if (rw->taken == 0) {
+		rwlock_yield(ctx);
+		r = mty_rwlock_try_reader(&ctx->rwlock);
+		rw->read = true;
+	}
+
+	rw->taken++;
+
+	return r;
 }
 
 void MTY_RWLockWriter(MTY_RWLock *ctx)

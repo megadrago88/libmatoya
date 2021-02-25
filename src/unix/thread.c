@@ -125,15 +125,10 @@ void MTY_MutexLock(MTY_Mutex *ctx)
 bool MTY_MutexTryLock(MTY_Mutex *ctx)
 {
 	int32_t e = pthread_mutex_trylock(&ctx->mutex);
-
-	if (e == EBUSY) {
-		return false;
-
-	} else if (e != 0) {
+	if (e != 0 && e != EBUSY)
 		MTY_Fatal("'pthread_mutex_trylock' failed with error %d", e);
-	}
 
-	return true;
+	return e == 0;
 }
 
 void MTY_MutexUnlock(MTY_Mutex *ctx)

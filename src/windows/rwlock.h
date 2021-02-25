@@ -20,6 +20,11 @@ static void mty_rwlock_reader(mty_rwlock *rwlock)
 	AcquireSRWLockShared(rwlock);
 }
 
+static bool mty_rwlock_try_reader(mty_rwlock *rwlock)
+{
+	return TryAcquireSRWLockShared(rwlock);
+}
+
 static void mty_rwlock_writer(mty_rwlock *rwlock)
 {
 	AcquireSRWLockExclusive(rwlock);

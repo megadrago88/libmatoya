@@ -843,6 +843,9 @@ MTY_CondWakeAll(MTY_Cond *ctx);
 MTY_EXPORT MTY_RWLock *
 MTY_RWLockCreate(void);
 
+MTY_EXPORT bool
+MTY_RWTryLockReader(MTY_RWLock *ctx);
+
 MTY_EXPORT void
 MTY_RWLockReader(MTY_RWLock *ctx);
 

@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <errno.h>
+
 #include "thread.h"
 #include "rwlockattr.h"
 
@@ -36,6 +38,15 @@ static void mty_rwlock_reader(mty_rwlock *rwlock)
 	int32_t e = pthread_rwlock_rdlock(rwlock);
 	if (e != 0)
 		MTY_Fatal("'pthread_rwlock_rdlock' failed with error %d", e);
+}
+
+static bool mty_rwlock_try_reader(mty_rwlock *rwlock)
+{
+	int32_t e = pthread_rwlock_tryrdlock(rwlock);
+	if (e != 0 && e != EBUSY)
+		MTY_Fatal("'pthread_rwlock_tryrdlock' failed with error %d", e);
+
+	return e == 0;
 }
 
 static void mty_rwlock_writer(mty_rwlock *rwlock)
