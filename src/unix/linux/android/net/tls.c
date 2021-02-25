@@ -27,7 +27,7 @@ struct MTY_TLS {
 	size_t offset;
 };
 
-#define TLS_BUF_SIZE (1024 * 1024)
+#define TLS_BUF_SIZE (32 * 1024)
 
 
 // Cert

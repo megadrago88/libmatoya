@@ -47,8 +47,8 @@ MTY_Cert *MTY_CertCreate(void)
 	cert->cert = X509_new();
 	X509_set_version(cert->cert, 2);
 	ASN1_INTEGER_set(X509_get_serialNumber(cert->cert), MTY_RandomUInt(1000000000, 2000000000));
-	X509_gmtime_adj(X509_getm_notBefore(cert->cert), -24 * 3600);    // 1 day ago
-	X509_gmtime_adj(X509_getm_notAfter(cert->cert), 30 * 24 * 3600); // 30 days out
+	// X509_gmtime_adj(X509_getm_notBefore(cert->cert), -24 * 3600);    // 1 day ago
+	// X509_gmtime_adj(X509_getm_notAfter(cert->cert), 30 * 24 * 3600); // 30 days out
 
 	uint8_t rand_name[16];
 	MTY_RandomBytes(rand_name, 16);
@@ -111,7 +111,7 @@ void MTY_CertDestroy(MTY_Cert **cert)
 
 // TLS, DTLS
 
-static int32_t dtls_verify(int32_t ok, X509_STORE_CTX *ctx)
+static int32_t tls_verify(int32_t ok, X509_STORE_CTX *ctx)
 {
 	return 1;
 }
@@ -125,7 +125,19 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 
 	MTY_TLS *ctx = MTY_Alloc(1, sizeof(MTY_TLS));
 
-	ctx->ctx = SSL_CTX_new(type == MTY_TLS_TYPE_DTLS ? DTLS_method() : TLS_method());
+	const SSL_METHOD *method = type == MTY_TLS_TYPE_DTLS ? DTLS_method() : TLSv1_2_method();
+	if  (!method) {
+		MTY_Log("TLS 1.2 is unsupported");
+		ok = false;
+		goto except;
+	}
+
+	ctx->ctx = SSL_CTX_new(method);
+	if (!ctx->ctx) {
+		MTY_Log("'SSL_CTX_new' failed");
+		ok = false;
+		goto except;
+	}
 
 	ctx->ssl = SSL_new(ctx->ctx);
 	if (!ctx->ssl) {
@@ -137,17 +149,17 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 	SSL_set_connect_state(ctx->ssl);
 
 	if (type == MTY_TLS_TYPE_DTLS) {
-		SSL_set_options(ctx->ssl, SSL_OP_NO_TICKET | SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
-		SSL_set_verify(ctx->ssl, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, dtls_verify);
+		SSL_ctrl(ctx->ssl, SSL_CTRL_OPTIONS, SSL_OP_NO_TICKET | SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION, NULL);
+		SSL_set_verify(ctx->ssl, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, tls_verify);
 
 		// This will tell openssl to create larger datagrams
-		SSL_set_options(ctx->ssl, SSL_OP_NO_QUERY_MTU);
+		SSL_ctrl(ctx->ssl, SSL_CTRL_OPTIONS, SSL_OP_NO_QUERY_MTU, NULL);
 		SSL_ctrl(ctx->ssl, SSL_CTRL_SET_MTU, mtu, NULL);
 
 	} else {
 		SSL_CTX_set_default_verify_paths(ctx->ctx);
 
-		SSL_set_options(ctx->ssl, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_COMPRESSION);
+		SSL_ctrl(ctx->ssl, SSL_CTRL_OPTIONS, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_COMPRESSION, NULL);
 		SSL_set_verify(ctx->ssl, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
 		SSL_set_verify_depth(ctx->ssl, 4);
 	}
@@ -222,6 +234,8 @@ static bool tls_verify_peer_fingerprint(MTY_TLS *tls, const char *fingerprint)
 
 MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWriteFunc writeFunc, void *opaque)
 {
+	MTY_Async r = MTY_ASYNC_CONTINUE;
+
 	// If we have incoming data add it to the state machine
 	if (buf && size > 0) {
 		int32_t n = BIO_write(ctx->bio_in, buf, (int32_t) size);
@@ -232,36 +246,48 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 
 	// Poll for response data
 	while (true) {
-		SSL_do_handshake(ctx->ssl);
+		int32_t e = SSL_do_handshake(ctx->ssl);
 
-		size_t pending = BIO_ctrl_pending(ctx->bio_out);
+		// Handshake has encountered an error or needs to continue
+		if (e <= 0) {
+			int32_t ssle = SSL_get_error(ctx->ssl, e);
 
-		if (pending > 0) {
-			char *pbuf = MTY_Alloc(pending, 1);
-			size_t psize = BIO_read(ctx->bio_out, pbuf, (int32_t) pending);
-
-			if (psize != pending) {
-				MTY_Free(pbuf);
+			if (e == 0 || (ssle != SSL_ERROR_WANT_READ && ssle != SSL_ERROR_WANT_WRITE)) {
+				MTY_Log("'SSL_do_handhsake' failed with error %d:%d", e, ssle);
 				return MTY_ASYNC_ERROR;
 			}
+		}
 
-			writeFunc(pbuf, pending, opaque);
+		// Handshake has completed successfully
+		if (e == 1)
+			r = MTY_ASYNC_OK;
+
+		// Look for pending data to write even if the handshake has completed successfully
+		int32_t pending = (int32_t) BIO_ctrl_pending(ctx->bio_out);
+
+		if (pending > 0) {
+			bool write_ok = false;
+			void *pbuf = MTY_Alloc(pending, 1);
+
+			if (BIO_read(ctx->bio_out, pbuf, pending) == pending)
+				write_ok = writeFunc(pbuf, pending, opaque);
+
 			MTY_Free(pbuf);
 
+			if (!write_ok)
+				return MTY_ASYNC_ERROR;
+
+		// Break when there is no more data available to write
 		} else {
 			break;
 		}
 	}
 
-	if (SSL_is_init_finished(ctx->ssl)) {
-		if (ctx->fp)
-			return tls_verify_peer_fingerprint(ctx, ctx->fp) ?
-				MTY_ASYNC_OK : MTY_ASYNC_ERROR;
+	// Verify peer fingerprint on successful handshake if supplied during creation
+	if (r == MTY_ASYNC_OK && ctx->fp)
+		return tls_verify_peer_fingerprint(ctx, ctx->fp) ? MTY_ASYNC_OK : MTY_ASYNC_ERROR;
 
-		return MTY_ASYNC_OK;
-	}
-
-	return MTY_ASYNC_CONTINUE;
+	return r;
 }
 
 bool MTY_TLSEncrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *written)
@@ -276,25 +302,25 @@ bool MTY_TLSEncrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size
 	}
 
 	// Retrieve pending encrypted data
-	size_t pending = BIO_ctrl_pending(ctx->bio_out);
+	int32_t pending = (int32_t) BIO_ctrl_pending(ctx->bio_out);
 
 	// There is no pending data in bio_out even though SSL_write succeeded
 	if (pending <= 0) {
-		MTY_Log("'BIO_ctrl_pending' with return value %d", (int32_t) pending);
+		MTY_Log("'BIO_ctrl_pending' with return value %d", pending);
 		return false;
 	}
 
 	// The pending data exceeds the size of our output buffer
 	if ((int32_t) pending > (int32_t) outSize) {
-		MTY_Log("'BIO_ctrl_pending' with return value %d", (int32_t) pending);
+		MTY_Log("'BIO_ctrl_pending' with return value %d", pending);
 		return false;
 	}
 
 	// Read the encrypted data from bio_out
-	n = BIO_read(ctx->bio_out, out, (int32_t) pending);
+	n = BIO_read(ctx->bio_out, out, pending);
 
 	// The size of the encrypted data does not match BIO_ctrl_pending. Something is wrong
-	if (n != (int32_t) pending) {
+	if (n != pending) {
 		MTY_Log("'BIO_read' failed with return value %d", n);
 		return false;
 	}
@@ -309,7 +335,7 @@ bool MTY_TLSDecrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size
 	// Fill bio_in with encrypted data
 	int32_t n = BIO_write(ctx->bio_in, in, (int32_t) inSize);
 
-	// The size of the encrypted data written does not match sie_in. Something is wrong
+	// The size of the encrypted data written does not match inSize. Something is wrong
 	if (n != (int32_t) inSize) {
 		MTY_Log("'BIO_write' failed with return value %d", n);
 		return false;
@@ -318,17 +344,17 @@ bool MTY_TLSDecrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size
 	// Decrypt the data
 	n = SSL_read(ctx->ssl, out, (int32_t) outSize);
 
-	// If SSL_read succeeds, return the number of bytes placed in out, otherwise the ssl error
+	// SSL_read can either output data immediately or cause a SSL_ERROR_WANT_READ
 	if (n <= 0) {
-		int32_t ssle = SSL_get_error(ctx->ssl, n);
+		int32_t e = SSL_get_error(ctx->ssl, n);
 
-		// SSL needs more encrypted until it outputs
-		if (ssle == SSL_ERROR_WANT_READ) {
+		// SSL needs more encrypted data until it outputs
+		if (e == SSL_ERROR_WANT_READ) {
 			n = 0;
 
 		// Fatal
 		} else {
-			MTY_Log("'SSL_read' failed with error %d:%d", n, ssle);
+			MTY_Log("'SSL_read' failed with error %d:%d", n, e);
 			return false;
 		}
 	}

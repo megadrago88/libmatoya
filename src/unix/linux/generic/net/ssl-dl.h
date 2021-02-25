@@ -16,6 +16,7 @@
 #define SSL_ERROR_ZERO_RETURN                         6
 
 #define SSL_CTRL_SET_MTU                              17
+#define SSL_CTRL_OPTIONS                              32
 #define SSL_CTRL_SET_TLSEXT_HOSTNAME                  55
 #define SSL_CTRL_SET_VERIFY_CERT_STORE                106
 #define TLSEXT_NAMETYPE_host_name                     0
@@ -59,6 +60,8 @@ typedef struct ssl_st SSL;
 typedef int (*SSL_verify_cb)(int preverify_ok, X509_STORE_CTX *x509_ctx);
 typedef int pem_password_cb(char *buf, int size, int rwflag, void *userdata);
 
+static int (*SSL_library_init)(void);
+
 static SSL *(*SSL_new)(SSL_CTX *ctx);
 static void (*SSL_free)(SSL *ssl);
 static int (*SSL_read)(SSL *ssl, void *buf, int num);
@@ -70,14 +73,12 @@ static X509_VERIFY_PARAM *(*SSL_get0_param)(SSL *ssl);
 static long (*SSL_ctrl)(SSL *ssl, int cmd, long larg, void *parg);
 static void (*SSL_set_bio)(SSL *s, BIO *rbio, BIO *wbio);
 static void (*SSL_set_connect_state)(SSL *s);
-static int (*SSL_is_init_finished)(SSL *s);
 static int (*SSL_do_handshake)(SSL *s);
 static int (*SSL_use_certificate)(SSL *ssl, X509 *x);
-static unsigned long (*SSL_set_options)(SSL *s, unsigned long op);
 static X509 *(*SSL_get_peer_certificate)(const SSL *s);
 static int (*SSL_use_RSAPrivateKey)(SSL *ssl, RSA *rsa);
 
-static const SSL_METHOD *(*TLS_method)(void);
+static const SSL_METHOD *(*TLSv1_2_method)(void);
 static const SSL_METHOD *(*DTLS_method)(void);
 static SSL_CTX *(*SSL_CTX_new)(const SSL_METHOD *meth);
 static int (*SSL_CTX_set_default_verify_paths)(SSL_CTX *ctx);
@@ -98,8 +99,8 @@ static X509 *(*X509_new)(void);
 static int (*X509_set_pubkey)(X509 *x, EVP_PKEY *pkey);
 static int (*X509_sign)(X509 *x, EVP_PKEY *pkey, const EVP_MD *md);
 static int (*X509_digest)(const X509 *data, const EVP_MD *type, unsigned char *md, unsigned int *len);
-static ASN1_TIME *(*X509_getm_notBefore)(const X509 *x);
-static ASN1_TIME *(*X509_getm_notAfter)(const X509 *x);
+// static ASN1_TIME *(*X509_getm_notBefore)(const X509 *x);
+// static ASN1_TIME *(*X509_getm_notAfter)(const X509 *x);
 static int (*X509_set_version)(X509 *x, long version);
 static int (*X509_set_issuer_name)(X509 *x, X509_NAME *name);
 static X509_NAME *(*X509_get_subject_name)(const X509 *a);
@@ -145,10 +146,13 @@ static bool ssl_dl_global_init(void)
 
 	if (!SSL_DL_INIT) {
 		bool r = true;
+		bool library_init = false;
 		SSL_DL_SO = MTY_SOLoad("libssl.so.1.1");
 
-		if (!SSL_DL_SO)
+		if (!SSL_DL_SO) {
 			SSL_DL_SO = MTY_SOLoad("libssl.so.1.0.0");
+			library_init = true;
+		}
 
 		if (!SSL_DL_SO) {
 			r = false;
@@ -170,14 +174,12 @@ static bool ssl_dl_global_init(void)
 		LOAD_SYM(SSL_DL_SO, SSL_ctrl);
 		LOAD_SYM(SSL_DL_SO, SSL_set_bio);
 		LOAD_SYM(SSL_DL_SO, SSL_set_connect_state);
-		LOAD_SYM(SSL_DL_SO, SSL_is_init_finished);
 		LOAD_SYM(SSL_DL_SO, SSL_do_handshake);
 		LOAD_SYM(SSL_DL_SO, SSL_use_certificate);
-		LOAD_SYM(SSL_DL_SO, SSL_set_options);
 		LOAD_SYM(SSL_DL_SO, SSL_get_peer_certificate);
 		LOAD_SYM(SSL_DL_SO, SSL_use_RSAPrivateKey);
 
-		LOAD_SYM(SSL_DL_SO, TLS_method);
+		LOAD_SYM(SSL_DL_SO, TLSv1_2_method);
 		LOAD_SYM(SSL_DL_SO, DTLS_method);
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_new);
 		LOAD_SYM(SSL_DL_SO, SSL_CTX_free);
@@ -197,8 +199,8 @@ static bool ssl_dl_global_init(void)
 		LOAD_SYM(SSL_DL_SO, X509_set_pubkey);
 		LOAD_SYM(SSL_DL_SO, X509_sign);
 		LOAD_SYM(SSL_DL_SO, X509_digest);
-		LOAD_SYM(SSL_DL_SO, X509_getm_notBefore);
-		LOAD_SYM(SSL_DL_SO, X509_getm_notAfter);
+		// LOAD_SYM(SSL_DL_SO, X509_getm_notBefore);
+		// LOAD_SYM(SSL_DL_SO, X509_getm_notAfter);
 		LOAD_SYM(SSL_DL_SO, X509_set_version);
 		LOAD_SYM(SSL_DL_SO, X509_set_issuer_name);
 		LOAD_SYM(SSL_DL_SO, X509_get_subject_name);
@@ -219,6 +221,11 @@ static bool ssl_dl_global_init(void)
 		LOAD_SYM(SSL_DL_SO, EVP_PKEY_assign);
 
 		LOAD_SYM(SSL_DL_SO, ASN1_INTEGER_set);
+
+		if (library_init) {
+			LOAD_SYM(SSL_DL_SO, SSL_library_init);
+			SSL_library_init();
+		}
 
 		except:
 
