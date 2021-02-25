@@ -219,9 +219,6 @@ void MTY_TLSDestroy(MTY_TLS **tls)
 
 static bool tls_verify_peer_fingerprint(MTY_TLS *tls, const char *fingerprint)
 {
-	if (!fingerprint)
-		return false;
-
 	X509 *peer_cert = SSL_get_peer_certificate(tls->ssl);
 
 	if (peer_cert) {
