@@ -73,15 +73,19 @@ static OSStatus tls_read_func(SSLConnectionRef connection, void *data, size_t *d
 {
 	MTY_TLS *ctx = (MTY_TLS *) connection;
 
-	if (ctx->offset < *dataLength)
+	OSStatus r = noErr;
+
+	if (ctx->offset < *dataLength) {
 		*dataLength = ctx->offset;
+		r = errSSLWouldBlock;
+	}
 
 	memcpy(data, ctx->buf, *dataLength);
 	ctx->offset -= *dataLength;
 
 	memmove(ctx->buf, ctx->buf + *dataLength, ctx->offset);
 
-	return *dataLength == 0 ? errSSLWouldBlock : noErr;
+	return r;
 }
 
 static OSStatus tls_write_func(SSLConnectionRef connection, const void *data, size_t *dataLength)
@@ -91,7 +95,7 @@ static OSStatus tls_write_func(SSLConnectionRef connection, const void *data, si
 	// Encrypt
 	if (ctx->w) {
 		if (ctx->w->size < *dataLength)
-			*dataLength = ctx->w->size;
+			return errSSLBufferOverflow;
 
 		memcpy(ctx->w->out, data, *dataLength);
 		*ctx->w->written = *dataLength;
@@ -100,7 +104,13 @@ static OSStatus tls_write_func(SSLConnectionRef connection, const void *data, si
 	}
 
 	// Handshake
-	return ctx->write_func && ctx->write_func(data, *dataLength, ctx->opaque) ? noErr : errSSLNetworkTimeout;
+	if (!ctx->write_func)
+		return errSSLNetworkTimeout;
+
+	if (!ctx->write_func(data, *dataLength, ctx->opaque))
+		return errSSLNetworkTimeout;
+
+	return noErr;
 }
 
 MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const char *peerFingerprint, uint32_t mtu)
@@ -203,14 +213,13 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 	if (buf && size > 0)
 		tls_add_data(ctx, buf, size);
 
-	ctx->w = NULL;
 	ctx->opaque = opaque;
 	ctx->write_func = writeFunc;
 
 	OSStatus e = SSLHandshake(ctx->ctx);
 
 	if (e != errSSLWouldBlock && e != noErr)
-		MTY_Log("'SSLHandshake' failed with error %d\n", e);
+		MTY_Log("'SSLHandshake' failed with error %d", e);
 
 	ctx->opaque = NULL;
 	ctx->write_func = NULL;
@@ -229,6 +238,8 @@ bool MTY_TLSEncrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size
 
 	size_t processed = 0;
 	OSStatus e = SSLWrite(ctx->ctx, in, inSize, &processed);
+	if (e != noErr)
+		MTY_Log("'SSLWrite' failed with error %d", e);
 
 	ctx->w = NULL;
 
@@ -241,5 +252,10 @@ bool MTY_TLSDecrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size
 
 	OSStatus e = SSLRead(ctx->ctx, out, outSize, read);
 
-	return e == noErr;
+	bool success = e == noErr || e == errSSLWouldBlock;
+
+	if (!success)
+		MTY_Log("'SSLRead' failed with error %d", e);
+
+	return success;
 }
