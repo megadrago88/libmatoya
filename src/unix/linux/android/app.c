@@ -819,7 +819,7 @@ void MTY_AppSetClipboard(MTY_App *app, const char *text)
 
 static float app_get_scale(MTY_App *ctx)
 {
-	return app_float_method(ctx, "getDisplayDensity", "()F") / 185.0f;
+	return 1024.0f / app_float_method(ctx, "getDisplayDensity", "()F");
 }
 
 MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_MsgFunc msgFunc, void *opaque)
