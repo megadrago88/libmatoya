@@ -11,11 +11,11 @@
 
 #include "jnih.h"
 
-#define AES_GCM_ENCRYPT 0x00000001
-#define AES_GCM_DECRYPT 0x00000002
-
 #define AES_GCM_NUM_BUFS 6
 #define AES_GCM_MAX      (8 * 1024)
+
+#define AES_GCM_ENCRYPT  0x00000001
+#define AES_GCM_DECRYPT  0x00000002
 
 struct MTY_AESGCM {
 	jobject gcm;
@@ -39,8 +39,7 @@ MTY_AESGCM *MTY_AESGCMCreate(const void *key)
 
 	// The cipher handle
 	jstring jalg = mty_jni_strdup(env, "AES/GCM/NoPadding");
-	ctx->gcm = mty_jni_static_obj(env, "javax/crypto/Cipher", "getInstance",
-		"(Ljava/lang/String;)Ljavax/crypto/Cipher;", jalg);
+	ctx->gcm = mty_jni_static_obj(env, "javax/crypto/Cipher", "getInstance", "(Ljava/lang/String;)Ljavax/crypto/Cipher;", jalg);
 	mty_jni_retain(env, &ctx->gcm);
 
 	// 128 bit AES key
@@ -58,8 +57,7 @@ MTY_AESGCM *MTY_AESGCMCreate(const void *key)
 
 	// Preload methods for performance
 	ctx->m_gps_constructor = (*env)->GetMethodID(env, ctx->cls_gps, "<init>", "(I[BII)V");
-	ctx->m_cipher_init = (*env)->GetMethodID(env, ctx->cls_cipher, "init",
-		"(ILjava/security/Key;Ljava/security/spec/AlgorithmParameterSpec;)V");
+	ctx->m_cipher_init = (*env)->GetMethodID(env, ctx->cls_cipher, "init", "(ILjava/security/Key;Ljava/security/spec/AlgorithmParameterSpec;)V");
 
 	ctx->m_cipher_do_final = (*env)->GetMethodID(env, ctx->cls_cipher, "doFinal", "([BII[B)I");
 

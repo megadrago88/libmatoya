@@ -83,6 +83,7 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 	// Create engine, set hostname for verification
 	jhost = mty_jni_strdup(env, host);
 	ctx->engine = mty_jni_obj(env, context, "createSSLEngine", "(Ljava/lang/String;I)Ljavax/net/ssl/SSLEngine;", jhost, 443);
+	mty_jni_retain(env, &ctx->engine);
 
 	// Set client mode
 	mty_jni_void(env, ctx->engine, "setUseClientMode", "(Z)V", true);
@@ -98,7 +99,6 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 
 	except:
 
-	mty_jni_retain(env, &ctx->engine);
 	mty_jni_free(env, jhost);
 	mty_jni_free(env, context);
 	mty_jni_free(env, proto);
