@@ -10,6 +10,17 @@
 #include <string.h>
 #include <stdio.h>
 
+
+// References
+
+void mty_jni_free(JNIEnv *env, jobject ref)
+{
+	if (!ref)
+		return;
+
+	(*env)->DeleteLocalRef(env, ref);
+}
+
 void mty_jni_retain(JNIEnv *env, jobject *ref)
 {
 	jobject old = *ref;
@@ -28,26 +39,36 @@ void mty_jni_release(JNIEnv *env, jobject *ref)
 	*ref = NULL;
 }
 
+
+// Memory
+
 jbyteArray mty_jni_alloc(JNIEnv *env, size_t size)
 {
 	return (*env)->NewByteArray(env, size);
 }
 
-void mty_jni_free(JNIEnv *env, jobject ref)
+jbyteArray mty_jni_dup(JNIEnv *env, const void *buf, size_t size)
 {
-	if (!ref)
-		return;
+	jbyteArray dup = (*env)->NewByteArray(env, size);
+	(*env)->SetByteArrayRegion(env, dup, 0, size, buf);
 
-	(*env)->DeleteLocalRef(env, ref);
+	return dup;
 }
 
-void mty_jni_log(JNIEnv *env, jstring str)
+jobject mty_jni_wrap(JNIEnv *env, void *buf, size_t size)
 {
-	const char *cstr = (*env)->GetStringUTFChars(env, str, NULL);
+	return (*env)->NewDirectByteBuffer(env, buf, size);
+}
 
-	MTY_Log("%s", cstr);
+jstring mty_jni_strdup(JNIEnv *env, const char *str)
+{
+	return (*env)->NewStringUTF(env, str);
+}
 
-	(*env)->ReleaseStringUTFChars(env, str, cstr);
+void mty_jni_memcpy(JNIEnv *env, void *dst, jbyteArray jsrc, size_t size)
+{
+	jsize jsize = (*env)->GetArrayLength(env, jsrc);
+	(*env)->GetByteArrayRegion(env, jsrc, 0, (size_t) jsize < size ? (size_t) jsize : size, dst);
 }
 
 void mty_jni_strcpy(JNIEnv *env, char *buf, size_t size, jstring str)
@@ -55,6 +76,18 @@ void mty_jni_strcpy(JNIEnv *env, char *buf, size_t size, jstring str)
 	const char *cstr = (*env)->GetStringUTFChars(env, str, NULL);
 
 	snprintf(buf, size, "%s", cstr);
+
+	(*env)->ReleaseStringUTFChars(env, str, cstr);
+}
+
+
+// Exceptions
+
+void mty_jni_log(JNIEnv *env, jstring str)
+{
+	const char *cstr = (*env)->GetStringUTFChars(env, str, NULL);
+
+	MTY_Log("%s", cstr);
 
 	(*env)->ReleaseStringUTFChars(env, str, cstr);
 }
@@ -79,33 +112,8 @@ bool mty_jni_catch(JNIEnv *env)
 	return false;
 }
 
-jbyteArray mty_jni_dup(JNIEnv *env, const void *buf, size_t size)
-{
-	jbyteArray dup = (*env)->NewByteArray(env, size);
-	(*env)->SetByteArrayRegion(env, dup, 0, size, buf);
 
-	return dup;
-}
-
-jobject mty_jni_wrap(JNIEnv *env, void *buf, size_t size)
-{
-	return (*env)->NewDirectByteBuffer(env, buf, size);
-}
-
-jstring mty_jni_strdup(JNIEnv *env, const char *str)
-{
-	return (*env)->NewStringUTF(env, str);
-}
-
-void mty_jni_memcpy(JNIEnv *env, void *dst, jbyteArray jsrc, size_t size)
-{
-	jsize jsize = (*env)->GetArrayLength(env, jsrc);
-	jbyte *src = (*env)->GetByteArrayElements(env, jsrc, NULL);
-
-	memcpy(dst, src, (size_t) jsize < size ? (size_t) jsize : size);
-
-	(*env)->ReleaseByteArrayElements(env, jsrc, src, 0);
-}
+// Constructor
 
 jobject mty_jni_new(JNIEnv *env, const char *name, const char *sig, ...)
 {
@@ -123,6 +131,9 @@ jobject mty_jni_new(JNIEnv *env, const char *name, const char *sig, ...)
 	return obj;
 }
 
+
+// Static methods
+
 jobject mty_jni_static_obj(JNIEnv *env, const char *name, const char *func, const char *sig, ...)
 {
 	va_list args;
@@ -138,6 +149,9 @@ jobject mty_jni_static_obj(JNIEnv *env, const char *name, const char *func, cons
 
 	return obj;
 }
+
+
+// Object methods
 
 void mty_jni_void(JNIEnv *env, jobject obj, const char *name, const char *sig, ...)
 {
