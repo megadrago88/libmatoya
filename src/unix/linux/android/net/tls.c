@@ -62,15 +62,26 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 
 	JNIEnv *env = MTY_JNIEnv();
 
+	bool r = true;
+	jstring jhost = NULL;
+
 	// Context
 	jstring proto = mty_jni_strdup(env, "TLSv1.2");
 	jobject context = mty_jni_static_obj(env, "javax/net/ssl/SSLContext", "getInstance", "(Ljava/lang/String;)Ljavax/net/ssl/SSLContext;", proto);
+	if (mty_jni_catch(env)) {
+		r = false;
+		goto except;
+	}
 
 	// Initialize context
 	mty_jni_void(env, context, "init", "([Ljavax/net/ssl/KeyManager;[Ljavax/net/ssl/TrustManager;Ljava/security/SecureRandom;)V", NULL, NULL, NULL);
+	if (mty_jni_catch(env)) {
+		r = false;
+		goto except;
+	}
 
 	// Create engine, set hostname for verification
-	jstring jhost = mty_jni_strdup(env, host);
+	jhost = mty_jni_strdup(env, host);
 	ctx->engine = mty_jni_obj(env, context, "createSSLEngine", "(Ljava/lang/String;I)Ljavax/net/ssl/SSLEngine;", jhost, 443);
 
 	// Set client mode
@@ -84,6 +95,8 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 
 	if (peerFingerprint)
 		ctx->fp = MTY_Strdup(peerFingerprint);
+
+	except:
 
 	mty_jni_retain(env, &ctx->engine);
 	mty_jni_free(env, jhost);
