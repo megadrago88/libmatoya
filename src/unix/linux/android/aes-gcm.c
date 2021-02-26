@@ -77,8 +77,6 @@ MTY_AESGCM *MTY_AESGCMCreate(const void *key)
 bool MTY_AESGCMEncrypt(MTY_AESGCM *ctx, const void *nonce, const void *plainText, size_t size,
 	void *hash, void *cipherText)
 {
-	bool r = true;
-
 	JNIEnv *env = MTY_JNIEnv();
 
 	(*env)->SetByteArrayRegion(env, ctx->buf[0], 0, 12, nonce);
@@ -88,15 +86,12 @@ bool MTY_AESGCMEncrypt(MTY_AESGCM *ctx, const void *nonce, const void *plainText
 
 	(*env)->CallVoidMethod(env, ctx->gcm, ctx->m_cipher_init, AES_GCM_ENCRYPT, ctx->key, spec);
 	(*env)->CallIntMethod(env, ctx->gcm, ctx->m_cipher_do_final, ctx->buf[1], 0, size, ctx->buf[2]);
-	if (mty_jni_catch(env)) {
-		r = false;
-		goto except;
+
+	bool r = mty_jni_ok(env);
+	if (r) {
+		(*env)->GetByteArrayRegion(env, ctx->buf[2], 0, size, cipherText);
+		(*env)->GetByteArrayRegion(env, ctx->buf[2], size, 16, hash);
 	}
-
-	(*env)->GetByteArrayRegion(env, ctx->buf[2], 0, size, cipherText);
-	(*env)->GetByteArrayRegion(env, ctx->buf[2], size, 16, hash);
-
-	except:
 
 	mty_jni_free(env, spec);
 
@@ -106,8 +101,6 @@ bool MTY_AESGCMEncrypt(MTY_AESGCM *ctx, const void *nonce, const void *plainText
 bool MTY_AESGCMDecrypt(MTY_AESGCM *ctx, const void *nonce, const void *cipherText, size_t size,
 	const void *hash, void *plainText)
 {
-	bool r = true;
-
 	JNIEnv *env = MTY_JNIEnv();
 
 	(*env)->SetByteArrayRegion(env, ctx->buf[3], 0, 12, nonce);
@@ -118,14 +111,10 @@ bool MTY_AESGCMDecrypt(MTY_AESGCM *ctx, const void *nonce, const void *cipherTex
 
 	(*env)->CallVoidMethod(env, ctx->gcm, ctx->m_cipher_init, AES_GCM_DECRYPT, ctx->key, spec);
 	(*env)->CallIntMethod(env, ctx->gcm, ctx->m_cipher_do_final, ctx->buf[4], 0, size + 16, ctx->buf[5]);
-	if (mty_jni_catch(env)) {
-		r = false;
-		goto except;
-	}
 
-	(*env)->GetByteArrayRegion(env, ctx->buf[5], 0, size, plainText);
-
-	except:
+	bool r = mty_jni_ok(env);
+	if (r)
+		(*env)->GetByteArrayRegion(env, ctx->buf[5], 0, size, plainText);
 
 	mty_jni_free(env, spec);
 
