@@ -136,6 +136,13 @@ static void tls_add_data(MTY_TLS *ctx, const void *buf, size_t size)
 	ctx->offset += size;
 }
 
+static void tls_to_string(JNIEnv *env, jobject obj, char *str, size_t size)
+{
+	jstring jstr = mty_jni_obj(env, obj, "toString", "()Ljava/lang/String;");
+	mty_jni_strcpy(env, str, size, jstr);
+	mty_jni_free(env, jstr);
+}
+
 MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWriteFunc writeFunc, void *opaque)
 {
 	MTY_Async r = MTY_ASYNC_CONTINUE;
@@ -153,11 +160,9 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 	while (true) {
 		// Get handshake status and convert to string
 		char action[32];
-		jobject status = mty_jni_obj(env, ctx->engine, "getHandshakeStatus", "()Ljavax/net/ssl/SSLEngineResult$HandshakeStatus;");
-		jstring jstr = mty_jni_obj(env, status, "toString", "()Ljava/lang/String;");
-		mty_jni_strcpy(env, action, 32, jstr);
-		mty_jni_free(env, jstr);
-		mty_jni_free(env, status);
+		jobject estatus = mty_jni_obj(env, ctx->engine, "getHandshakeStatus", "()Ljavax/net/ssl/SSLEngineResult$HandshakeStatus;");
+		tls_to_string(env, estatus, action, 32);
+		mty_jni_free(env, estatus);
 
 		jobject result = NULL;
 
@@ -185,28 +190,29 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 		}
 
 		// If any of our internal buffer has been consumed, adjust
-		jint ipos = mty_jni_int(env, result, "bytesConsumed", "()I");
-		ctx->offset -= ipos;
-		memmove(ctx->buf, ctx->buf + ipos, ctx->offset);
+		jint read = mty_jni_int(env, result, "bytesConsumed", "()I");
+		ctx->offset -= read;
+		memmove(ctx->buf, ctx->buf + read, ctx->offset);
 
 		// If any data has been written to the output buffer, send it via the callback
-		jint pos = mty_jni_int(env, result, "bytesProduced", "()I");
-		if (pos > 0)
-			writeFunc(ctx->obuf, pos, opaque);
+		jint written = mty_jni_int(env, result, "bytesProduced", "()I");
+		if (written > 0)
+			writeFunc(ctx->obuf, written, opaque);
 
 		// Get wrap/unwrap handshake status and convert to string
-		status = mty_jni_obj(env, result, "getHandshakeStatus", "()Ljavax/net/ssl/SSLEngineResult$HandshakeStatus;");
-		jstr = mty_jni_obj(env, status, "toString", "()Ljava/lang/String;");
-		mty_jni_strcpy(env, action, 32, jstr);
-		mty_jni_free(env, jstr);
+		jobject status = mty_jni_obj(env, result, "getHandshakeStatus", "()Ljavax/net/ssl/SSLEngineResult$HandshakeStatus;");
+		tls_to_string(env, status, action, 32);
 		mty_jni_free(env, status);
 		mty_jni_free(env, result);
 
+		// Handshake has completed -- This status MUST be queried from the result from wrap/unwrap
 		if (!strcmp(action, "FINISHED")) {
 			r = MTY_ASYNC_OK;
 			break;
 		}
 
+		// NEED_WRAP means the engine has bytes to produce WITHOUT input, so we must
+		// keep looping until all data has been written from the engine
 		if (strcmp(action, "NEED_WRAP")) {
 			r = MTY_ASYNC_CONTINUE;
 			break;
