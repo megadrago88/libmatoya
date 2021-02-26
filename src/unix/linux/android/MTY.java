@@ -94,7 +94,7 @@ public class MTY extends SurfaceView implements
 
 		DisplayMetrics dm = new DisplayMetrics();
 		this.activity.getWindowManager().getDefaultDisplay().getMetrics(dm);
-		this.displayDensity = dm.xdpi;
+		this.displayDensity = dm.density;
 
 		String b64 = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAQAAADZc7J/AAAAH0lEQVR42mNk" +
 			"oBAwjhowasCoAaMGjBowasCoAcPNAACOMAAhOO/A7wAAAABJRU5ErkJggg==";
