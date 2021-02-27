@@ -240,8 +240,8 @@ public class MTY extends SurfaceView implements
 		} else if (!isMouseEvent(event)) {
 			int uc = event.getUnicodeChar();
 
-			return app_key(down, keyCode, uc != 0 ? String.format("%c", uc) : null, event.getMetaState(),
-				event.getDeviceId() <= 0);
+			return app_key(down, keyCode, uc != 0 ? String.format("%c", uc) : null,
+				event.getMetaState(), event.getDeviceId() <= 0);
 		}
 
 		return true;
