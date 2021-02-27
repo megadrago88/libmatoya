@@ -67,7 +67,7 @@ public class MTY extends SurfaceView implements
 	native void app_start();
 	native void app_stop();
 
-	native boolean app_key(boolean pressed, int code, String text, int mods);
+	native boolean app_key(boolean pressed, int code, String text, int mods, boolean soft);
 	native boolean app_long_press(float x, float y);
 	native void app_unplug(int deviceId);
 	native void app_single_tap_up(float x, float y);
@@ -165,6 +165,7 @@ public class MTY extends SurfaceView implements
 
 
 	// Layout listener -- this is needed for proper adjustResize in fullscreen mode
+
 	@Override
 	public void onGlobalLayout() {
 		ViewGroup vg = activity.findViewById(android.R.id.content);
@@ -219,7 +220,8 @@ public class MTY extends SurfaceView implements
 
 	static boolean isMouseEvent(InputEvent event) {
 		return
-			(event.getSource() & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE;
+			(event.getSource() & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE ||
+			(event.getSource() & InputDevice.SOURCE_TOUCHPAD) == InputDevice.SOURCE_TOUCHPAD;
 	}
 
 	static boolean isGamepadEvent(InputEvent event) {
@@ -229,36 +231,30 @@ public class MTY extends SurfaceView implements
 			(event.getSource() & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD;
 	}
 
-	@Override
-	public boolean onKeyDown(int keyCode, KeyEvent event) {
+	boolean keyEvent(int keyCode, KeyEvent event, boolean down) {
 		// Button events fire here (sometimes dpad)
 		if (isGamepadEvent(event)) {
-			app_button(event.getDeviceId(), true, keyCode);
+			app_button(event.getDeviceId(), down, keyCode);
 
 		// Prevents back buttons etc. from being generated from mice
 		} else if (!isMouseEvent(event)) {
 			int uc = event.getUnicodeChar();
 
-			return app_key(true, keyCode, uc != 0 ? String.format("%c", uc) : null, event.getMetaState());
+			return app_key(down, keyCode, uc != 0 ? String.format("%c", uc) : null, event.getMetaState(),
+				event.getDeviceId() <= 0);
 		}
 
 		return true;
 	}
 
 	@Override
+	public boolean onKeyDown(int keyCode, KeyEvent event) {
+		return keyEvent(keyCode, event, true);
+	}
+
+	@Override
 	public boolean onKeyUp(int keyCode, KeyEvent event) {
-		// Button events fire here (sometimes dpad)
-		if (isGamepadEvent(event)) {
-			app_button(event.getDeviceId(), false, keyCode);
-
-		// Prevents back buttons etc. from being generated from mice
-		} else if (!isMouseEvent(event)) {
-			int uc = event.getUnicodeChar();
-
-			return app_key(false, keyCode, uc != 0 ? String.format("%c", uc) : null, event.getMetaState());
-		}
-
-		return true;
+		return keyEvent(keyCode, event, false);
 	}
 
 	@Override

@@ -329,7 +329,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_MTY_app_1stop(JNIEnv *env, jobject 
 // JNI keyboard events
 
 JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTY_app_1key(JNIEnv *env, jobject obj,
-	jboolean pressed, jint code, jstring jtext, jint mods)
+	jboolean pressed, jint code, jstring jtext, jint mods, jboolean soft)
 {
 	// If trap is false, android will handle the key
 	bool trap = false;
@@ -357,12 +357,19 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTY_app_1key(JNIEnv *env, jobje
 	if (code < (jint) APP_KEYS_MAX) {
 		MTY_Key key = APP_KEYS[code];
 		if (key != MTY_KEY_NONE) {
-
 			MTY_Msg msg = {0};
 			msg.type = MTY_MSG_KEYBOARD;
-			msg.keyboard.key = key;
 			msg.keyboard.mod = app_keymods(mods);
 			msg.keyboard.pressed = pressed;
+
+			// The soft keyboard has shift implicitly held down for certain keys
+			// without ever sending the shift button, so send a shift key event
+			if (soft && (msg.keyboard.mod & MTY_MOD_SHIFT)) {
+				msg.keyboard.key = MTY_KEY_LSHIFT;
+				app_push_msg(&CTX, &msg);
+			}
+
+			msg.keyboard.key = key;
 			app_push_msg(&CTX, &msg);
 			trap = true;
 		}
