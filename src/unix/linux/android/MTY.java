@@ -2,6 +2,7 @@ package group.matoya.lib;
 
 import android.app.Activity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Surface;
 import android.view.SurfaceView;
 import android.view.SurfaceHolder;
@@ -18,7 +19,9 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
+import android.view.ViewTreeObserver;
 import android.text.InputType;
+import android.graphics.Rect;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.content.Context;
@@ -39,7 +42,8 @@ public class MTY extends SurfaceView implements
 	GestureDetector.OnDoubleTapListener,
 	GestureDetector.OnContextClickListener,
 	ScaleGestureDetector.OnScaleGestureListener,
-	ClipboardManager.OnPrimaryClipChangedListener
+	ClipboardManager.OnPrimaryClipChangedListener,
+	ViewTreeObserver.OnGlobalLayoutListener
 {
 	Activity activity;
 	KeyCharacterMap kbmap;
@@ -112,6 +116,8 @@ public class MTY extends SurfaceView implements
 		InputManager manager = (InputManager) activity.getSystemService(Context.INPUT_SERVICE);
 		manager.registerInputDeviceListener(this, null);
 
+		this.getViewTreeObserver().addOnGlobalLayoutListener(this);
+
 		this.getHolder().addCallback(this);
 		this.detector.setOnDoubleTapListener(this);
 		this.detector.setContextClickListener(this);
@@ -155,6 +161,25 @@ public class MTY extends SurfaceView implements
 	@Override
 	public PointerIcon onResolvePointerIcon(MotionEvent event, int pointerIndex) {
 		return this.getCursor();
+	}
+
+
+	// Layout listener -- this is needed for proper adjustResize in fullscreen mode
+	@Override
+	public void onGlobalLayout() {
+		ViewGroup vg = activity.findViewById(android.R.id.content);
+		View root = vg.getChildAt(0);
+		ViewGroup.LayoutParams layout = root.getLayoutParams();
+
+		Rect bounds = new Rect();
+		vg.getWindowVisibleDisplayFrame(bounds);
+
+		if (bounds.height() != layout.height) {
+			layout.height = bounds.height();
+
+			root.layout(0, 0, bounds.right - bounds.left, bounds.bottom - bounds.top);
+			root.requestLayout();
+		}
 	}
 
 
