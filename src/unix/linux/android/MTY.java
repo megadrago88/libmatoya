@@ -103,6 +103,7 @@ public class MTY extends SurfaceView implements
 		Bitmap bm = BitmapFactory.decodeByteArray(iCursorData, 0, iCursorData.length, null);
 		this.invisCursor = PointerIcon.create(bm, 0, 0);
 
+		activity.getWindow().getDecorView().setSystemUiVisibility(MTY.normalFlags());
 		activity.setContentView(this);
 
 		ClipboardManager clipboard = (ClipboardManager) this.activity.getSystemService(Context.CLIPBOARD_SERVICE);
@@ -396,6 +397,19 @@ public class MTY extends SurfaceView implements
 
 	// Fullscreen
 
+	static int normalFlags() {
+		return
+			View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |  // Prevents hidden stuff from coming back spontaneously
+			View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
+	}
+
+	static int fullscreenFlags() {
+		return
+			View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | // Removes space at the top for menu bar
+			View.SYSTEM_UI_FLAG_FULLSCREEN |        // Removes menu bar
+			View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;    // Hides navigation buttons at the bottom
+	}
+
 	public boolean isFullscreen() {
 		return this.isFullscreen;
 	}
@@ -407,20 +421,15 @@ public class MTY extends SurfaceView implements
 		this.activity.runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				// FIXME Should this hide navigation?
-
 				if (enable) {
-					self.activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-					// self.activity.getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
+					self.activity.getWindow().getDecorView().setSystemUiVisibility(MTY.normalFlags() | MTY.fullscreenFlags());
 
 				} else {
-					self.activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-					// self.activity.getWindow().getDecorView().setSystemUiVisibility(0);
+					self.activity.getWindow().getDecorView().setSystemUiVisibility(MTY.normalFlags());
 				}
 
 				self.isFullscreen =
-					(self.activity.getWindow().getAttributes().flags & WindowManager.LayoutParams.FLAG_FULLSCREEN) ==
-					WindowManager.LayoutParams.FLAG_FULLSCREEN;
+					(self.activity.getWindow().getDecorView().getSystemUiVisibility() & MTY.fullscreenFlags()) == MTY.fullscreenFlags();
 			}
 		});
 	}
