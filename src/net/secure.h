@@ -14,8 +14,8 @@
 
 struct secure;
 
-struct secure *mty_secure_connect(struct tcp *socket, const char *host, uint32_t timeout);
+struct secure *mty_secure_connect(struct tcp *tcp, const char *host, uint32_t timeout);
 void mty_secure_destroy(struct secure **secure);
 
-bool mty_secure_write(struct secure *ctx, struct tcp *socket, const void *buf, size_t size);
-bool mty_secure_read(struct secure *ctx, struct tcp *socket, void *buf, size_t size, uint32_t timeout);
+bool mty_secure_write(struct secure *ctx, struct tcp *tcp, const void *buf, size_t size);
+bool mty_secure_read(struct secure *ctx, struct tcp *tcp, void *buf, size_t size, uint32_t timeout);

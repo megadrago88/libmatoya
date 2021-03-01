@@ -17,7 +17,7 @@ struct tcp;
 struct tcp *mty_tcp_connect(const char *ip, uint16_t port, uint32_t timeout);
 struct tcp *mty_tcp_listen(const char *ip, uint16_t port);
 struct tcp *mty_tcp_accept(struct tcp *ctx, uint32_t timeout);
-void mty_tcp_destroy(struct tcp **socket);
+void mty_tcp_destroy(struct tcp **tcp);
 
 MTY_Async mty_tcp_poll(struct tcp *ctx, bool out, uint32_t timeout);
 bool mty_tcp_write(struct tcp *ctx, const void *buf, size_t size);
