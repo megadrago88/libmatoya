@@ -162,7 +162,7 @@ static MTY_Mod app_keymods(int32_t mods)
 	return mty;
 }
 
-static void app_translate_soft(jint *code, jboolean *mods)
+static void app_translate_soft(jint *code, jint *mods)
 {
 	jint prev = *code;
 
