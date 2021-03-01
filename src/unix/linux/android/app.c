@@ -347,6 +347,12 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTY_app_1key(JNIEnv *env, jobje
 		trap = true;
 	}
 
+	// Certain soft keyboard keys come in as unique values that don't
+	// correspond to EN-US keyboards, convert hem here
+	if (soft)
+		app_translate_soft(&code, &mods);
+
+	// Back key has special meaning
 	if (pressed && code == AKEYCODE_BACK) {
 		MTY_Msg msg = {0};
 		msg.type = MTY_MSG_BACK;
@@ -354,8 +360,10 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_MTY_app_1key(JNIEnv *env, jobje
 		trap = true;
 	}
 
+	// Actual MTY_MSG_KEYBOARD events generated
 	if (code < (jint) APP_KEYS_MAX) {
 		MTY_Key key = APP_KEYS[code];
+
 		if (key != MTY_KEY_NONE) {
 			MTY_Msg msg = {0};
 			msg.type = MTY_MSG_KEYBOARD;

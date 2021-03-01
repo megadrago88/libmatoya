@@ -144,16 +144,45 @@ static MTY_Mod app_keymods(int32_t mods)
 {
 	MTY_Mod mty = MTY_MOD_NONE;
 
+	if (mods & AMETA_SHIFT_ON)       mty |= MTY_MOD_LSHIFT;
 	if (mods & AMETA_SHIFT_LEFT_ON)  mty |= MTY_MOD_LSHIFT;
 	if (mods & AMETA_SHIFT_RIGHT_ON) mty |= MTY_MOD_RSHIFT;
+	if (mods & AMETA_CTRL_ON)        mty |= MTY_MOD_LCTRL;
 	if (mods & AMETA_CTRL_LEFT_ON)   mty |= MTY_MOD_LCTRL;
 	if (mods & AMETA_CTRL_RIGHT_ON)  mty |= MTY_MOD_RCTRL;
+	if (mods & AMETA_ALT_ON)         mty |= MTY_MOD_LALT;
 	if (mods & AMETA_ALT_LEFT_ON)    mty |= MTY_MOD_LALT;
 	if (mods & AMETA_ALT_RIGHT_ON)   mty |= MTY_MOD_RALT;
+	if (mods & AMETA_META_ON)        mty |= MTY_MOD_LWIN;
 	if (mods & AMETA_META_LEFT_ON)   mty |= MTY_MOD_LWIN;
 	if (mods & AMETA_META_RIGHT_ON)  mty |= MTY_MOD_RWIN;
 	if (mods & AMETA_CAPS_LOCK_ON)   mty |= MTY_MOD_CAPS;
 	if (mods & AMETA_NUM_LOCK_ON)    mty |= MTY_MOD_NUM;
 
 	return mty;
+}
+
+static void app_translate_soft(jint *code, jboolean *mods)
+{
+	jint prev = *code;
+
+	// FIXME These are hard coded for an EN-US keyboard
+
+	switch (*code) {
+		case AKEYCODE_AT:
+			*code = AKEYCODE_2;
+			break;
+		case AKEYCODE_POUND:
+			*code = AKEYCODE_3;
+			break;
+		case AKEYCODE_PLUS:
+			*code = AKEYCODE_EQUALS;
+			break;
+		case AKEYCODE_STAR:
+			*code = AKEYCODE_8;
+			break;
+	}
+
+	if (prev != *code)
+		*mods = AMETA_SHIFT_ON;
 }
