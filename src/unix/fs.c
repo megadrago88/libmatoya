@@ -175,7 +175,7 @@ MTY_LockFile *MTY_LockFileCreate(const char *path, MTY_FileMode mode)
 
 	if (f != -1) {
 		if (flock(f, flock_flags | LOCK_NB) == 0) {
-			return (MTY_LockFile *) (intptr_t) f;
+			return MTY_Dup(&f, 4);
 
 		} else {
 			MTY_Log("'flock' failed with errno %d", errno);
@@ -195,15 +195,15 @@ void MTY_LockFileDestroy(MTY_LockFile **lock)
 	if (!lock || !*lock)
 		return;
 
-	MTY_LockFile *ctx = *lock;
-	int32_t f = (intptr_t) ctx;
+	int32_t *f = (int32_t *) *lock;
 
-	if (flock(f, LOCK_UN) != 0)
+	if (flock(*f, LOCK_UN) != 0)
 		MTY_Log("'flock' failed with errno %d", errno);
 
-	if (close(f) != 0)
+	if (close(*f) != 0)
 		MTY_Log("'close' failed with errno %d", errno);
 
+	MTY_Free(f);
 	*lock = NULL;
 }
 
