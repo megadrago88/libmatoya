@@ -139,10 +139,8 @@ TCP_SOCKET mty_tcp_accept(TCP_SOCKET s, uint32_t timeout)
 		return INVALID_SOCKET;
 
 	TCP_SOCKET child = accept(s, NULL, NULL);
-	if (child == INVALID_SOCKET) {
-		MTY_Log("'accept' failed with errno %d", SOCK_ERROR);
+	if (child == INVALID_SOCKET)
 		return INVALID_SOCKET;
-	}
 
 	if (sock_set_nonblocking(child)) {
 		tcp_set_options(child);
