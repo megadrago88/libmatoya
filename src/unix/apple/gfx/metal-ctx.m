@@ -33,12 +33,17 @@ static CGSize metal_ctx_get_size(struct metal_ctx *ctx)
 
 struct gfx_ctx *mty_metal_ctx_create(void *native_window, bool vsync)
 {
+	id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+
+	if (!device || ![device supportsFeatureSet: MTLFeatureSet_macOS_GPUFamily1_v1])
+		return NULL;
+
 	struct metal_ctx *ctx = MTY_Alloc(1, sizeof(struct metal_ctx));
 	ctx->window = (__bridge NSWindow *) native_window;
 	ctx->renderer = MTY_RendererCreate();
 
 	ctx->layer = [CAMetalLayer layer];
-	ctx->layer.device = MTLCreateSystemDefaultDevice();
+	ctx->layer.device = device;
 	ctx->layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
 
 	if (@available(macOS 10.13, *))
