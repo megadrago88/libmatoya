@@ -22,6 +22,8 @@
 #define closesocket      close
 #define INVALID_SOCKET   -1
 
+typedef int32_t SOCKET;
+
 static bool sock_set_nonblocking(int32_t s)
 {
 	return fcntl(s, F_SETFL, O_NONBLOCK) == 0;

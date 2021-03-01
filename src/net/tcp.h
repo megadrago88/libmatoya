@@ -12,20 +12,15 @@
 
 #include "matoya.h"
 
-// On Windows, a SOCKET is really a HANDLE, and is the size of size_t
-// The invalid socket value is -1 on Unix, ~0 on Windows, essentially the same
+struct tcp;
 
-#define TCP_INVALID_SOCKET (-1)
+struct tcp *mty_tcp_connect(const char *ip, uint16_t port, uint32_t timeout);
+struct tcp *mty_tcp_listen(const char *ip, uint16_t port);
+struct tcp *mty_tcp_accept(struct tcp *ctx, uint32_t timeout);
+void mty_tcp_destroy(struct tcp **socket);
 
-typedef intptr_t TCP_SOCKET;
-
-TCP_SOCKET mty_tcp_connect(const char *ip, uint16_t port, uint32_t timeout);
-TCP_SOCKET mty_tcp_listen(const char *ip, uint16_t port);
-TCP_SOCKET mty_tcp_accept(TCP_SOCKET s, uint32_t timeout);
-void mty_tcp_destroy(TCP_SOCKET *socket);
-
-MTY_Async mty_tcp_poll(TCP_SOCKET s, bool out, uint32_t timeout);
-bool mty_tcp_write(TCP_SOCKET s, const void *buf, size_t size);
-bool mty_tcp_read(TCP_SOCKET s, void *buf, size_t size, uint32_t timeout);
+MTY_Async mty_tcp_poll(struct tcp *ctx, bool out, uint32_t timeout);
+bool mty_tcp_write(struct tcp *ctx, const void *buf, size_t size);
+bool mty_tcp_read(struct tcp *ctx, void *buf, size_t size, uint32_t timeout);
 
 bool mty_dns_query(const char *host, char *ip, size_t size);
