@@ -51,7 +51,6 @@ public class MTY extends SurfaceView implements
 	Vibrator vibrator;
 	boolean hiddenCursor;
 	boolean defaultCursor;
-	boolean isFullscreen;
 	boolean kbShowing;
 	float displayDensity;
 	int scrollY;
@@ -394,15 +393,14 @@ public class MTY extends SurfaceView implements
 	static int fullscreenFlags() {
 		return
 			View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
-			View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |       // Removes space at the top for menu bar
-			View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |  // Hides space for navigation buttons at the bottom
-			View.SYSTEM_UI_FLAG_FULLSCREEN |              // Removes menu bar
-			View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |        // Prevents hidden stuff from coming back spontaneously
-			View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;          // Hides navigation buttons at the bottom
+			View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |  // Prevents hidden stuff from coming back spontaneously
+			View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | // Removes space at the top for menu bar
+			View.SYSTEM_UI_FLAG_FULLSCREEN |        // Removes menu bar
+			View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;    // Hides navigation buttons at the bottom
 	}
 
 	public boolean isFullscreen() {
-		return this.isFullscreen;
+		return (this.activity.getWindow().getDecorView().getSystemUiVisibility() & MTY.fullscreenFlags()) == MTY.fullscreenFlags();
 	}
 
 	public void enableFullscreen(boolean _enable) {
@@ -418,9 +416,6 @@ public class MTY extends SurfaceView implements
 				} else {
 					self.activity.getWindow().getDecorView().setSystemUiVisibility(0);
 				}
-
-				self.isFullscreen =
-					(self.activity.getWindow().getDecorView().getSystemUiVisibility() & MTY.fullscreenFlags()) == MTY.fullscreenFlags();
 			}
 		});
 	}
