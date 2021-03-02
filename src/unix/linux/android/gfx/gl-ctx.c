@@ -275,7 +275,6 @@ void mty_gl_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const MTY_
 		mutated.viewHeight = ctx->height - ctx->kb_height;
 
 		mty_gl_set_origin_y(ctx->kb_height);
-
 		MTY_RendererDrawQuad(ctx->renderer, MTY_GFX_GL, NULL, NULL, image, &mutated, (MTY_Texture *) &ctx->fb0);
 	}
 
