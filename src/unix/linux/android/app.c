@@ -1038,10 +1038,12 @@ bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_
 	MTY_WindowGetScreenSize(app, window, width, height);
 
 	int32_t kb_height = app_int_method(app, "keyboardHeight", "()I");
-	if (kb_height >= 0) {
-		mty_gfx_set_kb_height(kb_height);
-		*height -= kb_height;
-	}
+
+	if (kb_height == -1)
+		kb_height = 0;
+
+	mty_gfx_set_kb_height(kb_height);
+	*height -= kb_height;
 
 	return true;
 }
