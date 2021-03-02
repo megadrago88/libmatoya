@@ -27,6 +27,7 @@ static struct gl_ctx {
 	bool reinit;
 	uint32_t width;
 	uint32_t height;
+	uint32_t kb_height;
 	uint32_t fb0;
 	MTY_Atomic32 state_ctr;
 } CTX;
@@ -98,6 +99,11 @@ void mty_gfx_size(uint32_t *width, uint32_t *height)
 {
 	*width = CTX.width;
 	*height = CTX.height;
+}
+
+void mty_gfx_set_kb_height(uint32_t height)
+{
+	CTX.kb_height = height;
 }
 
 MTY_GFXState mty_gfx_state(void)
@@ -260,7 +266,8 @@ void mty_gl_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const MTY_
 	if (gl_ctx_check(ctx)) {
 		MTY_RenderDesc mutated = *desc;
 		mutated.viewWidth = ctx->width;
-		mutated.viewHeight = ctx->height;
+		mutated.viewHeight = ctx->height - ctx->kb_height;
+		mutated.originY = ctx->kb_height;
 
 		MTY_RendererDrawQuad(ctx->renderer, MTY_GFX_GL, NULL, NULL, image, &mutated, (MTY_Texture *) &ctx->fb0);
 	}
@@ -274,8 +281,12 @@ void mty_gl_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 
 	MTY_MutexLock(ctx->mutex);
 
-	if (gl_ctx_check(ctx))
-		MTY_RendererDrawUI(ctx->renderer, MTY_GFX_GL, NULL, NULL, dd, (MTY_Texture *) &ctx->fb0);
+	if (gl_ctx_check(ctx)) {
+		MTY_DrawData mutated = *dd;
+		mutated.originY = ctx->kb_height;
+
+		MTY_RendererDrawUI(ctx->renderer, MTY_GFX_GL, NULL, NULL, &mutated, (MTY_Texture *) &ctx->fb0);
+	}
 
 	MTY_MutexUnlock(ctx->mutex);
 }

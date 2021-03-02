@@ -247,7 +247,7 @@ bool mty_gl_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 		desc->viewWidth, desc->viewHeight, desc->aspectRatio, desc->scale,
 		&vpx, &vpy, &vpw, &vph);
 
-	glViewport(lrint(vpx), lrint(vpy), lrint(vpw), lrint(vph));
+	glViewport(lrint(vpx), lrint(vpy) + desc->originY, lrint(vpw), lrint(vph));
 
 	// Begin render pass (set destination texture if available)
 	if (_dest)

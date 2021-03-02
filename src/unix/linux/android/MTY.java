@@ -42,8 +42,7 @@ public class MTY extends SurfaceView implements
 	GestureDetector.OnDoubleTapListener,
 	GestureDetector.OnContextClickListener,
 	ScaleGestureDetector.OnScaleGestureListener,
-	ClipboardManager.OnPrimaryClipChangedListener,
-	ViewTreeObserver.OnGlobalLayoutListener
+	ClipboardManager.OnPrimaryClipChangedListener
 {
 	Activity activity;
 	KeyCharacterMap kbmap;
@@ -116,8 +115,6 @@ public class MTY extends SurfaceView implements
 		InputManager manager = (InputManager) activity.getSystemService(Context.INPUT_SERVICE);
 		manager.registerInputDeviceListener(this, null);
 
-		this.getViewTreeObserver().addOnGlobalLayoutListener(this);
-
 		this.getHolder().addCallback(this);
 		this.detector.setOnDoubleTapListener(this);
 		this.detector.setContextClickListener(this);
@@ -161,26 +158,6 @@ public class MTY extends SurfaceView implements
 	@Override
 	public PointerIcon onResolvePointerIcon(MotionEvent event, int pointerIndex) {
 		return this.getCursor();
-	}
-
-
-	// Layout listener -- this is needed for proper adjustResize in fullscreen mode
-
-	@Override
-	public void onGlobalLayout() {
-		ViewGroup vg = activity.findViewById(android.R.id.content);
-		View root = vg.getChildAt(0);
-		ViewGroup.LayoutParams layout = root.getLayoutParams();
-
-		Rect bounds = new Rect();
-		vg.getWindowVisibleDisplayFrame(bounds);
-
-		if (bounds.height() != layout.height) {
-			layout.height = bounds.height();
-
-			root.layout(0, 0, bounds.right - bounds.left, bounds.bottom - bounds.top);
-			root.requestLayout();
-		}
 	}
 
 
@@ -596,17 +573,23 @@ public class MTY extends SurfaceView implements
 		}
 	}
 
-	public boolean keyboardIsShowing() {
+	public int keyboardHeight() {
 		InputMethodManager imm = (InputMethodManager) this.activity.getSystemService(Context.INPUT_METHOD_SERVICE);
 
 		try {
 			java.lang.reflect.Method method = imm.getClass().getMethod("getInputMethodWindowVisibleHeight");
-			return (int) method.invoke(imm) > 0;
+			return (int) method.invoke(imm);
 
 		} catch (Exception e) {
 		}
 
-		return this.kbShowing;
+		return -1;
+	}
+
+	public boolean keyboardIsShowing() {
+		int height = this.keyboardHeight();
+
+		return height == -1 ? this.kbShowing : height > 0;
 	}
 
 	public void showKeyboard(boolean show) {

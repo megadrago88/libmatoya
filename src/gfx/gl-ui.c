@@ -153,7 +153,9 @@ bool mty_gl_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *co
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _dest);
 
 	// Set viewport based on display size
-	glViewport(0, 0, fb_width, fb_height);
+	// OpenGL draws from the lower left corner, if we want top-left behavior we need to
+	// offset from the bottom by "extra space" on the drawing surface
+	glViewport(0, dd->originY, fb_width, fb_height);
 
 	// Clear render target to black
 	if (dd->clear) {
@@ -202,6 +204,11 @@ bool mty_gl_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *co
 
 			// Make sure the rect is actually in the viewport
 			if (r.x < fb_width && r.y < fb_height && r.z >= 0.0f && r.w >= 0.0f) {
+
+				// Adjust for origin (from lower left corner)
+				r.y -= dd->originY;
+				r.w -= dd->originY;
+
 				glScissor(lrint(r.x), lrint(fb_height - r.w), lrint(r.z - r.x), lrint(r.w - r.y));
 
 				// Optionally sample from a texture (fonts, images)

@@ -585,6 +585,7 @@ typedef struct MTY_RenderDesc {
 	uint32_t viewWidth;
 	uint32_t viewHeight;
 	float aspectRatio;
+	float originY;
 	float scale;
 } MTY_RenderDesc;
 
@@ -633,6 +634,7 @@ typedef struct {
 	uint32_t cmdListMax;
 	uint32_t idxTotalLength;
 	uint32_t vtxTotalLength;
+	float originY;
 	bool clear;
 } MTY_DrawData;
 
