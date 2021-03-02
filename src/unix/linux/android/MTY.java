@@ -2,7 +2,6 @@ package group.matoya.lib;
 
 import android.app.Activity;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.Surface;
 import android.view.SurfaceView;
 import android.view.SurfaceHolder;
@@ -19,9 +18,7 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
-import android.view.ViewTreeObserver;
 import android.text.InputType;
-import android.graphics.Rect;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.content.Context;

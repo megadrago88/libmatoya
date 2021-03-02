@@ -247,7 +247,8 @@ bool mty_gl_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 		desc->viewWidth, desc->viewHeight, desc->aspectRatio, desc->scale,
 		&vpx, &vpy, &vpw, &vph);
 
-	glViewport(lrint(vpx), lrint(vpy) + desc->originY, lrint(vpw), lrint(vph));
+	// OpenGL uses originY to offset from the bottom of the viewport
+	glViewport(lrint(vpx), lrint(vpy + desc->originY), lrint(vpw), lrint(vph));
 
 	// Begin render pass (set destination texture if available)
 	if (_dest)

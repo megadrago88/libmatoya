@@ -153,9 +153,8 @@ bool mty_gl_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *co
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _dest);
 
 	// Set viewport based on display size
-	// OpenGL draws from the lower left corner, if we want top-left behavior we need to
-	// offset from the bottom by "extra space" on the drawing surface
-	glViewport(0, dd->originY, fb_width, fb_height);
+	// OpenGL uses originY to offset from the bottom of the viewport
+	glViewport(0, lrint(dd->originY), fb_width, fb_height);
 
 	// Clear render target to black
 	if (dd->clear) {
