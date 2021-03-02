@@ -127,6 +127,12 @@ MTY_GFXState mty_gfx_state(void)
 }
 
 
+// Private origin funcs for soft keyboard
+
+void mty_gl_set_origin_y(int32_t y);
+void mty_gl_ui_set_origin_y(int32_t y);
+
+
 // EGL CTX
 
 static void gl_ctx_create_context(struct gl_ctx *ctx)
@@ -267,7 +273,8 @@ void mty_gl_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const MTY_
 		MTY_RenderDesc mutated = *desc;
 		mutated.viewWidth = ctx->width;
 		mutated.viewHeight = ctx->height - ctx->kb_height;
-		mutated.originY = ctx->kb_height;
+
+		mty_gl_set_origin_y(ctx->kb_height);
 
 		MTY_RendererDrawQuad(ctx->renderer, MTY_GFX_GL, NULL, NULL, image, &mutated, (MTY_Texture *) &ctx->fb0);
 	}
@@ -282,10 +289,8 @@ void mty_gl_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 	MTY_MutexLock(ctx->mutex);
 
 	if (gl_ctx_check(ctx)) {
-		MTY_DrawData mutated = *dd;
-		mutated.originY = ctx->kb_height;
-
-		MTY_RendererDrawUI(ctx->renderer, MTY_GFX_GL, NULL, NULL, &mutated, (MTY_Texture *) &ctx->fb0);
+		mty_gl_ui_set_origin_y(ctx->kb_height);
+		MTY_RendererDrawUI(ctx->renderer, MTY_GFX_GL, NULL, NULL, dd, (MTY_Texture *) &ctx->fb0);
 	}
 
 	MTY_MutexUnlock(ctx->mutex);

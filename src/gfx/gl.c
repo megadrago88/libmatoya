@@ -43,6 +43,13 @@ struct gl {
 	float scale;
 };
 
+static int32_t GL_ORIGIN_Y;
+
+void mty_gl_set_origin_y(int32_t y)
+{
+	GL_ORIGIN_Y = y;
+}
+
 static void gl_log_shader_errors(GLuint shader)
 {
 	GLint n = 0;
@@ -247,8 +254,7 @@ bool mty_gl_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 		desc->viewWidth, desc->viewHeight, desc->aspectRatio, desc->scale,
 		&vpx, &vpy, &vpw, &vph);
 
-	// OpenGL uses originY to offset from the bottom of the viewport
-	glViewport(lrint(vpx), lrint(vpy + desc->originY), lrint(vpw), lrint(vph));
+	glViewport(lrint(vpx), lrint(vpy) + GL_ORIGIN_Y, lrint(vpw), lrint(vph));
 
 	// Begin render pass (set destination texture if available)
 	if (_dest)

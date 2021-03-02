@@ -33,6 +33,13 @@ struct gl_ui {
 	GLuint eb;
 };
 
+static int32_t GL_UI_ORIGIN_Y;
+
+void mty_gl_ui_set_origin_y(int32_t y)
+{
+	GL_UI_ORIGIN_Y = y;
+}
+
 static void gl_ui_log_shader_errors(GLuint shader)
 {
 	GLint n = 0;
@@ -153,8 +160,7 @@ bool mty_gl_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *co
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _dest);
 
 	// Set viewport based on display size
-	// OpenGL uses originY to offset from the bottom of the viewport
-	glViewport(0, lrint(dd->originY), fb_width, fb_height);
+	glViewport(0, GL_UI_ORIGIN_Y, fb_width, fb_height);
 
 	// Clear render target to black
 	if (dd->clear) {
@@ -205,8 +211,8 @@ bool mty_gl_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *co
 			if (r.x < fb_width && r.y < fb_height && r.z >= 0.0f && r.w >= 0.0f) {
 
 				// Adjust for origin (from lower left corner)
-				r.y -= dd->originY;
-				r.w -= dd->originY;
+				r.y -= GL_UI_ORIGIN_Y;
+				r.w -= GL_UI_ORIGIN_Y;
 
 				glScissor(lrint(r.x), lrint(fb_height - r.w), lrint(r.z - r.x), lrint(r.w - r.y));
 
