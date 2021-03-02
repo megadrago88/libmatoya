@@ -25,9 +25,9 @@ static struct gl_ctx {
 	bool ready;
 	bool init;
 	bool reinit;
+	int32_t kb_height;
 	uint32_t width;
 	uint32_t height;
-	uint32_t kb_height;
 	uint32_t fb0;
 	MTY_Atomic32 state_ctr;
 } CTX;
@@ -101,7 +101,7 @@ void mty_gfx_size(uint32_t *width, uint32_t *height)
 	*height = CTX.height;
 }
 
-void mty_gfx_set_kb_height(uint32_t height)
+void mty_gfx_set_kb_height(int32_t height)
 {
 	CTX.kb_height = height;
 }
