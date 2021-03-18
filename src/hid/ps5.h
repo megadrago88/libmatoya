@@ -39,8 +39,8 @@ static void ps5_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 
 	if (ctx->bluetooth) {
 		uint8_t hdr = 0xA2;
-		uint32_t crc = ps4_crc32(0, &hdr, 1);
-		crc = ps4_crc32(crc, buf, size - 4);
+		uint32_t crc = MTY_CRC32(0, &hdr, 1);
+		crc = MTY_CRC32(crc, buf, size - 4);
 		memcpy(buf + size - 4, &crc, 4);
 	}
 

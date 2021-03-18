@@ -115,9 +115,8 @@ void MTY_BytesToBase64(const void *bytes, size_t size, char *b64, size_t b64Size
 	}
 }
 
-uint32_t MTY_CRC32(const void *data, size_t size)
+uint32_t MTY_CRC32(uint32_t crc, const void *data, size_t size)
 {
-	uint32_t crc = 0;
 	uint32_t table[0x100];
 
 	for (uint32_t x = 0; x < 0x100; x++) {

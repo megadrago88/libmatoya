@@ -15,22 +15,6 @@ struct ps4_state {
 
 // Rumble
 
-static uint32_t ps4_crc32_for_byte(uint32_t r)
-{
-	for (int32_t i = 0; i < 8; i++)
-		r = (r & 1 ? 0 : (uint32_t) 0xEDB88320L) ^ r >> 1;
-
-	return r ^ (uint32_t) 0xFF000000L;
-}
-
-static uint32_t ps4_crc32(uint32_t crc, const void *data, int32_t count)
-{
-	for (int32_t i = 0; i < count; i++)
-		crc = ps4_crc32_for_byte((uint8_t) crc ^ ((const uint8_t *) data)[i]) ^ crc >> 8;
-
-	return crc;
-}
-
 static void ps4_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 {
 	struct ps4_state *ctx = mty_hid_device_get_state(device);
@@ -57,8 +41,8 @@ static void ps4_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 
 	if (ctx->bluetooth) {
 		uint8_t hdr = 0xA2;
-		uint32_t crc = ps4_crc32(0, &hdr, 1);
-		crc = ps4_crc32(crc, data, size - 4);
+		uint32_t crc = MTY_CRC32(0, &hdr, 1);
+		crc = MTY_CRC32(crc, data, size - 4);
 		memcpy(data + size - 4, &crc, 4);
 	}
 

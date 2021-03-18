@@ -97,7 +97,7 @@ typedef enum {
 } MTY_Algorithm;
 
 MTY_EXPORT uint32_t
-MTY_CRC32(const void *data, size_t size);
+MTY_CRC32(uint32_t crc, const void *data, size_t size);
 
 MTY_EXPORT uint32_t
 MTY_DJB2(const char *str);
