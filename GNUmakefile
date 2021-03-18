@@ -158,6 +158,11 @@ else
 MIN_VER = 11.0
 FLAGS := $(FLAGS) -fembed-bitcode
 DEFS := $(DEFS) -DMTY_GL_ES
+
+ifeq ($(ARCH), x86_64)
+FLAGS := $(FLAGS) -maes -mpclmul
+endif
+
 endif
 
 OBJS := $(OBJS) \
