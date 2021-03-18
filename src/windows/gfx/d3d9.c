@@ -18,7 +18,7 @@ static
 static
 #include "shaders/d3d9/vs.h"
 
-#define NUM_STAGING 3
+#define D3D9_NUM_STAGING 3
 
 struct d3d9_res {
 	D3DFORMAT format;
@@ -30,7 +30,7 @@ struct d3d9_res {
 
 struct d3d9 {
 	MTY_ColorFormat format;
-	struct d3d9_res staging[NUM_STAGING];
+	struct d3d9_res staging[D3D9_NUM_STAGING];
 	IDirect3DPixelShader9 *ps;
 	IDirect3DVertexShader9 *vs;
 	IDirect3DVertexBuffer9 *vb;
@@ -367,7 +367,7 @@ bool mty_d3d9_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 		goto except;
 	}
 
-	for (uint8_t x = 0; x < NUM_STAGING; x++) {
+	for (uint8_t x = 0; x < D3D9_NUM_STAGING; x++) {
 		if (ctx->staging[x].base) {
 			DWORD sampler = desc->filter == MTY_FILTER_NEAREST ? D3DTEXF_POINT : D3DTEXF_LINEAR;
 			IDirect3DDevice9_SetTexture(_device, x, ctx->staging[x].base);
@@ -421,7 +421,7 @@ void mty_d3d9_destroy(struct gfx **gfx)
 
 	struct d3d9 *ctx = (struct d3d9 *) *gfx;
 
-	for (uint8_t x = 0; x < NUM_STAGING; x++)
+	for (uint8_t x = 0; x < D3D9_NUM_STAGING; x++)
 		d3d9_destroy_resource(&ctx->staging[x]);
 
 	if (ctx->ib)

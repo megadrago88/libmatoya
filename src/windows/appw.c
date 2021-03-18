@@ -19,8 +19,8 @@
 #include "wsize.h"
 #include "hid/hid.h"
 
-#define WINDOW_CLASS_NAME L"MTY_Window"
-#define WINDOW_RI_MAX     (32 * 1024)
+#define APP_CLASS_NAME L"MTY_Window"
+#define APP_RI_MAX     (32 * 1024)
 
 struct window {
 	MTY_App *app;
@@ -91,6 +91,10 @@ struct MTY_App {
 
 		uint32_t len;
 	} tray;
+
+	HRESULT (WINAPI *GetDpiForMonitor)(HMONITOR hmonitor, MONITOR_DPI_TYPE dpiType, UINT *dpiX, UINT *dpiY);
+	BOOL (WINAPI *GetPointerType)(UINT32 pointerId, POINTER_INPUT_TYPE *pointerType);
+	BOOL (WINAPI *GetPointerPenInfo)(UINT32 pointerId, POINTER_PEN_INFO *penInfo);
 };
 
 
@@ -109,14 +113,7 @@ static const int APP_MOUSE_MAP[] = {
 
 // Low level keyboard hook needs a global HWND
 
-static HWND WINDOW_KB_HWND;
-
-
-// Weak Linking
-
-static HRESULT (WINAPI *_GetDpiForMonitor)(HMONITOR hmonitor, MONITOR_DPI_TYPE dpiType, UINT *dpiX, UINT *dpiY);
-static BOOL (WINAPI *_GetPointerType)(UINT32 pointerId, POINTER_INPUT_TYPE *pointerType);
-static BOOL (WINAPI *_GetPointerPenInfo)(UINT32 pointerId, POINTER_PEN_INFO *penInfo);
+static HWND APP_KB_HWND;
 
 
 // App Static Helpers
@@ -175,16 +172,16 @@ static void app_hwnd_activate(HWND hwnd, bool active)
 	}
 }
 
-static float app_hwnd_get_scale(HWND hwnd)
+static float app_hwnd_get_scale(MTY_App *ctx, HWND hwnd)
 {
-	if (_GetDpiForMonitor) {
+	if (ctx->GetDpiForMonitor) {
 		HMONITOR mon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
 
 		if (mon) {
 			UINT x = 0;
 			UINT y = 0;
 
-			if (_GetDpiForMonitor(mon, MDT_EFFECTIVE_DPI, &x, &y) == S_OK)
+			if (ctx->GetDpiForMonitor(mon, MDT_EFFECTIVE_DPI, &x, &y) == S_OK)
 				return (float) x / 96.0f;
 		}
 	}
@@ -657,7 +654,7 @@ static MTY_Mod app_get_keymod(void)
 
 static LRESULT CALLBACK app_ll_keyboard_proc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-	if (nCode == HC_ACTION && WINDOW_KB_HWND) {
+	if (nCode == HC_ACTION && APP_KB_HWND) {
 		const KBDLLHOOKSTRUCT *p = (const KBDLLHOOKSTRUCT *) lParam;
 
 		bool intercept = ((p->flags & LLKHF_ALTDOWN) && p->vkCode == VK_TAB) || // ALT + TAB
@@ -671,7 +668,7 @@ static LRESULT CALLBACK app_ll_keyboard_proc(int nCode, WPARAM wParam, LPARAM lP
 			wproc_lparam |= (p->flags & LLKHF_EXTENDED) ? (1 << 24) : 0;
 			wproc_lparam |= (p->flags & LLKHF_UP) ? (1 << 31) : 0;
 
-			SendMessage(WINDOW_KB_HWND, (UINT) wParam, 0, wproc_lparam);
+			SendMessage(APP_KB_HWND, (UINT) wParam, 0, wproc_lparam);
 			return 1;
 		}
 	}
@@ -743,10 +740,10 @@ static void app_apply_keyboard_state(MTY_App *app, bool focus)
 		if (!app->kbhook) {
 			struct window *ctx = app_get_focus_window(app);
 			if (ctx) {
-				WINDOW_KB_HWND = ctx->hwnd; // Unfortunately this needs to be global
+				APP_KB_HWND = ctx->hwnd; // Unfortunately this needs to be global
 				app->kbhook = SetWindowsHookEx(WH_KEYBOARD_LL, app_ll_keyboard_proc, app->instance, 0);
 				if (!app->kbhook) {
-					WINDOW_KB_HWND = NULL;
+					APP_KB_HWND = NULL;
 					MTY_Log("'SetWindowsHookEx' failed with error 0x%X", GetLastError());
 				}
 			}
@@ -757,7 +754,7 @@ static void app_apply_keyboard_state(MTY_App *app, bool focus)
 			if (!UnhookWindowsHookEx(app->kbhook))
 				MTY_Log("'UnhookWindowsHookEx' failed with error 0x%X", GetLastError());
 
-			WINDOW_KB_HWND = NULL;
+			APP_KB_HWND = NULL;
 			app->kbhook = NULL;
 		}
 	}
@@ -845,7 +842,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			evt.type = MTY_EVENT_SHUTDOWN;
 			break;
 		case WM_GETMINMAXINFO: {
-			float scale = app_hwnd_get_scale(hwnd);
+			float scale = app_hwnd_get_scale(app, hwnd);
 			MINMAXINFO *info = (MINMAXINFO *) lparam;
 			info->ptMinTrackSize.x = lrint((float) ctx->min_width * scale);
 			info->ptMinTrackSize.y = lrint((float) ctx->min_height * scale);
@@ -920,13 +917,13 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			evt.scroll.y = 0;
 			break;
 		case WM_POINTERENTER: {
-			if (!_GetPointerType)
+			if (!app->GetPointerType)
 				break;
 
 			UINT32 id = GET_POINTERID_WPARAM(wparam);
 
 			POINTER_INPUT_TYPE type = PT_POINTER;
-			if (_GetPointerType(id, &type)) {
+			if (app->GetPointerType(id, &type)) {
 				app->pen_in_range = type == PT_PEN;
 				app->touch_active = type == PT_TOUCH || type == PT_TOUCHPAD;
 			}
@@ -937,17 +934,17 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			app->touch_active = false;
 			break;
 		case WM_POINTERUPDATE:
-			if (!app->pen_enabled || !_GetPointerType || !_GetPointerPenInfo)
+			if (!app->pen_enabled || !app->GetPointerType || !app->GetPointerPenInfo)
 				break;
 
 			UINT32 id = GET_POINTERID_WPARAM(wparam);
 
 			POINTER_INPUT_TYPE type = PT_POINTER;
-			if (!_GetPointerType(id, &type) || type != PT_PEN)
+			if (!app->GetPointerType(id, &type) || type != PT_PEN)
 				break;
 
 			POINTER_PEN_INFO ppi = {0};
-			if (!_GetPointerPenInfo(id, &ppi))
+			if (!app->GetPointerPenInfo(id, &ppi))
 				break;
 
 			POINTER_INFO *pi = &ppi.pointerInfo;
@@ -1023,7 +1020,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 			}
 			break;
 		case WM_INPUT:
-			UINT rsize = WINDOW_RI_MAX;
+			UINT rsize = APP_RI_MAX;
 			UINT e = GetRawInputData((HRAWINPUT) lparam, RID_INPUT, ctx->ri, &rsize, sizeof(RAWINPUTHEADER));
 			if (e == 0 || e == 0xFFFFFFFF) {
 				MTY_Log("'GetRawInputData' failed with error 0x%X", e);
@@ -1340,7 +1337,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaqu
 	app->wc.cbWndExtra = sizeof(struct window *);
 	app->wc.lpfnWndProc = app_hwnd_proc;
 	app->wc.hInstance = app->instance;
-	app->wc.lpszClassName = WINDOW_CLASS_NAME;
+	app->wc.lpszClassName = APP_CLASS_NAME;
 
 	app->cursor = LoadCursor(NULL, IDC_ARROW);
 
@@ -1359,9 +1356,9 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaqu
 
 	HMODULE user32 = GetModuleHandle(L"user32.dll");
 	HMODULE shcore = GetModuleHandle(L"shcore.dll");
-	_GetDpiForMonitor = (void *) GetProcAddress(shcore, "GetDpiForMonitor");
-	_GetPointerPenInfo = (void *) GetProcAddress(user32, "GetPointerPenInfo");
-	_GetPointerType = (void *) GetProcAddress(user32, "GetPointerType");
+	app->GetDpiForMonitor = (void *) GetProcAddress(shcore, "GetDpiForMonitor");
+	app->GetPointerPenInfo = (void *) GetProcAddress(user32, "GetPointerPenInfo");
+	app->GetPointerType = (void *) GetProcAddress(user32, "GetPointerType");
 
 	ImmDisableIME(0);
 
@@ -1398,12 +1395,12 @@ void MTY_AppDestroy(MTY_App **app)
 		MTY_WindowDestroy(ctx, x);
 
 	if (ctx->instance && ctx->class != 0)
-		UnregisterClass(WINDOW_CLASS_NAME, ctx->instance);
+		UnregisterClass(APP_CLASS_NAME, ctx->instance);
 
 	mty_hid_destroy(&ctx->hid);
 	xip_destroy(&ctx->xip);
 
-	WINDOW_KB_HWND = NULL;
+	APP_KB_HWND = NULL;
 
 	MTY_Free(ctx);
 	*app = NULL;
@@ -1599,7 +1596,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	struct window *ctx = MTY_Alloc(1, sizeof(struct window));
 	app->windows[window] = ctx;
 
-	ctx->ri = MTY_Alloc(WINDOW_RI_MAX, 1);
+	ctx->ri = MTY_Alloc(APP_RI_MAX, 1);
 	ctx->app = app;
 	ctx->window = window;
 	ctx->min_width = desc->minWidth;
@@ -1613,7 +1610,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	int32_t desktop_height = rect.bottom - rect.top;
 	int32_t desktop_width = rect.right - rect.left;
 
-	float scale = app_hwnd_get_scale(desktop);
+	float scale = app_hwnd_get_scale(app, desktop);
 	int32_t width = desktop_width;
 	int32_t height = desktop_height;
 	int32_t x = lrint((float) desc->x * scale);
@@ -1634,7 +1631,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	titlew = MTY_MultiToWideD(title);
 
-	ctx->hwnd = CreateWindowEx(0, WINDOW_CLASS_NAME, titlew, style,
+	ctx->hwnd = CreateWindowEx(0, APP_CLASS_NAME, titlew, style,
 		x, y, width, height, NULL, NULL, app->instance, ctx);
 	if (!ctx->hwnd) {
 		r = false;
@@ -1770,7 +1767,7 @@ float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
 	if (!ctx)
 		return 1.0f;
 
-	return app_hwnd_get_scale(ctx->hwnd);
+	return app_hwnd_get_scale(app, ctx->hwnd);
 }
 
 void MTY_WindowSetFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)

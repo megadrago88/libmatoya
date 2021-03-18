@@ -18,7 +18,7 @@ static
 static
 #include "shaders/d3d11/vs.h"
 
-#define NUM_STAGING 3
+#define D3D11_NUM_STAGING 3
 
 struct psvars {
 	float width;
@@ -42,7 +42,7 @@ struct d3d11_res {
 
 struct d3d11 {
 	MTY_ColorFormat format;
-	struct d3d11_res staging[NUM_STAGING];
+	struct d3d11_res staging[D3D11_NUM_STAGING];
 	ID3D11VertexShader *vs;
 	ID3D11PixelShader *ps;
 	ID3D11Buffer *vb;
@@ -412,7 +412,7 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	ID3D11DeviceContext_PSSetShader(_context, ctx->ps, NULL, 0);
 	ID3D11DeviceContext_PSSetSamplers(_context, 0, 1, desc->filter == MTY_FILTER_NEAREST ? &ctx->ss_nearest : &ctx->ss_linear);
 
-	for (uint8_t x = 0; x < NUM_STAGING; x++)
+	for (uint8_t x = 0; x < D3D11_NUM_STAGING; x++)
 		if (ctx->staging[x].srv)
 			ID3D11DeviceContext_PSSetShaderResources(_context, x, 1, &ctx->staging[x].srv);
 
@@ -457,7 +457,7 @@ void mty_d3d11_destroy(struct gfx **gfx)
 
 	struct d3d11 *ctx = (struct d3d11 *) *gfx;
 
-	for (uint8_t x = 0; x < NUM_STAGING; x++)
+	for (uint8_t x = 0; x < D3D11_NUM_STAGING; x++)
 		d3d11_destroy_resource(&ctx->staging[x]);
 
 	if (ctx->rs)

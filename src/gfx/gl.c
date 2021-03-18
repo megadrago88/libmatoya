@@ -15,7 +15,7 @@ GFX_PROTOTYPES(_gl_)
 #include "shaders/gl/vs.h"
 #include "shaders/gl/fs.h"
 
-#define NUM_STAGING 3
+#define GL_NUM_STAGING 3
 
 struct gl_rtv {
 	GLenum format;
@@ -27,7 +27,7 @@ struct gl_rtv {
 
 struct gl {
 	MTY_ColorFormat format;
-	struct gl_rtv staging[NUM_STAGING];
+	struct gl_rtv staging[GL_NUM_STAGING];
 
 	GLuint vs;
 	GLuint fs;
@@ -35,7 +35,7 @@ struct gl {
 	GLuint vb;
 	GLuint eb;
 
-	GLuint loc_tex[NUM_STAGING];
+	GLuint loc_tex[GL_NUM_STAGING];
 	GLuint loc_pos;
 	GLuint loc_uv;
 	GLuint loc_fcb;
@@ -114,7 +114,7 @@ struct gfx *mty_gl_create(MTY_Device *device)
 	ctx->loc_fcb = glGetUniformLocation(ctx->prog, "fcb");
 	ctx->loc_icb = glGetUniformLocation(ctx->prog, "icb");
 
-	for (uint8_t x = 0; x < NUM_STAGING; x++) {
+	for (uint8_t x = 0; x < GL_NUM_STAGING; x++) {
 		char name[32];
 		snprintf(name, 32, "tex%u", x);
 		ctx->loc_tex[x] = glGetUniformLocation(ctx->prog, name);
@@ -281,7 +281,7 @@ bool mty_gl_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	// Fragment shader
-	for (uint8_t x = 0; x < NUM_STAGING; x++) {
+	for (uint8_t x = 0; x < GL_NUM_STAGING; x++) {
 		if (ctx->staging[x].texture) {
 			GLint filter = desc->filter == MTY_FILTER_NEAREST ? GL_NEAREST : GL_LINEAR;
 
@@ -312,7 +312,7 @@ void mty_gl_destroy(struct gfx **gfx)
 
 	struct gl *ctx = (struct gl *) *gfx;
 
-	for (uint8_t x = 0; x < NUM_STAGING; x++)
+	for (uint8_t x = 0; x < GL_NUM_STAGING; x++)
 		gl_rtv_destroy(&ctx->staging[x]);
 
 	if (ctx->vb)
