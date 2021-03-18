@@ -13,10 +13,10 @@ GFX_UI_PROTOTYPES(_gl_)
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stddef.h>
 #include <math.h>
 
-#include "gl-dl.h"
+#include "glproc.h"
+
 #include "shaders/gl/vsui.h"
 #include "shaders/gl/fsui.h"
 
@@ -56,7 +56,7 @@ static void gl_ui_log_shader_errors(GLuint shader)
 
 struct gfx_ui *mty_gl_ui_create(MTY_Device *device)
 {
-	if (!gl_dl_global_init())
+	if (!glproc_global_init())
 		return NULL;
 
 	struct gl_ui *ctx = MTY_Alloc(1, sizeof(struct gl_ui));
@@ -185,17 +185,26 @@ bool mty_gl_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *co
 	glEnableVertexAttribArray(ctx->loc_pos);
 	glEnableVertexAttribArray(ctx->loc_uv);
 	glEnableVertexAttribArray(ctx->loc_col);
-	glVertexAttribPointer(ctx->loc_pos, 2, GL_FLOAT, GL_FALSE, sizeof(MTY_Vtx), (GLvoid *) offsetof(MTY_Vtx, pos));
-	glVertexAttribPointer(ctx->loc_uv, 2, GL_FLOAT, GL_FALSE, sizeof(MTY_Vtx), (GLvoid *) offsetof(MTY_Vtx, uv));
-	glVertexAttribPointer(ctx->loc_col, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(MTY_Vtx), (GLvoid *) offsetof(MTY_Vtx, col));
+
+	glVertexAttribPointer(ctx->loc_pos, 2, GL_FLOAT, GL_FALSE,
+		sizeof(MTY_Vtx), (GLvoid *) offsetof(MTY_Vtx, pos));
+
+	glVertexAttribPointer(ctx->loc_uv, 2, GL_FLOAT, GL_FALSE,
+		sizeof(MTY_Vtx), (GLvoid *) offsetof(MTY_Vtx, uv));
+
+	glVertexAttribPointer(ctx->loc_col, 4, GL_UNSIGNED_BYTE, GL_TRUE,
+		sizeof(MTY_Vtx), (GLvoid *) offsetof(MTY_Vtx, col));
 
 	// Draw
 	for (uint32_t n = 0; n < dd->cmdListLength; n++) {
 		MTY_CmdList *cmdList = &dd->cmdList[n];
 
 		// Copy vertex, index buffer data
-		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr) cmdList->vtxLength * sizeof(MTY_Vtx), cmdList->vtx, GL_STREAM_DRAW);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr) cmdList->idxLength * sizeof(uint16_t), cmdList->idx, GL_STREAM_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr) cmdList->vtxLength * sizeof(MTY_Vtx),
+			cmdList->vtx, GL_STREAM_DRAW);
+
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr) cmdList->idxLength * sizeof(uint16_t),
+			cmdList->idx, GL_STREAM_DRAW);
 
 		for (uint32_t i = 0; i < cmdList->cmdLength; i++) {
 			MTY_Cmd *pcmd = &cmdList->cmd[i];
@@ -221,7 +230,8 @@ bool mty_gl_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *co
 					(GLuint) (uintptr_t) MTY_HashGetInt(cache, pcmd->texture));
 
 				// Draw indexed
-				glDrawElements(GL_TRIANGLES, pcmd->elemCount, GL_UNSIGNED_SHORT, (void *) (uintptr_t) (pcmd->idxOffset * sizeof(uint16_t)));
+				glDrawElements(GL_TRIANGLES, pcmd->elemCount, GL_UNSIGNED_SHORT,
+					(void *) (uintptr_t) (pcmd->idxOffset * sizeof(uint16_t)));
 			}
 		}
 	}

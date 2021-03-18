@@ -4,7 +4,8 @@
 // If a copy of the MIT License was not distributed with this file,
 // You can obtain one at https://spdx.org/licenses/MIT.html.
 
-#include <stdint.h>
+#include "matoya.h"
+
 #include <math.h>
 
 static void mty_viewport(MTY_Rotation rotation, uint32_t w, uint32_t h,
@@ -15,7 +16,6 @@ static void mty_viewport(MTY_Rotation rotation, uint32_t w, uint32_t h,
 		uint32_t tmp = h;
 		h = w;
 		w = tmp;
-
 		ar = 1.0f / ar;
 	}
 

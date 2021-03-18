@@ -6,10 +6,11 @@
 
 #pragma once
 
+#include "matoya.h"
+
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "matoya.h"
 #include "gfx/mod-support.h"
 
 struct gfx_ctx;
