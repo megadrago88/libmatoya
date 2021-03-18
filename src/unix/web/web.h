@@ -8,6 +8,8 @@
 
 #include "matoya.h"
 
+// This interface is implemented in matoya.js (JavaScript)
+
 bool web_has_focus(void);
 void web_alert(const char *title, const char *msg);
 void web_platform(char *platform, size_t size);

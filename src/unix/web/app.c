@@ -39,7 +39,7 @@ static void __attribute__((constructor)) app_global_init(void)
 }
 
 
-// Events
+// Window events
 
 static void window_mouse_motion(MTY_App *ctx, bool relative, int32_t x, int32_t y)
 {
@@ -357,7 +357,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaqu
 	ctx->hotkey = MTY_HashCreate(0);
 	ctx->deduper = MTY_HashCreate(0);
 
-	app_set_keys();
+	keymap_set_keys();
 
 	return ctx;
 }
@@ -496,14 +496,11 @@ void *mty_window_get_native(MTY_App *app, MTY_Window window)
 }
 
 
-// Misc
+// Unimplemented
 
 void MTY_SetAppID(const char *id)
 {
 }
-
-
-// Unimplemented
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
 {
