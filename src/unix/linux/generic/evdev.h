@@ -4,9 +4,6 @@
 // If a copy of the MIT License was not distributed with this file,
 // You can obtain one at https://spdx.org/licenses/MIT.html.
 
-#include <stdint.h>
-#include <stdbool.h>
-
 #include "matoya.h"
 
 struct edevice;

@@ -6,10 +6,6 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <stddef.h>
-
 #include "matoya.h"
 
 #define HID_STATE_MAX 1024

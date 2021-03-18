@@ -15,11 +15,10 @@
 #include <unistd.h>
 
 #include "dl/libX11.h"
+#include "hid/utils.h"
 #include "wsize.h"
 #include "evdev.h"
 #include "keymap.h"
-
-#include "hid/utils.h"
 
 struct window {
 	Window window;
@@ -692,13 +691,13 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			// Fall through
 
 		case KeyRelease: {
-			evt.key.key = window_keycode_to_key(event->xkey.keycode);
+			evt.key.key = keymap_keycode_to_key(event->xkey.keycode);
 
 			if (evt.key.key != MTY_KEY_NONE) {
 				evt.type = MTY_EVENT_KEY;
 				evt.window = app_find_window(ctx, event->xkey.window);
 				evt.key.pressed = event->type == KeyPress;
-				evt.key.mod = window_keystate_to_keymod(evt.key.key,
+				evt.key.mod = keymap_keystate_to_keymod(evt.key.key,
 					evt.key.pressed, event->xkey.state);
 			}
 			break;
@@ -1320,12 +1319,12 @@ void *MTY_GLGetProcAddress(const char *name)
 	return glXGetProcAddress((const GLubyte *) name);
 }
 
+
+// Unimplemented
+
 void MTY_SetAppID(const char *id)
 {
 }
-
-
-// Unimplemented
 
 void MTY_AppSetTray(MTY_App *app, const char *tooltip, const MTY_MenuItem *items, uint32_t len)
 {

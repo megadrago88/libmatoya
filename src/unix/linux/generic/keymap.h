@@ -140,7 +140,7 @@ static const KeySym APP_KEY_MAP[MTY_KEY_MAX] = {
 	[MTY_KEY_YEN]            = 132,
 };
 
-static MTY_Key window_keycode_to_key(unsigned int keycode)
+static MTY_Key keymap_keycode_to_key(unsigned int keycode)
 {
 	switch (keycode) {
 		case 9:    return MTY_KEY_ESCAPE;
@@ -265,18 +265,18 @@ static MTY_Key window_keycode_to_key(unsigned int keycode)
 	return MTY_KEY_NONE;
 }
 
-static MTY_Mod window_keystate_to_keymod(MTY_Key key, bool pressed, unsigned int state)
+static MTY_Mod keymap_keystate_to_keymod(MTY_Key key, bool pressed, unsigned int state)
 {
 	MTY_Mod mod = MTY_MOD_NONE;
 
 	// ModXMask may be remapped by the user
 
-	if (state & ShiftMask)    mod |= MTY_MOD_LSHIFT;
-	if (state & LockMask)     mod |= MTY_MOD_CAPS;
-	if (state & ControlMask)  mod |= MTY_MOD_LCTRL;
-	if (state & Mod1Mask)     mod |= MTY_MOD_LALT;
-	if (state & Mod2Mask)     mod |= MTY_MOD_NUM;
-	if (state & Mod4Mask)     mod |= MTY_MOD_LWIN;
+	if (state & ShiftMask)   mod |= MTY_MOD_LSHIFT;
+	if (state & LockMask)    mod |= MTY_MOD_CAPS;
+	if (state & ControlMask) mod |= MTY_MOD_LCTRL;
+	if (state & Mod1Mask)    mod |= MTY_MOD_LALT;
+	if (state & Mod2Mask)    mod |= MTY_MOD_NUM;
+	if (state & Mod4Mask)    mod |= MTY_MOD_LWIN;
 
 	// X11 gives you the mods just before the current key so we need to incorporate
 	// the current event's key
