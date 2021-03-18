@@ -160,8 +160,6 @@ FLAGS := $(FLAGS) -fembed-bitcode
 DEFS := $(DEFS) -DMTY_GL_ES
 endif
 
-# FIXME iphoneos must use different aes-gcm impl or rejection from app store
-
 OBJS := $(OBJS) \
 	src/net/secure.o \
 	src/net/http.o \
@@ -176,7 +174,7 @@ OBJS := $(OBJS) \
 	src/unix/apple/tls.o \
 	src/unix/apple/gfx/metal.o \
 	src/unix/apple/gfx/metal-ui.o \
-	src/unix/apple/macosx/aes-gcm.o \
+	src/unix/apple/$(TARGET)/aes-gcm.o \
 	src/unix/apple/$(TARGET)/dialog.o \
 	src/unix/apple/$(TARGET)/app.o \
 	src/unix/apple/$(TARGET)/system.o
