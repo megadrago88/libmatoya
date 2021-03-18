@@ -1039,10 +1039,10 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	int32_t x = lrint((float) desc->x * app->scale);
 	int32_t y = lrint((float) desc->y * app->scale);
 
-	mty_wsize_client(desc, app->scale, desktop_height, &x, &y, &width, &height);
+	wsize_client(desc, app->scale, desktop_height, &x, &y, &width, &height);
 
 	if (desc->position == MTY_POSITION_CENTER)
-		mty_wsize_center(0, 0, desktop_width, desktop_height, &x, &y, &width, &height);
+		wsize_center(0, 0, desktop_width, desktop_height, &x, &y, &width, &height);
 
 	ctx->window = XCreateWindow(app->display, root, 0, 0, width, height, 0, app->vis->depth,
 		InputOutput, app->vis->visual, CWColormap | CWEventMask, &swa);

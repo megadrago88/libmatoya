@@ -10,6 +10,7 @@
 #include <math.h>
 #include <string.h>
 
+
 // Drivers
 
 #include "ps4.h"
@@ -73,13 +74,13 @@ void mty_hid_driver_init(struct hdevice *device)
 {
 	switch (hid_driver(device)) {
 		case MTY_CTYPE_SWITCH:
-			mty_hid_nx_init(device);
+			nx_init(device);
 			break;
 		case MTY_CTYPE_PS4:
-			mty_hid_ps4_init(device);
+			ps4_init(device);
 			break;
 		case MTY_CTYPE_XBOX:
-			mty_hid_xbox_init(device);
+			xbox_init(device);
 			break;
 	}
 }
@@ -88,19 +89,19 @@ void mty_hid_driver_state(struct hdevice *device, const void *buf, size_t size, 
 {
 	switch (hid_driver(device)) {
 		case MTY_CTYPE_SWITCH:
-			mty_hid_nx_state(device, buf, size, evt);
+			nx_state(device, buf, size, evt);
 			break;
 		case MTY_CTYPE_PS4:
-			mty_hid_ps4_state(device, buf, size, evt);
+			ps4_state(device, buf, size, evt);
 			break;
 		case MTY_CTYPE_PS5:
-			mty_hid_ps5_state(device, buf, size, evt);
+			ps5_state(device, buf, size, evt);
 			break;
 		case MTY_CTYPE_XBOX:
-			mty_hid_xbox_state(device, buf, size, evt);
+			xbox_state(device, buf, size, evt);
 			break;
 		case MTY_CTYPE_XBOXW:
-			mty_hid_xboxw_state(device, buf, size, evt);
+			xboxw_state(device, buf, size, evt);
 			break;
 		case MTY_CTYPE_DEFAULT:
 			mty_hid_default_state(device, buf, size, evt);
@@ -117,16 +118,16 @@ void mty_hid_driver_rumble(struct hid *hid, uint32_t id, uint16_t low, uint16_t 
 
 	switch (hid_driver(device)) {
 		case MTY_CTYPE_SWITCH:
-			mty_hid_nx_rumble(device, low > 0, high > 0);
+			nx_rumble(device, low > 0, high > 0);
 			break;
 		case MTY_CTYPE_PS4:
-			mty_hid_ps4_rumble(device, low, high);
+			ps4_rumble(device, low, high);
 			break;
 		case MTY_CTYPE_PS5:
-			mty_hid_ps5_rumble(device, low, high);
+			ps5_rumble(device, low, high);
 			break;
 		case MTY_CTYPE_XBOX:
-			mty_hid_xbox_rumble(device, low, high);
+			xbox_rumble(device, low, high);
 			break;
 		case MTY_CTYPE_DEFAULT:
 			mty_hid_default_rumble(hid, id, low, high);

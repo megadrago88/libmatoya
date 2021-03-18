@@ -1303,10 +1303,10 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	int32_t width = size.width;
 	int32_t height = size.height;
 
-	mty_wsize_client(desc, 1.0f, size.height, &x, &y, &width, &height);
+	wsize_client(desc, 1.0f, size.height, &x, &y, &width, &height);
 
 	if (desc->position == MTY_POSITION_CENTER)
-		mty_wsize_center(0, 0, size.width, size.height, &x, &y, &width, &height);
+		wsize_center(0, 0, size.width, size.height, &x, &y, &width, &height);
 
 	NSRect rect = NSMakeRect(x, y, width, height);
 	NSWindowStyleMask style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |

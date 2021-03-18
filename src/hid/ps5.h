@@ -13,7 +13,7 @@ struct ps5_state {
 	bool bluetooth;
 };
 
-static void mty_hid_ps5_rumble(struct hdevice *device, uint16_t low, uint16_t high)
+static void ps5_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 {
 	struct ps5_state *ctx = mty_hid_device_get_state(device);
 
@@ -39,31 +39,31 @@ static void mty_hid_ps5_rumble(struct hdevice *device, uint16_t low, uint16_t hi
 
 	if (ctx->bluetooth) {
 		uint8_t hdr = 0xA2;
-		uint32_t crc = mty_hid_ps4_crc32(0, &hdr, 1);
-		crc = mty_hid_ps4_crc32(crc, buf, size - 4);
+		uint32_t crc = ps4_crc32(0, &hdr, 1);
+		crc = ps4_crc32(crc, buf, size - 4);
 		memcpy(buf + size - 4, &crc, 4);
 	}
 
 	mty_hid_device_write(device, buf, size);
 }
 
-static void mty_hid_ps5_init(struct hdevice *device)
+static void ps5_init(struct hdevice *device)
 {
 	struct ps5_state *ctx = mty_hid_device_get_state(device);
 	ctx->bluetooth = mty_hid_device_get_input_report_size(device) == 78;
 
 	// Writing a bluetooth output report with id 0x31 will make the DS start sending
 	// 0x31 id input reports
-	mty_hid_ps5_rumble(device, 0, 0);
+	ps5_rumble(device, 0, 0);
 }
 
-static void mty_hid_ps5_state(struct hdevice *device, const void *data, size_t dsize, MTY_Event *evt)
+static void ps5_state(struct hdevice *device, const void *data, size_t dsize, MTY_Event *evt)
 {
 	struct ps5_state *ctx = mty_hid_device_get_state(device);
 
 	// First write must come after reports start coming in
 	if (!ctx->init) {
-		mty_hid_ps5_init(device);
+		ps5_init(device);
 		ctx->init = true;
 
 	} else {

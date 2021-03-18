@@ -222,7 +222,7 @@ static MTY_TLOCAL struct rwlock_state {
 
 static MTY_Atomic32 RWLOCK_INIT[UINT8_MAX];
 
-static uint8_t rwlock_index(void)
+static uint8_t thread_rwlock_index(void)
 {
 	for (uint8_t x = 0; x < UINT8_MAX; x++)
 		if (MTY_Atomic32CAS(&RWLOCK_INIT[x], 0, 1))
@@ -233,7 +233,7 @@ static uint8_t rwlock_index(void)
 	return 0;
 }
 
-static void rwlock_yield(MTY_RWLock *ctx)
+static void thread_rwlock_yield(MTY_RWLock *ctx)
 {
 	// Ensure that readers will yield to writers in a tight loop
 	while (MTY_Atomic32Get(&ctx->yield) > 0)
@@ -243,7 +243,7 @@ static void rwlock_yield(MTY_RWLock *ctx)
 MTY_RWLock *MTY_RWLockCreate(void)
 {
 	MTY_RWLock *ctx = MTY_Alloc(1, sizeof(MTY_RWLock));
-	ctx->index = rwlock_index();
+	ctx->index = thread_rwlock_index();
 
 	mty_rwlock_create(&ctx->rwlock);
 
@@ -255,7 +255,7 @@ void MTY_RWLockReader(MTY_RWLock *ctx)
 	struct rwlock_state *rw = &RWLOCK_STATE[ctx->index];
 
 	if (rw->taken == 0) {
-		rwlock_yield(ctx);
+		thread_rwlock_yield(ctx);
 		mty_rwlock_reader(&ctx->rwlock);
 		rw->read = true;
 	}
@@ -270,7 +270,7 @@ bool MTY_RWTryLockReader(MTY_RWLock *ctx)
 	bool r = true;
 
 	if (rw->taken == 0) {
-		rwlock_yield(ctx);
+		thread_rwlock_yield(ctx);
 		r = mty_rwlock_try_reader(&ctx->rwlock);
 		rw->read = true;
 	}

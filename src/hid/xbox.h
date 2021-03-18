@@ -25,7 +25,7 @@ struct xbox_state {
 
 // Rumble
 
-static void mty_hid_xbox_rumble(struct hdevice *device, uint16_t low, uint16_t high)
+static void xbox_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 {
 	struct xbox_state *ctx = mty_hid_device_get_state(device);
 
@@ -36,7 +36,7 @@ static void mty_hid_xbox_rumble(struct hdevice *device, uint16_t low, uint16_t h
 	}
 }
 
-static void mty_hid_xbox_do_rumble(struct hdevice *device)
+static void xbox_do_rumble(struct hdevice *device)
 {
 	struct xbox_state *ctx = mty_hid_device_get_state(device);
 
@@ -68,14 +68,14 @@ static void mty_hid_xbox_do_rumble(struct hdevice *device)
 
 // State Reports
 
-static void mty_hid_xbox_init(struct hdevice *device)
+static void xbox_init(struct hdevice *device)
 {
 	struct xbox_state *ctx = mty_hid_device_get_state(device);
 	ctx->series_x = mty_hid_device_get_pid(device) == 0x0B13;
 	ctx->rumble = true;
 }
 
-static void mty_hid_xbox_state(struct hdevice *device, const void *data, size_t dsize, MTY_Event *evt)
+static void xbox_state(struct hdevice *device, const void *data, size_t dsize, MTY_Event *evt)
 {
 	struct xbox_state *ctx = mty_hid_device_get_state(device);
 	const uint8_t *d8 = data;
@@ -155,5 +155,5 @@ static void mty_hid_xbox_state(struct hdevice *device, const void *data, size_t 
 		ctx->guide = d8[1] & 0x01;
 	}
 
-	mty_hid_xbox_do_rumble(device);
+	xbox_do_rumble(device);
 }
