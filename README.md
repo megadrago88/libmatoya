@@ -1,51 +1,32 @@
-## Overview
+`libmatoya` is a cross-platform application development library.
 
-`libmatoya` is a lightweight, cross-platform, native application development library. The main goals of `libmatoya` are:
-- Abstract platform differences into a single interface with consistent behavior
-- Allow access to low level operating system and graphics API functionality
-- Wrap old, cumbersome interfaces into modern, ergonomic interfaces
-- Bundle common application tasks into a single dependency
+### Getting Started
+- [Examples](/examples)
+- [Documentation](https://github.com/matoya/libmatoya/wiki)
+- [Building](https://github.com/matoya/libmatoya/wiki/Building)
 
-The name comes from a character in [Final Fantasy](https://en.wikipedia.org/wiki/Final_Fantasy_(video_game)) who needs a crystal eye to see.
+### Features
+- Small binary footprint (< 1MB static lib, ~300KB linked)
+- No dependencies outside of what's provided by the OS
+- Single interface compatible with 7 platforms
+- Window creation and input handling
+- Robust game controller support
+- HTTP/HTTPS, WebSockets, TLS protocol wrapper
+- Accelerated video frame and UI draw list rendering
+- JSON parsing and construction
+- Common cryptography tasks
+- ... and [more](https://github.com/matoya/libmatoya/wiki)!
 
-The development of this library is closely tied to [Merton](https://github.com/matoya/merton).
+### Platform Support
 
-## Building
+| Platform   | Minimum Version            |
+| ---------- | -------------------------- |
+| Windows    | 7                          |
+| Android    | API 26 (8.0)               |
+| macOS      | 10.11                      |
+| iOS / tvOS | *Coming soon!*             |
+| Linux      | `*`                        |
+| Web        | `**` Chrome 86, Firefox 79 |
 
-#### Windows
-```shell
-nmake
-```
-#### macOS / Linux
-```shell
-make
-```
-#### iPhone
-```shell
-# Device
-make TARGET=iphoneos ARCH=arm64
-
-# Simulator
-make TARGET=iphonesimulator
-```
-#### Apple TV
-```shell
-# Device
-make TARGET=appletvos ARCH=arm64
-
-# Simulator
-make TARGET=appletvsimulator
-```
-#### Web
-```shell
-# By default, WASM=1 builds a WASI compatible binary. It will build an Esmcripten
-# compatible binary if the Emscripten environment is present
-
-# Must be built on a Unix environment
-make WASM=1
-```
-#### Android
-```shell
-# Must be built on a Unix environment, see the GNUmakefile for details
-make android
-```
+`*` Linux relies on certain dependencies being present on the system at run time.  
+`**` Safari is currently not supported.

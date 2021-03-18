@@ -1,8 +1,8 @@
-// Copyright (c) 2020 Christopher D. Dickson <cdd@matoya.group>
+// Copyright (c) Christopher D. Dickson <cdd@matoya.group>
 //
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// This Source Code Form is subject to the terms of the MIT License.
+// If a copy of the MIT License was not distributed with this file,
+// You can obtain one at https://spdx.org/licenses/MIT.html.
 
 #include "matoya.h"
 
@@ -15,7 +15,7 @@
 
 struct hash_node {
 	char *key;
-	const void *val;
+	void *val;
 };
 
 struct hash_bucket {
@@ -76,12 +76,12 @@ bool MTY_HashNextKeyInt(MTY_Hash *ctx, uint64_t *iter, int64_t *key)
 	r = r && key_str[0] == '#';
 
 	if (r)
-		*key = r ? strtoll(key_str + 1, NULL, 16) : 0;
+		*key = strtoll(key_str + 1, NULL, 16);
 
 	return r;
 }
 
-void MTY_HashDestroy(MTY_Hash **hash, void (*freeFunc)(void *value))
+void MTY_HashDestroy(MTY_Hash **hash, MTY_FreeFunc freeFunc)
 {
 	if (!hash || !*hash)
 		return;
@@ -106,7 +106,7 @@ void MTY_HashDestroy(MTY_Hash **hash, void (*freeFunc)(void *value))
 	MTY_Free(ctx->buckets);
 
 	MTY_Free(ctx);
-	hash = NULL;
+	*hash = NULL;
 }
 
 static void *hash_get(MTY_Hash *ctx, const char *key, bool pop)
@@ -117,7 +117,7 @@ static void *hash_get(MTY_Hash *ctx, const char *key, bool pop)
 		struct hash_node *n = &b->nodes[x];
 
 		if (n->key && !strcmp(key, n->key)) {
-			const void *r = n->val;
+			void *r = n->val;
 
 			if (pop) {
 				MTY_Free(n->key);
@@ -125,7 +125,7 @@ static void *hash_get(MTY_Hash *ctx, const char *key, bool pop)
 				n->val = NULL;
 			}
 
-			return (void *) r;
+			return r;
 		}
 	}
 
@@ -158,7 +158,7 @@ void *MTY_HashPopInt(MTY_Hash *ctx, int64_t key)
 	return hash_get(ctx, key_str, true);
 }
 
-void *MTY_HashSet(MTY_Hash *ctx, const char *key, const void *value)
+void *MTY_HashSet(MTY_Hash *ctx, const char *key, void *value)
 {
 	struct hash_bucket *b = &ctx->buckets[MTY_DJB2(key) % ctx->num_buckets];
 	struct hash_node *n = NULL;
@@ -170,10 +170,10 @@ void *MTY_HashSet(MTY_Hash *ctx, const char *key, const void *value)
 			n = this_n;
 
 		} else if (this_n->key && !strcmp(this_n->key, key)) {
-			const void *r = this_n->val;
+			void *r = this_n->val;
 			this_n->val = value;
 
-			return (void *) r;
+			return r;
 		}
 	}
 
@@ -188,7 +188,7 @@ void *MTY_HashSet(MTY_Hash *ctx, const char *key, const void *value)
 	return NULL;
 }
 
-void *MTY_HashSetInt(MTY_Hash *ctx, int64_t key, const void *value)
+void *MTY_HashSetInt(MTY_Hash *ctx, int64_t key, void *value)
 {
 	char key_str[32];
 	snprintf(key_str, 32, "#%" PRIx64, key);

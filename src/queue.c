@@ -1,8 +1,8 @@
-// Copyright (c) 2020 Christopher D. Dickson <cdd@matoya.group>
+// Copyright (c) Christopher D. Dickson <cdd@matoya.group>
 //
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// This Source Code Form is subject to the terms of the MIT License.
+// If a copy of the MIT License was not distributed with this file,
+// You can obtain one at https://spdx.org/licenses/MIT.html.
 
 #include "matoya.h"
 
@@ -158,9 +158,9 @@ void MTY_QueueReleaseBuffer(MTY_Queue *ctx)
 	MTY_Atomic32Set(&ctx->slots[lock_pos].state, QUEUE_EMPTY);
 }
 
-bool MTY_QueuePushPtr(MTY_Queue *ctx, const void *opaque, size_t size)
+bool MTY_QueuePushPtr(MTY_Queue *ctx, void *opaque, size_t size)
 {
-	uint8_t *buffer = MTY_QueueAcquireBuffer(ctx);
+	void *buffer = MTY_QueueAcquireBuffer(ctx);
 
 	if (buffer) {
 		memcpy(buffer, &opaque, sizeof(void *));
@@ -174,9 +174,9 @@ bool MTY_QueuePushPtr(MTY_Queue *ctx, const void *opaque, size_t size)
 
 bool MTY_QueuePopPtr(MTY_Queue *ctx, int32_t timeout, void **opaque, size_t *size)
 {
-	uint8_t *buffer = NULL;
+	void *buffer = NULL;
 
-	if (queue_pop(ctx, timeout, false, (void **) &buffer, size)) {
+	if (queue_pop(ctx, timeout, false, &buffer, size)) {
 		memcpy(opaque, buffer, sizeof(void *));
 		MTY_QueueReleaseBuffer(ctx);
 
@@ -186,7 +186,7 @@ bool MTY_QueuePopPtr(MTY_Queue *ctx, int32_t timeout, void **opaque, size_t *siz
 	return false;
 }
 
-void MTY_QueueFlush(MTY_Queue *ctx, void (*freeFunc)(void *value))
+void MTY_QueueFlush(MTY_Queue *ctx, MTY_FreeFunc freeFunc)
 {
 	for (void *data = NULL; queue_pop(ctx, 0, false, (void **) &data, NULL);) {
 		struct queue_slot *slot = &ctx->slots[ctx->pop_pos];

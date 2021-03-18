@@ -1,28 +1,25 @@
-// Copyright (c) 2020 Christopher D. Dickson <cdd@matoya.group>
+// Copyright (c) Christopher D. Dickson <cdd@matoya.group>
 //
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// This Source Code Form is subject to the terms of the MIT License.
+// If a copy of the MIT License was not distributed with this file,
+// You can obtain one at https://spdx.org/licenses/MIT.html.
 
 #include "matoya.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "mty-tls.h"
-
-#define LOG_LEN 256
+#include "tlocal.h"
 
 static void log_none(const char *msg, void *opaque)
 {
 }
 
-static void (*LOG_CALLBACK)(const char *msg, void *opaque) = log_none;
+static MTY_LogFunc LOG_FUNC = log_none;
 static void *LOG_OPAQUE;
 
-static MTY_TLS char LOG_MSG[LOG_LEN];
-static MTY_TLS char LOG_FMT[LOG_LEN];
-static MTY_TLS bool LOG_PREVENT_RECURSIVE;
+static MTY_TLOCAL char *LOG_MSG;
+static MTY_TLOCAL bool LOG_PREVENT_RECURSIVE;
 static MTY_Atomic32 LOG_DISABLED;
 
 static void log_internal(const char *func, const char *msg, va_list args)
@@ -30,11 +27,16 @@ static void log_internal(const char *func, const char *msg, va_list args)
 	if (MTY_Atomic32Get(&LOG_DISABLED) || LOG_PREVENT_RECURSIVE)
 		return;
 
-	snprintf(LOG_FMT, LOG_LEN, "%s: %s", func, msg);
-	vsnprintf(LOG_MSG, LOG_LEN, LOG_FMT, args);
+	char *fmt = MTY_SprintfD("%s: %s", func, msg);
+	char *fmsg = MTY_VsprintfD(fmt, args);
+
+	LOG_MSG = mty_tlocal_strcpy(fmsg);
+
+	MTY_Free(fmsg);
+	MTY_Free(fmt);
 
 	LOG_PREVENT_RECURSIVE = true;
-	LOG_CALLBACK(LOG_MSG, LOG_OPAQUE);
+	LOG_FUNC(LOG_MSG, LOG_OPAQUE);
 	LOG_PREVENT_RECURSIVE = false;
 }
 
@@ -56,10 +58,10 @@ void MTY_FatalParams(const char *func, const char *msg, ...)
 	_Exit(EXIT_FAILURE);
 }
 
-void MTY_SetLogCallback(void (*callback)(const char *msg, void *opaque), const void *opaque)
+void MTY_SetLogFunc(MTY_LogFunc func, void *opaque)
 {
-	LOG_CALLBACK = callback ? callback : log_none;
-	LOG_OPAQUE = (void *) opaque;
+	LOG_FUNC = func ? func : log_none;
+	LOG_OPAQUE = opaque;
 }
 
 void MTY_DisableLog(bool disabled)
@@ -69,5 +71,5 @@ void MTY_DisableLog(bool disabled)
 
 const char *MTY_GetLog(void)
 {
-	return LOG_MSG;
+	return LOG_MSG ? LOG_MSG : "";
 }

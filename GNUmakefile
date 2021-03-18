@@ -15,31 +15,39 @@ PREFIX = mty
 	$(CC) $(OCFLAGS)  -c -o $@ $<
 
 OBJS = \
-	src/compress.o \
+	src/image.o \
 	src/crypto.o \
-	src/fs.o \
+	src/file.o \
 	src/json.o \
 	src/log.o \
 	src/memory.o \
-	src/proc.o \
-	src/sort.o \
+	src/thread.o \
+	src/tlocal.o \
+	src/tls.o \
+	src/system.o \
+	src/app.o \
+	src/render.o \
 	src/hash.o \
 	src/list.o \
 	src/queue.o \
-	src/thread.o \
-	src/gfx-gl.o \
-	src/render.o
+	src/version.o \
+	src/hid/utils.o \
+	src/gfx/gl.o \
+	src/gfx/gl-ui.o
 
 OBJS := $(OBJS) \
-	src/unix/fs.o \
+	src/unix/image.o \
+	src/unix/file.o \
 	src/unix/memory.o \
-	src/unix/proc.o \
+	src/unix/system.o \
 	src/unix/thread.o \
 	src/unix/time.o
 
 SHADERS = \
-	src/shaders/GL/vs.h \
-	src/shaders/GL/fs.h
+	src/gfx/shaders/gl/vs.h \
+	src/gfx/shaders/gl/fs.h \
+	src/gfx/shaders/gl/vsui.h \
+	src/gfx/shaders/gl/fsui.h
 
 INCLUDES = \
 	-Isrc \
@@ -53,48 +61,37 @@ FLAGS = \
 	-Wall \
 	-Wextra \
 	-Wshadow \
-	-Wno-unused-parameter \
 	-Wno-switch \
+	-Wno-unused-parameter \
 	-std=c99 \
 	-fPIC
-
-TEST_FLAGS = \
-	-nodefaultlibs
 
 ifdef DEBUG
 FLAGS := $(FLAGS) -O0 -g
 else
-FLAGS := $(FLAGS) -O3 -fvisibility=hidden
+FLAGS := $(FLAGS) -O3 -g0 -fvisibility=hidden
 endif
 
 ############
 ### WASM ###
 ############
 ifdef WASM
-ifdef EMSDK
-
-CC = emcc
-AR = emar
-
-ARCH := emscripten
-
-OBJS := $(OBJS) \
-	src/unix/crypto.o
-
-else
-WASI_SDK = $(HOME)/wasi-sdk-11.0
+WASI_SDK = $(HOME)/wasi-sdk-12.0
 
 CC = $(WASI_SDK)/bin/clang --sysroot=$(WASI_SDK)/share/wasi-sysroot
 AR = $(WASI_SDK)/bin/ar
 
 ARCH := wasm32
 
-endif
-
 OBJS := $(OBJS) \
-	src/unix/web/window.o
+	src/unix/web/app.o \
+	src/unix/web/system.o \
+	src/unix/web/dialog.o \
+	src/unix/web/gfx/gl-ctx.o
 
 DEFS := $(DEFS) \
+	-D_WASI_EMULATED_SIGNAL \
+	-DMTY_GLUI_CLEAR_ALPHA=0.0f \
 	-DMTY_GL_EXTERNAL \
 	-DMTY_GL_ES
 
@@ -108,22 +105,26 @@ else
 ifeq ($(UNAME_S), Linux)
 
 OBJS := $(OBJS) \
-	src/unix/crypto.o \
-	src/unix/aes-gcm-openssl.o \
-	src/unix/linux/default/audio.o \
-	src/unix/linux/default/window.o
-
-DEFS := $(DEFS) \
-	-DMTY_CRYPTO_EXTERNAL
-
-TEST_LIBS = \
-	-lc \
-	-lm \
-	-ldl \
-	-lpthread
+	src/net/secure.o \
+	src/net/http.o \
+	src/net/async.o \
+	src/net/gzip.o \
+	src/net/net.o \
+	src/net/tcp.o \
+	src/net/ws.o \
+	src/unix/net/request.o \
+	src/unix/linux/dialog.o \
+	src/unix/linux/generic/crypto.o \
+	src/unix/linux/generic/aes-gcm.o \
+	src/unix/linux/generic/tls.o \
+	src/unix/linux/generic/evdev.o \
+	src/unix/linux/generic/audio.o \
+	src/unix/linux/generic/app.o \
+	src/unix/linux/generic/system.o \
+	src/unix/linux/generic/gfx/gl-ctx.o
 
 TARGET = linux
-INCLUDES := $(INCLUDES) -Isrc/unix/linux -Isrc/unix/linux/default
+INCLUDES := $(INCLUDES) -Isrc/unix/linux -Isrc/unix/linux/generic
 endif
 
 #############
@@ -146,32 +147,46 @@ endif
 
 ifeq ($(TARGET), macosx)
 MIN_VER = 10.11
+
+OBJS := $(OBJS) \
+	src/hid/hid.o \
+	src/unix/apple/macosx/hid.o \
+	src/unix/apple/macosx/gfx/metal-ctx.o \
+	src/unix/apple/macosx/gfx/gl-ctx.o
+
 else
 MIN_VER = 11.0
 FLAGS := $(FLAGS) -fembed-bitcode
 DEFS := $(DEFS) -DMTY_GL_ES
 endif
 
+# FIXME iphoneos must use different aes-gcm impl or rejection from app store
+
 OBJS := $(OBJS) \
-	src/unix/apple/gfx-metal.o \
-	src/unix/apple/aes-gcm-cc.o \
+	src/net/secure.o \
+	src/net/http.o \
+	src/net/async.o \
+	src/net/gzip.o \
+	src/net/net.o \
+	src/net/tcp.o \
+	src/net/ws.o \
+	src/unix/net/request.o \
 	src/unix/apple/audio.o \
 	src/unix/apple/crypto.o \
-	src/unix/apple/$(TARGET)/window.o
+	src/unix/apple/tls.o \
+	src/unix/apple/gfx/metal.o \
+	src/unix/apple/gfx/metal-ui.o \
+	src/unix/apple/macosx/aes-gcm.o \
+	src/unix/apple/$(TARGET)/dialog.o \
+	src/unix/apple/$(TARGET)/app.o \
+	src/unix/apple/$(TARGET)/system.o
 
 SHADERS := $(SHADERS) \
-	src/unix/apple/shaders/shaders.h
+	src/unix/apple/gfx/shaders/metal/quad.h \
+	src/unix/apple/gfx/shaders/metal/ui.h
 
 DEFS := $(DEFS) \
 	-DMTY_GL_EXTERNAL
-
-TEST_LIBS = \
-	-lc \
-	-framework OpenGL \
-	-framework AppKit \
-	-framework QuartzCore \
-	-framework Metal \
-	-framework AudioToolbox
 
 FLAGS := $(FLAGS) \
 	-m$(TARGET)-version-min=$(MIN_VER) \
@@ -192,13 +207,6 @@ objs: $(OBJS)
 	mkdir -p bin/$(TARGET)/$(ARCH)
 	$(AR) -crs bin/$(TARGET)/$(ARCH)/$(NAME).a $(OBJS)
 
-test: clean-build clear $(SHADERS)
-	make objs-test -j4
-
-objs-test: $(OBJS) src/test.o
-	$(CC) -o $(PREFIX)-test $(TEST_FLAGS) $(OBJS) src/test.o $(TEST_LIBS)
-	./$(PREFIX)-test
-
 ###############
 ### ANDROID ###
 ###############
@@ -206,14 +214,13 @@ objs-test: $(OBJS) src/test.o
 ### Downloads ###
 # https://developer.android.com/ndk/downloads -> Put in ~/android-ndk-xxx
 
-ANDROID_NDK = $(HOME)/android-ndk-r21d
+ANDROID_NDK = $(HOME)/android-ndk-r21e
 
-android: clear $(SHADERS)
+android: clean clear $(SHADERS)
 	@$(ANDROID_NDK)/ndk-build -j4 \
-		NDK_PROJECT_PATH=. \
 		APP_BUILD_SCRIPT=Android.mk \
-		APP_OPTIM=release \
-		APP_PLATFORM=android-23 \
+		APP_PLATFORM=android-26 \
+		NDK_PROJECT_PATH=. \
 		--no-print-directory \
 		| grep -v 'fcntl(): Operation not supported'
 
@@ -223,10 +230,8 @@ clean: clean-build
 
 clean-build:
 	@rm -rf bin
-	@rm -f src/test.o
 	@rm -f $(OBJS)
 	@rm -f $(NAME).so
-	@rm -f $(PREFIX)-test
 
 clear:
 	@clear

@@ -1,11 +1,11 @@
-// Copyright (c) 2020 Christopher D. Dickson <cdd@matoya.group>
+// Copyright (c) Christopher D. Dickson <cdd@matoya.group>
 //
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// This Source Code Form is subject to the terms of the MIT License.
+// If a copy of the MIT License was not distributed with this file,
+// You can obtain one at https://spdx.org/licenses/MIT.html.
 
-#define _DEFAULT_SOURCE // htobe64, be64toh (mty-swap.h)
-#define _DARWIN_C_SOURCE // htonll, ntohll (mty-swap.h)
+#define _DEFAULT_SOURCE // htobe64, be64toh
+#define _DARWIN_C_SOURCE // htonll, ntohll
 
 #include <stdlib.h>
 #include <string.h>
@@ -135,4 +135,14 @@ bool MTY_MultiToWide(const char *src, wchar_t *dst, uint32_t len)
 	}
 
 	return true;
+}
+
+char *MTY_Strtok(char *str, const char *delim, char **saveptr)
+{
+	return strtok_r(str, delim, saveptr);
+}
+
+int32_t MTY_Strcasecmp(const char *s1, const char *s2)
+{
+	return strcasecmp(s1, s2);
 }

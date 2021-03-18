@@ -1,15 +1,15 @@
-// Copyright (c) 2020 Christopher D. Dickson <cdd@matoya.group>
+// Copyright (c) Christopher D. Dickson <cdd@matoya.group>
 //
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// This Source Code Form is subject to the terms of the MIT License.
+// If a copy of the MIT License was not distributed with this file,
+// You can obtain one at https://spdx.org/licenses/MIT.html.
 
 #include "matoya.h"
 
 #include <string.h>
 
-#include "mty-rwlock.h"
-#include "mty-tls.h"
+#include "rwlock.h"
+#include "tlocal.h"
 
 struct MTY_Sync {
 	bool signal;
@@ -73,8 +73,8 @@ void MTY_SyncDestroy(MTY_Sync **sync)
 
 struct thread_info {
 	MTY_ThreadState status;
-	void (*func)(void *opaque);
-	void (*detach)(void *opaque);
+	MTY_AnonFunc func;
+	MTY_AnonFunc detach;
 	void *opaque;
 	MTY_Thread *t;
 	MTY_Mutex *m;
@@ -119,7 +119,7 @@ static void *thread_pool_func(void *opaque)
 	return NULL;
 }
 
-uint32_t MTY_ThreadPoolStart(MTY_ThreadPool *ctx, void (*func)(void *opaque), const void *opaque)
+uint32_t MTY_ThreadPoolStart(MTY_ThreadPool *ctx, MTY_AnonFunc func, void *opaque)
 {
 	uint32_t index = 0;
 
@@ -135,7 +135,7 @@ uint32_t MTY_ThreadPoolStart(MTY_ThreadPool *ctx, void (*func)(void *opaque), co
 
 		if (ti->status == MTY_THREAD_STATE_EMPTY) {
 			ti->func = func;
-			ti->opaque = (void *) opaque;
+			ti->opaque = opaque;
 			ti->detach = NULL;
 			ti->status = MTY_THREAD_STATE_RUNNING;
 			ti->t = MTY_ThreadCreate(thread_pool_func, ti);
@@ -151,7 +151,7 @@ uint32_t MTY_ThreadPoolStart(MTY_ThreadPool *ctx, void (*func)(void *opaque), co
 	return index;
 }
 
-void MTY_ThreadPoolDetach(MTY_ThreadPool *ctx, uint32_t index, void (*detach)(void *opaque))
+void MTY_ThreadPoolDetach(MTY_ThreadPool *ctx, uint32_t index, MTY_AnonFunc detach)
 {
 	struct thread_info *ti = &ctx->ti[index];
 
@@ -184,7 +184,7 @@ MTY_ThreadState MTY_ThreadPoolState(MTY_ThreadPool *ctx, uint32_t index, void **
 	return status;
 }
 
-void MTY_ThreadPoolDestroy(MTY_ThreadPool **pool, void (*detach)(void *opaque))
+void MTY_ThreadPoolDestroy(MTY_ThreadPool **pool, MTY_AnonFunc detach)
 {
 	if (!pool || !*pool)
 		return;
@@ -214,7 +214,7 @@ struct MTY_RWLock {
 	uint8_t index;
 };
 
-static MTY_TLS struct rwlock_state {
+static MTY_TLOCAL struct rwlock_state {
 	uint16_t taken;
 	bool read;
 	bool write;
@@ -233,6 +233,13 @@ static uint8_t rwlock_index(void)
 	return 0;
 }
 
+static void rwlock_yield(MTY_RWLock *ctx)
+{
+	// Ensure that readers will yield to writers in a tight loop
+	while (MTY_Atomic32Get(&ctx->yield) > 0)
+		MTY_Sleep(0);
+}
+
 MTY_RWLock *MTY_RWLockCreate(void)
 {
 	MTY_RWLock *ctx = MTY_Alloc(1, sizeof(MTY_RWLock));
@@ -248,15 +255,30 @@ void MTY_RWLockReader(MTY_RWLock *ctx)
 	struct rwlock_state *rw = &RWLOCK_STATE[ctx->index];
 
 	if (rw->taken == 0) {
-		// Ensure that readers will yield to writers in a tight loop
-		while (MTY_Atomic32Get(&ctx->yield) > 0)
-			MTY_Sleep(0);
-
+		rwlock_yield(ctx);
 		mty_rwlock_reader(&ctx->rwlock);
 		rw->read = true;
 	}
 
 	rw->taken++;
+}
+
+bool MTY_RWTryLockReader(MTY_RWLock *ctx)
+{
+	struct rwlock_state *rw = &RWLOCK_STATE[ctx->index];
+
+	bool r = true;
+
+	if (rw->taken == 0) {
+		rwlock_yield(ctx);
+		r = mty_rwlock_try_reader(&ctx->rwlock);
+		rw->read = true;
+	}
+
+	if (r)
+		rw->taken++;
+
+	return r;
 }
 
 void MTY_RWLockWriter(MTY_RWLock *ctx)

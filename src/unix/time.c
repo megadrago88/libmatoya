@@ -1,24 +1,24 @@
-// Copyright (c) 2020 Christopher D. Dickson <cdd@matoya.group>
+// Copyright (c) Christopher D. Dickson <cdd@matoya.group>
 //
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// This Source Code Form is subject to the terms of the MIT License.
+// If a copy of the MIT License was not distributed with this file,
+// You can obtain one at https://spdx.org/licenses/MIT.html.
 
 #include "matoya.h"
 
-#include "mty-tls.h"
-#include "mty-timestamp.h"
-#include "mty-sleepms.h"
+#include "tlocal.h"
+#include "sleep.h"
+#include "timestamp.h"
 
-static MTY_TLS bool TIME_FREQ_INIT;
-static MTY_TLS float TIME_FREQUENCY;
+static MTY_TLOCAL bool TIME_FREQ_INIT;
+static MTY_TLOCAL float TIME_FREQUENCY;
 
-int64_t MTY_Timestamp(void)
+MTY_Time MTY_GetTime(void)
 {
 	return mty_timestamp();
 }
 
-float MTY_TimeDiff(int64_t begin, int64_t end)
+float MTY_TimeDiff(MTY_Time begin, MTY_Time end)
 {
 	if (!TIME_FREQ_INIT) {
 		TIME_FREQUENCY = mty_frequency();
@@ -30,9 +30,7 @@ float MTY_TimeDiff(int64_t begin, int64_t end)
 
 void MTY_Sleep(uint32_t timeout)
 {
-	// When targeting the web, emscripten will treat nanosleep
-	// as a blocking busy wait on the main thread (NOT what we want)
-	mty_sleep_ms(timeout);
+	mty_sleep(timeout);
 }
 
 void MTY_SetTimerResolution(uint32_t res)

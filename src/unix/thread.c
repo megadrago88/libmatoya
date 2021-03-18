@@ -1,8 +1,8 @@
-// Copyright (c) 2020 Christopher D. Dickson <cdd@matoya.group>
+// Copyright (c) Christopher D. Dickson <cdd@matoya.group>
 //
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// This Source Code Form is subject to the terms of the MIT License.
+// If a copy of the MIT License was not distributed with this file,
+// You can obtain one at https://spdx.org/licenses/MIT.html.
 
 #include "matoya.h"
 
@@ -11,8 +11,8 @@
 #include <errno.h>
 #include <time.h>
 
-#include "mty-pthread.h"
-#include "mty-gettime.h"
+#include "thread.h"
+#include "gettime.h"
 
 
 // Thread
@@ -20,7 +20,7 @@
 struct MTY_Thread {
 	pthread_t thread;
 	bool detach;
-	void *(*func)(void *opaque);
+	MTY_ThreadFunc func;
 	void *opaque;
 	void *ret;
 };
@@ -37,11 +37,11 @@ static void *thread_func(void *opaque)
 	return NULL;
 }
 
-static MTY_Thread *thread_create(void *(*func)(void *opaque), const void *opaque, bool detach)
+static MTY_Thread *thread_create(MTY_ThreadFunc func, void *opaque, bool detach)
 {
 	MTY_Thread *ctx = MTY_Alloc(1, sizeof(MTY_Thread));
 	ctx->func = func;
-	ctx->opaque = (void *) opaque;
+	ctx->opaque = opaque;
 	ctx->detach = detach;
 
 	int32_t e = pthread_create(&ctx->thread, NULL, thread_func, ctx);
@@ -61,12 +61,12 @@ static MTY_Thread *thread_create(void *(*func)(void *opaque), const void *opaque
 	return ctx;
 }
 
-MTY_Thread *MTY_ThreadCreate(void *(*func)(void *opaque), const void *opaque)
+MTY_Thread *MTY_ThreadCreate(MTY_ThreadFunc func, void *opaque)
 {
 	return thread_create(func, opaque, false);
 }
 
-void MTY_ThreadDetach(void *(*func)(void *opaque), const void *opaque)
+void MTY_ThreadDetach(MTY_ThreadFunc func, void *opaque)
 {
 	thread_create(func, opaque, true);
 }
@@ -125,15 +125,10 @@ void MTY_MutexLock(MTY_Mutex *ctx)
 bool MTY_MutexTryLock(MTY_Mutex *ctx)
 {
 	int32_t e = pthread_mutex_trylock(&ctx->mutex);
-
-	if (e == EBUSY) {
-		return false;
-
-	} else if (e != 0) {
+	if (e != 0 && e != EBUSY)
 		MTY_Fatal("'pthread_mutex_trylock' failed with error %d", e);
-	}
 
-	return true;
+	return e == 0;
 }
 
 void MTY_MutexUnlock(MTY_Mutex *ctx)

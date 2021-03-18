@@ -1,8 +1,8 @@
-// Copyright (c) 2020 Christopher D. Dickson <cdd@matoya.group>
+// Copyright (c) Christopher D. Dickson <cdd@matoya.group>
 //
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this
-// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+// This Source Code Form is subject to the terms of the MIT License.
+// If a copy of the MIT License was not distributed with this file,
+// You can obtain one at https://spdx.org/licenses/MIT.html.
 
 #include "matoya.h"
 
@@ -21,10 +21,10 @@ MTY_ListNode *MTY_ListFirst(MTY_List *ctx)
 	return ctx->first;
 }
 
-void MTY_ListAppend(MTY_List *ctx, const void *value)
+void MTY_ListAppend(MTY_List *ctx, void *value)
 {
 	MTY_ListNode *node = MTY_Alloc(1, sizeof(MTY_ListNode));
-	node->value = (void *) value;
+	node->value = value;
 
 	if (!ctx->first) {
 		ctx->first = ctx->last = node;
@@ -59,7 +59,7 @@ void *MTY_ListRemove(MTY_List *ctx, MTY_ListNode *node)
 	return r;
 }
 
-void MTY_ListDestroy(MTY_List **list, void (*freeFunc)(void *value))
+void MTY_ListDestroy(MTY_List **list, MTY_FreeFunc freeFunc)
 {
 	if (!list || !*list)
 		return;

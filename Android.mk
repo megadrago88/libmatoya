@@ -6,10 +6,10 @@ TARGET_OUT = bin/android/$(TARGET_ARCH_ABI)
 FLAGS = \
 	-Wall \
 	-Wextra \
-	-Wno-unused-parameter \
+	-Wshadow \
 	-Wno-switch \
+	-Wno-unused-parameter \
 	-Wno-atomic-alignment \
-	-Wno-unknown-pragmas \
 	-std=c99 \
 	-fPIC
 
@@ -32,34 +32,52 @@ LOCAL_C_INCLUDES := \
 DEFS = \
 	-D_POSIX_C_SOURCE=200112L \
 	-DMTY_GL_ES \
-	-DMTY_GL_EXTERNAL \
-	-DMTY_CRYPTO_EXTERNAL
+	-DMTY_GL_EXTERNAL
 
 LOCAL_CFLAGS = $(DEFS) $(FLAGS)
 
 LOCAL_SRC_FILES := \
-	src/compress.c \
+	src/image.c \
 	src/crypto.c \
-	src/fs.c \
+	src/file.c \
 	src/json.c \
 	src/log.c \
 	src/memory.c \
-	src/proc.c \
-	src/sort.c \
-	src/hash.c \
+	src/thread.c \
+	src/tlocal.c \
+	src/tls.c \
+	src/app.c \
+	src/render.c \
+	src/system.c \
 	src/list.c \
 	src/queue.c \
-	src/thread.c \
-	src/gfx-gl.c \
-	src/render.c \
-	src/unix/crypto.c \
-	src/unix/fs.c \
+	src/hash.c \
+	src/version.c \
+	src/hid/utils.c \
+	src/gfx/gl.c \
+	src/gfx/gl-ui.c \
+	src/net/http.c \
+	src/net/async.c \
+	src/net/gzip.c \
+	src/net/net.c \
+	src/net/tcp.c \
+	src/net/ws.c \
+	src/net/secure.c \
+	src/unix/system.c \
+	src/unix/image.c \
+	src/unix/file.c \
 	src/unix/memory.c \
-	src/unix/proc.c \
 	src/unix/thread.c \
 	src/unix/time.c \
-	src/unix/aes-gcm-openssl.c \
-	src/unix/linux/android/window.c \
+	src/unix/net/request.c \
+	src/unix/linux/dialog.c \
+	src/unix/linux/android/jnih.c \
+	src/unix/linux/android/crypto.c \
+	src/unix/linux/android/aes-gcm.c \
+	src/unix/linux/android/tls.c \
+	src/unix/linux/android/gfx/gl-ctx.c \
+	src/unix/linux/android/app.c \
+	src/unix/linux/android/system.c \
 	src/unix/linux/android/audio.c
 
 include $(BUILD_STATIC_LIBRARY)
