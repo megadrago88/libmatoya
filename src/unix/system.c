@@ -21,7 +21,7 @@ static void *SYSTEM_OPAQUE;
 
 MTY_SO *MTY_SOLoad(const char *name)
 {
-	MTY_SO *so = dlopen(name, MTY_DLOPEN_FLAGS);
+	MTY_SO *so = dlopen(name, DLOPEN_FLAGS);
 	if (!so) {
 		const char *estr = dlerror();
 		if (estr)

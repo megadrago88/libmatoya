@@ -10,9 +10,10 @@ GFX_PROTOTYPES(_metal_)
 #include <Metal/Metal.h>
 
 #include "gfx/viewport.h"
+
 #include "shaders/metal/quad.h"
 
-#define NUM_STAGING 3
+#define METAL_NUM_STAGING 3
 
 struct metal_cb {
 	float width;
@@ -34,7 +35,7 @@ struct metal_res {
 struct metal {
 	MTY_ColorFormat format;
 	struct metal_cb fcb;
-	struct metal_res staging[NUM_STAGING];
+	struct metal_res staging[METAL_NUM_STAGING];
 	id<MTLLibrary> library;
 	id<MTLFunction> fs;
 	id<MTLFunction> vs;
@@ -258,7 +259,7 @@ bool mty_metal_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 	[re setFragmentSamplerState:sampler atIndex:0];
 
 	// Uniforms
-	for (uint8_t x = 0; x < NUM_STAGING; x++) {
+	for (uint8_t x = 0; x < METAL_NUM_STAGING; x++) {
 		id<MTLTexture> tex = ctx->staging[x].texture ? ctx->staging[x].texture : ctx->niltex;
 		[re setFragmentTexture:tex atIndex:x];
 	}
@@ -289,7 +290,7 @@ void mty_metal_destroy(struct gfx **gfx)
 
 	struct metal *ctx = (struct metal *) *gfx;
 
-	for (uint8_t x = 0; x < NUM_STAGING; x++)
+	for (uint8_t x = 0; x < METAL_NUM_STAGING; x++)
 		ctx->staging[x].texture = nil;
 
 	ctx->library = nil;

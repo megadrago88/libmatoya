@@ -6,4 +6,7 @@
 
 #pragma once
 
+// Apple platforms prevent writer starvation by default, so no need
+// to fool with rwlock attributes
+
 #define mty_rwlockattr_set(attr)
