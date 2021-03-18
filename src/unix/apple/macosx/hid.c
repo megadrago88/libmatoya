@@ -188,7 +188,6 @@ void mty_hid_destroy(struct hid **hid)
 	*hid = NULL;
 }
 
-
 void mty_hid_device_write(struct hdevice *ctx, const void *buf, size_t size)
 {
 	const uint8_t *buf8 = buf;
@@ -277,9 +276,9 @@ void mty_hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MT
 	CFRelease(elements);
 
 	evt->type = MTY_EVENT_CONTROLLER;
+	c->type = MTY_CTYPE_DEFAULT;
 	c->vid = ctx->vid;
 	c->pid = ctx->pid;
-	c->type = MTY_CTYPE_DEFAULT;
 	c->id = ctx->id;
 }
 

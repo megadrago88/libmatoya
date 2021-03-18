@@ -79,7 +79,7 @@ static __m128i aes(const __m128i *k, __m128i plain)
 
 // PCLMULQDQ, SSE2
 
-static __m128i gfmul(__m128i a, __m128i b)
+static __m128i gcm_gfmul(__m128i a, __m128i b)
 {
 	__m128i t1 = _mm_clmulepi64_si128(a, b, 0x00);
 	__m128i t2 = _mm_clmulepi64_si128(a, b, 0x10);
@@ -122,7 +122,7 @@ static __m128i gfmul(__m128i a, __m128i b)
 	return _mm_xor_si128(t4, t1);
 }
 
-static __m128i gfmul4(__m128i H1, __m128i H2, __m128i H3, __m128i H4,
+static __m128i gcm_gfmul4(__m128i H1, __m128i H2, __m128i H3, __m128i H4,
 	__m128i X1, __m128i X2, __m128i X3, __m128i X4)
 {
 	// Algorithm by Krzysztof Jankowski, Pierre Laurent - Intel
@@ -228,7 +228,7 @@ static __m128i gcm_ghash16(__m128i H, __m128i in, __m128i ghash)
 {
 	ghash = _mm_xor_si128(ghash, SWAP64(in));
 
-	return gfmul(ghash, H);
+	return gcm_gfmul(ghash, H);
 }
 
 static __m128i aes_gcm(const __m128i *k, const __m128i *H, __m128i iv,
@@ -281,7 +281,7 @@ static __m128i aes_gcm(const __m128i *k, const __m128i *H, __m128i iv,
 		in[3] = SWAP64(crypt == x ? xi[3] : yi[3]);
 
 		in[0] = _mm_xor_si128(ghash, in[0]);
-		ghash = gfmul4(H[0], H[1], H[2], H[3], in[3], in[2], in[1], in[0]);
+		ghash = gcm_gfmul4(H[0], H[1], H[2], H[3], in[3], in[2], in[1], in[0]);
 	}
 
 	// 1 block at a time
@@ -348,9 +348,9 @@ MTY_AESGCM *MTY_AESGCMCreate(const void *key)
 	__m128i H = aes(ctx->k, _mm_setzero_si128());
 
 	ctx->H[0] = SWAP64(H);
-	ctx->H[1] = gfmul(ctx->H[0], ctx->H[0]);
-	ctx->H[2] = gfmul(ctx->H[0], ctx->H[1]);
-	ctx->H[3] = gfmul(ctx->H[0], ctx->H[2]);
+	ctx->H[1] = gcm_gfmul(ctx->H[0], ctx->H[0]);
+	ctx->H[2] = gcm_gfmul(ctx->H[0], ctx->H[1]);
+	ctx->H[3] = gcm_gfmul(ctx->H[0], ctx->H[2]);
 
 	return ctx;
 }

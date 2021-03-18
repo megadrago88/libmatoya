@@ -606,8 +606,8 @@ static void window_text_event(Window *window, const char *text)
 static void window_keyboard_event(Window *window, int16_t key_code, NSEventModifierFlags flags, bool pressed)
 {
 	MTY_Event evt = window_event(window, MTY_EVENT_KEY);
-	evt.key.key = window_keycode_to_key(key_code);
-	evt.key.mod = window_modifier_flags_to_keymod(flags);
+	evt.key.key = keymap_keycode_to_key(key_code);
+	evt.key.mod = keymap_modifier_flags_to_keymod(flags);
 	evt.key.pressed = pressed;
 
 	MTY_Mod mod = evt.key.mod & 0xFF;
@@ -631,8 +631,8 @@ static void window_keyboard_event(Window *window, int16_t key_code, NSEventModif
 static void window_mod_event(Window *window, NSEvent *event)
 {
 	MTY_Event evt = window_event(window, MTY_EVENT_KEY);
-	evt.key.key = window_keycode_to_key(event.keyCode);
-	evt.key.mod = window_modifier_flags_to_keymod(event.modifierFlags);
+	evt.key.key = keymap_keycode_to_key(event.keyCode);
+	evt.key.mod = keymap_modifier_flags_to_keymod(event.modifierFlags);
 
 	switch (evt.key.key) {
 		case MTY_KEY_LSHIFT: evt.key.pressed = evt.key.mod & MTY_MOD_LSHIFT; break;
@@ -899,10 +899,10 @@ static void app_carbon_key(uint16_t kc, char *text, size_t len)
 static void app_fill_keys(void)
 {
 	for (uint16_t kc = 0; kc < 0x100; kc++) {
-		MTY_Key sc = window_keycode_to_key(kc);
+		MTY_Key sc = keymap_keycode_to_key(kc);
 
 		if (sc != MTY_KEY_NONE) {
-			const char *text = window_keycode_to_text(kc);
+			const char *text = keymap_keycode_to_text(kc);
 			if (text) {
 				snprintf(APP_KEYS[sc], 16, "%s", text);
 
@@ -1042,7 +1042,7 @@ bool MTY_AppCanWarpCursor(MTY_App *ctx)
 
 // App
 
-static void app_mty_hid_connect(struct hdevice *device, void *opaque)
+static void app_hid_connect(struct hdevice *device, void *opaque)
 {
 	App *ctx = (__bridge App *) opaque;
 
@@ -1057,7 +1057,7 @@ static void app_mty_hid_connect(struct hdevice *device, void *opaque)
 	ctx.event_func(&evt, ctx.opaque);
 }
 
-static void app_mty_hid_disconnect(struct hdevice *device, void *opaque)
+static void app_hid_disconnect(struct hdevice *device, void *opaque)
 {
 	App *ctx = (__bridge App *) opaque;
 
@@ -1070,7 +1070,7 @@ static void app_mty_hid_disconnect(struct hdevice *device, void *opaque)
 	ctx.event_func(&evt, ctx.opaque);
 }
 
-static void app_mty_hid_report(struct hdevice *device, const void *buf, size_t size, void *opaque)
+static void app_hid_report(struct hdevice *device, const void *buf, size_t size, void *opaque)
 {
 	App *ctx = (__bridge App *) opaque;
 
@@ -1107,7 +1107,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaqu
 	ctx.cursor_showing = true;
 	ctx.cont = true;
 
-	ctx.hid = mty_hid_create(app_mty_hid_connect, app_mty_hid_disconnect, app_mty_hid_report, app);
+	ctx.hid = mty_hid_create(app_hid_connect, app_hid_disconnect, app_hid_report, app);
 
 	ctx.windows = MTY_Alloc(MTY_WINDOW_MAX, sizeof(void *));
 	ctx.hotkey = MTY_HashCreate(0);
@@ -1270,7 +1270,7 @@ void MTY_AppEnablePen(MTY_App *app, bool enable)
 
 // Window
 
-static void app_revert_levels(void)
+static void window_revert_levels(void)
 {
 	NSArray<NSWindow *> *windows = [NSApp windows];
 
@@ -1294,7 +1294,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 		goto except;
 	}
 
-	app_revert_levels();
+	window_revert_levels();
 
 	CGSize size = screen.frame.size;
 
@@ -1528,14 +1528,11 @@ void *mty_window_get_native(MTY_App *app, MTY_Window window)
 }
 
 
-// Misc
+// Unimplemented
 
 void MTY_SetAppID(const char *id)
 {
 }
-
-
-// Unimplemented
 
 void *MTY_GLGetProcAddress(const char *name)
 {

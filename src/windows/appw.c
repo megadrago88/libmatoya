@@ -1276,7 +1276,7 @@ bool MTY_AppCanWarpCursor(MTY_App *ctx)
 
 // App
 
-static void app_mty_hid_connect(struct hdevice *device, void *opaque)
+static void app_hid_connect(struct hdevice *device, void *opaque)
 {
 	MTY_App *ctx = opaque;
 
@@ -1291,7 +1291,7 @@ static void app_mty_hid_connect(struct hdevice *device, void *opaque)
 	ctx->event_func(&evt, ctx->opaque);
 }
 
-static void app_mty_hid_disconnect(struct hdevice *device, void *opaque)
+static void app_hid_disconnect(struct hdevice *device, void *opaque)
 {
 	MTY_App *ctx = opaque;
 
@@ -1304,7 +1304,7 @@ static void app_mty_hid_disconnect(struct hdevice *device, void *opaque)
 	ctx->event_func(&evt, ctx->opaque);
 }
 
-static void app_mty_hid_report(struct hdevice *device, const void *buf, size_t size, void *opaque)
+static void app_hid_report(struct hdevice *device, const void *buf, size_t size, void *opaque)
 {
 	MTY_App *ctx = opaque;
 
@@ -1363,7 +1363,7 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaqu
 	ImmDisableIME(0);
 
 	app->xip = xip_create();
-	app->hid = mty_hid_create(app_mty_hid_connect, app_mty_hid_disconnect, app_mty_hid_report, app);
+	app->hid = mty_hid_create(app_hid_connect, app_hid_disconnect, app_hid_report, app);
 
 	except:
 
