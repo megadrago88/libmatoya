@@ -15,7 +15,7 @@
 
 #define MTY_USER_AGENT "libmatoya/" MTY_VERSION_STRING
 
-struct parse_args {
+struct request_parse_args {
 	char **headers;
 	bool ua_found;
 };
@@ -68,7 +68,7 @@ static bool http_read_chunked(struct net *net, void **res, size_t *size, uint32_
 
 static void request_parse_headers(const char *key, const char *val, void *opaque)
 {
-	struct parse_args *pargs = opaque;
+	struct request_parse_args *pargs = opaque;
 
 	if (!MTY_Strcasecmp(key, "User-Agent"))
 		pargs->ua_found = true;
@@ -97,7 +97,7 @@ bool MTY_HttpRequest(const char *host, bool secure, const char *method, const ch
 	// Set request headers
 	mty_http_set_header_str(&req, "Connection", "close");
 
-	struct parse_args pargs = {0};
+	struct request_parse_args pargs = {0};
 	pargs.headers = &req;
 
 	if (headers)

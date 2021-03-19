@@ -10,17 +10,17 @@
 #include <string.h>
 #include <stdio.h>
 
-#define MTY_TLOCAL_MAX (8 * 1024)
+#define TLOCAL_MAX (8 * 1024)
 
-static MTY_TLOCAL uint8_t TLOCAL[MTY_TLOCAL_MAX];
-static MTY_TLOCAL size_t TLOCAL_OFFSET;
+static TLOCAL uint8_t TLOCAL_HEAP[TLOCAL_MAX];
+static TLOCAL size_t TLOCAL_OFFSET;
 
 void *mty_tlocal(size_t size)
 {
-	if (TLOCAL_OFFSET + size > MTY_TLOCAL_MAX)
+	if (TLOCAL_OFFSET + size > TLOCAL_MAX)
 		TLOCAL_OFFSET = 0;
 
-	void *ptr = TLOCAL + TLOCAL_OFFSET;
+	void *ptr = TLOCAL_HEAP + TLOCAL_OFFSET;
 	TLOCAL_OFFSET += size;
 
 	return ptr;
@@ -30,8 +30,8 @@ char *mty_tlocal_strcpy(const char *str)
 {
 	size_t len = strlen(str) + 1;
 
-	if (len > MTY_TLOCAL_MAX)
-		len = MTY_TLOCAL_MAX;
+	if (len > TLOCAL_MAX)
+		len = TLOCAL_MAX;
 
 	char *local = mty_tlocal(len);
 	snprintf(local, len, "%s", str);

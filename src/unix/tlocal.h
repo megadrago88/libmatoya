@@ -6,7 +6,7 @@
 
 #pragma once
 
-#define MTY_TLOCAL __thread
+#define TLOCAL __thread
 
 void *mty_tlocal(size_t size);
 char *mty_tlocal_strcpy(const char *str);

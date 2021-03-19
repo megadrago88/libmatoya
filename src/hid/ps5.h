@@ -13,7 +13,7 @@ struct ps5_state {
 	bool bluetooth;
 };
 
-static void ps5_rumble(struct hdevice *device, uint16_t low, uint16_t high)
+static void ps5_rumble(struct hid_dev *device, uint16_t low, uint16_t high)
 {
 	struct ps5_state *ctx = mty_hid_device_get_state(device);
 
@@ -47,7 +47,7 @@ static void ps5_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 	mty_hid_device_write(device, buf, size);
 }
 
-static void ps5_init(struct hdevice *device)
+static void ps5_init(struct hid_dev *device)
 {
 	struct ps5_state *ctx = mty_hid_device_get_state(device);
 	ctx->bluetooth = mty_hid_device_get_input_report_size(device) == 78;
@@ -57,7 +57,7 @@ static void ps5_init(struct hdevice *device)
 	ps5_rumble(device, 0, 0);
 }
 
-static void ps5_state(struct hdevice *device, const void *data, size_t dsize, MTY_Event *evt)
+static void ps5_state(struct hid_dev *device, const void *data, size_t dsize, MTY_Event *evt)
 {
 	struct ps5_state *ctx = mty_hid_device_get_state(device);
 

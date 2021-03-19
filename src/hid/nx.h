@@ -76,7 +76,7 @@ static uint8_t nx_incr_command(struct nx_state *ctx)
 	return v;
 }
 
-static void nx_write_hs(struct hdevice *device, uint8_t cmd)
+static void nx_write_hs(struct hid_dev *device, uint8_t cmd)
 {
 	struct nx_state *ctx = mty_hid_device_get_state(device);
 
@@ -89,7 +89,7 @@ static void nx_write_hs(struct hdevice *device, uint8_t cmd)
 	ctx->wready = false;
 }
 
-static void nx_write_command(struct hdevice *device, uint8_t command, const void *data, size_t size)
+static void nx_write_command(struct hid_dev *device, uint8_t command, const void *data, size_t size)
 {
 	struct nx_state *ctx = mty_hid_device_get_state(device);
 
@@ -128,7 +128,7 @@ static void nx_rumble_on(struct nx_rumble *rmb)
 	rmb->data[3] = 0x6F;
 }
 
-static void nx_rumble(struct hdevice *device, bool low, bool high)
+static void nx_rumble(struct hid_dev *device, bool low, bool high)
 {
 	struct nx_state *ctx = mty_hid_device_get_state(device);
 
@@ -157,7 +157,7 @@ static void nx_expand_min_max(int16_t v, struct nx_min_max *mm)
 		mm->max = v;
 }
 
-static void nx_full_state(struct hdevice *device, const uint8_t *d, MTY_Event *evt)
+static void nx_full_state(struct hid_dev *device, const uint8_t *d, MTY_Event *evt)
 {
 	struct nx_state *ctx = mty_hid_device_get_state(device);
 
@@ -242,7 +242,7 @@ static void nx_full_state(struct hdevice *device, const uint8_t *d, MTY_Event *e
 	c->values[MTY_CVALUE_DPAD].max = 7;
 }
 
-static void nx_simple_state(struct hdevice *device, const uint8_t *d, MTY_Event *evt)
+static void nx_simple_state(struct hid_dev *device, const uint8_t *d, MTY_Event *evt)
 {
 	struct nx_state *ctx = mty_hid_device_get_state(device);
 
@@ -360,7 +360,7 @@ static void nx_parse_stick(const struct nx_spi_reply *spi, uint8_t min_offset, u
 
 // IO State Machine
 
-static void nx_init(struct hdevice *device)
+static void nx_init(struct hid_dev *device)
 {
 	struct nx_state *ctx = mty_hid_device_get_state(device);
 
@@ -377,7 +377,7 @@ static void nx_init(struct hdevice *device)
 	nx_write_hs(device, 0x02);
 }
 
-static void nx_state_machine(struct hdevice *device)
+static void nx_state_machine(struct hid_dev *device)
 {
 	struct nx_state *ctx = mty_hid_device_get_state(device);
 
@@ -460,7 +460,7 @@ static void nx_state_machine(struct hdevice *device)
 	}
 }
 
-static void nx_state(struct hdevice *device, const void *data, size_t dsize, MTY_Event *evt)
+static void nx_state(struct hid_dev *device, const void *data, size_t dsize, MTY_Event *evt)
 {
 	struct nx_state *ctx = mty_hid_device_get_state(device);
 	const uint8_t *d = data;

@@ -19,8 +19,8 @@ static MTY_Atomic32 LOG_DISABLED;
 static MTY_LogFunc LOG_FUNC = log_none;
 static void *LOG_OPAQUE;
 
-static MTY_TLOCAL char *LOG_MSG;
-static MTY_TLOCAL bool LOG_PREVENT_RECURSIVE;
+static TLOCAL char *LOG_MSG;
+static TLOCAL bool LOG_PREVENT_RECURSIVE;
 
 static void log_internal(const char *func, const char *msg, va_list args)
 {

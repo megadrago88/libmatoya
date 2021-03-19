@@ -503,7 +503,7 @@ static Cursor app_create_empty_cursor(Display *display)
 
 // App
 
-static void app_evdev_connect(struct edevice *device, void *opaque)
+static void app_evdev_connect(struct evdev_dev *device, void *opaque)
 {
 	MTY_App *ctx = opaque;
 
@@ -516,7 +516,7 @@ static void app_evdev_connect(struct edevice *device, void *opaque)
 	ctx->event_func(&evt, ctx->opaque);
 }
 
-static void app_evdev_disconnect(struct edevice *device, void *opaque)
+static void app_evdev_disconnect(struct evdev_dev *device, void *opaque)
 {
 	MTY_App *ctx = opaque;
 
@@ -527,7 +527,7 @@ static void app_evdev_disconnect(struct edevice *device, void *opaque)
 	ctx->event_func(&evt, ctx->opaque);
 }
 
-static void app_evdev_report(struct edevice *device, void *opaque)
+static void app_evdev_report(struct evdev_dev *device, void *opaque)
 {
 	MTY_App *ctx = opaque;
 

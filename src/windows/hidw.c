@@ -18,7 +18,7 @@ struct hid {
 	void *opaque;
 };
 
-struct hdevice {
+struct hid_dev {
 	RID_DEVICE_INFO di;
 	PHIDP_PREPARSED_DATA ppd;
 	HIDP_CAPS caps;
@@ -35,7 +35,7 @@ static void hid_device_destroy(void *opaque)
 	if (!opaque)
 		return;
 
-	struct hdevice *ctx = opaque;
+	struct hid_dev *ctx = opaque;
 
 	MTY_Free(ctx->bcaps);
 	MTY_Free(ctx->vcaps);
@@ -45,9 +45,9 @@ static void hid_device_destroy(void *opaque)
 	MTY_Free(ctx);
 }
 
-static struct hdevice *hid_device_create(HANDLE device)
+static struct hid_dev *hid_device_create(HANDLE device)
 {
-	struct hdevice *ctx = MTY_Alloc(1, sizeof(struct hdevice));
+	struct hid_dev *ctx = MTY_Alloc(1, sizeof(struct hid_dev));
 
 	bool r = true;
 
@@ -141,7 +141,7 @@ struct hid *mty_hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_R
 	return ctx;
 }
 
-struct hdevice *mty_hid_get_device_by_id(struct hid *ctx, uint32_t id)
+struct hid_dev *mty_hid_get_device_by_id(struct hid *ctx, uint32_t id)
 {
 	return MTY_HashGetInt(ctx->devices_rev, id);
 }
@@ -160,7 +160,7 @@ void mty_hid_destroy(struct hid **hid)
 	*hid = NULL;
 }
 
-void mty_hid_device_write(struct hdevice *ctx, const void *buf, size_t size)
+void mty_hid_device_write(struct hid_dev *ctx, const void *buf, size_t size)
 {
 	OVERLAPPED ov = {0};
 	ov.hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
@@ -199,7 +199,7 @@ void mty_hid_device_write(struct hdevice *ctx, const void *buf, size_t size)
 		CloseHandle(device);
 }
 
-bool mty_hid_device_feature(struct hdevice *ctx, void *buf, size_t size, size_t *size_out)
+bool mty_hid_device_feature(struct hid_dev *ctx, void *buf, size_t size, size_t *size_out)
 {
 	bool r = true;
 
@@ -242,32 +242,32 @@ bool mty_hid_device_feature(struct hdevice *ctx, void *buf, size_t size, size_t 
 	return r;
 }
 
-void *mty_hid_device_get_state(struct hdevice *ctx)
+void *mty_hid_device_get_state(struct hid_dev *ctx)
 {
 	return ctx->state;
 }
 
-uint16_t mty_hid_device_get_vid(struct hdevice *ctx)
+uint16_t mty_hid_device_get_vid(struct hid_dev *ctx)
 {
 	return (uint16_t) ctx->di.hid.dwVendorId;
 }
 
-uint16_t mty_hid_device_get_pid(struct hdevice *ctx)
+uint16_t mty_hid_device_get_pid(struct hid_dev *ctx)
 {
 	return (uint16_t) ctx->di.hid.dwProductId;
 }
 
-uint32_t mty_hid_device_get_id(struct hdevice *ctx)
+uint32_t mty_hid_device_get_id(struct hid_dev *ctx)
 {
 	return ctx->id;
 }
 
-uint32_t mty_hid_device_get_input_report_size(struct hdevice *ctx)
+uint32_t mty_hid_device_get_input_report_size(struct hid_dev *ctx)
 {
 	return ctx->caps.InputReportByteLength;
 }
 
-void mty_hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Event *evt)
+void mty_hid_default_state(struct hid_dev *ctx, const void *buf, size_t size, MTY_Event *evt)
 {
 	MTY_ControllerEvent *c = &evt->controller;
 
@@ -340,7 +340,7 @@ void mty_hid_default_rumble(struct hid *ctx, uint32_t id, uint16_t low, uint16_t
 
 void mty_hid_win32_report(struct hid *ctx, intptr_t device, const void *buf, size_t size)
 {
-	struct hdevice *dev = MTY_HashGetInt(ctx->devices, device);
+	struct hid_dev *dev = MTY_HashGetInt(ctx->devices, device);
 
 	if (dev && !dev->is_xinput)
 		ctx->report(dev, buf, size, ctx->opaque);
@@ -349,7 +349,7 @@ void mty_hid_win32_report(struct hid *ctx, intptr_t device, const void *buf, siz
 void mty_hid_win32_device_change(struct hid *ctx, intptr_t wparam, intptr_t lparam)
 {
 	if (wparam == GIDC_ARRIVAL) {
-		struct hdevice *dev = hid_device_create((HANDLE) lparam);
+		struct hid_dev *dev = hid_device_create((HANDLE) lparam);
 		if (dev) {
 			dev->id = ctx->id++;
 			mty_hid_destroy(MTY_HashSetInt(ctx->devices, lparam, dev));
@@ -360,7 +360,7 @@ void mty_hid_win32_device_change(struct hid *ctx, intptr_t wparam, intptr_t lpar
 		}
 
 	} else if (wparam == GIDC_REMOVAL) {
-		struct hdevice *dev = MTY_HashPopInt(ctx->devices, lparam);
+		struct hid_dev *dev = MTY_HashPopInt(ctx->devices, lparam);
 		if (dev) {
 			if (!dev->is_xinput)
 				ctx->disconnect(dev, ctx->opaque);

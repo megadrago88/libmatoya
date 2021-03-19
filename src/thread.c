@@ -208,17 +208,17 @@ void MTY_ThreadPoolDestroy(MTY_ThreadPool **pool, MTY_AnonFunc detach)
 
 // RWLock
 
+static TLOCAL struct thread_rwlock {
+	uint16_t taken;
+	bool read;
+	bool write;
+} RWLOCK_STATE[UINT8_MAX];
+
 struct MTY_RWLock {
 	mty_rwlock rwlock;
 	MTY_Atomic32 yield;
 	uint8_t index;
 };
-
-static MTY_TLOCAL struct rwlock_state {
-	uint16_t taken;
-	bool read;
-	bool write;
-} RWLOCK_STATE[UINT8_MAX];
 
 static MTY_Atomic32 RWLOCK_INIT[UINT8_MAX];
 
@@ -252,7 +252,7 @@ MTY_RWLock *MTY_RWLockCreate(void)
 
 void MTY_RWLockReader(MTY_RWLock *ctx)
 {
-	struct rwlock_state *rw = &RWLOCK_STATE[ctx->index];
+	struct thread_rwlock *rw = &RWLOCK_STATE[ctx->index];
 
 	if (rw->taken == 0) {
 		thread_rwlock_yield(ctx);
@@ -265,7 +265,7 @@ void MTY_RWLockReader(MTY_RWLock *ctx)
 
 bool MTY_RWTryLockReader(MTY_RWLock *ctx)
 {
-	struct rwlock_state *rw = &RWLOCK_STATE[ctx->index];
+	struct thread_rwlock *rw = &RWLOCK_STATE[ctx->index];
 
 	bool r = true;
 
@@ -284,7 +284,7 @@ bool MTY_RWTryLockReader(MTY_RWLock *ctx)
 void MTY_RWLockWriter(MTY_RWLock *ctx)
 {
 	bool relock = false;
-	struct rwlock_state *rw = &RWLOCK_STATE[ctx->index];
+	struct thread_rwlock *rw = &RWLOCK_STATE[ctx->index];
 
 	if (rw->read) {
 		mty_rwlock_unlock_reader(&ctx->rwlock);
@@ -304,7 +304,7 @@ void MTY_RWLockWriter(MTY_RWLock *ctx)
 
 void MTY_RWLockUnlock(MTY_RWLock *ctx)
 {
-	struct rwlock_state *rw = &RWLOCK_STATE[ctx->index];
+	struct thread_rwlock *rw = &RWLOCK_STATE[ctx->index];
 
 	if (--rw->taken == 0) {
 		if (rw->read) {
@@ -326,7 +326,7 @@ void MTY_RWLockDestroy(MTY_RWLock **rwlock)
 	MTY_RWLock *ctx = *rwlock;
 
 	mty_rwlock_destroy(&ctx->rwlock);
-	memset(&RWLOCK_STATE[ctx->index], 0, sizeof(struct rwlock_state));
+	memset(&RWLOCK_STATE[ctx->index], 0, sizeof(struct thread_rwlock));
 	MTY_Atomic32Set(&RWLOCK_INIT[ctx->index], 0);
 
 	MTY_Free(ctx);

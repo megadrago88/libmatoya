@@ -20,7 +20,7 @@ static
 
 #define D3D11_NUM_STAGING 3
 
-struct psvars {
+struct d3d11_psvars {
 	float width;
 	float height;
 	float vp_height;
@@ -114,7 +114,7 @@ struct gfx *mty_d3d11_create(MTY_Device *device)
 	}
 
 	D3D11_BUFFER_DESC psbd = {0};
-	psbd.ByteWidth = sizeof(struct psvars);
+	psbd.ByteWidth = sizeof(struct d3d11_psvars);
 	psbd.Usage = D3D11_USAGE_DYNAMIC;
 	psbd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	psbd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
@@ -416,7 +416,7 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 		if (ctx->staging[x].srv)
 			ID3D11DeviceContext_PSSetShaderResources(_context, x, 1, &ctx->staging[x].srv);
 
-	struct psvars cb = {0};
+	struct d3d11_psvars cb = {0};
 	cb.width = (float) desc->cropWidth;
 	cb.height = (float) desc->cropHeight;
 	cb.vp_height = (float) vp.Height;
@@ -432,7 +432,7 @@ bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
 		goto except;
 	}
 
-	memcpy(res.pData, &cb, sizeof(struct psvars));
+	memcpy(res.pData, &cb, sizeof(struct d3d11_psvars));
 	ID3D11DeviceContext_Unmap(_context, ctx->psbres, 0);
 	ID3D11DeviceContext_PSSetConstantBuffers(_context, 0, 1, &ctx->psb);
 

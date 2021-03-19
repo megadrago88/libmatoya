@@ -36,19 +36,19 @@ struct evdev {
 	void *opaque;
 };
 
-struct hat {
+struct evdev_hat {
 	bool up;
 	bool right;
 	bool down;
 	bool left;
 };
 
-struct edevice {
+struct evdev_dev {
 	MTY_ControllerEvent state;
 	struct ff_effect ff;
 	bool gamepad; // PS4, XInput
 	bool rumble; // Can rumble
-	struct hat hat;
+	struct evdev_hat hat;
 	uint8_t slot;
 	uint32_t id;
 
@@ -64,7 +64,7 @@ static void evdev_device_destroy(void *edevice)
 	if (!edevice)
 		return;
 
-	struct edevice *ctx = edevice;
+	struct evdev_dev *ctx = edevice;
 
 	MTY_Free(ctx);
 }
@@ -80,7 +80,7 @@ static uint8_t evdev_find_slot(struct evdev *ctx)
 
 static void evdev_device_add(struct evdev *ctx, const char *devnode, const char *syspath)
 {
-	struct edevice *edev = MTY_HashGet(ctx->devices, devnode);
+	struct evdev_dev *edev = MTY_HashGet(ctx->devices, devnode);
 	if (edev)
 		return;
 
@@ -97,7 +97,7 @@ static void evdev_device_add(struct evdev *ctx, const char *devnode, const char 
 		// There is no great way to tell what kind of device this is. Filter by
 		// devices that have EV_KEY (keys and buttons) and EV_ABS (absolute axis)
 		if ((evs & (1 << EV_KEY)) && (evs & (1 << EV_ABS))) {
-			edev = MTY_Alloc(1, sizeof(struct edevice));
+			edev = MTY_Alloc(1, sizeof(struct evdev_dev));
 			edev->id = fd;
 			edev->slot = slot;
 
@@ -155,7 +155,7 @@ static void evdev_device_add(struct evdev *ctx, const char *devnode, const char 
 
 static void evdev_device_remove(struct evdev *ctx, const char *devnode)
 {
-	struct edevice *edev = MTY_HashPop(ctx->devices, devnode);
+	struct evdev_dev *edev = MTY_HashPop(ctx->devices, devnode);
 	if (!edev)
 		return;
 
@@ -198,9 +198,9 @@ static void evdev_new_device(struct evdev *ctx)
 	udev_device_unref(dev);
 }
 
-static void evdev_set_hat(struct edevice *ctx, uint8_t type, const struct input_event *event)
+static void evdev_set_hat(struct evdev_dev *ctx, uint8_t type, const struct input_event *event)
 {
-	struct hat *h = &ctx->hat;
+	struct evdev_hat *h = &ctx->hat;
 
 	if (type == ABS_HAT0X || type == ABS_HAT0Y) {
 		if (type == ABS_HAT0X) {
@@ -263,7 +263,7 @@ static MTY_CButton evdev_button(uint16_t type)
 	return -1;
 }
 
-static uint16_t evdev_gamepad_usage(struct edevice *ctx, uint16_t type, const struct input_event *event)
+static uint16_t evdev_gamepad_usage(struct evdev_dev *ctx, uint16_t type, const struct input_event *event)
 {
 	switch (type) {
 		case ABS_X: return 0x30;
@@ -277,7 +277,7 @@ static uint16_t evdev_gamepad_usage(struct edevice *ctx, uint16_t type, const st
 	return 0;
 }
 
-static uint16_t evdev_joystick_usage(struct edevice *ctx, uint16_t type, const struct input_event *event)
+static uint16_t evdev_joystick_usage(struct evdev_dev *ctx, uint16_t type, const struct input_event *event)
 {
 	switch (type) {
 		case ABS_X: return 0x30;
@@ -291,7 +291,7 @@ static uint16_t evdev_joystick_usage(struct edevice *ctx, uint16_t type, const s
 
 static void evdev_joystick_event(struct evdev *ctx, int32_t fd, EVDEV_REPORT report)
 {
-	struct edevice *edev = MTY_HashGetInt(ctx->devices_rev, fd);
+	struct evdev_dev *edev = MTY_HashGetInt(ctx->devices_rev, fd);
 	if (!edev)
 		return;
 
@@ -477,14 +477,14 @@ void mty_evdev_destroy(struct evdev **evdev)
 	*evdev = NULL;
 }
 
-MTY_ControllerEvent mty_evdev_state(struct edevice *ctx)
+MTY_ControllerEvent mty_evdev_state(struct evdev_dev *ctx)
 {
 	return ctx->state;
 }
 
 void mty_evdev_rumble(struct evdev *ctx, uint32_t id, uint16_t low, uint16_t high)
 {
-	struct edevice *edev = MTY_HashGetInt(ctx->devices_rev, id);
+	struct evdev_dev *edev = MTY_HashGetInt(ctx->devices_rev, id);
 	if (!edev)
 		return;
 

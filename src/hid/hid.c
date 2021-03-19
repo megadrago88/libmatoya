@@ -19,7 +19,7 @@
 #include "xbox.h"
 #include "xboxw.h"
 
-static MTY_CType hid_driver(struct hdevice *device)
+static MTY_CType hid_driver(struct hid_dev *device)
 {
 	uint16_t vid = mty_hid_device_get_vid(device);
 	uint16_t pid = mty_hid_device_get_pid(device);
@@ -70,7 +70,7 @@ static MTY_CType hid_driver(struct hdevice *device)
 	return MTY_CTYPE_DEFAULT;
 }
 
-void mty_hid_driver_init(struct hdevice *device)
+void mty_hid_driver_init(struct hid_dev *device)
 {
 	switch (hid_driver(device)) {
 		case MTY_CTYPE_SWITCH:
@@ -85,7 +85,7 @@ void mty_hid_driver_init(struct hdevice *device)
 	}
 }
 
-void mty_hid_driver_state(struct hdevice *device, const void *buf, size_t size, MTY_Event *evt)
+void mty_hid_driver_state(struct hid_dev *device, const void *buf, size_t size, MTY_Event *evt)
 {
 	switch (hid_driver(device)) {
 		case MTY_CTYPE_SWITCH:
@@ -112,7 +112,7 @@ void mty_hid_driver_state(struct hdevice *device, const void *buf, size_t size, 
 
 void mty_hid_driver_rumble(struct hid *hid, uint32_t id, uint16_t low, uint16_t high)
 {
-	struct hdevice *device = mty_hid_get_device_by_id(hid, id);
+	struct hid_dev *device = mty_hid_get_device_by_id(hid, id);
 	if (!device)
 		return;
 

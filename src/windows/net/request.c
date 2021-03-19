@@ -17,14 +17,14 @@
 
 #define MTY_USER_AGENTW L"libmatoya/" MTY_VERSION_STRINGW
 
-struct parse_args {
+struct request_parse_args {
 	WCHAR *ua;
 	char *headers;
 };
 
 static void request_parse_headers(const char *key, const char *val, void *opaque)
 {
-	struct parse_args *pargs = opaque;
+	struct request_parse_args *pargs = opaque;
 
 	// WinHTTP needs to take the user-agent as a separate argument, so we need
 	// to pluck it out of the headers string
@@ -51,7 +51,7 @@ bool MTY_HttpRequest(const char *_host, bool secure, const char *_method, const 
 	HINTERNET connect = NULL;
 	HINTERNET request = NULL;
 
-	struct parse_args pargs = {0};
+	struct request_parse_args pargs = {0};
 	if (_headers)
 		mty_http_parse_headers(_headers, request_parse_headers, &pargs);
 

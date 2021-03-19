@@ -15,7 +15,7 @@ struct ps4_state {
 
 // Rumble
 
-static void ps4_rumble(struct hdevice *device, uint16_t low, uint16_t high)
+static void ps4_rumble(struct hid_dev *device, uint16_t low, uint16_t high)
 {
 	struct ps4_state *ctx = mty_hid_device_get_state(device);
 
@@ -52,7 +52,7 @@ static void ps4_rumble(struct hdevice *device, uint16_t low, uint16_t high)
 
 // State Reports
 
-static void ps4_init(struct hdevice *device)
+static void ps4_init(struct hid_dev *device)
 {
 	struct ps4_state *ctx = mty_hid_device_get_state(device);
 
@@ -66,7 +66,7 @@ static void ps4_init(struct hdevice *device)
 	ps4_rumble(device, 0, 0);
 }
 
-static void ps4_state(struct hdevice *device, const void *data, size_t dsize, MTY_Event *evt)
+static void ps4_state(struct hid_dev *device, const void *data, size_t dsize, MTY_Event *evt)
 {
 	const uint8_t *d8 = data;
 

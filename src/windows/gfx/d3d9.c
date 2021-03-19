@@ -446,7 +446,7 @@ void mty_d3d9_destroy(struct gfx **gfx)
 
 // State
 
-struct d3d9s {
+struct d3d9_state {
 	IDirect3DStateBlock9 *block;
 	D3DMATRIX world;
 	D3DMATRIX view;
@@ -455,7 +455,7 @@ struct d3d9s {
 
 void *mty_d3d9_get_state(MTY_Device *device, MTY_Context *context)
 {
-	struct d3d9s *state = MTY_Alloc(1, sizeof(struct d3d9s));
+	struct d3d9_state *state = MTY_Alloc(1, sizeof(struct d3d9_state));
 
 	IDirect3DDevice9 *_device = (IDirect3DDevice9 *) device;
 
@@ -479,7 +479,7 @@ void *mty_d3d9_get_state(MTY_Device *device, MTY_Context *context)
 
 void mty_d3d9_set_state(MTY_Device *device, MTY_Context *context, void *state)
 {
-	struct d3d9s *s = state;
+	struct d3d9_state *s = state;
 	IDirect3DDevice9 *_device = (IDirect3DDevice9 *) device;
 
 	IDirect3DDevice9_SetTransform(_device, D3DTS_WORLD, &s->world);
@@ -494,7 +494,7 @@ void mty_d3d9_free_state(void **state)
 	if (!state || !*state)
 		return;
 
-	struct d3d9s *s = *state;
+	struct d3d9_state *s = *state;
 
 	IDirect3DStateBlock9_Release(s->block);
 
