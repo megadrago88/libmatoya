@@ -48,15 +48,15 @@ const MTY = {
 
 // Private helpers
 
-function mem() {
+function mty_mem() {
 	return MTY.module.instance.exports.memory.buffer;
 }
 
-function mem_view() {
-	return new DataView(mem());
+function mty_mem_view() {
+	return new DataView(mty_mem());
 }
 
-function char_to_js(buf) {
+function mty_char_to_js(buf) {
 	let str = '';
 
 	for (let x = 0; x < 0x7FFFFFFF && x < buf.length; x++) {
@@ -69,11 +69,11 @@ function char_to_js(buf) {
 	return str;
 }
 
-function b64_to_buf(str) {
+function mty_b64_to_buf(str) {
 	return Uint8Array.from(atob(str), c => c.charCodeAt(0))
 }
 
-function buf_to_b64(buf) {
+function mty_buf_to_b64(buf) {
 	let str = '';
 	for (let x = 0; x < buf.length; x++)
 		str += String.fromCharCode(buf[x]);
@@ -97,44 +97,44 @@ function MTY_Free(ptr) {
 }
 
 function MTY_SetUint32(ptr, value) {
-	mem_view().setUint32(ptr, value, true);
+	mty_mem_view().setUint32(ptr, value, true);
 }
 
 function MTY_SetUint16(ptr, value) {
-	mem_view().setUint16(ptr, value, true);
+	mty_mem_view().setUint16(ptr, value, true);
 }
 
 function MTY_SetInt32(ptr, value) {
-	mem_view().setInt32(ptr, value, true);
+	mty_mem_view().setInt32(ptr, value, true);
 }
 
 function MTY_SetInt8(ptr, value) {
-	mem_view().setInt8(ptr, value);
+	mty_mem_view().setInt8(ptr, value);
 }
 
 function MTY_SetFloat(ptr, value) {
-	mem_view().setFloat32(ptr, value, true);
+	mty_mem_view().setFloat32(ptr, value, true);
 }
 
 function MTY_SetUint64(ptr, value) {
-	mem_view().setBigUint64(ptr, BigInt(value), true);
+	mty_mem_view().setBigUint64(ptr, BigInt(value), true);
 }
 
 function MTY_GetUint32(ptr) {
-	return mem_view().getUint32(ptr, true);
+	return mty_mem_view().getUint32(ptr, true);
 }
 
 function MTY_Memcpy(cptr, abuffer) {
-	const heap = new Uint8Array(mem(), cptr, abuffer.length);
+	const heap = new Uint8Array(mty_mem(), cptr, abuffer.length);
 	heap.set(abuffer);
 }
 
 function MTY_StrToJS(ptr) {
-	return char_to_js(new Uint8Array(mem(), ptr));
+	return mty_char_to_js(new Uint8Array(mty_mem(), ptr));
 }
 
 function MTY_StrToC(js_str, ptr, size) {
-	const view = new Uint8Array(mem(), ptr);
+	const view = new Uint8Array(mty_mem(), ptr);
 
 	let len = 0;
 	for (; len < js_str.length && len < size - 1; len++)
@@ -149,7 +149,7 @@ function MTY_StrToC(js_str, ptr, size) {
 
 // <unistd.h> stubs
 
-const UNISTD_API = {
+const MTY_UNISTD_API = {
 	gethostname: function (cbuf, size) {
 		MTY_StrToC(location.hostname, cbuf, size);
 	},
@@ -161,13 +161,13 @@ const UNISTD_API = {
 
 // GL
 
-function gl_new(obj) {
+function mty_gl_new(obj) {
 	MTY.glObj[MTY.glIndex] = obj;
 
 	return MTY.glIndex++;
 }
 
-function gl_del(index) {
+function mty_gl_del(index) {
 	let obj = MTY.glObj[index];
 
 	MTY.glObj[index] = undefined;
@@ -176,27 +176,27 @@ function gl_del(index) {
 	return obj;
 }
 
-function gl_obj(index) {
+function mty_gl_obj(index) {
 	return MTY.glObj[index];
 }
 
-const GL_API = {
+const MTY_GL_API = {
 	glGenFramebuffers: function (n, ids) {
 		for (let x = 0; x < n; x++)
-			MTY_SetUint32(ids + x * 4, gl_new(MTY.gl.createFramebuffer()));
+			MTY_SetUint32(ids + x * 4, mty_gl_new(MTY.gl.createFramebuffer()));
 	},
 	glDeleteFramebuffers: function (n, ids) {
 		for (let x = 0; x < n; x++)
-			MTY.gl.deleteFramebuffer(gl_del(MTY_GetUint32(ids + x * 4)));
+			MTY.gl.deleteFramebuffer(mty_gl_del(MTY_GetUint32(ids + x * 4)));
 	},
 	glBindFramebuffer: function (target, fb) {
-		MTY.gl.bindFramebuffer(target, fb ? gl_obj(fb) : null);
+		MTY.gl.bindFramebuffer(target, fb ? mty_gl_obj(fb) : null);
 	},
 	glBlitFramebuffer: function (srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter) {
 		MTY.gl.blitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
 	},
 	glFramebufferTexture2D: function (target, attachment, textarget, texture, level) {
-		MTY.gl.framebufferTexture2D(target, attachment, textarget, gl_obj(texture), level);
+		MTY.gl.framebufferTexture2D(target, attachment, textarget, mty_gl_obj(texture), level);
 	},
 	glEnable: function (cap) {
 		MTY.gl.enable(cap);
@@ -220,7 +220,7 @@ const GL_API = {
 			case MTY.gl.ARRAY_BUFFER_BINDING:
 			case MTY.gl.TEXTURE_BINDING_2D:
 			case MTY.gl.CURRENT_PROGRAM:
-				MTY_SetUint32(data, gl_new(p));
+				MTY_SetUint32(data, mty_gl_new(p));
 				break;
 
 			// int32[4]
@@ -255,116 +255,116 @@ const GL_API = {
 		}
 	},
 	glBindTexture: function (target, texture) {
-		MTY.gl.bindTexture(target, texture ? gl_obj(texture) : null);
+		MTY.gl.bindTexture(target, texture ? mty_gl_obj(texture) : null);
 	},
 	glDeleteTextures: function (n, ids) {
 		for (let x = 0; x < n; x++)
-			MTY.gl.deleteTexture(gl_del(MTY_GetUint32(ids + x * 4)));
+			MTY.gl.deleteTexture(mty_gl_del(MTY_GetUint32(ids + x * 4)));
 	},
 	glTexParameteri: function (target, pname, param) {
 		MTY.gl.texParameteri(target, pname, param);
 	},
 	glGenTextures: function (n, ids) {
 		for (let x = 0; x < n; x++)
-			MTY_SetUint32(ids + x * 4, gl_new(MTY.gl.createTexture()));
+			MTY_SetUint32(ids + x * 4, mty_gl_new(MTY.gl.createTexture()));
 	},
 	glTexImage2D: function (target, level, internalformat, width, height, border, format, type, data) {
 		MTY.gl.texImage2D(target, level, internalformat, width, height, border, format, type,
-			new Uint8Array(mem(), data));
+			new Uint8Array(mty_mem(), data));
 	},
 	glTexSubImage2D: function (target, level, xoffset, yoffset, width, height, format, type, pixels) {
 		MTY.gl.texSubImage2D(target, level, xoffset, yoffset, width, height, format, type,
-			new Uint8Array(mem(), pixels));
+			new Uint8Array(mty_mem(), pixels));
 	},
 	glDrawElements: function (mode, count, type, indices) {
 		MTY.gl.drawElements(mode, count, type, indices);
 	},
 	glGetAttribLocation: function (program, c_name) {
-		return MTY.gl.getAttribLocation(gl_obj(program), MTY_StrToJS(c_name));
+		return MTY.gl.getAttribLocation(mty_gl_obj(program), MTY_StrToJS(c_name));
 	},
 	glShaderSource: function (shader, count, c_strings, c_len) {
 		let source = '';
 		for (let x = 0; x < count; x++)
 			source += MTY_StrToJS(MTY_GetUint32(c_strings + x * 4));
 
-		MTY.gl.shaderSource(gl_obj(shader), source);
+		MTY.gl.shaderSource(mty_gl_obj(shader), source);
 	},
 	glBindBuffer: function (target, buffer) {
-		MTY.gl.bindBuffer(target, buffer ? gl_obj(buffer) : null);
+		MTY.gl.bindBuffer(target, buffer ? mty_gl_obj(buffer) : null);
 	},
 	glVertexAttribPointer: function (index, size, type, normalized, stride, pointer) {
 		MTY.gl.vertexAttribPointer(index, size, type, normalized, stride, pointer);
 	},
 	glCreateProgram: function () {
-		return gl_new(MTY.gl.createProgram());
+		return mty_gl_new(MTY.gl.createProgram());
 	},
 	glUniform1i: function (loc, v0) {
-		MTY.gl.uniform1i(gl_obj(loc), v0);
+		MTY.gl.uniform1i(mty_gl_obj(loc), v0);
 	},
 	glUniform1f: function (loc, v0) {
-		MTY.gl.uniform1f(gl_obj(loc), v0);
+		MTY.gl.uniform1f(mty_gl_obj(loc), v0);
 	},
 	glUniform4i: function (loc, v0, v1, v2, v3) {
-		MTY.gl.uniform4i(gl_obj(loc), v0, v1, v2, v3);
+		MTY.gl.uniform4i(mty_gl_obj(loc), v0, v1, v2, v3);
 	},
 	glUniform4f: function (loc, v0, v1, v2, v3) {
-		MTY.gl.uniform4f(gl_obj(loc), v0, v1, v2, v3);
+		MTY.gl.uniform4f(mty_gl_obj(loc), v0, v1, v2, v3);
 	},
 	glActiveTexture: function (texture) {
 		MTY.gl.activeTexture(texture);
 	},
 	glDeleteBuffers: function (n, ids) {
 		for (let x = 0; x < n; x++)
-			MTY.gl.deleteBuffer(gl_del(MTY_GetUint32(ids + x * 4)));
+			MTY.gl.deleteBuffer(mty_gl_del(MTY_GetUint32(ids + x * 4)));
 	},
 	glEnableVertexAttribArray: function (index) {
 		MTY.gl.enableVertexAttribArray(index);
 	},
 	glBufferData: function (target, size, data, usage) {
-		MTY.gl.bufferData(target, new Uint8Array(mem(), data, size), usage);
+		MTY.gl.bufferData(target, new Uint8Array(mty_mem(), data, size), usage);
 	},
 	glDeleteShader: function (shader) {
-		MTY.gl.deleteShader(gl_del(shader));
+		MTY.gl.deleteShader(mty_gl_del(shader));
 	},
 	glGenBuffers: function (n, ids) {
 		for (let x = 0; x < n; x++)
-			MTY_SetUint32(ids + x * 4, gl_new(MTY.gl.createBuffer()));
+			MTY_SetUint32(ids + x * 4, mty_gl_new(MTY.gl.createBuffer()));
 	},
 	glCompileShader: function (shader) {
-		MTY.gl.compileShader(gl_obj(shader));
+		MTY.gl.compileShader(mty_gl_obj(shader));
 	},
 	glLinkProgram: function (program) {
-		MTY.gl.linkProgram(gl_obj(program));
+		MTY.gl.linkProgram(mty_gl_obj(program));
 	},
 	glGetUniformLocation: function (program, name) {
-		return gl_new(MTY.gl.getUniformLocation(gl_obj(program), MTY_StrToJS(name)));
+		return mty_gl_new(MTY.gl.getUniformLocation(mty_gl_obj(program), MTY_StrToJS(name)));
 	},
 	glCreateShader: function (type) {
-		return gl_new(MTY.gl.createShader(type));
+		return mty_gl_new(MTY.gl.createShader(type));
 	},
 	glAttachShader: function (program, shader) {
-		MTY.gl.attachShader(gl_obj(program), gl_obj(shader));
+		MTY.gl.attachShader(mty_gl_obj(program), mty_gl_obj(shader));
 	},
 	glUseProgram: function (program) {
-		MTY.gl.useProgram(program ? gl_obj(program) : null);
+		MTY.gl.useProgram(program ? mty_gl_obj(program) : null);
 	},
 	glGetShaderiv: function (shader, pname, params) {
 		if (pname == 0x8B81) {
-			let ok = MTY.gl.getShaderParameter(gl_obj(shader), MTY.gl.COMPILE_STATUS);
+			let ok = MTY.gl.getShaderParameter(mty_gl_obj(shader), MTY.gl.COMPILE_STATUS);
 			MTY_SetUint32(params, ok);
 
 			if (!ok)
-				console.warn(MTY.gl.getShaderInfoLog(gl_obj(shader)));
+				console.warn(MTY.gl.getShaderInfoLog(mty_gl_obj(shader)));
 
 		} else {
 			MTY_SetUint32(params, 0);
 		}
 	},
 	glDetachShader: function (program, shader) {
-		MTY.gl.detachShader(gl_obj(program), gl_obj(shader));
+		MTY.gl.detachShader(mty_gl_obj(program), mty_gl_obj(shader));
 	},
 	glDeleteProgram: function (program) {
-		MTY.gl.deleteProgram(gl_del(program));
+		MTY.gl.deleteProgram(mty_gl_del(program));
 	},
 	glClear: function (mask) {
 		MTY.gl.clear(mask);
@@ -391,7 +391,7 @@ const GL_API = {
 		MTY.gl.blendEquation(mode);
 	},
 	glUniformMatrix4fv: function (loc, count, transpose, value) {
-		MTY.gl.uniformMatrix4fv(gl_obj(loc), transpose, new Float32Array(mem(), value, 4 * 4 * count));
+		MTY.gl.uniformMatrix4fv(mty_gl_obj(loc), transpose, new Float32Array(mty_mem(), value, 4 * 4 * count));
 	},
 	glBlendEquationSeparate: function (modeRGB, modeAlpha) {
 		MTY.gl.blendEquationSeparate(modeRGB, modeAlpha);
@@ -400,7 +400,7 @@ const GL_API = {
 		MTY.gl.blendFuncSeparate(srcRGB, dstRGB, srcAlpha, dstAlpha);
 	},
 	glGetProgramiv: function (program, pname, params) {
-		MTY_SetUint32(params, MTY.gl.getProgramParameter(gl_obj(program), pname));
+		MTY_SetUint32(params, MTY.gl.getProgramParameter(mty_gl_obj(program), pname));
 	},
 	web_gl_flush: function () {
 		MTY.gl.flush();
@@ -465,7 +465,7 @@ const MTY_AUDIO_API = {
 		// Convert PCM int16_t to float
 		if (!MTY.audio.flushing) {
 			let size = count * 4;
-			MTY_Memcpy(MTY.audio.buf + MTY.audio.offset, new Uint8Array(mem(), frames, size));
+			MTY_Memcpy(MTY.audio.buf + MTY.audio.offset, new Uint8Array(mty_mem(), frames, size));
 			MTY.audio.offset += size;
 		}
 
@@ -477,7 +477,7 @@ const MTY_AUDIO_API = {
 
 		// Queue the audio if playing
 		if (MTY.audio.playing) {
-			const src = new Int16Array(mem(), MTY.audio.buf);
+			const src = new Int16Array(mty_mem(), MTY.audio.buf);
 			const bcount = MTY.audio.offset / 4;
 
 			const buf = MTY.audio.ctx.createBuffer(2, bcount, MTY.audio.sample_rate);
@@ -648,7 +648,7 @@ const MTY_CRYPTO_API = {
 	MTY_CryptoHash: function (algo, input, inputSize, key, keySize, output, outputSize) {
 	},
 	MTY_RandomBytes: function (cbuf, size) {
-		const buf = new Uint8Array(mem(), size);
+		const buf = new Uint8Array(mty_mem(), size);
 		Crypto.getRandomValues(buf);
 	},
 };
@@ -667,7 +667,7 @@ const MTY_SYSTEM_API = {
 
 // Web API (mostly used in app.c)
 
-function get_mods(ev) {
+function mty_get_mods(ev) {
 	let mods = 0;
 
 	if (ev.shiftKey) mods |= 0x01;
@@ -681,7 +681,7 @@ function get_mods(ev) {
 	return mods;
 }
 
-function run_action() {
+function mty_run_action() {
 	setTimeout(() => {
 		if (MTY.action) {
 			MTY.action();
@@ -694,19 +694,19 @@ function MTY_SetAction(action) {
 	MTY.action = action;
 
 	// In case click handler doesn't happen
-	run_action();
+	mty_run_action();
 }
 
-function scaled(num) {
+function mty_scaled(num) {
 	return Math.round(num * window.devicePixelRatio);
 }
 
-function correct_relative() {
+function mty_correct_relative() {
 	if (!document.pointerLockElement && MTY.relative)
 		MTY.gl.canvas.requestPointerLock();
 }
 
-function poll_gamepads(app, controller) {
+function mty_poll_gamepads(app, controller) {
 	const gps = navigator.getGamepads();
 
 	for (let x = 0; x < 4; x++) {
@@ -913,8 +913,8 @@ const MTY_WEB_API = {
 	},
 	web_set_png_cursor: function (buffer, size, hot_x, hot_y) {
 		if (buffer) {
-			const buf = new Uint8Array(mem(), buffer, size);
-			const b64_png = buf_to_b64(buf);
+			const buf = new Uint8Array(mty_mem(), buffer, size);
+			const b64_png = mty_buf_to_b64(buf);
 
 			if (!MTY.cursorCache[b64_png]) {
 				MTY.cursorCache[b64_png] = `cursor-x-${MTY.cursorId}`;
@@ -946,8 +946,8 @@ const MTY_WEB_API = {
 	},
 	web_attach_events: function (app, mouse_motion, mouse_button, mouse_wheel, keyboard, focus, drop, resize) {
 		MTY.gl.canvas.addEventListener('mousemove', (ev) => {
-			let x = scaled(ev.clientX);
-			let y = scaled(ev.clientY);
+			let x = mty_scaled(ev.clientX);
+			let y = mty_scaled(ev.clientY);
 
 			if (MTY.relative) {
 				x = ev.movementX;
@@ -969,19 +969,19 @@ const MTY_WEB_API = {
 
 		window.addEventListener('click', (ev) => {
 			// Popup blockers can interfere with window.open if not called from within the 'click' listener
-			run_action();
+			mty_run_action();
 			ev.preventDefault();
 		});
 
 		window.addEventListener('mousedown', (ev) => {
-			correct_relative();
+			mty_correct_relative();
 			ev.preventDefault();
-			MTY_CFunc(mouse_button)(app, true, ev.button, scaled(ev.clientX), scaled(ev.clientY));
+			MTY_CFunc(mouse_button)(app, true, ev.button, mty_scaled(ev.clientX), mty_scaled(ev.clientY));
 		});
 
 		window.addEventListener('mouseup', (ev) => {
 			ev.preventDefault();
-			MTY_CFunc(mouse_button)(app, false, ev.button, scaled(ev.clientX), scaled(ev.clientY));
+			MTY_CFunc(mouse_button)(app, false, ev.button, mty_scaled(ev.clientX), mty_scaled(ev.clientY));
 		});
 
 		MTY.gl.canvas.addEventListener('contextmenu', (ev) => {
@@ -995,13 +995,13 @@ const MTY_WEB_API = {
 		}, {passive: true});
 
 		window.addEventListener('keydown', (ev) => {
-			correct_relative();
+			mty_correct_relative();
 			const key = MTY.keys[ev.code];
 
 			if (key != undefined) {
 				const text = ev.key.length == 1 ? MTY_StrToC(ev.key, MTY.cbuf, 1024) : 0;
 
-				if (MTY_CFunc(keyboard)(app, true, key, text, get_mods(ev)))
+				if (MTY_CFunc(keyboard)(app, true, key, text, mty_get_mods(ev)))
 					ev.preventDefault();
 			}
 		});
@@ -1010,7 +1010,7 @@ const MTY_WEB_API = {
 			const key = MTY.keys[ev.code];
 
 			if (key != undefined)
-				if (MTY_CFunc(keyboard)(app, false, key, 0, get_mods(ev)))
+				if (MTY_CFunc(keyboard)(app, false, key, 0, mty_get_mods(ev)))
 					ev.preventDefault();
 		});
 
@@ -1067,7 +1067,7 @@ const MTY_WEB_API = {
 		const step = () => {
 			// Poll gamepads
 			if (document.hasFocus())
-				poll_gamepads(app, controller);
+				mty_poll_gamepads(app, controller);
 
 			// Poll position changes
 			if (MTY.lastX != window.screenX || MTY.lastY != window.screenY) {
@@ -1079,8 +1079,8 @@ const MTY_WEB_API = {
 			// Poll size changes and resize the canvas
 			const rect = MTY.gl.canvas.getBoundingClientRect();
 
-			MTY.gl.canvas.width = scaled(rect.width);
-			MTY.gl.canvas.height = scaled(rect.height);
+			MTY.gl.canvas.width = mty_scaled(rect.width);
+			MTY.gl.canvas.height = mty_scaled(rect.height);
 
 			// Keep looping recursively or end based on AppFunc return value
 			// Don't call the app func if swap interval is higher than 1
@@ -1106,20 +1106,20 @@ const MTY_WEB_API = {
 
 // https://github.com/WebAssembly/WASI/blob/master/phases/snapshot/docs.md
 
-function append_buf_to_b64(b64, buf) {
+function mty_append_buf_to_b64(b64, buf) {
 	// FIXME This is a crude way to handle appending to an open file,
 	// complex seek operations will break this
 
-	const cur_buf = b64_to_buf(b64);
+	const cur_buf = mty_b64_to_buf(b64);
 	const new_buf = new Uint8Array(cur_buf.length + buf.length);
 
 	new_buf.set(cur_buf);
 	new_buf.set(buf, cur_buf.length);
 
-	return buf_to_b64(new_buf);
+	return mty_buf_to_b64(new_buf);
 }
 
-function arg_list() {
+function mty_arg_list() {
 	const params = new URLSearchParams(window.location.search);
 	const qs = params.toString();
 
@@ -1139,10 +1139,10 @@ function arg_list() {
 	return plist;
 }
 
-const WASI_API = {
+const MTY_WASI_API = {
 	// Command line arguments
 	args_get: function (argv, argv_buf) {
-		const args = arg_list();
+		const args = mty_arg_list();
 		for (let x = 0; x < args.length; x++) {
 			MTY_StrToC(args[x], argv_buf, 32 * 1024); // FIXME what is the real size of this buffer
 			MTY_SetUint32(argv + x * 4, argv_buf);
@@ -1152,7 +1152,7 @@ const WASI_API = {
 		return 0;
 	},
 	args_sizes_get: function (argc, argv_buf_size) {
-		const args = arg_list();
+		const args = mty_arg_list();
 
 		MTY_SetUint32(argc, args.length);
 		MTY_SetUint32(argv_buf_size, args.join(' ').length + 1);
@@ -1179,7 +1179,7 @@ const WASI_API = {
 		const path = MTY_StrToJS(cpath);
 		if (localStorage[path]) {
 			// We only need to return the size
-			const buf = b64_to_buf(localStorage[path]);
+			const buf = mty_b64_to_buf(localStorage[path]);
 			MTY_SetUint64(filestat_out + 32, buf.byteLength);
 		}
 
@@ -1228,14 +1228,14 @@ const WASI_API = {
 		const finfo = MTY.fds[fd];
 
 		if (finfo && localStorage[finfo.path]) {
-			const full_buf = b64_to_buf(localStorage[finfo.path]);
+			const full_buf = mty_b64_to_buf(localStorage[finfo.path]);
 
 			let ptr = iovs;
 			let cbuf = MTY_GetUint32(ptr);
 			let cbuf_len = MTY_GetUint32(ptr + 4);
 			let len = cbuf_len < full_buf.length ? cbuf_len : full_buf.length;
 
-			let view = new Uint8Array(mem(), cbuf, cbuf_len);
+			let view = new Uint8Array(mty_mem(), cbuf, cbuf_len);
 			let slice = new Uint8Array(full_buf.buffer, 0, len);
 			view.set(slice);
 
@@ -1260,17 +1260,17 @@ const WASI_API = {
 			let cbuf = MTY_GetUint32(ptr);
 			let cbuf_len = MTY_GetUint32(ptr + 4);
 
-			full_buf.set(new Uint8Array(mem(), cbuf, cbuf_len), offset);
+			full_buf.set(new Uint8Array(mty_mem(), cbuf, cbuf_len), offset);
 			offset += cbuf_len;
 		}
 
 		// stdout
 		if (fd == 1) {
-			console.log(char_to_js(full_buf));
+			console.log(mty_char_to_js(full_buf));
 
 		// stderr
 		} else if (fd == 2) {
-			console.error(char_to_js(full_buf));
+			console.error(mty_char_to_js(full_buf));
 
 		// Filesystem
 		} else if (MTY.fds[fd]) {
@@ -1278,10 +1278,10 @@ const WASI_API = {
 			const cur_b64 = localStorage[finfo.path];
 
 			if (cur_b64 && finfo.append) {
-				localStorage[finfo.path] = append_buf_to_b64(cur_b64, full_buf);
+				localStorage[finfo.path] = mty_append_buf_to_b64(cur_b64, full_buf);
 
 			} else {
-				localStorage[finfo.path] = buf_to_b64(full_buf, len);
+				localStorage[finfo.path] = mty_buf_to_b64(full_buf, len);
 			}
 
 			finfo.offet += len;
@@ -1305,7 +1305,7 @@ const WASI_API = {
 
 // Entry
 
-function supportsWASM() {
+function mty_supports_wasm() {
 	try {
 		if (typeof WebAssembly == 'object' && typeof WebAssembly.instantiate == 'function') {
 			const module = new WebAssembly.Module(Uint8Array.of(0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00));
@@ -1318,7 +1318,7 @@ function supportsWASM() {
 	return false;
 }
 
-function supportsWebGL() {
+function mty_supports_web_gl() {
 	try {
 		return document.createElement('canvas').getContext('webgl');
 	} catch (e) {}
@@ -1329,7 +1329,7 @@ function supportsWebGL() {
 async function MTY_Start(bin, userEnv, endFunc) {
 	MTY.arg0 = bin;
 
-	if (!supportsWASM() || !supportsWebGL())
+	if (!mty_supports_wasm() || !mty_supports_web_gl())
 		return false;
 
 	if (!userEnv)
@@ -1381,8 +1381,8 @@ async function MTY_Start(bin, userEnv, endFunc) {
 	MTY.module = await WebAssembly.instantiate(buf, {
 		// Custom imports
 		env: {
-			...UNISTD_API,
-			...GL_API,
+			...MTY_UNISTD_API,
+			...MTY_GL_API,
 			...MTY_AUDIO_API,
 			...MTY_NET_API,
 			...MTY_CRYPTO_API,
@@ -1393,7 +1393,7 @@ async function MTY_Start(bin, userEnv, endFunc) {
 
 		// Current version of WASI we're compiling against, 'wasi_snapshot_preview1'
 		wasi_snapshot_preview1: {
-			...WASI_API,
+			...MTY_WASI_API,
 		},
 	});
 
