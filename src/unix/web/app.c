@@ -41,7 +41,7 @@ static void __attribute__((constructor)) app_global_init(void)
 
 // Window events
 
-static void window_mouse_motion(MTY_App *ctx, bool relative, int32_t x, int32_t y)
+static void window_motion(MTY_App *ctx, bool relative, int32_t x, int32_t y)
 {
 	MTY_Event evt = {0};
 	evt.type = MTY_EVENT_MOTION;
@@ -68,7 +68,7 @@ static void window_move(MTY_App *ctx)
 	ctx->event_func(&evt, ctx->opaque);
 }
 
-static void window_mouse_button(MTY_App *ctx, bool pressed, int32_t button, int32_t x, int32_t y)
+static void window_button(MTY_App *ctx, bool pressed, int32_t button, int32_t x, int32_t y)
 {
 	MTY_Event evt = {0};
 	evt.type = MTY_EVENT_BUTTON;
@@ -87,7 +87,7 @@ static void window_mouse_button(MTY_App *ctx, bool pressed, int32_t button, int3
 	ctx->event_func(&evt, ctx->opaque);
 }
 
-static void window_mouse_scroll(MTY_App *ctx, int32_t x, int32_t y)
+static void window_scroll(MTY_App *ctx, int32_t x, int32_t y)
 {
 	MTY_Event evt = {0};
 	evt.type = MTY_EVENT_SCROLL;
@@ -350,8 +350,8 @@ MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaqu
 	ctx->event_func = eventFunc;
 	ctx->opaque = opaque;
 
-	web_attach_events(ctx, window_mouse_motion, window_mouse_button,
-		window_mouse_scroll, window_keyboard, window_focus, window_drop,
+	web_attach_events(ctx, window_motion, window_button,
+		window_scroll, window_keyboard, window_focus, window_drop,
 		window_resize);
 
 	ctx->hotkey = MTY_HashCreate(0);
