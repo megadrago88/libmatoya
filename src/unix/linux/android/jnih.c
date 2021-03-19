@@ -49,6 +49,9 @@ jbyteArray mty_jni_alloc(JNIEnv *env, size_t size)
 
 jbyteArray mty_jni_dup(JNIEnv *env, const void *buf, size_t size)
 {
+	if (!buf || size == 0)
+		return NULL;
+
 	jbyteArray dup = (*env)->NewByteArray(env, size);
 	(*env)->SetByteArrayRegion(env, dup, 0, size, buf);
 
@@ -78,6 +81,17 @@ void mty_jni_strcpy(JNIEnv *env, char *buf, size_t size, jstring str)
 	snprintf(buf, size, "%s", cstr);
 
 	(*env)->ReleaseStringUTFChars(env, str, cstr);
+}
+
+char *mty_jni_cstrdup(JNIEnv *env, jstring jstr)
+{
+	const char *cstr = (*env)->GetStringUTFChars(env, jstr, NULL);
+	char *str = MTY_Strdup(cstr);
+
+	(*env)->ReleaseStringUTFChars(env, jstr, cstr);
+	(*env)->DeleteLocalRef(env, jstr);
+
+	return str;
 }
 
 
@@ -192,6 +206,38 @@ jint mty_jni_int(JNIEnv *env, jobject obj, const char *name, const char *sig, ..
 	jclass cls = (*env)->GetObjectClass(env, obj);
 	jmethodID mid = (*env)->GetMethodID(env, cls, name, sig);
 	jint r = (*env)->CallIntMethodV(env, obj, mid, args);
+
+	va_end(args);
+
+	mty_jni_free(env, cls);
+
+	return r;
+}
+
+jfloat mty_jni_float(JNIEnv *env, jobject obj, const char *name, const char *sig, ...)
+{
+	va_list args;
+	va_start(args, sig);
+
+	jclass cls = (*env)->GetObjectClass(env, obj);
+	jmethodID mid = (*env)->GetMethodID(env, cls, name, sig);
+	jfloat r = (*env)->CallFloatMethodV(env, obj, mid, args);
+
+	va_end(args);
+
+	mty_jni_free(env, cls);
+
+	return r;
+}
+
+bool mty_jni_bool(JNIEnv *env, jobject obj, const char *name, const char *sig, ...)
+{
+	va_list args;
+	va_start(args, sig);
+
+	jclass cls = (*env)->GetObjectClass(env, obj);
+	jmethodID mid = (*env)->GetMethodID(env, cls, name, sig);
+	bool r = (*env)->CallBooleanMethodV(env, obj, mid, args);
 
 	va_end(args);
 
