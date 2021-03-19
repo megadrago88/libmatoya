@@ -530,6 +530,9 @@ MTY_GetPlatform(void);
 MTY_EXPORT uint32_t
 MTY_GetPlatformNoWeb(void);
 
+MTY_EXPORT bool
+MTY_Supported(void);
+
 MTY_EXPORT const char *
 MTY_VersionString(uint32_t platform);
 
