@@ -13,7 +13,7 @@
 #include <aaudio/AAudio.h>
 
 #define AUDIO_CHANNELS 2
-#define AUDIO_BUF_SIZE (48000 * AUDIO_CHANNELS * 2 * 1) // 1 second at 48khz
+#define AUDIO_BUF_SIZE (48000 * AUDIO_CHANNELS * 2)
 
 struct MTY_Audio {
 	AAudioStreamBuilder *builder;

@@ -346,7 +346,7 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_Matoya_app_1key(JNIEnv *env, jo
 	// Certain soft keyboard keys come in as unique values that don't
 	// correspond to EN-US keyboards, convert hem here
 	if (soft)
-		app_translate_soft(&code, &mods);
+		keymap_translate_soft(&code, &mods);
 
 	// Back key has special meaning
 	if (pressed && code == AKEYCODE_BACK) {
@@ -358,12 +358,12 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_Matoya_app_1key(JNIEnv *env, jo
 
 	// Actual MTY_EVENT_KEY events generated
 	if (code < (jint) APP_KEYS_MAX) {
-		MTY_Key key = APP_KEYS[code];
+		MTY_Key key = APP_KEY_MAP[code];
 
 		if (key != MTY_KEY_NONE) {
 			MTY_Event evt = {0};
 			evt.type = MTY_EVENT_KEY;
-			evt.key.mod = app_keymods(mods);
+			evt.key.mod = keymap_mods(mods);
 			evt.key.pressed = pressed;
 
 			// The soft keyboard has shift implicitly held down for certain keys
@@ -771,7 +771,7 @@ void MTY_HotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
 
 	if (key != MTY_KEY_NONE) {
 		for (int32_t x = 0; x < (int32_t) APP_KEYS_MAX; x++) {
-			if (key == APP_KEYS[x]) {
+			if (key == APP_KEY_MAP[x]) {
 				char *ctext = app_string_method(&CTX, "getKey", "(I)Ljava/lang/String;", x);
 				if (ctext) {
 					MTY_Strcat(str, len, ctext);
@@ -969,7 +969,7 @@ void MTY_AppDetach(MTY_App *app, MTY_Detach type)
 
 MTY_Detach MTY_AppGetDetached(MTY_App *app)
 {
-	// When touch events are receved, don't respect detach
+	// When touch events are received, don't respect detach
 
 	return app->should_detach ? app->detach : MTY_DETACH_NONE;
 }
@@ -1072,14 +1072,11 @@ void *mty_window_get_native(MTY_App *app, MTY_Window window)
 }
 
 
-// Misc
+// Unimplemented
 
 void MTY_SetAppID(const char *id)
 {
 }
-
-
-// Unimplemented
 
 void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {
