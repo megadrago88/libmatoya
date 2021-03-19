@@ -1580,7 +1580,7 @@ static void window_client_to_full(int32_t *width, int32_t *height)
 	}
 }
 
-MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
+MTY_Window MTY_WindowCreate(MTY_App *app, const MTY_WindowDesc *desc)
 {
 	MTY_Window window = -1;
 	wchar_t *titlew = NULL;
@@ -1629,7 +1629,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 			wsize_center(rect.left, rect.top, desktop_width, desktop_height, &x, &y, &width, &height);
 	}
 
-	titlew = MTY_MultiToWideD(title);
+	titlew = MTY_MultiToWideD(desc->title ? desc->title : "MTY_Window");
 
 	ctx->hwnd = CreateWindowEx(0, APP_CLASS_NAME, titlew, style,
 		x, y, width, height, NULL, NULL, app->instance, ctx);

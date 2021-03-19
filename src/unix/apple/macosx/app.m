@@ -1278,7 +1278,7 @@ static void window_revert_levels(void)
 		[windows[x] setLevel:NSNormalWindowLevel];
 }
 
-MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
+MTY_Window MTY_WindowCreate(MTY_App *app, const MTY_WindowDesc *desc)
 {
 	MTY_Window window = -1;
 	bool r = true;
@@ -1314,7 +1314,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 
 	ctx = [[Window alloc] initWithContentRect:rect styleMask:style
 		backing:NSBackingStoreBuffered defer:NO screen:screen];
-	ctx.title = [NSString stringWithUTF8String:title];
+	ctx.title = [NSString stringWithUTF8String:desc->title ? desc->title : "MTY_Window"];
 	ctx.window = window;
 	ctx.app = (__bridge App *) app;
 

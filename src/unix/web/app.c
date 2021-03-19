@@ -416,9 +416,9 @@ void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t h
 	web_rumble_gamepad(id, (float) low / (float) UINT16_MAX, (float) high / (float) UINT16_MAX);
 }
 
-MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
+MTY_Window MTY_WindowCreate(MTY_App *app, const MTY_WindowDesc *desc)
 {
-	MTY_WindowSetTitle(app, 0, title);
+	MTY_WindowSetTitle(app, 0, desc->title ? desc->title : "MTY_Window");
 
 	return 0;
 }

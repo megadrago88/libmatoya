@@ -1006,7 +1006,7 @@ static void window_set_up_wm(MTY_App *app, Window w, const MTY_WindowDesc *desc)
 	XSetWMProtocols(app->display, w, protos, 2);
 }
 
-MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
+MTY_Window MTY_WindowCreate(MTY_App *app, const MTY_WindowDesc *desc)
 {
 	bool r = true;
 	struct window *ctx = MTY_Alloc(1, sizeof(struct window));
@@ -1052,7 +1052,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	XMapRaised(app->display, ctx->window);
 	XMoveWindow(app->display, ctx->window, x, y);
 
-	MTY_WindowSetTitle(app, window, title);
+	MTY_WindowSetTitle(app, window, desc->title ? desc->title : "MTY_Window");
 
 	window_set_up_wm(app, ctx->window, desc);
 

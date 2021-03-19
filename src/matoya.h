@@ -1367,6 +1367,7 @@ typedef struct {
 } MTY_MenuItem;
 
 typedef struct {
+	const char *title;
 	MTY_Position position;
 	MTY_GFX api;
 	uint32_t width;
@@ -1495,7 +1496,7 @@ MTY_EXPORT void
 MTY_AppSetInputMode(MTY_App *ctx, MTY_Input mode);
 
 MTY_EXPORT MTY_Window
-MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc);
+MTY_WindowCreate(MTY_App *app, const MTY_WindowDesc *desc);
 
 MTY_EXPORT void
 MTY_WindowDestroy(MTY_App *app, MTY_Window window);

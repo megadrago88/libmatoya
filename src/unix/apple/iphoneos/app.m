@@ -131,7 +131,7 @@ void MTY_AppEnablePen(MTY_App *app, bool enable)
 
 // Window
 
-MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
+MTY_Window MTY_WindowCreate(MTY_App *app, const MTY_WindowDesc *desc)
 {
 	return -1;
 }

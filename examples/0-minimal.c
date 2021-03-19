@@ -38,12 +38,13 @@ int main(int argc, char **argv)
 
 	// Create a window
 	MTY_WindowDesc desc = {
+		.title = "My Window",
 		.api = MTY_GFX_GL,
 		.width = 800,
 		.height = 600,
 	};
 
-	MTY_WindowCreate(ctx.app, "My Window", &desc);
+	MTY_WindowCreate(ctx.app, &desc);
 
 	// Run the app -- blocks until your app_func returns false
 	MTY_AppRun(ctx.app);

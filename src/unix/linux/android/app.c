@@ -987,7 +987,7 @@ void MTY_AppSetInputMode(MTY_App *ctx, MTY_Input mode)
 
 // Window
 
-MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
+MTY_Window MTY_WindowCreate(MTY_App *app, const MTY_WindowDesc *desc)
 {
 	return 0;
 }
