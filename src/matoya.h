@@ -632,23 +632,23 @@ typedef struct {
 typedef struct {
 	float x;
 	float y;
-} MTY_Vec2;
+} MTY_Point;
 
 typedef struct {
 	float x;
 	float y;
-	float z;
-	float w;
-} MTY_Vec4;
+	float r;
+	float b;
+} MTY_Rect;
 
 typedef struct {
-	MTY_Vec2 pos;
-	MTY_Vec2 uv;
+	MTY_Point pos;
+	MTY_Point uv;
 	uint32_t col;
 } MTY_Vtx;
 
 typedef struct {
-	MTY_Vec4 clip;
+	MTY_Rect clip;
 	uint32_t texture;
 	uint32_t elemCount;
 	uint32_t idxOffset;
@@ -668,7 +668,7 @@ typedef struct {
 } MTY_CmdList;
 
 typedef struct {
-	MTY_Vec2 displaySize;
+	MTY_Point displaySize;
 	MTY_CmdList *cmdList;
 	uint32_t cmdListLength;
 	uint32_t cmdListMax;

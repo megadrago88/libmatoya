@@ -210,20 +210,16 @@ bool mty_gl_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *co
 			MTY_Cmd *pcmd = &cmdList->cmd[i];
 
 			// Use the clip to apply scissor
-			MTY_Vec4 r = {0};
-			r.x = pcmd->clip.x;
-			r.y = pcmd->clip.y;
-			r.z = pcmd->clip.z;
-			r.w = pcmd->clip.w;
+			MTY_Rect r = pcmd->clip;
 
 			// Make sure the rect is actually in the viewport
-			if (r.x < fb_width && r.y < fb_height && r.z >= 0.0f && r.w >= 0.0f) {
+			if (r.x < fb_width && r.y < fb_height && r.r >= 0.0f && r.b >= 0.0f) {
 
 				// Adjust for origin (from lower left corner)
 				r.y -= GL_UI_ORIGIN_Y;
-				r.w -= GL_UI_ORIGIN_Y;
+				r.b -= GL_UI_ORIGIN_Y;
 
-				glScissor(lrint(r.x), lrint(fb_height - r.w), lrint(r.z - r.x), lrint(r.w - r.y));
+				glScissor(lrint(r.x), lrint(fb_height - r.b), lrint(r.r - r.x), lrint(r.b - r.y));
 
 				// Optionally sample from a texture (fonts, images)
 				glBindTexture(GL_TEXTURE_2D, !pcmd->texture ? 0 :
