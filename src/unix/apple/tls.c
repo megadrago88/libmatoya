@@ -11,6 +11,9 @@
 #include <stdlib.h>
 
 #include <Security/SecureTransport.h>
+#include <Security/Security.h>
+
+#include "cert.h"
 
 struct tls_write {
 	void *out;
@@ -19,7 +22,10 @@ struct tls_write {
 };
 
 struct MTY_Cert {
-	bool dummy;
+	SecKeyRef public_key;
+	SecKeyRef private_key;
+	SecCertificateRef cert;
+	SecIdentityRef ident;
 };
 
 struct MTY_TLS {
@@ -43,16 +49,150 @@ struct MTY_TLS {
 
 MTY_Cert *MTY_CertCreate(void)
 {
-	// TODO Needed only for DTLS
+	bool r = true;
+	CFDataRef export = NULL;
+	CFMutableDictionaryRef attrs = NULL;
 
-	return MTY_Alloc(1, sizeof(MTY_Cert));
+	MTY_Cert *ctx = MTY_Alloc(1, sizeof(MTY_Cert));
+
+	uint8_t *buf = MTY_Alloc(sizeof(CERT_TEMPLATE) + CERT_SIG_LENGTH, 1);
+	memcpy(buf, CERT_TEMPLATE, sizeof(CERT_TEMPLATE));
+
+	// Private key
+	attrs = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
+	CFDictionarySetValue(attrs, kSecAttrKeyType, kSecAttrKeyTypeRSA);
+
+	int32_t bits = 2048;
+	CFNumberRef cfbits = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &bits);
+	CFDictionarySetValue(attrs, kSecAttrKeySizeInBits, cfbits);
+	CFRelease(cfbits);
+
+	OSStatus e = SecKeyGeneratePair(attrs, &ctx->public_key, &ctx->private_key);
+	if (e != errSecSuccess) {
+		MTY_Log("'SecKeyGeneratePair' failed with error %d", e);
+		r = false;
+		goto except;
+	}
+
+	e = SecRandomCopyBytes(kSecRandomDefault, CERT_SERIAL_LENGTH, buf + CERT_SERIAL_OFFSET);
+	if (e != errSecSuccess) {
+		MTY_Log("'SecRandomCopyBytes' failed with error %d", e);
+		r = false;
+		goto except;
+	}
+
+	buf[CERT_SERIAL_OFFSET] &= 0x7F; // Non-negative
+
+	// Dates
+	CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+	CFDateRef date_issue = CFDateCreate(NULL, now - (60 * 60));
+	CFDateRef date_exp = CFDateCreate(NULL, now + (60 * 60 * 24 * 30));
+
+	CFDateFormatterRef formatter = CFDateFormatterCreate(NULL, NULL, kCFDateFormatterNoStyle, kCFDateFormatterNoStyle);
+	CFDateFormatterSetFormat(formatter, CFSTR("yyMMddHHmmss'Z'"));
+
+	CFStringRef str_issue = CFDateFormatterCreateStringWithDate(NULL, formatter, date_issue);
+	CFStringRef str_exp = CFDateFormatterCreateStringWithDate(NULL, formatter, date_exp);
+
+	char cstr_issue[CERT_DATE_LENGTH + 8] = {0};
+	char cstr_exp[CERT_DATE_LENGTH + 8] = {0};
+
+	CFStringGetCString(str_issue, cstr_issue, CERT_DATE_LENGTH + 8, kCFStringEncodingUTF8);
+	CFStringGetCString(str_exp, cstr_exp, CERT_DATE_LENGTH + 8, kCFStringEncodingUTF8);
+
+	memcpy(buf + CERT_ISSUE_DATE_OFFSET, cstr_issue, CERT_DATE_LENGTH);
+	memcpy(buf + CERT_EXP_DATE_OFFSET, cstr_exp, CERT_DATE_LENGTH);
+
+	CFRelease(str_exp);
+	CFRelease(str_issue);
+	CFRelease(formatter);
+	CFRelease(date_exp);
+	CFRelease(date_issue);
+
+	// Copy public Key
+	e = SecItemExport(ctx->public_key, kSecFormatBSAFE, 0, NULL, &export);
+	if (e != errSecSuccess) {
+		MTY_Log("'SecItemExport' failed with error %d", e);
+		r = false;
+		goto except;
+	}
+
+	if (CFDataGetLength(export) != CERT_PUBLIC_KEY_LENGTH) {
+		MTY_Log("Exported public key is the wrong size");
+		r = false;
+		goto except;
+	}
+
+	memcpy(buf + CERT_PUBLIC_KEY_OFFSET, CFDataGetBytePtr(export), CERT_PUBLIC_KEY_LENGTH);
+
+	// Signing
+	CFDataRef csr = CFDataCreate(NULL, buf + CERT_CSR_OFFSET, CERT_CSR_LENGTH);
+	SecTransformRef transform = SecSignTransformCreate(ctx->private_key, NULL);
+	SecTransformSetAttribute(transform, kSecDigestTypeAttribute, kSecDigestSHA1, NULL);
+	SecTransformSetAttribute(transform, kSecTransformInputAttributeName, csr, NULL);
+
+	CFDataRef sig = SecTransformExecute(transform, NULL);
+	memcpy(buf + sizeof(CERT_TEMPLATE), CFDataGetBytePtr(sig), CERT_SIG_LENGTH);
+
+	CFRelease(sig);
+	CFRelease(csr);
+	CFRelease(transform);
+
+	// Create the cert
+	CFDataRef cfcert = CFDataCreate(NULL, buf, sizeof(CERT_TEMPLATE) + CERT_SIG_LENGTH);
+	ctx->cert = SecCertificateCreateWithData(NULL, cfcert);
+	CFRelease(cfcert);
+
+	// Create the identity
+	SecIdentityCreateWithCertificate(NULL, ctx->cert, &ctx->ident);
+
+	except:
+
+	if (export)
+		CFRelease(export);
+
+	if (attrs)
+		CFRelease(attrs);
+
+	MTY_Free(buf);
+
+	if (!r)
+		MTY_CertDestroy(&ctx);
+
+	return ctx;
+}
+
+static void tls_cert_to_fingerprint(SecCertificateRef cert, char *fingerprint, size_t size)
+{
+	snprintf(fingerprint, size, "sha-256 ");
+
+	uint8_t buf[MTY_SHA256_SIZE];
+
+	CFDataRef bytes = SecCertificateCopyData(cert);
+
+	MTY_CryptoHash(MTY_ALGORITHM_SHA256, CFDataGetBytePtr(bytes), CFDataGetLength(bytes),
+		NULL, 0, buf, MTY_SHA256_SIZE);
+
+	CFRelease(bytes);
+
+	for (size_t x = 0; x < MTY_SHA256_SIZE; x++) {
+		char append[8];
+		snprintf(append, 8, "%02X:", buf[x]);
+		MTY_Strcat(fingerprint, size, append);
+	}
+
+	// Remove the trailing ':'
+	fingerprint[strlen(fingerprint) - 1] = '\0';
 }
 
 void MTY_CertGetFingerprint(MTY_Cert *ctx, char *fingerprint, size_t size)
 {
-	// TODO Needed only for DTLS
+	if (!ctx->cert) {
+		memset(fingerprint, 0, size);
+		return;
+	}
 
-	memset(fingerprint, 0, size);
+	tls_cert_to_fingerprint(ctx->cert, fingerprint, size);
 }
 
 void MTY_CertDestroy(MTY_Cert **cert)
@@ -61,6 +201,18 @@ void MTY_CertDestroy(MTY_Cert **cert)
 		return;
 
 	MTY_Cert *ctx = *cert;
+
+	if (ctx->public_key)
+		CFRelease(ctx->public_key);
+
+	if (ctx->private_key)
+		CFRelease(ctx->private_key);
+
+	if (ctx->cert)
+		CFRelease(ctx->cert);
+
+	if (ctx->ident)
+		CFRelease(ctx->ident);
 
 	MTY_Free(ctx);
 	*cert = NULL;
@@ -119,6 +271,8 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 
 	MTY_TLS *ctx = MTY_Alloc(1, sizeof(MTY_TLS));
 
+	CFMutableArrayRef array = NULL;
+
 	ctx->ctx = SSLCreateContext(NULL, kSSLClientSide, type == MTY_TLS_TYPE_DTLS ? kSSLDatagramType : kSSLStreamType);
 	if (!ctx->ctx) {
 		MTY_Log("'SSLCreateContext' failed");
@@ -166,13 +320,25 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 	}
 
 	if (cert) {
-		// TODO Only needed for DTLS
+		array = CFArrayCreateMutable(NULL, 2, NULL);
+		CFArrayAppendValue(array, cert->ident);
+		CFArrayAppendValue(array, cert->cert);
+
+		e = SSLSetCertificate(ctx->ctx, array);
+		if (e != noErr) {
+			MTY_Log("'SSLSetCertificate' failed with error %d", e);
+			r = false;
+			goto except;
+		}
 	}
 
 	if (peerFingerprint)
 		ctx->fp = MTY_Strdup(peerFingerprint);
 
 	except:
+
+	if (array)
+		CFRelease(array);
 
 	if (!r)
 		MTY_TLSDestroy(&ctx);
