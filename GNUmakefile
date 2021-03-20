@@ -176,7 +176,7 @@ OBJS := $(OBJS) \
 	src/unix/net/request.o \
 	src/unix/apple/audio.o \
 	src/unix/apple/crypto.o \
-	src/unix/apple/tls.o \
+	src/unix/apple/tls-alt.o \
 	src/unix/apple/gfx/metal.o \
 	src/unix/apple/gfx/metal-ui.o \
 	src/unix/apple/$(TARGET)/aes-gcm.o \
@@ -192,6 +192,7 @@ DEFS := $(DEFS) \
 	-DMTY_GL_EXTERNAL
 
 FLAGS := $(FLAGS) \
+	-Wno-unguarded-availability-new \
 	-m$(TARGET)-version-min=$(MIN_VER) \
 	-isysroot $(shell xcrun --sdk $(TARGET) --show-sdk-path) \
 	-arch $(ARCH)
