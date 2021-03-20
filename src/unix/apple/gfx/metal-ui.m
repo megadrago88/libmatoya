@@ -161,19 +161,15 @@ bool mty_metal_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 			const MTY_Cmd *pcmd = &cmdList->cmd[cmd_i];
 
 			// Use the clip to apply scissor
-			MTY_Vec4 r = {0};
-			r.x = pcmd->clip.x;
-			r.y = pcmd->clip.y;
-			r.z = pcmd->clip.z;
-			r.w = pcmd->clip.w;
+			MTY_Rect r = pcmd->clip;
 
 			// Make sure the rect is actually in the viewport
-			if (r.x < fb_width && r.y < fb_height && r.z >= 0.0f && r.w >= 0.0f) {
+			if (r.x < fb_width && r.y < fb_height && r.r >= 0.0f && r.b >= 0.0f) {
 				MTLScissorRect scissorRect = {
 					.x = lrint(r.x),
 					.y = lrint(r.y),
-					.width = lrint(r.z - r.x),
-					.height = lrint(r.w - r.y)
+					.width = lrint(r.r - r.x),
+					.height = lrint(r.b - r.y)
 				};
 				[re setScissorRect:scissorRect];
 

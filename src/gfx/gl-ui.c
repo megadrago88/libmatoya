@@ -13,10 +13,10 @@ GFX_UI_PROTOTYPES(_gl_)
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stddef.h>
 #include <math.h>
 
-#include "gl-dl.h"
+#include "glproc.h"
+
 #include "shaders/gl/vsui.h"
 #include "shaders/gl/fsui.h"
 
@@ -56,7 +56,7 @@ static void gl_ui_log_shader_errors(GLuint shader)
 
 struct gfx_ui *mty_gl_ui_create(MTY_Device *device)
 {
-	if (!gl_dl_global_init())
+	if (!glproc_global_init())
 		return NULL;
 
 	struct gl_ui *ctx = MTY_Alloc(1, sizeof(struct gl_ui));
@@ -185,43 +185,49 @@ bool mty_gl_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *co
 	glEnableVertexAttribArray(ctx->loc_pos);
 	glEnableVertexAttribArray(ctx->loc_uv);
 	glEnableVertexAttribArray(ctx->loc_col);
-	glVertexAttribPointer(ctx->loc_pos, 2, GL_FLOAT, GL_FALSE, sizeof(MTY_Vtx), (GLvoid *) offsetof(MTY_Vtx, pos));
-	glVertexAttribPointer(ctx->loc_uv, 2, GL_FLOAT, GL_FALSE, sizeof(MTY_Vtx), (GLvoid *) offsetof(MTY_Vtx, uv));
-	glVertexAttribPointer(ctx->loc_col, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(MTY_Vtx), (GLvoid *) offsetof(MTY_Vtx, col));
+
+	glVertexAttribPointer(ctx->loc_pos, 2, GL_FLOAT, GL_FALSE,
+		sizeof(MTY_Vtx), (GLvoid *) offsetof(MTY_Vtx, pos));
+
+	glVertexAttribPointer(ctx->loc_uv, 2, GL_FLOAT, GL_FALSE,
+		sizeof(MTY_Vtx), (GLvoid *) offsetof(MTY_Vtx, uv));
+
+	glVertexAttribPointer(ctx->loc_col, 4, GL_UNSIGNED_BYTE, GL_TRUE,
+		sizeof(MTY_Vtx), (GLvoid *) offsetof(MTY_Vtx, col));
 
 	// Draw
 	for (uint32_t n = 0; n < dd->cmdListLength; n++) {
 		MTY_CmdList *cmdList = &dd->cmdList[n];
 
 		// Copy vertex, index buffer data
-		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr) cmdList->vtxLength * sizeof(MTY_Vtx), cmdList->vtx, GL_STREAM_DRAW);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr) cmdList->idxLength * sizeof(uint16_t), cmdList->idx, GL_STREAM_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr) cmdList->vtxLength * sizeof(MTY_Vtx),
+			cmdList->vtx, GL_STREAM_DRAW);
+
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr) cmdList->idxLength * sizeof(uint16_t),
+			cmdList->idx, GL_STREAM_DRAW);
 
 		for (uint32_t i = 0; i < cmdList->cmdLength; i++) {
 			MTY_Cmd *pcmd = &cmdList->cmd[i];
 
 			// Use the clip to apply scissor
-			MTY_Vec4 r = {0};
-			r.x = pcmd->clip.x;
-			r.y = pcmd->clip.y;
-			r.z = pcmd->clip.z;
-			r.w = pcmd->clip.w;
+			MTY_Rect r = pcmd->clip;
 
 			// Make sure the rect is actually in the viewport
-			if (r.x < fb_width && r.y < fb_height && r.z >= 0.0f && r.w >= 0.0f) {
+			if (r.x < fb_width && r.y < fb_height && r.r >= 0.0f && r.b >= 0.0f) {
 
 				// Adjust for origin (from lower left corner)
 				r.y -= GL_UI_ORIGIN_Y;
-				r.w -= GL_UI_ORIGIN_Y;
+				r.b -= GL_UI_ORIGIN_Y;
 
-				glScissor(lrint(r.x), lrint(fb_height - r.w), lrint(r.z - r.x), lrint(r.w - r.y));
+				glScissor(lrint(r.x), lrint(fb_height - r.b), lrint(r.r - r.x), lrint(r.b - r.y));
 
 				// Optionally sample from a texture (fonts, images)
 				glBindTexture(GL_TEXTURE_2D, !pcmd->texture ? 0 :
 					(GLuint) (uintptr_t) MTY_HashGetInt(cache, pcmd->texture));
 
 				// Draw indexed
-				glDrawElements(GL_TRIANGLES, pcmd->elemCount, GL_UNSIGNED_SHORT, (void *) (uintptr_t) (pcmd->idxOffset * sizeof(uint16_t)));
+				glDrawElements(GL_TRIANGLES, pcmd->elemCount, GL_UNSIGNED_SHORT,
+					(void *) (uintptr_t) (pcmd->idxOffset * sizeof(uint16_t)));
 			}
 		}
 	}

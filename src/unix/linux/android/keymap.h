@@ -9,7 +9,7 @@
 #include <android/keycodes.h>
 #include <android/input.h>
 
-static const MTY_Key APP_KEYS[] = {
+static const MTY_Key APP_KEY_MAP[] = {
 	[AKEYCODE_ESCAPE] = MTY_KEY_ESCAPE,
 	[AKEYCODE_1] = MTY_KEY_1,
 	[AKEYCODE_2] = MTY_KEY_2,
@@ -26,7 +26,6 @@ static const MTY_Key APP_KEYS[] = {
 	[AKEYCODE_DEL] = MTY_KEY_BACKSPACE,
 	[AKEYCODE_TAB] = MTY_KEY_TAB,
 	[AKEYCODE_Q] = MTY_KEY_Q,
-	// [0] = MTY_KEY_AUDIO_PREV,
 	[AKEYCODE_W] = MTY_KEY_W,
 	[AKEYCODE_E] = MTY_KEY_E,
 	[AKEYCODE_R] = MTY_KEY_R,
@@ -36,7 +35,6 @@ static const MTY_Key APP_KEYS[] = {
 	[AKEYCODE_I] = MTY_KEY_I,
 	[AKEYCODE_O] = MTY_KEY_O,
 	[AKEYCODE_P] = MTY_KEY_P,
-	// [0] = MTY_KEY_AUDIO_NEXT,
 	[AKEYCODE_LEFT_BRACKET] = MTY_KEY_LBRACKET,
 	[AKEYCODE_RIGHT_BRACKET] = MTY_KEY_RBRACKET,
 	[AKEYCODE_ENTER] = MTY_KEY_ENTER,
@@ -46,13 +44,10 @@ static const MTY_Key APP_KEYS[] = {
 	[AKEYCODE_A] = MTY_KEY_A,
 	[AKEYCODE_S] = MTY_KEY_S,
 	[AKEYCODE_D] = MTY_KEY_D,
-	// [0] = MTY_KEY_MUTE,
 	[AKEYCODE_F] = MTY_KEY_F,
 	[AKEYCODE_G] = MTY_KEY_G,
-	// [0] = MTY_KEY_AUDIO_PLAY,
 	[AKEYCODE_H] = MTY_KEY_H,
 	[AKEYCODE_J] = MTY_KEY_J,
-	// [0] = MTY_KEY_AUDIO_STOP,
 	[AKEYCODE_K] = MTY_KEY_K,
 	[AKEYCODE_L] = MTY_KEY_L,
 	[AKEYCODE_SEMICOLON] = MTY_KEY_SEMICOLON,
@@ -63,10 +58,8 @@ static const MTY_Key APP_KEYS[] = {
 	[AKEYCODE_Z] = MTY_KEY_Z,
 	[AKEYCODE_X] = MTY_KEY_X,
 	[AKEYCODE_C] = MTY_KEY_C,
-	// [0] = MTY_KEY_VOLUME_DOWN,
 	[AKEYCODE_V] = MTY_KEY_V,
 	[AKEYCODE_B] = MTY_KEY_B,
-	// [0] = MTY_KEY_VOLUME_UP,
 	[AKEYCODE_N] = MTY_KEY_N,
 	[AKEYCODE_M] = MTY_KEY_M,
 	[AKEYCODE_COMMA] = MTY_KEY_COMMA,
@@ -75,7 +68,6 @@ static const MTY_Key APP_KEYS[] = {
 	[AKEYCODE_NUMPAD_DIVIDE] = MTY_KEY_NP_DIVIDE,
 	[AKEYCODE_SHIFT_RIGHT] = MTY_KEY_RSHIFT,
 	[AKEYCODE_NUMPAD_MULTIPLY] = MTY_KEY_NP_MULTIPLY,
-	// [0] = MTY_KEY_PRINT_SCREEN,
 	[AKEYCODE_ALT_LEFT] = MTY_KEY_LALT,
 	[AKEYCODE_ALT_RIGHT] = MTY_KEY_RALT,
 	[AKEYCODE_SPACE] = MTY_KEY_SPACE,
@@ -92,7 +84,6 @@ static const MTY_Key APP_KEYS[] = {
 	[AKEYCODE_F10] = MTY_KEY_F10,
 	[AKEYCODE_NUM_LOCK] = MTY_KEY_NUM_LOCK,
 	[AKEYCODE_SCROLL_LOCK] = MTY_KEY_SCROLL_LOCK,
-	// [0] = MTY_KEY_PAUSE,
 	[AKEYCODE_NUMPAD_7] = MTY_KEY_NP_7,
 	[AKEYCODE_MOVE_HOME] = MTY_KEY_HOME,
 	[AKEYCODE_NUMPAD_8] = MTY_KEY_NP_8,
@@ -116,31 +107,20 @@ static const MTY_Key APP_KEYS[] = {
 	[AKEYCODE_INSERT] = MTY_KEY_INSERT,
 	[AKEYCODE_NUMPAD_DOT] = MTY_KEY_NP_PERIOD,
 	[AKEYCODE_FORWARD_DEL] = MTY_KEY_DELETE,
-	// [0] = MTY_KEY_INTL_BACKSLASH,
 	[AKEYCODE_F11] = MTY_KEY_F11,
 	[AKEYCODE_F12] = MTY_KEY_F12,
 	[AKEYCODE_META_LEFT] = MTY_KEY_LWIN,
 	[AKEYCODE_META_RIGHT] = MTY_KEY_RWIN,
-	// [0] = MTY_KEY_APP,
-	// [0] = MTY_KEY_F13,
-	// [0] = MTY_KEY_F14,
-	// [0] = MTY_KEY_F15,
-	// [0] = MTY_KEY_F16,
-	// [0] = MTY_KEY_F17,
-	// [0] = MTY_KEY_F18,
-	// [0] = MTY_KEY_F19,
-	// [0] = MTY_KEY_MEDIA_SELECT,
 	[AKEYCODE_KATAKANA_HIRAGANA] = MTY_KEY_JP,
 	[AKEYCODE_RO] = MTY_KEY_RO,
 	[AKEYCODE_HENKAN] = MTY_KEY_HENKAN,
 	[AKEYCODE_MUHENKAN] = MTY_KEY_MUHENKAN,
-	// [0] = MTY_KEY_INTL_COMMA,
 	[AKEYCODE_YEN] = MTY_KEY_YEN,
 };
 
-#define APP_KEYS_MAX (sizeof(APP_KEYS) / sizeof(MTY_Key))
+#define APP_KEYS_MAX (sizeof(APP_KEY_MAP) / sizeof(MTY_Key))
 
-static MTY_Mod app_keymods(int32_t mods)
+static MTY_Mod keymap_mods(int32_t mods)
 {
 	MTY_Mod mty = MTY_MOD_NONE;
 
@@ -162,7 +142,7 @@ static MTY_Mod app_keymods(int32_t mods)
 	return mty;
 }
 
-static void app_translate_soft(jint *code, jint *mods)
+static void keymap_translate_soft(jint *code, jint *mods)
 {
 	jint prev = *code;
 

@@ -22,7 +22,6 @@ struct gl_ctx {
 	uint32_t fb0;
 };
 
-
 static void gl_ctx_get_size(struct gl_ctx *ctx, uint32_t *width, uint32_t *height)
 {
 	RECT rect = {0};

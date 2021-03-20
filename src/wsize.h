@@ -6,7 +6,7 @@
 
 #pragma once
 
-static void mty_wsize_client(const MTY_WindowDesc *desc, float scale, int32_t screen_h,
+static void wsize_client(const MTY_WindowDesc *desc, float scale, int32_t screen_h,
 	int32_t *x, int32_t *y, int32_t *w, int32_t *h)
 {
 	if (desc->maxHeight > 0.0f && (float) desc->height * scale >
@@ -22,7 +22,7 @@ static void mty_wsize_client(const MTY_WindowDesc *desc, float scale, int32_t sc
 	}
 }
 
-static void mty_wsize_center(int32_t screen_x, int32_t screen_y, int32_t screen_w, int32_t screen_h,
+static void wsize_center(int32_t screen_x, int32_t screen_y, int32_t screen_w, int32_t screen_h,
 	int32_t *x, int32_t *y, int32_t *w, int32_t *h)
 {
 	if (screen_w > *w) {

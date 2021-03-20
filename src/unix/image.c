@@ -14,9 +14,8 @@
 
 #if defined(__x86_64__) || defined(_M_X64) || defined(__i386) || defined(_M_IX86)
 	#include <emmintrin.h>
-#endif
 
-#if defined(MTY_NEON)
+#elif defined(__aarch64__)
 	#define STBI_NEON
 	#include <arm_neon.h>
 #endif

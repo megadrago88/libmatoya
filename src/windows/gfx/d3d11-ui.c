@@ -338,8 +338,8 @@ bool mty_d3d11_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 			D3D11_RECT r = {0};
 			r.left = lrint(pcmd->clip.x);
 			r.top = lrint(pcmd->clip.y);
-			r.right = lrint(pcmd->clip.z);
-			r.bottom = lrint(pcmd->clip.w);
+			r.right = lrint(pcmd->clip.r);
+			r.bottom = lrint(pcmd->clip.b);
 
 			// Make sure the rect is actually in the viewport
 			if (r.left < dd->displaySize.x && r.top < dd->displaySize.y && r.right >= 0.0f && r.bottom >= 0.0f) {

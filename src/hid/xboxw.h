@@ -6,7 +6,7 @@
 
 #pragma once
 
-static void mty_hid_xboxw_state(struct hdevice *device, const void *data, size_t size, MTY_Event *evt)
+static void xboxw_state(struct hid_dev *device, const void *data, size_t size, MTY_Event *evt)
 {
 	const uint8_t *d = data;
 

@@ -10,8 +10,8 @@
 #include "sleep.h"
 #include "timestamp.h"
 
-static MTY_TLOCAL bool TIME_FREQ_INIT;
-static MTY_TLOCAL float TIME_FREQUENCY;
+static TLOCAL bool TIME_FREQ_INIT;
+static TLOCAL float TIME_FREQUENCY;
 
 MTY_Time MTY_GetTime(void)
 {

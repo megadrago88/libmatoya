@@ -136,7 +136,7 @@ static void tls_add_data(MTY_TLS *ctx, const void *buf, size_t size)
 	ctx->offset += size;
 }
 
-static void tls_to_string(JNIEnv *env, jobject obj, char *str, size_t size)
+static void tls_obj_to_string(JNIEnv *env, jobject obj, char *str, size_t size)
 {
 	jstring jstr = mty_jni_obj(env, obj, "toString", "()Ljava/lang/String;");
 	mty_jni_strcpy(env, str, size, jstr);
@@ -161,7 +161,7 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 		// Get handshake status and convert to string
 		char action[32];
 		jobject estatus = mty_jni_obj(env, ctx->engine, "getHandshakeStatus", "()Ljavax/net/ssl/SSLEngineResult$HandshakeStatus;");
-		tls_to_string(env, estatus, action, 32);
+		tls_obj_to_string(env, estatus, action, 32);
 		mty_jni_free(env, estatus);
 
 		jobject result = NULL;
@@ -201,7 +201,7 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 
 		// Get wrap/unwrap handshake status and convert to string
 		jobject status = mty_jni_obj(env, result, "getHandshakeStatus", "()Ljavax/net/ssl/SSLEngineResult$HandshakeStatus;");
-		tls_to_string(env, status, action, 32);
+		tls_obj_to_string(env, status, action, 32);
 		mty_jni_free(env, status);
 		mty_jni_free(env, result);
 

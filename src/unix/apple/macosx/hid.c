@@ -20,7 +20,7 @@ struct hid {
 	void *opaque;
 };
 
-struct hdevice {
+struct hid_dev {
 	IOHIDDeviceRef device;
 	void *state;
 	uint32_t id;
@@ -42,9 +42,9 @@ static int32_t hid_device_get_prop_int(IOHIDDeviceRef device, CFStringRef key)
 	return i;
 }
 
-static struct hdevice *hid_device_create(void *native_device)
+static struct hid_dev *hid_device_create(void *native_device)
 {
-	struct hdevice *ctx = MTY_Alloc(1, sizeof(struct hdevice));
+	struct hid_dev *ctx = MTY_Alloc(1, sizeof(struct hid_dev));
 	ctx->device = (IOHIDDeviceRef) native_device;
 	ctx->vid = hid_device_get_prop_int(ctx->device, CFSTR(kIOHIDVendorIDKey));
 	ctx->pid = hid_device_get_prop_int(ctx->device, CFSTR(kIOHIDProductIDKey));
@@ -59,7 +59,7 @@ static void hid_device_destroy(void *hdevice)
 	if (!hdevice)
 		return;
 
-	struct hdevice *ctx = hdevice;
+	struct hid_dev *ctx = hdevice;
 
 	MTY_Free(ctx->state);
 	MTY_Free(ctx);
@@ -70,7 +70,7 @@ static void hid_report(void *context, IOReturn result, void *sender, IOHIDReport
 {
 	struct hid *ctx = context;
 
-	struct hdevice *dev = MTY_HashGetInt(ctx->devices, (intptr_t) sender);
+	struct hid_dev *dev = MTY_HashGetInt(ctx->devices, (intptr_t) sender);
 	if (!dev) {
 		dev = hid_device_create(sender);
 		dev->id = ++ctx->id;
@@ -87,7 +87,7 @@ static void hid_disconnect(void *context, IOReturn result, void *sender, IOHIDDe
 {
 	struct hid *ctx = context;
 
-	struct hdevice *dev = MTY_HashPopInt(ctx->devices, (intptr_t) device);
+	struct hid_dev *dev = MTY_HashPopInt(ctx->devices, (intptr_t) device);
 	if (dev) {
 		ctx->disconnect(dev, ctx->opaque);
 
@@ -161,7 +161,7 @@ struct hid *mty_hid_create(HID_CONNECT connect, HID_DISCONNECT disconnect, HID_R
 	return ctx;
 }
 
-struct hdevice *mty_hid_get_device_by_id(struct hid *ctx, uint32_t id)
+struct hid_dev *mty_hid_get_device_by_id(struct hid *ctx, uint32_t id)
 {
 	return MTY_HashGetInt(ctx->devices_rev, id);
 }
@@ -188,8 +188,7 @@ void mty_hid_destroy(struct hid **hid)
 	*hid = NULL;
 }
 
-
-void mty_hid_device_write(struct hdevice *ctx, const void *buf, size_t size)
+void mty_hid_device_write(struct hid_dev *ctx, const void *buf, size_t size)
 {
 	const uint8_t *buf8 = buf;
 
@@ -203,7 +202,7 @@ void mty_hid_device_write(struct hdevice *ctx, const void *buf, size_t size)
 		MTY_Log("'IOHIDDeviceSetReport' failed with error 0x%X", e);
 }
 
-bool mty_hid_device_feature(struct hdevice *ctx, void *buf, size_t size, size_t *size_out)
+bool mty_hid_device_feature(struct hid_dev *ctx, void *buf, size_t size, size_t *size_out)
 {
 	const uint8_t *buf8 = buf;
 
@@ -229,7 +228,7 @@ bool mty_hid_device_feature(struct hdevice *ctx, void *buf, size_t size, size_t 
 	return false;
 }
 
-void mty_hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MTY_Event *evt)
+void mty_hid_default_state(struct hid_dev *ctx, const void *buf, size_t size, MTY_Event *evt)
 {
 	MTY_ControllerEvent *c = &evt->controller;
 
@@ -277,9 +276,9 @@ void mty_hid_default_state(struct hdevice *ctx, const void *buf, size_t size, MT
 	CFRelease(elements);
 
 	evt->type = MTY_EVENT_CONTROLLER;
+	c->type = MTY_CTYPE_DEFAULT;
 	c->vid = ctx->vid;
 	c->pid = ctx->pid;
-	c->type = MTY_CTYPE_DEFAULT;
 	c->id = ctx->id;
 }
 
@@ -287,27 +286,27 @@ void mty_hid_default_rumble(struct hid *ctx, uint32_t id, uint16_t low, uint16_t
 {
 }
 
-void *mty_hid_device_get_state(struct hdevice *ctx)
+void *mty_hid_device_get_state(struct hid_dev *ctx)
 {
 	return ctx->state;
 }
 
-uint16_t mty_hid_device_get_vid(struct hdevice *ctx)
+uint16_t mty_hid_device_get_vid(struct hid_dev *ctx)
 {
 	return ctx->vid;
 }
 
-uint16_t mty_hid_device_get_pid(struct hdevice *ctx)
+uint16_t mty_hid_device_get_pid(struct hid_dev *ctx)
 {
 	return ctx->pid;
 }
 
-uint32_t mty_hid_device_get_id(struct hdevice *ctx)
+uint32_t mty_hid_device_get_id(struct hid_dev *ctx)
 {
 	return ctx->id;
 }
 
-uint32_t mty_hid_device_get_input_report_size(struct hdevice *ctx)
+uint32_t mty_hid_device_get_input_report_size(struct hid_dev *ctx)
 {
 	return ctx->input_size;
 }

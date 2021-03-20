@@ -12,10 +12,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <jni.h>
 #include <android/log.h>
 #include <android/input.h>
 
+#include "jnih.h"
 #include "keymap.h"
 #include "gfx/gl-ctx.h"
 
@@ -29,7 +29,6 @@ static struct MTY_App {
 	void *opaque;
 
 	jobject obj;
-	jclass cls;
 
 	MTY_Queue *events;
 	MTY_Hash *ctrls;
@@ -100,112 +99,6 @@ static const MTY_ControllerEvent APP_ZEROED_CTRL = {
 int main(int argc, char **argv);
 
 
-// JNI helpers
-
-static void app_void_method(MTY_App *ctx, const char *name, const char *sig, ...)
-{
-	JNIEnv *env = MTY_JNIEnv();
-
-	va_list args;
-	va_start(args, sig);
-
-	jmethodID mid = (*env)->GetMethodID(env, ctx->cls, name, sig);
-	(*env)->CallVoidMethodV(env, ctx->obj, mid, args);
-
-	va_end(args);
-}
-
-static int32_t app_int_method(MTY_App *ctx, const char *name, const char *sig, ...)
-{
-	JNIEnv *env = MTY_JNIEnv();
-
-	va_list args;
-	va_start(args, sig);
-
-	jmethodID mid = (*env)->GetMethodID(env, ctx->cls, name, sig);
-	int32_t r = (*env)->CallIntMethodV(env, ctx->obj, mid, args);
-
-	va_end(args);
-
-	return r;
-}
-
-static float app_float_method(MTY_App *ctx, const char *name, const char *sig, ...)
-{
-	JNIEnv *env = MTY_JNIEnv();
-
-	va_list args;
-	va_start(args, sig);
-
-	jmethodID mid = (*env)->GetMethodID(env, ctx->cls, name, sig);
-	float r = (*env)->CallFloatMethodV(env, ctx->obj, mid, args);
-
-	va_end(args);
-
-	return r;
-}
-
-static bool app_bool_method(MTY_App *ctx, const char *name, const char *sig, ...)
-{
-	JNIEnv *env = MTY_JNIEnv();
-
-	va_list args;
-	va_start(args, sig);
-
-	jmethodID mid = (*env)->GetMethodID(env, ctx->cls, name, sig);
-	bool r = (*env)->CallBooleanMethodV(env, ctx->obj, mid, args);
-
-	va_end(args);
-
-	return r;
-}
-
-static char *app_string_method(MTY_App *ctx, const char *name, const char *sig, ...)
-{
-	JNIEnv *env = MTY_JNIEnv();
-
-	char *str = NULL;
-
-	va_list args;
-	va_start(args, sig);
-
-	jmethodID mid = (*env)->GetMethodID(env, ctx->cls, name, sig);
-	jstring jstr = (*env)->CallObjectMethodV(env, ctx->obj, mid, args);
-
-	if (jstr) {
-		const char *cstr = (*env)->GetStringUTFChars(env, jstr, NULL);
-		str = MTY_Strdup(cstr);
-
-		(*env)->ReleaseStringUTFChars(env, jstr, cstr);
-		(*env)->DeleteLocalRef(env, jstr);
-	}
-
-	va_end(args);
-
-	return str;
-}
-
-static jbyteArray app_jni_dup(MTY_App *ctx, const void *buf, size_t size)
-{
-	if (!buf || size == 0)
-		return 0;
-
-	JNIEnv *env = MTY_JNIEnv();
-
-	jbyteArray ba = (*env)->NewByteArray(env, size);
-	(*env)->SetByteArrayRegion(env, ba, 0, size, buf);
-
-	return ba;
-}
-
-static jstring app_jni_strdup(MTY_App *ctx, const char *str)
-{
-	JNIEnv *env = MTY_JNIEnv();
-
-	return (*env)->NewStringUTF(env, str);
-}
-
-
 // JNI entry
 
 static void app_push_event(MTY_App *ctx, MTY_Event *evt)
@@ -254,7 +147,7 @@ static void *app_thread(void *opaque)
 	char *arg = "main";
 	main(1, &arg);
 
-	app_void_method(ctx, "finish", "()V");
+	mty_jni_void(MTY_JNIEnv(), ctx->obj, "finish", "()V");
 
 	return NULL;
 }
@@ -263,9 +156,6 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1start(JNIEnv *env, jobj
 {
 	CTX.input = MTY_INPUT_TOUCHSCREEN;
 	CTX.obj = (*env)->NewGlobalRef(env, obj);
-
-	jclass cls = (*env)->GetObjectClass(env, CTX.obj);
-	CTX.cls = (*env)->NewGlobalRef(env, cls);
 
 	mty_gfx_global_init();
 
@@ -276,7 +166,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1start(JNIEnv *env, jobj
 	CTX.log_thread_running = true;
 	CTX.log_thread = MTY_ThreadCreate(app_log_thread, &CTX);
 
-	char *external = app_string_method(&CTX, "getExternalFilesDir", "()Ljava/lang/String;");
+	char *external = mty_jni_cstrdup(env, mty_jni_obj(env, obj, "getExternalFilesDir", "()Ljava/lang/String;"));
 	chdir(external);
 	MTY_Free(external);
 
@@ -302,7 +192,6 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1stop(JNIEnv *env, jobje
 	mty_gfx_global_destroy();
 
 	(*env)->DeleteGlobalRef(env, CTX.obj);
-	(*env)->DeleteGlobalRef(env, CTX.cls);
 
 	memset(&CTX, 0, sizeof(MTY_App));
 }
@@ -346,7 +235,7 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_Matoya_app_1key(JNIEnv *env, jo
 	// Certain soft keyboard keys come in as unique values that don't
 	// correspond to EN-US keyboards, convert hem here
 	if (soft)
-		app_translate_soft(&code, &mods);
+		keymap_translate_soft(&code, &mods);
 
 	// Back key has special meaning
 	if (pressed && code == AKEYCODE_BACK) {
@@ -358,12 +247,12 @@ JNIEXPORT jboolean JNICALL Java_group_matoya_lib_Matoya_app_1key(JNIEnv *env, jo
 
 	// Actual MTY_EVENT_KEY events generated
 	if (code < (jint) APP_KEYS_MAX) {
-		MTY_Key key = APP_KEYS[code];
+		MTY_Key key = APP_KEY_MAP[code];
 
 		if (key != MTY_KEY_NONE) {
 			MTY_Event evt = {0};
 			evt.type = MTY_EVENT_KEY;
-			evt.key.mod = app_keymods(mods);
+			evt.key.mod = keymap_mods(mods);
 			evt.key.pressed = pressed;
 
 			// The soft keyboard has shift implicitly held down for certain keys
@@ -617,7 +506,7 @@ static MTY_ControllerEvent *app_get_controller(MTY_App *ctx, int32_t deviceId)
 {
 	MTY_ControllerEvent *c = MTY_HashGetInt(ctx->ctrls, deviceId);
 	if (!c) {
-		int32_t ids = app_int_method(ctx, "getHardwareIds", "(I)I", deviceId);
+		int32_t ids = mty_jni_int(MTY_JNIEnv(), ctx->obj, "getHardwareIds", "(I)I", deviceId);
 
 		c = MTY_Alloc(1, sizeof(MTY_ControllerEvent));
 		*c = APP_ZEROED_CTRL;
@@ -771,8 +660,11 @@ void MTY_HotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
 
 	if (key != MTY_KEY_NONE) {
 		for (int32_t x = 0; x < (int32_t) APP_KEYS_MAX; x++) {
-			if (key == APP_KEYS[x]) {
-				char *ctext = app_string_method(&CTX, "getKey", "(I)Ljava/lang/String;", x);
+			if (key == APP_KEY_MAP[x]) {
+				JNIEnv *env = MTY_JNIEnv();
+				char *ctext = mty_jni_cstrdup(env, mty_jni_obj(env, CTX.obj,
+					"getKey", "(I)Ljava/lang/String;", x));
+
 				if (ctext) {
 					MTY_Strcat(str, len, ctext);
 					MTY_Free(ctext);
@@ -805,17 +697,24 @@ void MTY_AppRemoveHotkeys(MTY_App *ctx, MTY_Scope scope)
 
 char *MTY_AppGetClipboard(MTY_App *app)
 {
-	return app_string_method(app, "getClipboard", "()Ljava/lang/String;");
+	JNIEnv *env = MTY_JNIEnv();
+
+	return mty_jni_cstrdup(env, mty_jni_obj(env, app->obj,  "getClipboard", "()Ljava/lang/String;"));
 }
 
 void MTY_AppSetClipboard(MTY_App *app, const char *text)
 {
-	app_void_method(app, "setClipboard", "(Ljava/lang/String;)V", app_jni_strdup(app, text));
+	JNIEnv *env = MTY_JNIEnv();
+	jstring jtext = mty_jni_strdup(env, text);
+
+	mty_jni_void(env, app->obj, "setClipboard", "(Ljava/lang/String;)V", jtext);
+
+	mty_jni_free(env, jtext);
 }
 
 static float app_get_scale(MTY_App *ctx)
 {
-	return app_float_method(ctx, "getDisplayDensity", "()F") * 0.85f;
+	return mty_jni_float(MTY_JNIEnv(), ctx->obj, "getDisplayDensity", "()F") * 0.85f;
 }
 
 MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaque)
@@ -888,7 +787,7 @@ void MTY_AppRun(MTY_App *ctx)
 		// Generates scroll events after a fling has taken place
 		// Prevent JNI calls if there's no fling in progress
 		if (ctx->check_scroller)
-			app_void_method(ctx, "checkScroller", "()V");
+			mty_jni_void(MTY_JNIEnv(), ctx->obj, "checkScroller", "()V");
 
 		cont = ctx->app_func(ctx->opaque);
 
@@ -904,7 +803,7 @@ void MTY_AppSetTimeout(MTY_App *ctx, uint32_t timeout)
 
 void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 {
-	app_void_method(app, "enableScreenSaver", "(Z)V", enable);
+	mty_jni_void(MTY_JNIEnv(), app->obj, "enableScreenSaver", "(Z)V", enable);
 }
 
 bool MTY_AppIsActive(MTY_App *ctx)
@@ -914,27 +813,32 @@ bool MTY_AppIsActive(MTY_App *ctx)
 
 void MTY_AppShowSoftKeyboard(MTY_App *app, bool show)
 {
-	app_void_method(app, "showKeyboard", "(Z)V", show);
+	mty_jni_void(MTY_JNIEnv(), app->obj, "showKeyboard", "(Z)V", show);
 }
 
 bool MTY_AppSoftKeyboardIsShowing(MTY_App *app)
 {
-	return app_bool_method(app, "keyboardIsShowing", "()Z");
+	return mty_jni_bool(MTY_JNIEnv(), app->obj, "keyboardIsShowing", "()Z");
 }
 
 MTY_Orientation MTY_AppGetOrientation(MTY_App *ctx)
 {
-	return app_int_method(ctx, "getOrientation", "()I");
+	return mty_jni_int(MTY_JNIEnv(), ctx->obj, "getOrientation", "()I");
 }
 
 void MTY_AppSetOrientation(MTY_App *app, MTY_Orientation orientation)
 {
-	app_void_method(app, "setOrientation", "(I)V", orientation);
+	mty_jni_void(MTY_JNIEnv(), app->obj, "setOrientation", "(I)V", orientation);
 }
 
 void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
-	app_void_method(app, "setCursor", "([BFF)V", app_jni_dup(app, image, size), (jfloat) hotX, (jfloat) hotY);
+	JNIEnv *env = MTY_JNIEnv();
+	jbyteArray jimage = mty_jni_dup(env, image, size);
+
+	mty_jni_void(env, app->obj, "setCursor", "([BFF)V", jimage, (jfloat) hotX, (jfloat) hotY);
+
+	mty_jni_free(env, jimage);
 }
 
 bool MTY_AppCanWarpCursor(MTY_App *ctx)
@@ -944,22 +848,22 @@ bool MTY_AppCanWarpCursor(MTY_App *ctx)
 
 void MTY_AppShowCursor(MTY_App *ctx, bool show)
 {
-	app_void_method(ctx, "showCursor", "(Z)V", show);
+	mty_jni_void(MTY_JNIEnv(), ctx->obj, "showCursor", "(Z)V", show);
 }
 
 void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 {
-	app_void_method(app, "useDefaultCursor", "(Z)V", useDefault);
+	mty_jni_void(MTY_JNIEnv(), app->obj, "useDefaultCursor", "(Z)V", useDefault);
 }
 
 void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 {
-	app_void_method(app, "setRelativeMouse", "(Z)V", relative);
+	mty_jni_void(MTY_JNIEnv(), app->obj, "setRelativeMouse", "(Z)V", relative);
 }
 
 bool MTY_AppGetRelativeMouse(MTY_App *app)
 {
-	return app_bool_method(app, "getRelativeMouse", "()Z");
+	return mty_jni_bool(MTY_JNIEnv(), app->obj, "getRelativeMouse", "()Z");
 }
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
@@ -969,7 +873,7 @@ void MTY_AppDetach(MTY_App *app, MTY_Detach type)
 
 MTY_Detach MTY_AppGetDetached(MTY_App *app)
 {
-	// When touch events are receved, don't respect detach
+	// When touch events are received, don't respect detach
 
 	return app->should_detach ? app->detach : MTY_DETACH_NONE;
 }
@@ -987,19 +891,19 @@ void MTY_AppSetInputMode(MTY_App *ctx, MTY_Input mode)
 
 // Window
 
-MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
+MTY_Window MTY_WindowCreate(MTY_App *app, const MTY_WindowDesc *desc)
 {
 	return 0;
 }
 
 void MTY_WindowSetFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
 {
-	app_void_method(app, "enableFullscreen", "(Z)V", fullscreen);
+	mty_jni_void(MTY_JNIEnv(), app->obj, "enableFullscreen", "(Z)V", fullscreen);
 }
 
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 {
-	return app_bool_method(app, "isFullscreen", "()Z");
+	return mty_jni_bool(MTY_JNIEnv(), app->obj, "isFullscreen", "()Z");
 }
 
 bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
@@ -1028,7 +932,7 @@ bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_
 {
 	MTY_WindowGetScreenSize(app, window, width, height);
 
-	int32_t kb_height = app_int_method(app, "keyboardHeight", "()I");
+	int32_t kb_height = mty_jni_int(MTY_JNIEnv(), app->obj, "keyboardHeight", "()I");
 
 	if (kb_height == -1)
 		kb_height = 0;
@@ -1072,14 +976,11 @@ void *mty_window_get_native(MTY_App *app, MTY_Window window)
 }
 
 
-// Misc
+// Unimplemented
 
 void MTY_SetAppID(const char *id)
 {
 }
-
-
-// Unimplemented
 
 void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {

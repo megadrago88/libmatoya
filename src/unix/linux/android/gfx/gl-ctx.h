@@ -6,9 +6,6 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <stdbool.h>
-
 #include "matoya.h"
 
 void mty_gfx_global_init(void);

@@ -12,7 +12,8 @@ GFX_UI_PROTOTYPES(_d3d9_)
 #define COBJMACROS
 #include <d3d9.h>
 
-#define D3DFVF_CUSTOMVERTEX (D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1)
+#define D3D9_UI_CUSTOMVERTEX \
+	(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1)
 
 struct d3d9_ui {
 	IDirect3DVertexBuffer9 *vb;
@@ -51,7 +52,7 @@ bool mty_d3d9_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *
 		}
 
 		HRESULT e = IDirect3DDevice9_CreateVertexBuffer(_device, (dd->vtxTotalLength + GFX_UI_VTX_INCR) * sizeof(struct d3d9_ui_vtx),
-			D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, D3DFVF_CUSTOMVERTEX, D3DPOOL_DEFAULT, &ctx->vb, NULL);
+			D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, D3D9_UI_CUSTOMVERTEX, D3DPOOL_DEFAULT, &ctx->vb, NULL);
 		if (e != D3D_OK) {
 			MTY_Log("'IDirect3DDevice9_CreateVertexBuffer' failed with HRESULT 0x%X", e);
 			return false;
@@ -166,7 +167,7 @@ bool mty_d3d9_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *
 	IDirect3DDevice9_SetVertexShader(_device, NULL);
 	IDirect3DDevice9_SetStreamSource(_device, 0, ctx->vb, 0, sizeof(struct d3d9_ui_vtx));
 	IDirect3DDevice9_SetIndices(_device, ctx->ib);
-	IDirect3DDevice9_SetFVF(_device, D3DFVF_CUSTOMVERTEX);
+	IDirect3DDevice9_SetFVF(_device, D3D9_UI_CUSTOMVERTEX);
 	IDirect3DDevice9_SetTransform(_device, D3DTS_WORLD, &mat_identity);
 	IDirect3DDevice9_SetTransform(_device, D3DTS_VIEW, &mat_identity);
 	IDirect3DDevice9_SetTransform(_device, D3DTS_PROJECTION, &mat_proj);
@@ -204,8 +205,8 @@ bool mty_d3d9_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *
 			RECT r = {0};
 			r.left = lrint(pcmd->clip.x);
 			r.top = lrint(pcmd->clip.y);
-			r.right = lrint(pcmd->clip.z);
-			r.bottom = lrint(pcmd->clip.w);
+			r.right = lrint(pcmd->clip.r);
+			r.bottom = lrint(pcmd->clip.b);
 
 			// Make sure the rect is actually in the viewport
 			if (r.left < dd->displaySize.x && r.top < dd->displaySize.y && r.right >= 0.0f && r.bottom >= 0.0f) {

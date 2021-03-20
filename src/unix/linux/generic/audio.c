@@ -11,7 +11,9 @@
 
 #include "dl/libasound.h"
 
-#define AUDIO_BUF_SIZE (48000 * 4 * 5) // 5 seconds at 48khz
+#define AUDIO_CHANNELS    2
+#define AUDIO_SAMPLE_SIZE sizeof(int16_t)
+#define AUDIO_BUF_SIZE    (48000 * AUDIO_CHANNELS * AUDIO_SAMPLE_SIZE)
 
 struct MTY_Audio {
 	snd_pcm_t *pcm;
@@ -51,7 +53,7 @@ MTY_Audio *MTY_AudioCreate(uint32_t sampleRate, uint32_t minBuffer, uint32_t max
 
 	snd_pcm_hw_params_set_access(ctx->pcm, params, SND_PCM_ACCESS_RW_INTERLEAVED);
 	snd_pcm_hw_params_set_format(ctx->pcm, params, SND_PCM_FORMAT_S16);
-	snd_pcm_hw_params_set_channels(ctx->pcm, params, 2);
+	snd_pcm_hw_params_set_channels(ctx->pcm, params, AUDIO_CHANNELS);
 	snd_pcm_hw_params_set_rate(ctx->pcm, params, sampleRate, 0);
 	snd_pcm_hw_params(ctx->pcm, params);
 	snd_pcm_nonblock(ctx->pcm, 1);

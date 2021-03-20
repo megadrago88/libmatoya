@@ -15,11 +15,10 @@
 #include <unistd.h>
 
 #include "dl/libX11.h"
+#include "hid/utils.h"
 #include "wsize.h"
 #include "evdev.h"
 #include "keymap.h"
-
-#include "hid/utils.h"
 
 struct window {
 	Window window;
@@ -504,7 +503,7 @@ static Cursor app_create_empty_cursor(Display *display)
 
 // App
 
-static void app_evdev_connect(struct edevice *device, void *opaque)
+static void app_evdev_connect(struct evdev_dev *device, void *opaque)
 {
 	MTY_App *ctx = opaque;
 
@@ -517,7 +516,7 @@ static void app_evdev_connect(struct edevice *device, void *opaque)
 	ctx->event_func(&evt, ctx->opaque);
 }
 
-static void app_evdev_disconnect(struct edevice *device, void *opaque)
+static void app_evdev_disconnect(struct evdev_dev *device, void *opaque)
 {
 	MTY_App *ctx = opaque;
 
@@ -528,7 +527,7 @@ static void app_evdev_disconnect(struct edevice *device, void *opaque)
 	ctx->event_func(&evt, ctx->opaque);
 }
 
-static void app_evdev_report(struct edevice *device, void *opaque)
+static void app_evdev_report(struct evdev_dev *device, void *opaque)
 {
 	MTY_App *ctx = opaque;
 
@@ -692,13 +691,13 @@ static void app_event(MTY_App *ctx, XEvent *event)
 			// Fall through
 
 		case KeyRelease: {
-			evt.key.key = window_keycode_to_key(event->xkey.keycode);
+			evt.key.key = keymap_keycode_to_key(event->xkey.keycode);
 
 			if (evt.key.key != MTY_KEY_NONE) {
 				evt.type = MTY_EVENT_KEY;
 				evt.window = app_find_window(ctx, event->xkey.window);
 				evt.key.pressed = event->type == KeyPress;
-				evt.key.mod = window_keystate_to_keymod(evt.key.key,
+				evt.key.mod = keymap_keystate_to_keymod(evt.key.key,
 					evt.key.pressed, event->xkey.state);
 			}
 			break;
@@ -1007,7 +1006,7 @@ static void window_set_up_wm(MTY_App *app, Window w, const MTY_WindowDesc *desc)
 	XSetWMProtocols(app->display, w, protos, 2);
 }
 
-MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDesc *desc)
+MTY_Window MTY_WindowCreate(MTY_App *app, const MTY_WindowDesc *desc)
 {
 	bool r = true;
 	struct window *ctx = MTY_Alloc(1, sizeof(struct window));
@@ -1039,10 +1038,10 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	int32_t x = lrint((float) desc->x * app->scale);
 	int32_t y = lrint((float) desc->y * app->scale);
 
-	mty_wsize_client(desc, app->scale, desktop_height, &x, &y, &width, &height);
+	wsize_client(desc, app->scale, desktop_height, &x, &y, &width, &height);
 
 	if (desc->position == MTY_POSITION_CENTER)
-		mty_wsize_center(0, 0, desktop_width, desktop_height, &x, &y, &width, &height);
+		wsize_center(0, 0, desktop_width, desktop_height, &x, &y, &width, &height);
 
 	ctx->window = XCreateWindow(app->display, root, 0, 0, width, height, 0, app->vis->depth,
 		InputOutput, app->vis->visual, CWColormap | CWEventMask, &swa);
@@ -1053,7 +1052,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const char *title, const MTY_WindowDes
 	XMapRaised(app->display, ctx->window);
 	XMoveWindow(app->display, ctx->window, x, y);
 
-	MTY_WindowSetTitle(app, window, title);
+	MTY_WindowSetTitle(app, window, desc->title ? desc->title : "MTY_Window");
 
 	window_set_up_wm(app, ctx->window, desc);
 
@@ -1320,12 +1319,12 @@ void *MTY_GLGetProcAddress(const char *name)
 	return glXGetProcAddress((const GLubyte *) name);
 }
 
+
+// Unimplemented
+
 void MTY_SetAppID(const char *id)
 {
 }
-
-
-// Unimplemented
 
 void MTY_AppSetTray(MTY_App *app, const char *tooltip, const MTY_MenuItem *items, uint32_t len)
 {

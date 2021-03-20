@@ -8,4 +8,4 @@
 
 #include <dlfcn.h>
 
-#define MTY_DLOPEN_FLAGS (RTLD_NOW | RTLD_LOCAL)
+#define DLOPEN_FLAGS (RTLD_NOW | RTLD_LOCAL)

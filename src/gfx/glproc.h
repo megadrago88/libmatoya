@@ -6,6 +6,9 @@
 
 #pragma once
 
+
+// GL vs. GLES shader version
+
 #if defined(MTY_GL_ES)
 	#define GL_SHADER_VERSION "#version 100\n"
 #else
@@ -24,7 +27,7 @@
 	#include "glcorearb30.h"
 #endif
 
-#define gl_dl_global_init() true
+#define glproc_global_init() true
 
 #else
 
@@ -88,83 +91,83 @@ static PFNGLGETPROGRAMIVPROC            glGetProgramiv;
 
 // Runtime open
 
-static MTY_Atomic32 GL_DL_LOCK;
-static bool GL_DL_INIT;
+static MTY_Atomic32 GLPROC_LOCK;
+static bool GLPROC_INIT;
 
-static bool gl_dl_global_init(void)
+static bool glproc_global_init(void)
 {
-	MTY_GlobalLock(&GL_DL_LOCK);
+	MTY_GlobalLock(&GLPROC_LOCK);
 
-	if (!GL_DL_INIT) {
+	if (!GLPROC_INIT) {
 		bool r = true;
 
-		#define GL_DL_LOAD_SYM(name) \
+		#define GLPROC_LOAD_SYM(name) \
 			name = MTY_GLGetProcAddress(#name); \
 			if (!name) {r = false; goto except;}
 
-		GL_DL_LOAD_SYM(glGenFramebuffers);
-		GL_DL_LOAD_SYM(glDeleteFramebuffers);
-		GL_DL_LOAD_SYM(glBindFramebuffer);
-		GL_DL_LOAD_SYM(glBlitFramebuffer);
-		GL_DL_LOAD_SYM(glFramebufferTexture2D);
-		GL_DL_LOAD_SYM(glEnable);
-		GL_DL_LOAD_SYM(glIsEnabled);
-		GL_DL_LOAD_SYM(glDisable);
-		GL_DL_LOAD_SYM(glViewport);
-		GL_DL_LOAD_SYM(glGetIntegerv);
-		GL_DL_LOAD_SYM(glGetFloatv);
-		GL_DL_LOAD_SYM(glBindTexture);
-		GL_DL_LOAD_SYM(glDeleteTextures);
-		GL_DL_LOAD_SYM(glTexParameteri);
-		GL_DL_LOAD_SYM(glGenTextures);
-		GL_DL_LOAD_SYM(glTexImage2D);
-		GL_DL_LOAD_SYM(glTexSubImage2D);
-		GL_DL_LOAD_SYM(glDrawElements);
-		GL_DL_LOAD_SYM(glGetAttribLocation);
-		GL_DL_LOAD_SYM(glShaderSource);
-		GL_DL_LOAD_SYM(glBindBuffer);
-		GL_DL_LOAD_SYM(glVertexAttribPointer);
-		GL_DL_LOAD_SYM(glCreateProgram);
-		GL_DL_LOAD_SYM(glUniform1i);
-		GL_DL_LOAD_SYM(glUniform1f);
-		GL_DL_LOAD_SYM(glUniform4i);
-		GL_DL_LOAD_SYM(glUniform4f);
-		GL_DL_LOAD_SYM(glActiveTexture);
-		GL_DL_LOAD_SYM(glDeleteBuffers);
-		GL_DL_LOAD_SYM(glEnableVertexAttribArray);
-		GL_DL_LOAD_SYM(glBufferData);
-		GL_DL_LOAD_SYM(glDeleteShader);
-		GL_DL_LOAD_SYM(glGenBuffers);
-		GL_DL_LOAD_SYM(glCompileShader);
-		GL_DL_LOAD_SYM(glLinkProgram);
-		GL_DL_LOAD_SYM(glGetUniformLocation);
-		GL_DL_LOAD_SYM(glCreateShader);
-		GL_DL_LOAD_SYM(glAttachShader);
-		GL_DL_LOAD_SYM(glUseProgram);
-		GL_DL_LOAD_SYM(glGetShaderiv);
-		GL_DL_LOAD_SYM(glDetachShader);
-		GL_DL_LOAD_SYM(glDeleteProgram);
-		GL_DL_LOAD_SYM(glClear);
-		GL_DL_LOAD_SYM(glClearColor);
-		GL_DL_LOAD_SYM(glGetError);
-		GL_DL_LOAD_SYM(glGetShaderInfoLog);
-		GL_DL_LOAD_SYM(glFinish);
-		GL_DL_LOAD_SYM(glScissor);
-		GL_DL_LOAD_SYM(glBlendFunc);
-		GL_DL_LOAD_SYM(glBlendEquation);
-		GL_DL_LOAD_SYM(glUniformMatrix4fv);
-		GL_DL_LOAD_SYM(glBlendEquationSeparate);
-		GL_DL_LOAD_SYM(glBlendFuncSeparate);
-		GL_DL_LOAD_SYM(glGetProgramiv);
+		GLPROC_LOAD_SYM(glGenFramebuffers);
+		GLPROC_LOAD_SYM(glDeleteFramebuffers);
+		GLPROC_LOAD_SYM(glBindFramebuffer);
+		GLPROC_LOAD_SYM(glBlitFramebuffer);
+		GLPROC_LOAD_SYM(glFramebufferTexture2D);
+		GLPROC_LOAD_SYM(glEnable);
+		GLPROC_LOAD_SYM(glIsEnabled);
+		GLPROC_LOAD_SYM(glDisable);
+		GLPROC_LOAD_SYM(glViewport);
+		GLPROC_LOAD_SYM(glGetIntegerv);
+		GLPROC_LOAD_SYM(glGetFloatv);
+		GLPROC_LOAD_SYM(glBindTexture);
+		GLPROC_LOAD_SYM(glDeleteTextures);
+		GLPROC_LOAD_SYM(glTexParameteri);
+		GLPROC_LOAD_SYM(glGenTextures);
+		GLPROC_LOAD_SYM(glTexImage2D);
+		GLPROC_LOAD_SYM(glTexSubImage2D);
+		GLPROC_LOAD_SYM(glDrawElements);
+		GLPROC_LOAD_SYM(glGetAttribLocation);
+		GLPROC_LOAD_SYM(glShaderSource);
+		GLPROC_LOAD_SYM(glBindBuffer);
+		GLPROC_LOAD_SYM(glVertexAttribPointer);
+		GLPROC_LOAD_SYM(glCreateProgram);
+		GLPROC_LOAD_SYM(glUniform1i);
+		GLPROC_LOAD_SYM(glUniform1f);
+		GLPROC_LOAD_SYM(glUniform4i);
+		GLPROC_LOAD_SYM(glUniform4f);
+		GLPROC_LOAD_SYM(glActiveTexture);
+		GLPROC_LOAD_SYM(glDeleteBuffers);
+		GLPROC_LOAD_SYM(glEnableVertexAttribArray);
+		GLPROC_LOAD_SYM(glBufferData);
+		GLPROC_LOAD_SYM(glDeleteShader);
+		GLPROC_LOAD_SYM(glGenBuffers);
+		GLPROC_LOAD_SYM(glCompileShader);
+		GLPROC_LOAD_SYM(glLinkProgram);
+		GLPROC_LOAD_SYM(glGetUniformLocation);
+		GLPROC_LOAD_SYM(glCreateShader);
+		GLPROC_LOAD_SYM(glAttachShader);
+		GLPROC_LOAD_SYM(glUseProgram);
+		GLPROC_LOAD_SYM(glGetShaderiv);
+		GLPROC_LOAD_SYM(glDetachShader);
+		GLPROC_LOAD_SYM(glDeleteProgram);
+		GLPROC_LOAD_SYM(glClear);
+		GLPROC_LOAD_SYM(glClearColor);
+		GLPROC_LOAD_SYM(glGetError);
+		GLPROC_LOAD_SYM(glGetShaderInfoLog);
+		GLPROC_LOAD_SYM(glFinish);
+		GLPROC_LOAD_SYM(glScissor);
+		GLPROC_LOAD_SYM(glBlendFunc);
+		GLPROC_LOAD_SYM(glBlendEquation);
+		GLPROC_LOAD_SYM(glUniformMatrix4fv);
+		GLPROC_LOAD_SYM(glBlendEquationSeparate);
+		GLPROC_LOAD_SYM(glBlendFuncSeparate);
+		GLPROC_LOAD_SYM(glGetProgramiv);
 
 		except:
 
-		GL_DL_INIT = r;
+		GLPROC_INIT = r;
 	}
 
-	MTY_GlobalUnlock(&GL_DL_LOCK);
+	MTY_GlobalUnlock(&GLPROC_LOCK);
 
-	return GL_DL_INIT;
+	return GLPROC_INIT;
 }
 
 #endif

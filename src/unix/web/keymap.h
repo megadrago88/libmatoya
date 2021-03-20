@@ -5,9 +5,10 @@
 // You can obtain one at https://spdx.org/licenses/MIT.html.
 
 #include "matoya.h"
+
 #include "web.h"
 
-static void app_set_keys(void)
+static void keymap_set_keys(void)
 {
 	web_set_key(true, "Escape",          MTY_KEY_ESCAPE);
 	web_set_key(true, "F1",              MTY_KEY_F1);
@@ -123,7 +124,7 @@ static void app_set_keys(void)
 	web_set_key(true, "Numpad0",         MTY_KEY_NP_0);
 	web_set_key(true, "NumpadDecimal",   MTY_KEY_NP_PERIOD);
 
-	// Non-US ketrue
+	// Non-US
 	web_set_key(true, "IntlBackslash",   MTY_KEY_INTL_BACKSLASH);
 	web_set_key(true, "IntlYen",         MTY_KEY_YEN);
 	web_set_key(true, "IntlRo",          MTY_KEY_RO);

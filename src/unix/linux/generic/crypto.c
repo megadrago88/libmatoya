@@ -11,10 +11,10 @@
 
 // Hash
 
-static void crypto_hash(const EVP_MD *md,
-	unsigned char *(*hash)(const unsigned char *d, size_t n, unsigned char *md),
-	const void *input, size_t inputSize, const void *key, size_t keySize,
-	void *output, size_t outputSize, size_t minSize)
+typedef unsigned char *(*CRYPTO_FUNC)(const unsigned char *d, size_t n, unsigned char *md);
+
+static void crypto_hash(const EVP_MD *md, CRYPTO_FUNC hash, const void *input, size_t inputSize,
+	const void *key, size_t keySize, void *output, size_t outputSize, size_t minSize)
 {
 	if (outputSize >= minSize) {
 		if (key && keySize) {

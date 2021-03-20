@@ -17,7 +17,7 @@ uint32_t MTY_GetPlatform(void)
 
 uint32_t MTY_GetPlatformNoWeb(void)
 {
-	char platform[64] = "";
+	char platform[64] = {0};
 	web_platform(platform, 64);
 
 	if (strstr(platform, "Win32"))

@@ -22,6 +22,7 @@ jobject mty_jni_wrap(JNIEnv *env, void *buf, size_t size);
 jstring mty_jni_strdup(JNIEnv *env, const char *str);
 void mty_jni_memcpy(JNIEnv *env, void *dst, jbyteArray jsrc, size_t size);
 void mty_jni_strcpy(JNIEnv *env, char *buf, size_t size, jstring str);
+char *mty_jni_cstrdup(JNIEnv *env, jstring jstr);
 
 void mty_jni_log(JNIEnv *env, jstring str);
 bool mty_jni_ok(JNIEnv *env);
@@ -33,3 +34,5 @@ jobject mty_jni_static_obj(JNIEnv *env, const char *name, const char *func, cons
 void mty_jni_void(JNIEnv *env, jobject obj, const char *name, const char *sig, ...);
 jobject mty_jni_obj(JNIEnv *env, jobject obj, const char *name, const char *sig, ...);
 jint mty_jni_int(JNIEnv *env, jobject obj, const char *name, const char *sig, ...);
+jfloat mty_jni_float(JNIEnv *env, jobject obj, const char *name, const char *sig, ...);
+bool mty_jni_bool(JNIEnv *env, jobject obj, const char *name, const char *sig, ...);

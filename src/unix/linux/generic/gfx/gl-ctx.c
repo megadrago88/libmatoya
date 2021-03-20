@@ -7,8 +7,8 @@
 #include "gfx/mod-ctx.h"
 GFX_CTX_PROTOTYPES(_gl_)
 
+#include "gfx/glproc.h"
 #include "dl/libX11.h"
-#include "gfx/gl-dl.h"
 
 struct gl_ctx {
 	Display *display;
@@ -35,7 +35,7 @@ struct gfx_ctx *mty_gl_ctx_create(void *native_window, bool vsync)
 	if (!libX11_global_init())
 		return NULL;
 
-	if (!gl_dl_global_init())
+	if (!glproc_global_init())
 		return NULL;
 
 	bool r = true;

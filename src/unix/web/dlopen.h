@@ -6,7 +6,7 @@
 
 #pragma once
 
-#define MTY_DLOPEN_FLAGS 0
+#define DLOPEN_FLAGS 0
 
 #define dlsym(so, name) NULL
 #define dlerror() NULL

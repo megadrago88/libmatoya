@@ -6,6 +6,7 @@
 
 #include <xinput.h>
 
+// Private struct in XInput 1.4 used for VID/PID
 typedef struct {
 	WORD vid;
 	WORD pid;
