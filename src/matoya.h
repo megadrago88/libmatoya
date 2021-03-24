@@ -453,6 +453,7 @@ MTY_LockFileDestroy(MTY_LockFile **lock);
 typedef struct MTY_JSON MTY_JSON;
 
 /// @brief Parse a string into an MTY_JSON item.
+/// @param input Serialized JSON string.
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_JSON item should be destroyed with MTY_JSONDestroy if it
 ///   remains the root item in the hierarchy.
@@ -460,6 +461,7 @@ MTY_EXPORT MTY_JSON *
 MTY_JSONParse(const char *input);
 
 /// @brief Parse the contents of a file into an MTY_JSON item.
+/// @param path Path to the serialized JSON file.
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_JSON item should be destroyed with MTY_JSONDestroy if it
 ///   remains the root item in the hierarchy.
@@ -467,26 +469,35 @@ MTY_EXPORT MTY_JSON *
 MTY_JSONReadFile(const char *path);
 
 /// @brief Deep copy an MTY_JSON item.
+/// @param json The MTY_JSON item to duplicate.
 /// @returns The returned MTY_JSON item should be destroyed with MTY_JSONDestroy if it
 ///   remains the root item in the hierarchy.
 MTY_EXPORT MTY_JSON *
 MTY_JSONDuplicate(const MTY_JSON *json);
 
 /// @brief Destroy an MTY_JSON item.
+/// @param json Passed by reference and set to NULL after being destroyed.\n\n
+///   This function destroys all children of the item, meaning only the root item
+///   in the hierarchy should ever be freed.
 MTY_EXPORT void
 MTY_JSONDestroy(MTY_JSON **json);
 
 /// @brief Serialize an MTY_JSON item into a string.
+/// @param json An MTY_JSON item to serialize.
 /// @returns The returned string must be destroyed with MTY_Free.
 MTY_EXPORT char *
 MTY_JSONSerialize(const MTY_JSON *json);
 
 /// @brief Write a serialized MTY_JSON item to a file.
+/// @param path Path to a file where the serialized output will be written.
+/// @param json An MTY_JSON item to serialize.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_JSONWriteFile(const char *path, const MTY_JSON *json);
 
 /// @brief Get the number of items in an MTY_JSON item.
+/// @param json An MTY_JSON item to query.
+/// @returns The length of a JSON array or the number of items in a JSON object.
 MTY_EXPORT uint32_t
 MTY_JSONGetLength(const MTY_JSON *json);
 
@@ -503,10 +514,16 @@ MTY_EXPORT MTY_JSON *
 MTY_JSONArrayCreate(void);
 
 /// @brief Check if a key exists on a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to check.
 MTY_EXPORT bool
 MTY_JSONObjKeyExists(const MTY_JSON *json, const char *key);
 
 /// @brief Get a key on a JSON object by its index.
+/// @details This function can be used as a way to iterate through a JSON object by
+///   first calling MTY_JSONGetLength on the object, then looping through by index.
+/// @param json An MTY_JSON object.
+/// @param index Index to retrieve the key for.
 /// @returns If the `index` exists, the object's key at that position is returned.
 ///   This reference is valid only as long as the `json` item is also valid.\n\n
 ///   If the `index` does not exist, NULL is returned.
@@ -514,10 +531,14 @@ MTY_EXPORT const char *
 MTY_JSONObjGetKey(const MTY_JSON *json, uint32_t index);
 
 /// @brief Delete an item from a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to delete.
 MTY_EXPORT void
 MTY_JSONObjDeleteItem(MTY_JSON *json, const char *key);
 
 /// @brief Get an item from a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to lookup.
 /// @returns If the `key` exists, the associated item is returned. This reference is
 ///   valid only as long as the `json` item is also valid.\n\n
 ///   If the `key` does not exist, NULL is returned.
@@ -525,18 +546,28 @@ MTY_EXPORT const MTY_JSON *
 MTY_JSONObjGetItem(const MTY_JSON *json, const char *key);
 
 /// @brief Set an item on a JSON object.
+/// @details This function will replace an existing key with the same name.
+/// @param json An MTY_JSON object.
+/// @param key Key to set.
+/// @param value Value associated with `key`.
 MTY_EXPORT void
 MTY_JSONObjSetItem(MTY_JSON *json, const char *key, const MTY_JSON *value);
 
 /// @brief Check if an item exists in a JSON array.
+/// @param json An MTY_JSON array.
+/// @param index Index to check.
 MTY_EXPORT bool
 MTY_JSONArrayIndexExists(const MTY_JSON *json, uint32_t index);
 
 /// @brief Delete an item from a JSON array.
+/// @param json An MTY_JSON array.
+/// @param index Index to delete.
 MTY_EXPORT void
 MTY_JSONArrayDeleteItem(MTY_JSON *json, uint32_t index);
 
 /// @brief Get an item from a JSON array.
+/// @param json An MTY_JSON array.
+/// @param index Index to lookup.
 /// @returns If the `index` exists, the item at that index is returned. This reference
 ///   is valid only as long as the `json` item is also valid.\n\n
 ///   If the `index` does not exist, NULL is returned.
@@ -544,137 +575,223 @@ MTY_EXPORT const MTY_JSON *
 MTY_JSONArrayGetItem(const MTY_JSON *json, uint32_t index);
 
 /// @brief Set an item in a JSON array.
+/// @param json An MTY_JSON array.
+/// @param index Index to set.
+/// @param value Value set at `index`.
 MTY_EXPORT void
 MTY_JSONArraySetItem(MTY_JSON *json, uint32_t index, const MTY_JSON *value);
 
 /// @brief Append an item to a JSON array.
+/// @param json An MTY_JSON array.
+/// @param value Value to append.
 MTY_EXPORT void
 MTY_JSONArrayAppendItem(MTY_JSON *json, const MTY_JSON *value);
 
 /// @brief Get a string value from a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to lookup.
+/// @param val Typed value associated with `key`.
+/// @param size Size in bytes of `val`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_JSONObjGetString(const MTY_JSON *json, const char *key, char *val, size_t size);
 
 /// @brief Get an int32_t value from a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to lookup.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_JSONObjGetInt(const MTY_JSON *json, const char *key, int32_t *val);
 
 /// @brief Get a uint32_t value from a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to lookup.
+/// @param val Typed value associated with `key`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_JSONObjGetUInt(const MTY_JSON *json, const char *key, uint32_t *val);
 
 /// @brief Get an int8_t value from a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to lookup.
+/// @param val Typed value associated with `key`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_JSONObjGetInt8(const MTY_JSON *json, const char *key, int8_t *val);
 
 /// @brief Get a uint8_t value from a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to lookup.
+/// @param val Typed value associated with `key`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_JSONObjGetUInt8(const MTY_JSON *json, const char *key, uint8_t *val);
 
 /// @brief Get a uint8_t value from a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to lookup.
+/// @param val Typed value associated with `key`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_JSONObjGetInt16(const MTY_JSON *json, const char *key, int16_t *val);
 
 /// @brief Get a uint16_t value from a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to lookup.
+/// @param val Typed value associated with `key`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_JSONObjGetUInt16(const MTY_JSON *json, const char *key, uint16_t *val);
 
 /// @brief Get a float value from a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to lookup.
+/// @param val Typed value associated with `key`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_JSONObjGetFloat(const MTY_JSON *json, const char *key, float *val);
 
 /// @brief Get a bool value from a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to lookup.
+/// @param val Typed value associated with `key`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_JSONObjGetBool(const MTY_JSON *json, const char *key, bool *val);
 
 /// @brief Check if a value is NULL on a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to check.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_JSONObjIsValNull(const MTY_JSON *json, const char *key);
 
 /// @brief Set a string value on a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to set.
+/// @param val Typed value to set.
 MTY_EXPORT void
 MTY_JSONObjSetString(MTY_JSON *json, const char *key, const char *val);
 
 /// @brief Set an int32_t value on a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to set.
+/// @param val Typed value to set.
 MTY_EXPORT void
 MTY_JSONObjSetInt(MTY_JSON *json, const char *key, int32_t val);
 
 /// @brief Set a uint32_t value on a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to set.
+/// @param val Typed value to set.
 MTY_EXPORT void
 MTY_JSONObjSetUInt(MTY_JSON *json, const char *key, uint32_t val);
 
 /// @brief Set a float value on a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to set.
+/// @param val Typed value to set.
 MTY_EXPORT void
 MTY_JSONObjSetFloat(MTY_JSON *json, const char *key, float val);
 
 /// @brief Set a bool value on a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to set.
+/// @param val Typed value to set.
 MTY_EXPORT void
 MTY_JSONObjSetBool(MTY_JSON *json, const char *key, bool val);
 
 /// @brief Set a NULL value on a JSON object.
+/// @param json An MTY_JSON object.
+/// @param key Key to set to `null`.
 MTY_EXPORT void
 MTY_JSONObjSetNull(MTY_JSON *json, const char *key);
 
 /// @brief Get a string value from a JSON array.
+/// @param json An MTY_JSON array.
+/// @param index Index to lookup.
+/// @param val Typed value at `index`.
+/// @param size Size in bytes of `val`.
 MTY_EXPORT bool
 MTY_JSONArrayGetString(const MTY_JSON *json, uint32_t index, char *val, size_t size);
 
 /// @brief Get an int32_t value from a JSON array.
+/// @param json An MTY_JSON array.
+/// @param index Index to lookup.
+/// @param val Typed value at `index`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_JSONArrayGetInt(const MTY_JSON *json, uint32_t index, int32_t *val);
 
 /// @brief Get a uint32_t value from a JSON array.
+/// @param json An MTY_JSON array.
+/// @param index Index to lookup.
+/// @param val Typed value at `index`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_JSONArrayGetUInt(const MTY_JSON *json, uint32_t index, uint32_t *val);
 
 /// @brief Get a float value from a JSON array.
+/// @param json An MTY_JSON array.
+/// @param index Index to lookup.
+/// @param val Typed value at `index`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_JSONArrayGetFloat(const MTY_JSON *json, uint32_t index, float *val);
 
 /// @brief Get a bool value from a JSON array.
+/// @param json An MTY_JSON array.
+/// @param index Index to lookup.
+/// @param val Typed value at `index`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_JSONArrayGetBool(const MTY_JSON *json, uint32_t index, bool *val);
 
 /// @brief Check if a value is NULL in a JSON array.
+/// @param json An MTY_JSON array.
+/// @param index Index to check.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_JSONArrayIsValNull(const MTY_JSON *json, uint32_t index);
 
 /// @brief Set a string value in a JSON array.
+/// @param json An MTY_JSON array.
+/// @param index Index to set.
+/// @param val Value to set at `index`.
 MTY_EXPORT void
 MTY_JSONArraySetString(MTY_JSON *json, uint32_t index, const char *val);
 
 /// @brief Set an int32_t value in a JSON array.
+/// @param json An MTY_JSON array.
+/// @param index Index to set.
+/// @param val Value to set at `index`.
 MTY_EXPORT void
 MTY_JSONArraySetInt(MTY_JSON *json, uint32_t index, int32_t val);
 
 /// @brief Set a uint32_t value in a JSON array.
+/// @param json An MTY_JSON array.
+/// @param index Index to set.
+/// @param val Value to set at `index`.
 MTY_EXPORT void
 MTY_JSONArraySetUInt(MTY_JSON *json, uint32_t index, uint32_t val);
 
 /// @brief Set a float value in a JSON array.
+/// @param json An MTY_JSON array.
+/// @param index Index to set.
+/// @param val Value to set at `index`.
 MTY_EXPORT void
 MTY_JSONArraySetFloat(MTY_JSON *json, uint32_t index, float val);
 
 /// @brief Set a bool value in a JSON array.
+/// @param json An MTY_JSON array.
+/// @param index Index to set.
+/// @param val Value to set at `index`.
 MTY_EXPORT void
 MTY_JSONArraySetBool(MTY_JSON *json, uint32_t index, bool val);
 
 /// @brief Set a NULL value in a JSON array.
+/// @param json An MTY_JSON array.
+/// @param index Index to set to `null`.
 MTY_EXPORT void
 MTY_JSONArraySetNull(MTY_JSON *json, uint32_t index);
 
