@@ -18,16 +18,20 @@
 #include "version.h"
 #include "time.h"
 #include "file.h"
+#include "struct.h"
 
 int32_t main(int32_t argc, char **argv)
 {
-	if (!version_main())
-		return 1;
+	//if (!version_main())
+	//	return 1;
 
-	if (!time_main())
-		return 1;
+	//if (!time_main())
+	//	return 1;
 
-	if (!file_main())
+	//if (!file_main())
+	//	return 1;
+
+	if (!struct_main())
 		return 1;
 
 	return 0;
