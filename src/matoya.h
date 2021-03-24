@@ -478,7 +478,7 @@ MTY_JSONDuplicate(const MTY_JSON *json);
 /// @brief Destroy an MTY_JSON item.
 /// @param json Passed by reference and set to NULL after being destroyed.\n\n
 ///   This function destroys all children of the item, meaning only the root item
-///   in the hierarchy should ever be freed.
+///   in the hierarchy should ever be destroyed.
 MTY_EXPORT void
 MTY_JSONDestroy(MTY_JSON **json);
 
@@ -523,7 +523,7 @@ MTY_JSONObjKeyExists(const MTY_JSON *json, const char *key);
 /// @details This function can be used as a way to iterate through a JSON object by
 ///   first calling MTY_JSONGetLength on the object, then looping through by index.
 /// @param json An MTY_JSON object.
-/// @param index Index to retrieve the key for.
+/// @param index Index to lookup.
 /// @returns If the `index` exists, the object's key at that position is returned.
 ///   This reference is valid only as long as the `json` item is also valid.\n\n
 ///   If the `index` does not exist, NULL is returned.
@@ -599,6 +599,7 @@ MTY_JSONObjGetString(const MTY_JSON *json, const char *key, char *val, size_t si
 /// @brief Get an int32_t value from a JSON object.
 /// @param json An MTY_JSON object.
 /// @param key Key to lookup.
+/// @param val Typed value associated with `key`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_JSONObjGetInt(const MTY_JSON *json, const char *key, int32_t *val);
@@ -1635,10 +1636,13 @@ typedef struct MTY_Waitable MTY_Waitable;
 typedef struct MTY_ThreadPool MTY_ThreadPool;
 
 /// @brief Function that takes a single opaque argument.
+/// @param opaque Pointer set via various MTY_ThreadPool related functions.
 typedef void (*MTY_AnonFunc)(void *opaque);
 
 /// @brief Function that is executed on a thread.
-/// @returns An opaque pointer that gets returned by MTY_ThreadDestroy.
+/// @param opaque Pointer set via MTY_ThreadCreate or MTY_ThreadDetach.
+/// @returns An opaque pointer that gets returned by MTY_ThreadDestroy if the thread
+///   has not been run as detached.
 typedef void *(*MTY_ThreadFunc)(void *opaque);
 
 /// @brief Status of an asynchronous task.
@@ -1661,20 +1665,27 @@ typedef struct {
 } MTY_Atomic64;
 
 /// @brief Create an MTY_Thread that executes asynchronously.
+/// @param func Function that executes on its own thread.
+/// @param opaque Passed to `func` when it is called.
 /// @returns This function can not return NULL. It will call `abort()` on failure.\n\n
 ///   The returned MTY_Thread must be destroyed with MTY_ThreadDestroy.
 MTY_EXPORT MTY_Thread *
 MTY_ThreadCreate(MTY_ThreadFunc func, void *opaque);
 
 /// @brief Wait until an MTY_Thread has finished executing then destroy it.
+/// @param thread Passed by reference and set to NULL after being destroyed.
+/// @returns The return value from `func` set via MTY_ThreadCreate.
 MTY_EXPORT void *
 MTY_ThreadDestroy(MTY_Thread **thread);
 
 /// @brief Asynchronously run a function and forgo the ability to query its result.
+/// @param func Function that executes on its own thread.
+/// @param opaque Passed to `func` when it is called.
 MTY_EXPORT void
 MTY_ThreadDetach(MTY_ThreadFunc func, void *opaque);
 
-/// @brief Get the current thread's `id`.
+/// @brief Get a thread's `id`.
+/// @param ctx An MTY_Thread.
 MTY_EXPORT int64_t
 MTY_ThreadGetID(MTY_Thread *ctx);
 
@@ -1685,19 +1696,23 @@ MTY_EXPORT MTY_Mutex *
 MTY_MutexCreate(void);
 
 /// @brief Destroy an MTY_Mutex.
+/// @param mutex Passed by reference and set to NULL after being destroyed.
 MTY_EXPORT void
 MTY_MutexDestroy(MTY_Mutex **mutex);
 
 /// @brief Wait to acquire a lock on the mutex.
+/// @param ctx An MTY_Mutex.
 MTY_EXPORT void
 MTY_MutexLock(MTY_Mutex *ctx);
 
 /// @brief Try to acquire a lock on a mutex but fail if doing so would block.
+/// @param ctx An MTY_Mutex.
 /// @returns If the lock was acquired, returns true, otherwise false.
 MTY_EXPORT bool
 MTY_MutexTryLock(MTY_Mutex *ctx);
 
 /// @brief Unlock a mutex.
+/// @param ctx An MTY_Mutex.
 MTY_EXPORT void
 MTY_MutexUnlock(MTY_Mutex *ctx);
 
@@ -1708,46 +1723,62 @@ MTY_EXPORT MTY_Cond *
 MTY_CondCreate(void);
 
 /// @brief Destroy an MTY_Cond.
+/// @param cond Passed by reference and set to NULL after being destroyed.
 MTY_EXPORT void
 MTY_CondDestroy(MTY_Cond **cond);
 
 /// @brief Wait for a condition variable to be signalled with a timeout.
+/// @param ctx An MTY_Cond condition variable.
+/// @param mutex An MTY_Mutex that should be locked before the call to this function.
+///   When this function is called, the mutex will be unlocked while it is waiting,
+///   then the lock will be reacquired after this function returns.
+/// @param timeout Time to wait in milliseconds for the condition variable to be
+///   signaled.
 /// @returns If signaled, returns true, otherwise false on timeout.
 MTY_EXPORT bool
 MTY_CondWait(MTY_Cond *ctx, MTY_Mutex *mutex, int32_t timeout);
 
 /// @brief Signal a condition variable on a single blocked thread.
+/// @param ctx An MTY_Cond condition variable.
 MTY_EXPORT void
 MTY_CondSignal(MTY_Cond *ctx);
 
 /// @brief Signal a condition variable on all blocked threads.
+/// @param ctx An MTY_Cond condition variable.
 MTY_EXPORT void
 MTY_CondSignalAll(MTY_Cond *ctx);
 
 /// @brief Create an MTY_RWLock that allows concurrent read access.
+/// @details An MTY_RWLock allows recursive locking from readers, and will prioritize
+///   writers when they are waiting.
 /// @returns This function can not return NULL. It will call `abort()` on failure.\n\n
 ///   The returned MTY_RWLock must be destroyed with MTY_RWLockDestroy.
 MTY_EXPORT MTY_RWLock *
 MTY_RWLockCreate(void);
 
 /// @brief Destroy an MTY_RWLock.
+/// @param rwlock Passed by reference and set to NULL after being destroyed.
 MTY_EXPORT void
 MTY_RWLockDestroy(MTY_RWLock **rwlock);
 
 /// @brief Try to acquire a read lock on an MTY_RWLock but fail if doing so would block.
+/// @param ctx An MTY_RWLock.
 /// @returns If the lock was acquired, returns true, otherwise false.
 MTY_EXPORT bool
 MTY_RWTryLockReader(MTY_RWLock *ctx);
 
 /// @brief Acquire a read lock on an MTY_RWLock, blocking other writers.
+/// @param ctx An MTY_RWLock.
 MTY_EXPORT void
 MTY_RWLockReader(MTY_RWLock *ctx);
 
 /// @brief Acquire a write lock on an MTY_RWLock, block other readers and writers.
+/// @param ctx An MTY_RWLock.
 MTY_EXPORT void
 MTY_RWLockWriter(MTY_RWLock *ctx);
 
 /// @brief Unlock an MTY_RWLock.
+/// @param ctx An MTY_RWLock.
 MTY_EXPORT void
 MTY_RWLockUnlock(MTY_RWLock *ctx);
 
@@ -1758,39 +1789,59 @@ MTY_EXPORT MTY_Waitable *
 MTY_WaitableCreate(void);
 
 /// @brief Destroy an MTY_Waitable.
+/// @param waitable Passed by reference and set to NULL after being destroyed.
 MTY_EXPORT void
-MTY_WaitableDestroy(MTY_Waitable **sync);
+MTY_WaitableDestroy(MTY_Waitable **waitable);
 
 /// @brief Wait for a waitable object to be signalled with a timeout.
+/// @param ctx An MTY_Waitable object.
+/// @param timeout Time to wait in milliseconds for the waitable object to be signaled.
 /// @returns If signaled, returns true, otherwise false on timeout.
 MTY_EXPORT bool
 MTY_WaitableWait(MTY_Waitable *ctx, int32_t timeout);
 
 /// @brief Signal a waitable object.
+/// @param ctx An MTY_Waitable object.
 MTY_EXPORT void
 MTY_WaitableSignal(MTY_Waitable *ctx);
 
 /// @brief Create an MTY_ThreadPool for asynchronously executing tasks.
+/// @param maxThreads Maximum number of threads that can be simultaneously executing.
 /// @returns This function can not return NULL. It will call `abort()` on failure.\n\n
 ///   The returned MTY_ThreadPool object must be destroyed with MTY_ThreadPoolDestroy.
 MTY_EXPORT MTY_ThreadPool *
 MTY_ThreadPoolCreate(uint32_t maxThreads);
 
 /// @brief Destroy an MTY_ThreadPool.
+/// @param pool Passed by reference and set to NULL after being destroyed.
+/// @param detach Function called to clean up `opaque` thread state set via
+///   MTY_ThreadPoolStart after threads are done executing. May be NULL if not
+///   applicable.
 MTY_EXPORT void
 MTY_ThreadPoolDestroy(MTY_ThreadPool **pool, MTY_AnonFunc detach);
 
 /// @brief Dispatch a function to the thread pool.
+/// @param ctx An MTY_ThreadPool.
+/// @param func Function executed on a thread in the pool.
+/// @param opaque Passed to `func` when it is called.
 /// @returns On success, the index of the scheduled thread which must be greater than 0.
 ///   If there is no room left in the pool, 0 is returned. Call MTY_GetLog for details.
 MTY_EXPORT uint32_t
 MTY_ThreadPoolStart(MTY_ThreadPool *ctx, MTY_AnonFunc func, void *opaque);
 
 /// @brief Allow a thread to be reused after it is has finished executing.
+/// @param ctx An MTY_ThreadPool.
+/// @param index Thread index returned by MTY_ThreadPoolCreate.
+/// @param detach Function called to clean up `opaque` thread state set via
+///   MTY_ThreadPoolStart after the thread is done executing. May be NULL if not
+///   applicable.
 MTY_EXPORT void
 MTY_ThreadPoolDetach(MTY_ThreadPool *ctx, uint32_t index, MTY_AnonFunc detach);
 
 /// @brief Poll the asynchronous state of a thread in a pool.
+/// @param ctx An MTY_ThreadPool.
+/// @param index Thread index returned by MTY_ThreadPoolCreate.
+/// @param opaque Thread state set via the `opaque` argument to MTY_ThreadPoolCreate.
 /// @returns MTY_ASYNC_OK means the request has finished and `opaque` has been set to
 ///   the value originally passed via MTY_ThreadPoolStart.\n\n
 ///   MTY_ASYNC_DONE means there is no thread running at `index`.\n\n
@@ -1799,46 +1850,77 @@ MTY_EXPORT MTY_Async
 MTY_ThreadPoolPoll(MTY_ThreadPool *ctx, uint32_t index, void **opaque);
 
 /// @brief Set a 32-bit integer atomically.
+/// @details All atomic operations in libmatoya create a full memory barrier.
+/// @param atomic An MTY_Atomic32.
+/// @param value Value to atomically set.
 MTY_EXPORT void
 MTY_Atomic32Set(MTY_Atomic32 *atomic, int32_t value);
 
 /// @brief Set a 64-bit integer atomically.
+/// @details All atomic operations in libmatoya create a full memory barrier.
+/// @param atomic An MTY_Atomic64.
+/// @param value Value to atomically set.
 MTY_EXPORT void
 MTY_Atomic64Set(MTY_Atomic64 *atomic, int64_t value);
 
 /// @brief Get a 32-bit integer atomically.
+/// @details All atomic operations in libmatoya create a full memory barrier.
+/// @param atomic An MTY_Atomic32.
 MTY_EXPORT int32_t
 MTY_Atomic32Get(MTY_Atomic32 *atomic);
 
 /// @brief Get a 64-bit integer atomically.
+/// @details All atomic operations in libmatoya create a full memory barrier.
+/// @param atomic An MTY_Atomic64.
 MTY_EXPORT int64_t
 MTY_Atomic64Get(MTY_Atomic64 *atomic);
 
 /// @brief Add to a 32-bit integer atomically.
+/// @details All atomic operations in libmatoya create a full memory barrier.
+/// @param atomic An MTY_Atomic32.
+/// @param value Value to atomically add. This value can be negative, effectively
+///   performing subtraction.
 /// @returns The result of the addition.
 MTY_EXPORT int32_t
 MTY_Atomic32Add(MTY_Atomic32 *atomic, int32_t value);
 
 /// @brief Add to a 64-bit integer atomically.
+/// @details All atomic operations in libmatoya create a full memory barrier.
+/// @param atomic An MTY_Atomic64.
+/// @param value Value to atomically add. This value can be negative, effectively
+///   performing subtraction.
 /// @returns The result of the addition.
 MTY_EXPORT int64_t
 MTY_Atomic64Add(MTY_Atomic64 *atomic, int64_t value);
 
 /// @brief Compare two 32-bit values and if the same, atomically set to a new value.
+/// @details All atomic operations in libmatoya create a full memory barrier.
+/// @param atomic An MTY_Atomic32.
+/// @param oldValue Value to compare against the atomic.
+/// @param newValue Value the atomic is set to if `oldValue` matches the atomic.
 /// @returns If the atomic is set to `newValue`, returns true, otherwise false.
 MTY_EXPORT bool
 MTY_Atomic32CAS(MTY_Atomic32 *atomic, int32_t oldValue, int32_t newValue);
 
 /// @brief Compare two 64-bit values and if the same, atomically set to a new value.
+/// @details All atomic operations in libmatoya create a full memory barrier.
+/// @param atomic An MTY_Atomic64.
+/// @param oldValue Value to compare against the atomic.
+/// @param newValue Value the atomic is set to if `oldValue` matches the atomic.
 /// @returns If the atomic is set to `newValue`, returns true, otherwise false.
 MTY_EXPORT bool
 MTY_Atomic64CAS(MTY_Atomic64 *atomic, int64_t oldValue, int64_t newValue);
 
-/// @brief Globally lock via an atomic that may be statically initialized to zero.
+/// @brief Globally lock via an atomic that should be statically initialized to zero.
+/// @details All atomic operations in libmatoya create a full memory barrier.
+/// @details Warning: There is a process wide maximum of `UINT8_MAX` global locks.
+/// @param atomic An MTY_Atomic32.
 MTY_EXPORT void
 MTY_GlobalLock(MTY_Atomic32 *lock);
 
 /// @brief Globally unlock via an atomic.
+/// @details All atomic operations in libmatoya create a full memory barrier.
+/// @param atomic An MTY_Atomic32.
 MTY_EXPORT void
 MTY_GlobalUnlock(MTY_Atomic32 *lock);
 

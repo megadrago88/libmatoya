@@ -54,18 +54,18 @@ void MTY_WaitableSignal(MTY_Waitable *ctx)
 	MTY_MutexUnlock(ctx->mutex);
 }
 
-void MTY_WaitableDestroy(MTY_Waitable **sync)
+void MTY_WaitableDestroy(MTY_Waitable **waitable)
 {
-	if (!sync || !*sync)
+	if (!waitable || !*waitable)
 		return;
 
-	MTY_Waitable *ctx = *sync;
+	MTY_Waitable *ctx = *waitable;
 
 	MTY_CondDestroy(&ctx->cond);
 	MTY_MutexDestroy(&ctx->mutex);
 
 	MTY_Free(ctx);
-	*sync = NULL;
+	*waitable = NULL;
 }
 
 
