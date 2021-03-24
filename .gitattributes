@@ -1,6 +1,5 @@
-examples/* linguist-vendored
-deps/* linguist-vendored
-test/* linguist-vendored
+* linguist-vendored
+src/* linguist-detectable
 
 *.h linguist-language=C
 *.ps3 linguist-language=HLSL
