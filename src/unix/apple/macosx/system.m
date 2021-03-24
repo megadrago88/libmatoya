@@ -11,7 +11,7 @@
 
 #include "tlocal.h"
 
-void MTY_ProtocolHandler(const char *uri, void *token)
+void MTY_HandleProtocol(const char *uri, void *token)
 {
 	NSString *nsuri = [NSString stringWithUTF8String:uri];
 
@@ -41,7 +41,7 @@ uint32_t MTY_GetPlatformNoWeb(void)
 	return MTY_GetPlatform();
 }
 
-const char *MTY_ProcessPath(void)
+const char *MTY_GetProcessPath(void)
 {
 	char tmp[MTY_PATH_MAX] = {0};
 	uint32_t bsize = MTY_PATH_MAX - 1;
@@ -57,7 +57,7 @@ const char *MTY_ProcessPath(void)
 
 bool MTY_RestartProcess(char * const *argv)
 {
-	execv(MTY_ProcessPath(), argv);
+	execv(MTY_GetProcessPath(), argv);
 	MTY_Log("'execv' failed with errno %d", errno);
 
 	return false;

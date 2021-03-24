@@ -11,6 +11,8 @@
 
 #include <sys/stat.h>
 
+#define FSUTIL_DELIM '\\'
+
 static FILE *fsutil_open(const char *path, const char *mode)
 {
 	wchar_t *wpath = MTY_MultiToWideD(path);

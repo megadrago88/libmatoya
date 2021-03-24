@@ -35,7 +35,7 @@ MTY_AESGCM *MTY_AESGCMCreate(const void *key)
 {
 	MTY_AESGCM *ctx = MTY_Alloc(1, sizeof(MTY_AESGCM));
 
-	JNIEnv *env = MTY_JNIEnv();
+	JNIEnv *env = MTY_GetJNIEnv();
 
 	// The cipher handle
 	jstring jalg = mty_jni_strdup(env, "AES/GCM/NoPadding");
@@ -77,7 +77,7 @@ MTY_AESGCM *MTY_AESGCMCreate(const void *key)
 bool MTY_AESGCMEncrypt(MTY_AESGCM *ctx, const void *nonce, const void *plainText, size_t size,
 	void *hash, void *cipherText)
 {
-	JNIEnv *env = MTY_JNIEnv();
+	JNIEnv *env = MTY_GetJNIEnv();
 
 	(*env)->SetByteArrayRegion(env, ctx->buf[0], 0, 12, nonce);
 	(*env)->SetByteArrayRegion(env, ctx->buf[1], 0, size, plainText);
@@ -101,7 +101,7 @@ bool MTY_AESGCMEncrypt(MTY_AESGCM *ctx, const void *nonce, const void *plainText
 bool MTY_AESGCMDecrypt(MTY_AESGCM *ctx, const void *nonce, const void *cipherText, size_t size,
 	const void *hash, void *plainText)
 {
-	JNIEnv *env = MTY_JNIEnv();
+	JNIEnv *env = MTY_GetJNIEnv();
 
 	(*env)->SetByteArrayRegion(env, ctx->buf[3], 0, 12, nonce);
 	(*env)->SetByteArrayRegion(env, ctx->buf[4], 0, size, cipherText);
@@ -128,7 +128,7 @@ void MTY_AESGCMDestroy(MTY_AESGCM **aesgcm)
 
 	MTY_AESGCM *ctx = *aesgcm;
 
-	JNIEnv *env = MTY_JNIEnv();
+	JNIEnv *env = MTY_GetJNIEnv();
 
 	for (uint8_t x = 0; x < AES_GCM_NUM_BUFS; x++)
 		mty_jni_release(env, &ctx->buf[x]);

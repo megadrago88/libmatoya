@@ -14,12 +14,12 @@ static JavaVM *SYSTEM_JVM;
 
 // System
 
-void MTY_ProtocolHandler(const char *uri, void *token)
+void MTY_HandleProtocol(const char *uri, void *token)
 {
 	jobject obj = mty_window_get_native(NULL, 0);
 
 	if (obj) {
-		JNIEnv *env = MTY_JNIEnv();
+		JNIEnv *env = MTY_GetJNIEnv();
 
 		jstring juri = mty_jni_strdup(env, uri);
 		mty_jni_void(env, obj, "openURI", "(Ljava/lang/String;)V", juri);
@@ -43,7 +43,7 @@ uint32_t MTY_GetPlatformNoWeb(void)
 	return MTY_GetPlatform();
 }
 
-const char *MTY_ProcessPath(void)
+const char *MTY_GetProcessPath(void)
 {
 	return "/app";
 }
@@ -61,7 +61,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_system_1set_1jvm(JNIEnv *env
 	(*env)->GetJavaVM(env, &SYSTEM_JVM);
 }
 
-void *MTY_JNIEnv(void)
+void *MTY_GetJNIEnv(void)
 {
 	JNIEnv *env = NULL;
 

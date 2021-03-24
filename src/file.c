@@ -10,6 +10,7 @@
 #include <errno.h>
 
 #include "fsutil.h"
+#include "tlocal.h"
 
 void *MTY_ReadFile(const char *path, size_t *size)
 {
@@ -111,4 +112,42 @@ void MTY_FreeFileList(MTY_FileList **fl)
 
 	MTY_Free(*fl);
 	*fl = NULL;
+}
+
+const char *MTY_JoinPath(const char *path0, const char *path1)
+{
+	char *path = MTY_SprintfD("%s%c%s", path0, FSUTIL_DELIM, path1);
+	char *local = mty_tlocal_strcpy(path);
+
+	MTY_Free(path);
+
+	return local;
+}
+
+const char *MTY_GetFileName(const char *path, bool extension)
+{
+	const char *name = strrchr(path, FSUTIL_DELIM);
+	name = name ? name + 1 : path;
+
+	char *local = mty_tlocal_strcpy(name);
+
+	if (!extension) {
+		char *ext = strrchr(local, '.');
+
+		if (ext)
+			*ext = '\0';
+	}
+
+	return local;
+}
+
+const char *MTY_GetPathPrefix(const char *path)
+{
+	char *local = mty_tlocal_strcpy(path);
+	char *name = strrchr(local, FSUTIL_DELIM);
+
+	if (name)
+		*name = '\0';
+
+	return local;
 }

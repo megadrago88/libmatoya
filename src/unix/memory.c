@@ -20,7 +20,7 @@ void *MTY_AllocAligned(size_t size, size_t align)
 	int32_t e = posix_memalign(&mem, align, size);
 
 	if (e != 0)
-		MTY_Fatal("'posix_memalign' failed with error %d", e);
+		MTY_LogFatal("'posix_memalign' failed with error %d", e);
 
 	memset(mem, 0, size);
 

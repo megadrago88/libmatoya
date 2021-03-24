@@ -203,10 +203,10 @@ bool mty_d3d9_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *
 
 			// Use the clip to apply scissor
 			RECT r = {0};
-			r.left = lrint(pcmd->clip.x);
-			r.top = lrint(pcmd->clip.y);
-			r.right = lrint(pcmd->clip.r);
-			r.bottom = lrint(pcmd->clip.b);
+			r.left = lrint(pcmd->clip.left);
+			r.top = lrint(pcmd->clip.top);
+			r.right = lrint(pcmd->clip.right);
+			r.bottom = lrint(pcmd->clip.bottom);
 
 			// Make sure the rect is actually in the viewport
 			if (r.left < dd->displaySize.x && r.top < dd->displaySize.y && r.right >= 0.0f && r.bottom >= 0.0f) {

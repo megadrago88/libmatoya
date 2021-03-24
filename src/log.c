@@ -48,7 +48,7 @@ void MTY_LogParams(const char *func, const char *msg, ...)
 	va_end(args);
 }
 
-void MTY_FatalParams(const char *func, const char *msg, ...)
+void MTY_LogFatalParams(const char *func, const char *msg, ...)
 {
 	va_list args;
 	va_start(args, msg);

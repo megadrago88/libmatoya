@@ -160,7 +160,7 @@ bool MTY_CryptoHashFile(MTY_Algorithm algo, const char *path, const void *key, s
 	return false;
 }
 
-uint32_t MTY_RandomUInt(uint32_t minVal, uint32_t maxVal)
+uint32_t MTY_GetRandomUInt(uint32_t minVal, uint32_t maxVal)
 {
 	if (minVal >= maxVal) {
 		MTY_Log("'minVal' can not be >= maxVal");
@@ -168,7 +168,7 @@ uint32_t MTY_RandomUInt(uint32_t minVal, uint32_t maxVal)
 	}
 
 	uint32_t val = 0;
-	MTY_RandomBytes(&val, sizeof(uint32_t));
+	MTY_GetRandomBytes(&val, sizeof(uint32_t));
 
 	return val % (maxVal - minVal) + minVal;
 }

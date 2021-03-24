@@ -164,12 +164,12 @@ bool mty_metal_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context 
 			MTY_Rect r = pcmd->clip;
 
 			// Make sure the rect is actually in the viewport
-			if (r.x < fb_width && r.y < fb_height && r.r >= 0.0f && r.b >= 0.0f) {
+			if (r.left < fb_width && r.top < fb_height && r.right >= 0.0f && r.bottom >= 0.0f) {
 				MTLScissorRect scissorRect = {
-					.x = lrint(r.x),
-					.y = lrint(r.y),
-					.width = lrint(r.r - r.x),
-					.height = lrint(r.b - r.y)
+					.x = lrint(r.left),
+					.y = lrint(r.top),
+					.width = lrint(r.right - r.left),
+					.height = lrint(r.bottom - r.top)
 				};
 				[re setScissorRect:scissorRect];
 

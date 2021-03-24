@@ -76,7 +76,7 @@ static bool ws_connect(MTY_WebSocket *ws, const char *path, const char *headers,
 
 	// Generate the random base64 key
 	uint8_t key[16];
-	MTY_RandomBytes(key, 16);
+	MTY_GetRandomBytes(key, 16);
 
 	char skey[16 * 2 + 1];
 	MTY_BytesToBase64(key, 16, skey, 16 * 2 + 1);
@@ -243,7 +243,7 @@ static bool ws_write(MTY_WebSocket *ws, const void *buf, size_t size, uint8_t op
 	// Mask if necessary
 	if (ws->mask) {
 		uint8_t *masking_key = ws->buf + o;
-		MTY_RandomBytes(masking_key, 4);
+		MTY_GetRandomBytes(masking_key, 4);
 		o += 4;
 
 		ws_mask(buf, size, masking_key, ws->buf + o);
@@ -331,11 +331,11 @@ MTY_WebSocket *MTY_WebSocketConnect(const char *host, uint16_t port, bool secure
 	return ctx;
 }
 
-MTY_WebSocket *MTY_WebSocketListen(const char *host, uint16_t port)
+MTY_WebSocket *MTY_WebSocketListen(const char *ip, uint16_t port)
 {
 	MTY_WebSocket *ctx = MTY_Alloc(1, sizeof(MTY_WebSocket));
 
-	ctx->net = mty_net_listen(host, port);
+	ctx->net = mty_net_listen(ip, port);
 
 	if (!ctx->net)
 		MTY_WebSocketDestroy(&ctx);
@@ -386,7 +386,7 @@ void MTY_WebSocketDestroy(MTY_WebSocket **ws)
 	*ws = NULL;
 }
 
-MTY_Async MTY_WebSocketRead(MTY_WebSocket *ws, char *msg, size_t size, uint32_t timeout)
+MTY_Async MTY_WebSocketRead(MTY_WebSocket *ws, uint32_t timeout, char *msg, size_t size)
 {
 	// Implicit ping handler
 	MTY_Time now = MTY_GetTime();

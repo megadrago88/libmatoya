@@ -63,16 +63,6 @@ bool MTY_Mkdir(const char *path)
 	return true;
 }
 
-const char *MTY_Path(const char *dir, const char *file)
-{
-	char *path = MTY_SprintfD("%s\\%s", dir, file);
-	char *local = mty_tlocal_strcpy(path);
-
-	MTY_Free(path);
-
-	return local;
-}
-
 bool MTY_CopyFile(const char *src, const char *dst)
 {
 	bool r = true;
@@ -156,22 +146,6 @@ const char *MTY_GetDir(MTY_Dir dir)
 
 			break;
 		}
-		case MTY_DIR_EXECUTABLE: {
-			DWORD n = GetModuleFileName(NULL, tmp, MTY_PATH_MAX);
-
-			if (n > 0) {
-				local = mty_tlocal_strcpyw(tmp);
-				char *name = strrchr(local, '\\');
-
-				if (name)
-					name[0] = '\0';
-
-			} else {
-				MTY_Log("'GetModuleFileName' failed with error 0x%X", GetLastError());
-			}
-
-			break;
-		}
 		case MTY_DIR_GLOBAL_HOME:
 			local = file_known_folder(&FOLDERID_ProgramData);
 			break;
@@ -220,23 +194,6 @@ void MTY_LockFileDestroy(MTY_LockFile **lock)
 	*lock = NULL;
 }
 
-const char *MTY_GetFileName(const char *path, bool extension)
-{
-	const char *name = strrchr(path, '\\');
-	name = name ? name + 1 : path;
-
-	char *local = mty_tlocal_strcpy(name);
-
-	if (!extension) {
-		char *ext = strrchr(local, '.');
-
-		if (ext)
-			*ext = '\0';
-	}
-
-	return local;
-}
-
 static int32_t file_compare(const void *p1, const void *p2)
 {
 	MTY_FileDesc *fi1 = (MTY_FileDesc *) p1;
@@ -270,7 +227,7 @@ MTY_FileList *MTY_GetFileList(const char *path, const char *filter)
 	char *pathd = MTY_Strdup(path);
 
 	WIN32_FIND_DATA ent;
-	wchar_t *pathw = MTY_MultiToWideD(MTY_Path(pathd, "*"));
+	wchar_t *pathw = MTY_MultiToWideD(MTY_JoinPath(pathd, "*"));
 
 	HANDLE dir = FindFirstFile(pathw, &ent);
 	bool ok = dir != INVALID_HANDLE_VALUE;
@@ -287,7 +244,7 @@ MTY_FileList *MTY_GetFileList(const char *path, const char *filter)
 
 			char *name = MTY_WideToMultiD(namew);
 			fl->files[fl->len].name = name;
-			fl->files[fl->len].path = MTY_Strdup(MTY_Path(pathd, name));
+			fl->files[fl->len].path = MTY_Strdup(MTY_JoinPath(pathd, name));
 			fl->files[fl->len].dir = is_dir;
 			fl->len++;
 		}

@@ -16,7 +16,7 @@ MTY_List *MTY_ListCreate(void)
 	return MTY_Alloc(1, sizeof(MTY_List));
 }
 
-MTY_ListNode *MTY_ListFirst(MTY_List *ctx)
+MTY_ListNode *MTY_ListGetFirst(MTY_List *ctx)
 {
 	return ctx->first;
 }

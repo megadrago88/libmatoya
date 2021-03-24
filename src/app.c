@@ -68,21 +68,20 @@ void MTY_WindowDrawUI(MTY_App *app, MTY_Window window, const MTY_DrawData *dd)
 		GFX_CTX_API[api].draw_ui(gfx_ctx, dd);
 }
 
-void MTY_WindowSetUITexture(MTY_App *app, MTY_Window window, uint32_t id, const void *rgba, uint32_t width, uint32_t height)
+bool MTY_WindowSetUITexture(MTY_App *app, MTY_Window window, uint32_t id, const void *rgba, uint32_t width, uint32_t height)
 {
 	struct gfx_ctx *gfx_ctx = NULL;
 	MTY_GFX api = mty_window_get_gfx(app, window, &gfx_ctx);
 
-	if (api != MTY_GFX_NONE)
-		GFX_CTX_API[api].set_ui_texture(gfx_ctx, id, rgba, width, height);
+	return api != MTY_GFX_NONE && GFX_CTX_API[api].set_ui_texture(gfx_ctx, id, rgba, width, height);
 }
 
-void *MTY_WindowGetUITexture(MTY_App *app, MTY_Window window, uint32_t id)
+bool MTY_WindowHasUITexture(MTY_App *app, MTY_Window window, uint32_t id)
 {
 	struct gfx_ctx *gfx_ctx = NULL;
 	MTY_GFX api = mty_window_get_gfx(app, window, &gfx_ctx);
 
-	return api != MTY_GFX_NONE ? GFX_CTX_API[api].get_ui_texture(gfx_ctx, id) : NULL;
+	return api != MTY_GFX_NONE && GFX_CTX_API[api].has_ui_texture(gfx_ctx, id);
 }
 
 MTY_GFX MTY_WindowGetGFX(MTY_App *app, MTY_Window window)
@@ -158,19 +157,19 @@ void MTY_PrintEvent(const MTY_Event *evt)
 		PEVENT(MTY_EVENT_BACK, evt, "");
 
 		case MTY_EVENT_CONTROLLER: {
-			PFMT(MTY_EVENT_CONTROLLER, evt, "id: %u, type: %u, vid-pid: %04X-%04X, numButtons: %u, numValues: %u",
+			PFMT(MTY_EVENT_CONTROLLER, evt, "id: %u, type: %u, vid-pid: %04X-%04X, numButtons: %u, numAxes: %u",
 				evt->controller.id, evt->controller.type, evt->controller.vid, evt->controller.pid,
-				evt->controller.numButtons, evt->controller.numValues);
+				evt->controller.numButtons, evt->controller.numAxes);
 
 			printf("  buttons: ");
 			for (uint8_t x = 0; x < evt->controller.numButtons; x++)
 				printf("%u", evt->controller.buttons[x]);
 			printf("\n");
 
-			printf("  values: ");
-			for (uint8_t x = 0; x < evt->controller.numValues; x++) {
-				const MTY_Value *v = &evt->controller.values[x];
-				printf("[%X] %-7d", v->usage, v->data);
+			printf("  axes: ");
+			for (uint8_t x = 0; x < evt->controller.numAxes; x++) {
+				const MTY_Axis *a = &evt->controller.axes[x];
+				printf("[%X] %-7d", a->usage, a->value);
 			}
 			printf("\n");
 		}

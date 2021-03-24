@@ -24,7 +24,7 @@ struct MTY_Queue {
 	size_t buf_size;
 	uint32_t len;
 
-	MTY_Sync *pop_sync;
+	MTY_Waitable *pop_sync;
 	MTY_Mutex *push_mutex;
 
 	struct queue_slot *slots;
@@ -41,7 +41,7 @@ MTY_Queue *MTY_QueueCreate(uint32_t len, size_t bufSize)
 	if (ctx->buf_size < sizeof(void *))
 		ctx->buf_size = sizeof(void *);
 
-	ctx->pop_sync = MTY_SyncCreate();
+	ctx->pop_sync = MTY_WaitableCreate();
 	ctx->push_mutex = MTY_MutexCreate();
 
 	ctx->slots = MTY_Alloc(ctx->len, sizeof(struct queue_slot));
@@ -52,7 +52,7 @@ MTY_Queue *MTY_QueueCreate(uint32_t len, size_t bufSize)
 	return ctx;
 }
 
-uint32_t MTY_QueueLength(MTY_Queue *ctx)
+uint32_t MTY_QueueGetLength(MTY_Queue *ctx)
 {
 	int32_t pos = (int32_t) ctx->push_pos - (int32_t) ctx->pop_pos;
 
@@ -97,7 +97,7 @@ static void queue_push(MTY_Queue *ctx, size_t size, bool ptr)
 		ctx->slots[lock_pos].ptr = ptr;
 		MTY_Atomic32Set(&ctx->slots[lock_pos].state, QUEUE_FULL);
 
-		MTY_SyncWake(ctx->pop_sync);
+		MTY_WaitableSignal(ctx->pop_sync);
 	}
 
 	MTY_MutexUnlock(ctx->push_mutex);
@@ -132,7 +132,7 @@ static bool queue_pop(MTY_Queue *ctx, int32_t timeout, bool last, void **buffer,
 	} else {
 		// Because of the lock free check, this may already be signaled when
 		// there is no data. Worst case the loop spins one extra time
-		if (MTY_SyncWait(ctx->pop_sync, timeout))
+		if (MTY_WaitableWait(ctx->pop_sync, timeout))
 			goto begin;
 	}
 
@@ -214,7 +214,7 @@ void MTY_QueueDestroy(MTY_Queue **queue)
 	MTY_Free(ctx->slots);
 
 	MTY_MutexDestroy(&ctx->push_mutex);
-	MTY_SyncDestroy(&ctx->pop_sync);
+	MTY_WaitableDestroy(&ctx->pop_sync);
 
 	MTY_Free(ctx);
 	*queue = NULL;

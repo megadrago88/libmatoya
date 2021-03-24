@@ -10,7 +10,7 @@
 
 #include "tlocal.h"
 
-const char *MTY_VersionString(uint32_t platform)
+const char *MTY_GetVersionString(uint32_t platform)
 {
 	uint8_t major = (platform & 0xFF00) >> 8;
 	uint8_t minor = platform & 0xFF;
@@ -27,7 +27,7 @@ const char *MTY_VersionString(uint32_t platform)
 	return ver;
 }
 
-bool MTY_Supported(void)
+bool MTY_IsSupported(void)
 {
 	uint32_t platform = MTY_GetPlatform();
 

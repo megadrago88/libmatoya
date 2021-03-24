@@ -51,42 +51,42 @@ static const MTY_ControllerEvent APP_ZEROED_CTRL = {
 	.pid = 0xCDD,
 	.vid = 0xCDD,
 	.numButtons = 13,
-	.numValues = 7,
+	.numAxes = 7,
 	.type = MTY_CTYPE_DEFAULT,
-	.values = {
-		[MTY_CVALUE_THUMB_LX] = {
+	.axes = {
+		[MTY_CAXIS_THUMB_LX] = {
 			.usage = 0x30,
 			.min = INT16_MIN,
 			.max = INT16_MAX,
 		},
-		[MTY_CVALUE_THUMB_LY] = {
+		[MTY_CAXIS_THUMB_LY] = {
 			.usage = 0x31,
 			.min = INT16_MIN,
 			.max = INT16_MAX,
 		},
-		[MTY_CVALUE_THUMB_RX] = {
+		[MTY_CAXIS_THUMB_RX] = {
 			.usage = 0x32,
 			.min = INT16_MIN,
 			.max = INT16_MAX,
 		},
-		[MTY_CVALUE_THUMB_RY] = {
+		[MTY_CAXIS_THUMB_RY] = {
 			.usage = 0x35,
 			.min = INT16_MIN,
 			.max = INT16_MAX,
 		},
-		[MTY_CVALUE_TRIGGER_L] = {
+		[MTY_CAXIS_TRIGGER_L] = {
 			.usage = 0x33,
 			.min = 0,
 			.max = UINT8_MAX,
 		},
-		[MTY_CVALUE_TRIGGER_R] = {
+		[MTY_CAXIS_TRIGGER_R] = {
 			.usage = 0x34,
 			.min = 0,
 			.max = UINT8_MAX,
 		},
-		[MTY_CVALUE_DPAD] = {
+		[MTY_CAXIS_DPAD] = {
 			.usage = 0x39,
-			.data = 8,
+			.value = 8,
 			.min = 0,
 			.max = 7,
 		},
@@ -147,7 +147,7 @@ static void *app_thread(void *opaque)
 	char *arg = "main";
 	main(1, &arg);
 
-	mty_jni_void(MTY_JNIEnv(), ctx->obj, "finish", "()V");
+	mty_jni_void(MTY_GetJNIEnv(), ctx->obj, "finish", "()V");
 
 	return NULL;
 }
@@ -506,7 +506,7 @@ static MTY_ControllerEvent *app_get_controller(MTY_App *ctx, int32_t deviceId)
 {
 	MTY_ControllerEvent *c = MTY_HashGetInt(ctx->ctrls, deviceId);
 	if (!c) {
-		int32_t ids = mty_jni_int(MTY_JNIEnv(), ctx->obj, "getHardwareIds", "(I)I", deviceId);
+		int32_t ids = mty_jni_int(MTY_GetJNIEnv(), ctx->obj, "getHardwareIds", "(I)I", deviceId);
 
 		c = MTY_Alloc(1, sizeof(MTY_ControllerEvent));
 		*c = APP_ZEROED_CTRL;
@@ -587,7 +587,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1button(JNIEnv *env, job
 			bool left = pressed && (button == AKEYCODE_DPAD_LEFT || button == AKEYCODE_DPAD_UP_LEFT || button == AKEYCODE_DPAD_DOWN_LEFT);
 			bool right = pressed && (button == AKEYCODE_DPAD_RIGHT || button == AKEYCODE_DPAD_UP_RIGHT || button == AKEYCODE_DPAD_DOWN_RIGHT);
 
-			c->values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
+			c->axes[MTY_CAXIS_DPAD].value = (up && right) ? 1 : (right && down) ? 3 :
 				(down && left) ? 5 : (left && up) ? 7 : up ? 0 : right ? 2 : down ? 4 : left ? 6 : 8;
 			break;
 		}
@@ -606,21 +606,21 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1axis(JNIEnv *env, jobje
 
 	MTY_ControllerEvent *c = app_get_controller(&CTX, deviceId);
 
-	c->values[MTY_CVALUE_THUMB_LX].data = lrint(lX * (float) (lX < 0.0f ? abs(INT16_MIN) : INT16_MAX));
-	c->values[MTY_CVALUE_THUMB_LY].data = lrint(-lY * (float) (-lY < 0.0f ? abs(INT16_MIN) : INT16_MAX));
-	c->values[MTY_CVALUE_THUMB_RX].data = lrint(rX * (float) (rX < 0.0f ? abs(INT16_MIN) : INT16_MAX));
-	c->values[MTY_CVALUE_THUMB_RY].data = lrint(-rY * (float) (-rY < 0.0f ? abs(INT16_MIN) : INT16_MAX));
+	c->axes[MTY_CAXIS_THUMB_LX].value = lrint(lX * (float) (lX < 0.0f ? abs(INT16_MIN) : INT16_MAX));
+	c->axes[MTY_CAXIS_THUMB_LY].value = lrint(-lY * (float) (-lY < 0.0f ? abs(INT16_MIN) : INT16_MAX));
+	c->axes[MTY_CAXIS_THUMB_RX].value = lrint(rX * (float) (rX < 0.0f ? abs(INT16_MIN) : INT16_MAX));
+	c->axes[MTY_CAXIS_THUMB_RY].value = lrint(-rY * (float) (-rY < 0.0f ? abs(INT16_MIN) : INT16_MAX));
 
-	c->values[MTY_CVALUE_TRIGGER_L].data = lrint(lT * (float) UINT8_MAX);
-	c->values[MTY_CVALUE_TRIGGER_R].data = lrint(rT * (float) UINT8_MAX);
+	c->axes[MTY_CAXIS_TRIGGER_L].value = lrint(lT * (float) UINT8_MAX);
+	c->axes[MTY_CAXIS_TRIGGER_R].value = lrint(rT * (float) UINT8_MAX);
 
 	// Xbox Series X hack
 	if (c->vid == 0x045E && c->pid == 0x0B13) {
-		if (c->values[MTY_CVALUE_TRIGGER_L].data == 0)
-			c->values[MTY_CVALUE_TRIGGER_L].data = lrint(lTalt * (float) UINT8_MAX);
+		if (c->axes[MTY_CAXIS_TRIGGER_L].value == 0)
+			c->axes[MTY_CAXIS_TRIGGER_L].value = lrint(lTalt * (float) UINT8_MAX);
 
-		if (c->values[MTY_CVALUE_TRIGGER_R].data == 0)
-			c->values[MTY_CVALUE_TRIGGER_R].data = lrint(rTalt * (float) UINT8_MAX);
+		if (c->axes[MTY_CAXIS_TRIGGER_R].value == 0)
+			c->axes[MTY_CAXIS_TRIGGER_R].value = lrint(rTalt * (float) UINT8_MAX);
 	}
 
 	bool up = hatY == -1.0f;
@@ -628,7 +628,7 @@ JNIEXPORT void JNICALL Java_group_matoya_lib_Matoya_app_1axis(JNIEnv *env, jobje
 	bool left = hatX == -1.0f;
 	bool right = hatX == 1.0f;
 
-	c->values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
+	c->axes[MTY_CAXIS_DPAD].value = (up && right) ? 1 : (right && down) ? 3 :
 		(down && left) ? 5 : (left && up) ? 7 : up ? 0 : right ? 2 : down ? 4 : left ? 6 : 8;
 
 	app_push_controller_event(&CTX, c);
@@ -661,7 +661,7 @@ void MTY_HotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len)
 	if (key != MTY_KEY_NONE) {
 		for (int32_t x = 0; x < (int32_t) APP_KEYS_MAX; x++) {
 			if (key == APP_KEY_MAP[x]) {
-				JNIEnv *env = MTY_JNIEnv();
+				JNIEnv *env = MTY_GetJNIEnv();
 				char *ctext = mty_jni_cstrdup(env, mty_jni_obj(env, CTX.obj,
 					"getKey", "(I)Ljava/lang/String;", x));
 
@@ -697,14 +697,14 @@ void MTY_AppRemoveHotkeys(MTY_App *ctx, MTY_Scope scope)
 
 char *MTY_AppGetClipboard(MTY_App *app)
 {
-	JNIEnv *env = MTY_JNIEnv();
+	JNIEnv *env = MTY_GetJNIEnv();
 
 	return mty_jni_cstrdup(env, mty_jni_obj(env, app->obj,  "getClipboard", "()Ljava/lang/String;"));
 }
 
 void MTY_AppSetClipboard(MTY_App *app, const char *text)
 {
-	JNIEnv *env = MTY_JNIEnv();
+	JNIEnv *env = MTY_GetJNIEnv();
 	jstring jtext = mty_jni_strdup(env, text);
 
 	mty_jni_void(env, app->obj, "setClipboard", "(Ljava/lang/String;)V", jtext);
@@ -714,7 +714,7 @@ void MTY_AppSetClipboard(MTY_App *app, const char *text)
 
 static float app_get_scale(MTY_App *ctx)
 {
-	return mty_jni_float(MTY_JNIEnv(), ctx->obj, "getDisplayDensity", "()F") * 0.85f;
+	return mty_jni_float(MTY_GetJNIEnv(), ctx->obj, "getDisplayDensity", "()F") * 0.85f;
 }
 
 MTY_App *MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaque)
@@ -787,7 +787,7 @@ void MTY_AppRun(MTY_App *ctx)
 		// Generates scroll events after a fling has taken place
 		// Prevent JNI calls if there's no fling in progress
 		if (ctx->check_scroller)
-			mty_jni_void(MTY_JNIEnv(), ctx->obj, "checkScroller", "()V");
+			mty_jni_void(MTY_GetJNIEnv(), ctx->obj, "checkScroller", "()V");
 
 		cont = ctx->app_func(ctx->opaque);
 
@@ -803,7 +803,7 @@ void MTY_AppSetTimeout(MTY_App *ctx, uint32_t timeout)
 
 void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 {
-	mty_jni_void(MTY_JNIEnv(), app->obj, "enableScreenSaver", "(Z)V", enable);
+	mty_jni_void(MTY_GetJNIEnv(), app->obj, "enableScreenSaver", "(Z)V", enable);
 }
 
 bool MTY_AppIsActive(MTY_App *ctx)
@@ -813,27 +813,27 @@ bool MTY_AppIsActive(MTY_App *ctx)
 
 void MTY_AppShowSoftKeyboard(MTY_App *app, bool show)
 {
-	mty_jni_void(MTY_JNIEnv(), app->obj, "showKeyboard", "(Z)V", show);
+	mty_jni_void(MTY_GetJNIEnv(), app->obj, "showKeyboard", "(Z)V", show);
 }
 
-bool MTY_AppSoftKeyboardIsShowing(MTY_App *app)
+bool MTY_AppIsSoftKeyboardShowing(MTY_App *app)
 {
-	return mty_jni_bool(MTY_JNIEnv(), app->obj, "keyboardIsShowing", "()Z");
+	return mty_jni_bool(MTY_GetJNIEnv(), app->obj, "keyboardIsShowing", "()Z");
 }
 
 MTY_Orientation MTY_AppGetOrientation(MTY_App *ctx)
 {
-	return mty_jni_int(MTY_JNIEnv(), ctx->obj, "getOrientation", "()I");
+	return mty_jni_int(MTY_GetJNIEnv(), ctx->obj, "getOrientation", "()I");
 }
 
 void MTY_AppSetOrientation(MTY_App *app, MTY_Orientation orientation)
 {
-	mty_jni_void(MTY_JNIEnv(), app->obj, "setOrientation", "(I)V", orientation);
+	mty_jni_void(MTY_GetJNIEnv(), app->obj, "setOrientation", "(I)V", orientation);
 }
 
 void MTY_AppSetPNGCursor(MTY_App *app, const void *image, size_t size, uint32_t hotX, uint32_t hotY)
 {
-	JNIEnv *env = MTY_JNIEnv();
+	JNIEnv *env = MTY_GetJNIEnv();
 	jbyteArray jimage = mty_jni_dup(env, image, size);
 
 	mty_jni_void(env, app->obj, "setCursor", "([BFF)V", jimage, (jfloat) hotX, (jfloat) hotY);
@@ -848,22 +848,22 @@ bool MTY_AppCanWarpCursor(MTY_App *ctx)
 
 void MTY_AppShowCursor(MTY_App *ctx, bool show)
 {
-	mty_jni_void(MTY_JNIEnv(), ctx->obj, "showCursor", "(Z)V", show);
+	mty_jni_void(MTY_GetJNIEnv(), ctx->obj, "showCursor", "(Z)V", show);
 }
 
 void MTY_AppUseDefaultCursor(MTY_App *app, bool useDefault)
 {
-	mty_jni_void(MTY_JNIEnv(), app->obj, "useDefaultCursor", "(Z)V", useDefault);
+	mty_jni_void(MTY_GetJNIEnv(), app->obj, "useDefaultCursor", "(Z)V", useDefault);
 }
 
 void MTY_AppSetRelativeMouse(MTY_App *app, bool relative)
 {
-	mty_jni_void(MTY_JNIEnv(), app->obj, "setRelativeMouse", "(Z)V", relative);
+	mty_jni_void(MTY_GetJNIEnv(), app->obj, "setRelativeMouse", "(Z)V", relative);
 }
 
 bool MTY_AppGetRelativeMouse(MTY_App *app)
 {
-	return mty_jni_bool(MTY_JNIEnv(), app->obj, "getRelativeMouse", "()Z");
+	return mty_jni_bool(MTY_GetJNIEnv(), app->obj, "getRelativeMouse", "()Z");
 }
 
 void MTY_AppDetach(MTY_App *app, MTY_Detach type)
@@ -898,12 +898,12 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const MTY_WindowDesc *desc)
 
 void MTY_WindowSetFullscreen(MTY_App *app, MTY_Window window, bool fullscreen)
 {
-	mty_jni_void(MTY_JNIEnv(), app->obj, "enableFullscreen", "(Z)V", fullscreen);
+	mty_jni_void(MTY_GetJNIEnv(), app->obj, "enableFullscreen", "(Z)V", fullscreen);
 }
 
 bool MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window)
 {
-	return mty_jni_bool(MTY_JNIEnv(), app->obj, "isFullscreen", "()Z");
+	return mty_jni_bool(MTY_GetJNIEnv(), app->obj, "isFullscreen", "()Z");
 }
 
 bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height)
@@ -913,7 +913,7 @@ bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, u
 	return true;
 }
 
-float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
+float MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window)
 {
 	return app->scale;
 }
@@ -932,7 +932,7 @@ bool MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_
 {
 	MTY_WindowGetScreenSize(app, window, width, height);
 
-	int32_t kb_height = mty_jni_int(MTY_JNIEnv(), app->obj, "keyboardHeight", "()I");
+	int32_t kb_height = mty_jni_int(MTY_GetJNIEnv(), app->obj, "keyboardHeight", "()I");
 
 	if (kb_height == -1)
 		kb_height = 0;
@@ -948,7 +948,7 @@ bool MTY_WindowExists(MTY_App *app, MTY_Window window)
 	return true;
 }
 
-MTY_GFXState MTY_WindowGFXState(MTY_App *app, MTY_Window window)
+MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)
 {
 	return mty_gfx_state();
 }
@@ -982,11 +982,11 @@ void MTY_SetAppID(const char *id)
 {
 }
 
-void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
+void MTY_AppRumbleController(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {
 }
 
-bool MTY_AppKeyboardIsGrabbed(MTY_App *ctx)
+bool MTY_AppIsKeyboardGrabbed(MTY_App *ctx)
 {
 	return false;
 }
@@ -1011,7 +1011,7 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 {
 }
 
-bool MTY_AppMouseIsGrabbed(MTY_App *ctx)
+bool MTY_AppIsMouseGrabbed(MTY_App *ctx)
 {
 	return false;
 }
@@ -1037,7 +1037,7 @@ void MTY_AppRemoveTray(MTY_App *app)
 {
 }
 
-void MTY_AppNotification(MTY_App *app, const char *title, const char *msg)
+void MTY_AppSendNotification(MTY_App *app, const char *title, const char *msg)
 {
 }
 
@@ -1045,7 +1045,7 @@ void MTY_AppEnableGlobalHotkeys(MTY_App *app, bool enable)
 {
 }
 
-bool MTY_AppPenIsEnabled(MTY_App *ctx)
+bool MTY_AppIsPenEnabled(MTY_App *ctx)
 {
 	return false;
 }

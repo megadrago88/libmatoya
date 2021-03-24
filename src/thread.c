@@ -11,15 +11,15 @@
 #include "rwlock.h"
 #include "tlocal.h"
 
-struct MTY_Sync {
+struct MTY_Waitable {
 	bool signal;
 	MTY_Mutex *mutex;
 	MTY_Cond *cond;
 };
 
-MTY_Sync *MTY_SyncCreate(void)
+MTY_Waitable *MTY_WaitableCreate(void)
 {
-	MTY_Sync *ctx = MTY_Alloc(1, sizeof(struct MTY_Sync));
+	MTY_Waitable *ctx = MTY_Alloc(1, sizeof(struct MTY_Waitable));
 
 	ctx->mutex = MTY_MutexCreate();
 	ctx->cond = MTY_CondCreate();
@@ -27,7 +27,7 @@ MTY_Sync *MTY_SyncCreate(void)
 	return ctx;
 }
 
-bool MTY_SyncWait(MTY_Sync *ctx, int32_t timeout)
+bool MTY_WaitableWait(MTY_Waitable *ctx, int32_t timeout)
 {
 	MTY_MutexLock(ctx->mutex);
 
@@ -42,24 +42,24 @@ bool MTY_SyncWait(MTY_Sync *ctx, int32_t timeout)
 	return signal;
 }
 
-void MTY_SyncWake(MTY_Sync *ctx)
+void MTY_WaitableSignal(MTY_Waitable *ctx)
 {
 	MTY_MutexLock(ctx->mutex);
 
 	if (!ctx->signal) {
 		ctx->signal = true;
-		MTY_CondWake(ctx->cond);
+		MTY_CondSignal(ctx->cond);
 	}
 
 	MTY_MutexUnlock(ctx->mutex);
 }
 
-void MTY_SyncDestroy(MTY_Sync **sync)
+void MTY_WaitableDestroy(MTY_Waitable **sync)
 {
 	if (!sync || !*sync)
 		return;
 
-	MTY_Sync *ctx = *sync;
+	MTY_Waitable *ctx = *sync;
 
 	MTY_CondDestroy(&ctx->cond);
 	MTY_MutexDestroy(&ctx->mutex);
@@ -72,7 +72,7 @@ void MTY_SyncDestroy(MTY_Sync **sync)
 // ThreadPool
 
 struct thread_info {
-	MTY_ThreadState status;
+	MTY_Async status;
 	MTY_AnonFunc func;
 	MTY_AnonFunc detach;
 	void *opaque;
@@ -92,8 +92,10 @@ MTY_ThreadPool *MTY_ThreadPoolCreate(uint32_t maxThreads)
 	ctx->num = maxThreads + 1;
 	ctx->ti = MTY_Alloc(ctx->num, sizeof(struct thread_info));
 
-	for (uint32_t x = 0; x < ctx->num; x++)
+	for (uint32_t x = 0; x < ctx->num; x++) {
+		ctx->ti[x].status = MTY_ASYNC_DONE;
 		ctx->ti[x].m = MTY_MutexCreate();
+	}
 
 	return ctx;
 }
@@ -108,10 +110,10 @@ static void *thread_pool_func(void *opaque)
 
 	if (ti->detach) {
 		ti->detach(ti->opaque);
-		ti->status = MTY_THREAD_STATE_DETACHED;
+		ti->status = MTY_ASYNC_DONE;
 
 	} else {
-		ti->status = MTY_THREAD_STATE_DONE;
+		ti->status = MTY_ASYNC_OK;
 	}
 
 	MTY_MutexUnlock(ti->m);
@@ -128,16 +130,13 @@ uint32_t MTY_ThreadPoolStart(MTY_ThreadPool *ctx, MTY_AnonFunc func, void *opaqu
 
 		MTY_MutexLock(ti->m);
 
-		if (ti->status == MTY_THREAD_STATE_DETACHED) {
+		if (ti->status == MTY_ASYNC_DONE) {
 			MTY_ThreadDestroy(&ti->t);
-			ti->status = MTY_THREAD_STATE_EMPTY;
-		}
 
-		if (ti->status == MTY_THREAD_STATE_EMPTY) {
 			ti->func = func;
 			ti->opaque = opaque;
 			ti->detach = NULL;
-			ti->status = MTY_THREAD_STATE_RUNNING;
+			ti->status = MTY_ASYNC_CONTINUE;
 			ti->t = MTY_ThreadCreate(thread_pool_func, ti);
 			index = x;
 		}
@@ -157,26 +156,26 @@ void MTY_ThreadPoolDetach(MTY_ThreadPool *ctx, uint32_t index, MTY_AnonFunc deta
 
 	MTY_MutexLock(ti->m);
 
-	if (ti->status == MTY_THREAD_STATE_RUNNING) {
+	if (ti->status == MTY_ASYNC_CONTINUE) {
 		ti->detach = detach;
 
-	} else if (ti->status == MTY_THREAD_STATE_DONE) {
+	} else if (ti->status == MTY_ASYNC_OK) {
 		if (detach)
 			detach(ti->opaque);
 
-		ti->status = MTY_THREAD_STATE_DETACHED;
+		ti->status = MTY_ASYNC_DONE;
 	}
 
 	MTY_MutexUnlock(ti->m);
 }
 
-MTY_ThreadState MTY_ThreadPoolState(MTY_ThreadPool *ctx, uint32_t index, void **opaque)
+MTY_Async MTY_ThreadPoolPoll(MTY_ThreadPool *ctx, uint32_t index, void **opaque)
 {
 	struct thread_info *ti = &ctx->ti[index];
 
 	MTY_MutexLock(ti->m);
 
-	MTY_ThreadState status = ti->status;
+	MTY_Async status = ti->status;
 	*opaque = ti->opaque;
 
 	MTY_MutexUnlock(ti->m);
@@ -194,7 +193,7 @@ void MTY_ThreadPoolDestroy(MTY_ThreadPool **pool, MTY_AnonFunc detach)
 	for (uint32_t x = 0; x < ctx->num; x++) {
 		MTY_ThreadPoolDetach(ctx, x, detach);
 
-		if (ctx->ti[x].status != MTY_THREAD_STATE_EMPTY)
+		if (ctx->ti[x].t)
 			MTY_ThreadDestroy(&ctx->ti[x].t);
 
 		MTY_MutexDestroy(&ctx->ti[x].m);
@@ -228,7 +227,7 @@ static uint8_t thread_rwlock_index(void)
 		if (MTY_Atomic32CAS(&RWLOCK_INIT[x], 0, 1))
 			return x;
 
-	MTY_Fatal("Could not find a free rwlock slot, maximum is %u", UINT8_MAX);
+	MTY_LogFatal("Could not find a free rwlock slot, maximum is %u", UINT8_MAX);
 
 	return 0;
 }
@@ -349,7 +348,7 @@ void MTY_GlobalLock(MTY_Atomic32 *lock)
 			if (MTY_Atomic32CAS(lock, 0, 1)) {
 				index = MTY_Atomic32Add(&THREAD_GINDEX, 1);
 				if (index >= UINT8_MAX)
-					MTY_Fatal("Global lock index of %u exceeded", UINT8_MAX);
+					MTY_LogFatal("Global lock index of %u exceeded", UINT8_MAX);
 
 				mty_rwlock_create(&THREAD_GLOCKS[index]);
 				MTY_Atomic32Set(lock, index);

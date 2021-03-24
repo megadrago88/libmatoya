@@ -53,7 +53,7 @@ void MTY_SOUnload(MTY_SO **so)
 	*so = NULL;
 }
 
-const char *MTY_Hostname(void)
+const char *MTY_GetHostname(void)
 {
 	DWORD lenw = MAX_COMPUTERNAME_LENGTH + 1;
 	WCHAR tmp[MAX_COMPUTERNAME_LENGTH + 1] = {0};
@@ -66,7 +66,7 @@ const char *MTY_Hostname(void)
 	return mty_tlocal_strcpyw(tmp);
 }
 
-void MTY_ProtocolHandler(const char *uri, void *token)
+void MTY_HandleProtocol(const char *uri, void *token)
 {
 	VOID *env = NULL;
 
@@ -141,7 +141,7 @@ uint32_t MTY_GetPlatformNoWeb(void)
 	return MTY_GetPlatform();
 }
 
-const char *MTY_ProcessPath(void)
+const char *MTY_GetProcessPath(void)
 {
 	WCHAR tmp[MTY_PATH_MAX] = {0};
 
@@ -153,7 +153,7 @@ const char *MTY_ProcessPath(void)
 
 bool MTY_RestartProcess(char * const *argv)
 {
-	WCHAR *name = MTY_MultiToWideD(MTY_ProcessPath());
+	WCHAR *name = MTY_MultiToWideD(MTY_GetProcessPath());
 	WCHAR **argvn = NULL;
 
 	for (uint32_t x = 0; argv && argv[x]; x++) {

@@ -15,7 +15,7 @@
 #include "net/http.h"
 #include "net/gzip.h"
 
-#define MTY_USER_AGENTW L"libmatoya/" MTY_VERSION_STRINGW
+#define MTY_USER_AGENTW L"libmatoya/v" MTY_VERSION_STRINGW
 
 struct request_parse_args {
 	WCHAR *ua;

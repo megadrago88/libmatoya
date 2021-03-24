@@ -13,7 +13,7 @@
 #include "net/http.h"
 #include "net/gzip.h"
 
-#define MTY_USER_AGENT "libmatoya/" MTY_VERSION_STRING
+#define MTY_USER_AGENT "libmatoya/v" MTY_VERSION_STRING
 
 struct request_parse_args {
 	char **headers;

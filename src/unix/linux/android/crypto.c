@@ -17,7 +17,7 @@
 static void crypto_hash_hmac(const char *alg, const void *input, size_t inputSize, const void *key,
 	size_t keySize, void *output, size_t outputSize)
 {
-	JNIEnv *env = MTY_JNIEnv();
+	JNIEnv *env = MTY_GetJNIEnv();
 
 	jstring jalg = mty_jni_strdup(env, alg);
 	jbyteArray jkey = mty_jni_dup(env, key, keySize);
@@ -41,7 +41,7 @@ static void crypto_hash_hmac(const char *alg, const void *input, size_t inputSiz
 
 static void crypto_hash(const char *alg, const void *input, size_t inputSize, void *output, size_t outputSize)
 {
-	JNIEnv *env = MTY_JNIEnv();
+	JNIEnv *env = MTY_GetJNIEnv();
 
 	jstring jalg = mty_jni_strdup(env, alg);
 	jobject obj = mty_jni_static_obj(env, "java/security/MessageDigest", "getInstance", "(Ljava/lang/String;)Ljava/security/MessageDigest;", jalg);
@@ -94,9 +94,9 @@ void MTY_CryptoHash(MTY_Algorithm algo, const void *input, size_t inputSize, con
 
 // Random
 
-void MTY_RandomBytes(void *output, size_t size)
+void MTY_GetRandomBytes(void *output, size_t size)
 {
-	JNIEnv *env = MTY_JNIEnv();
+	JNIEnv *env = MTY_GetJNIEnv();
 
 	jobject obj = mty_jni_new(env, "java/security/SecureRandom", "()V");
 

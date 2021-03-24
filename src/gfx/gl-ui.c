@@ -213,13 +213,18 @@ bool mty_gl_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *co
 			MTY_Rect r = pcmd->clip;
 
 			// Make sure the rect is actually in the viewport
-			if (r.x < fb_width && r.y < fb_height && r.r >= 0.0f && r.b >= 0.0f) {
+			if (r.left < fb_width && r.top < fb_height && r.right >= 0.0f && r.bottom >= 0.0f) {
 
 				// Adjust for origin (from lower left corner)
-				r.y -= GL_UI_ORIGIN_Y;
-				r.b -= GL_UI_ORIGIN_Y;
+				r.top -= GL_UI_ORIGIN_Y;
+				r.bottom -= GL_UI_ORIGIN_Y;
 
-				glScissor(lrint(r.x), lrint(fb_height - r.b), lrint(r.r - r.x), lrint(r.b - r.y));
+				glScissor(
+					lrint(r.left),
+					lrint(fb_height - r.bottom),
+					lrint(r.right - r.left),
+					lrint(r.bottom - r.top)
+				);
 
 				// Optionally sample from a texture (fonts, images)
 				glBindTexture(GL_TEXTURE_2D, !pcmd->texture ? 0 :

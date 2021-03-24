@@ -122,7 +122,7 @@ void *MTY_CompressImage(MTY_Image type, const void *input, uint32_t width, uint3
 	GUID format = {0};
 	switch (type) {
 		case MTY_IMAGE_PNG: format = GUID_ContainerFormatPng;  break;
-		case MTY_IMAGE_JPG: format = GUID_ContainerFormatJpeg; break;
+		case MTY_IMAGE_JPEG: format = GUID_ContainerFormatJpeg; break;
 		default:
 			MTY_Log("MTY_Image type %d not supported", type);
 			goto except;

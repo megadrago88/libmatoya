@@ -162,17 +162,17 @@ void mty_gl_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 	MTY_RendererDrawUI(ctx->renderer, MTY_GFX_GL, NULL, NULL, dd, (MTY_Texture *) &ctx->fb0);
 }
 
-void mty_gl_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,
+bool mty_gl_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,
 	uint32_t width, uint32_t height)
 {
 	struct gl_ctx *ctx = (struct gl_ctx *) gfx_ctx;
 
-	MTY_RendererSetUITexture(ctx->renderer, MTY_GFX_GL, NULL, NULL, id, rgba, width, height);
+	return MTY_RendererSetUITexture(ctx->renderer, MTY_GFX_GL, NULL, NULL, id, rgba, width, height);
 }
 
-void *mty_gl_ctx_get_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
+bool mty_gl_ctx_has_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
 {
 	struct gl_ctx *ctx = (struct gl_ctx *) gfx_ctx;
 
-	return MTY_RendererGetUITexture(ctx->renderer, id);
+	return MTY_RendererHasUITexture(ctx->renderer, id);
 }

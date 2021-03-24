@@ -66,7 +66,7 @@ void MTY_SOUnload(MTY_SO **so)
 	*so = NULL;
 }
 
-const char *MTY_Hostname(void)
+const char *MTY_GetHostname(void)
 {
 	char tmp[MTY_PATH_MAX] = {0};
 

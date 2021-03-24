@@ -60,7 +60,7 @@ MTY_TLS *MTY_TLSCreate(MTY_TLSType type, MTY_Cert *cert, const char *host, const
 {
 	MTY_TLS *ctx = MTY_Alloc(1, sizeof(MTY_TLS));
 
-	JNIEnv *env = MTY_JNIEnv();
+	JNIEnv *env = MTY_GetJNIEnv();
 
 	jstring jhost = NULL;
 
@@ -113,7 +113,7 @@ void MTY_TLSDestroy(MTY_TLS **tls)
 
 	MTY_TLS *ctx = *tls;
 
-	JNIEnv *env = MTY_JNIEnv();
+	JNIEnv *env = MTY_GetJNIEnv();
 
 	mty_jni_release(env, &ctx->engine);
 
@@ -147,7 +147,7 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 {
 	MTY_Async r = MTY_ASYNC_CONTINUE;
 
-	JNIEnv *env = MTY_JNIEnv();
+	JNIEnv *env = MTY_GetJNIEnv();
 
 	// If we have input data, add it to our internal buffer
 	if (buf && size > 0)
@@ -224,7 +224,7 @@ MTY_Async MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWr
 
 bool MTY_TLSEncrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *written)
 {
-	JNIEnv *env = MTY_JNIEnv();
+	JNIEnv *env = MTY_GetJNIEnv();
 
 	jobject jin = mty_jni_wrap(env, (void *) in, inSize);
 	jobject jout = mty_jni_wrap(env, out, outSize);
@@ -244,7 +244,7 @@ bool MTY_TLSEncrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size
 
 bool MTY_TLSDecrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size_t outSize, size_t *read)
 {
-	JNIEnv *env = MTY_JNIEnv();
+	JNIEnv *env = MTY_GetJNIEnv();
 
 	jobject jin = mty_jni_wrap(env, (void *) in, inSize);
 	jobject jout = mty_jni_wrap(env, out, outSize);

@@ -258,12 +258,12 @@ void mty_hid_default_state(struct hid_dev *ctx, const void *buf, size_t size, MT
 					}
 
 				} else {
-					if (c->numValues < MTY_CVALUE_MAX) {
-						MTY_Value *val = &c->values[c->numValues++];
-						val->max = IOHIDElementGetLogicalMax(el);
-						val->min = IOHIDElementGetLogicalMin(el);
-						val->usage = usage;
-						val->data = vi;
+					if (c->numAxes < MTY_CAXIS_MAX) {
+						MTY_Axis *axis = &c->axes[c->numAxes++];
+						axis->max = IOHIDElementGetLogicalMax(el);
+						axis->min = IOHIDElementGetLogicalMin(el);
+						axis->usage = usage;
+						axis->value = vi;
 					}
 				}
 

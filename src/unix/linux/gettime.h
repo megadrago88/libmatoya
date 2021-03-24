@@ -12,5 +12,5 @@
 static void mty_get_time(struct timespec *ts)
 {
 	if (clock_gettime(CLOCK_REALTIME, ts) != 0)
-		MTY_Fatal("'clock_gettime' failed with errno %d", errno);
+		MTY_LogFatal("'clock_gettime' failed with errno %d", errno);
 }

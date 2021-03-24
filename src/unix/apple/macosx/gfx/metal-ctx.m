@@ -162,18 +162,18 @@ void mty_metal_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 			(__bridge MTY_Context *) ctx->cq, dd, (__bridge MTY_Texture *) ctx->back_buffer.texture);
 }
 
-void mty_metal_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,
+bool mty_metal_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,
 	uint32_t width, uint32_t height)
 {
 	struct metal_ctx *ctx = (struct metal_ctx *) gfx_ctx;
 
-	MTY_RendererSetUITexture(ctx->renderer, MTY_GFX_METAL, (__bridge MTY_Device *) ctx->cq.device,
+	return MTY_RendererSetUITexture(ctx->renderer, MTY_GFX_METAL, (__bridge MTY_Device *) ctx->cq.device,
 		(__bridge MTY_Context *) ctx->cq, id, rgba, width, height);
 }
 
-void *mty_metal_ctx_get_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
+bool mty_metal_ctx_has_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
 {
 	struct metal_ctx *ctx = (struct metal_ctx *) gfx_ctx;
 
-	return MTY_RendererGetUITexture(ctx->renderer, id);
+	return MTY_RendererHasUITexture(ctx->renderer, id);
 }

@@ -18,7 +18,7 @@ static float mty_frequency(void)
 	mach_timebase_info_data_t timebase;
 	kern_return_t e = mach_timebase_info(&timebase);
 	if (e != KERN_SUCCESS)
-		MTY_Fatal("'mach_timebase_info' failed with error %d", e);
+		MTY_LogFatal("'mach_timebase_info' failed with error %d", e);
 
 	return timebase.numer / timebase.denom / 1000000.0f;
 }

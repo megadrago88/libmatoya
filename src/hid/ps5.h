@@ -92,7 +92,7 @@ static void ps5_state(struct hid_dev *device, const void *data, size_t dsize, MT
 		MTY_ControllerEvent *c = &evt->controller;
 		c->vid = mty_hid_device_get_vid(device);
 		c->pid = mty_hid_device_get_pid(device);
-		c->numValues = 7;
+		c->numAxes = 7;
 		c->numButtons = 15;
 		c->type = MTY_CTYPE_PS5;
 		c->id = mty_hid_device_get_id(device);
@@ -112,43 +112,43 @@ static void ps5_state(struct hid_dev *device, const void *data, size_t dsize, MT
 		c->buttons[MTY_CBUTTON_GUIDE] = b[7] & 0x01;
 		c->buttons[MTY_CBUTTON_TOUCHPAD] = b[7] & 0x02;
 
-		c->values[MTY_CVALUE_DPAD].data = b[5] & 0x0F;
-		c->values[MTY_CVALUE_DPAD].usage = 0x39;
-		c->values[MTY_CVALUE_DPAD].min = 0;
-		c->values[MTY_CVALUE_DPAD].max = 7;
+		c->axes[MTY_CAXIS_DPAD].value = b[5] & 0x0F;
+		c->axes[MTY_CAXIS_DPAD].usage = 0x39;
+		c->axes[MTY_CAXIS_DPAD].min = 0;
+		c->axes[MTY_CAXIS_DPAD].max = 7;
 
-		c->values[MTY_CVALUE_THUMB_LX].data = a[1];
-		c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
-		c->values[MTY_CVALUE_THUMB_LX].min = 0;
-		c->values[MTY_CVALUE_THUMB_LX].max = UINT8_MAX;
-		mty_hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_LX], false);
+		c->axes[MTY_CAXIS_THUMB_LX].value = a[1];
+		c->axes[MTY_CAXIS_THUMB_LX].usage = 0x30;
+		c->axes[MTY_CAXIS_THUMB_LX].min = 0;
+		c->axes[MTY_CAXIS_THUMB_LX].max = UINT8_MAX;
+		mty_hid_u_to_s16(&c->axes[MTY_CAXIS_THUMB_LX], false);
 
-		c->values[MTY_CVALUE_THUMB_LY].data = a[2];
-		c->values[MTY_CVALUE_THUMB_LY].usage = 0x31;
-		c->values[MTY_CVALUE_THUMB_LY].min = 0;
-		c->values[MTY_CVALUE_THUMB_LY].max = UINT8_MAX;
-		mty_hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_LY], true);
+		c->axes[MTY_CAXIS_THUMB_LY].value = a[2];
+		c->axes[MTY_CAXIS_THUMB_LY].usage = 0x31;
+		c->axes[MTY_CAXIS_THUMB_LY].min = 0;
+		c->axes[MTY_CAXIS_THUMB_LY].max = UINT8_MAX;
+		mty_hid_u_to_s16(&c->axes[MTY_CAXIS_THUMB_LY], true);
 
-		c->values[MTY_CVALUE_THUMB_RX].data = a[3];
-		c->values[MTY_CVALUE_THUMB_RX].usage = 0x32;
-		c->values[MTY_CVALUE_THUMB_RX].min = 0;
-		c->values[MTY_CVALUE_THUMB_RX].max = UINT8_MAX;
-		mty_hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_RX], false);
+		c->axes[MTY_CAXIS_THUMB_RX].value = a[3];
+		c->axes[MTY_CAXIS_THUMB_RX].usage = 0x32;
+		c->axes[MTY_CAXIS_THUMB_RX].min = 0;
+		c->axes[MTY_CAXIS_THUMB_RX].max = UINT8_MAX;
+		mty_hid_u_to_s16(&c->axes[MTY_CAXIS_THUMB_RX], false);
 
-		c->values[MTY_CVALUE_THUMB_RY].data = a[4];
-		c->values[MTY_CVALUE_THUMB_RY].usage = 0x35;
-		c->values[MTY_CVALUE_THUMB_RY].min = 0;
-		c->values[MTY_CVALUE_THUMB_RY].max = UINT8_MAX;
-		mty_hid_u_to_s16(&c->values[MTY_CVALUE_THUMB_RY], true);
+		c->axes[MTY_CAXIS_THUMB_RY].value = a[4];
+		c->axes[MTY_CAXIS_THUMB_RY].usage = 0x35;
+		c->axes[MTY_CAXIS_THUMB_RY].min = 0;
+		c->axes[MTY_CAXIS_THUMB_RY].max = UINT8_MAX;
+		mty_hid_u_to_s16(&c->axes[MTY_CAXIS_THUMB_RY], true);
 
-		c->values[MTY_CVALUE_TRIGGER_L].data = t[8];
-		c->values[MTY_CVALUE_TRIGGER_L].usage = 0x33;
-		c->values[MTY_CVALUE_TRIGGER_L].min = 0;
-		c->values[MTY_CVALUE_TRIGGER_L].max = UINT8_MAX;
+		c->axes[MTY_CAXIS_TRIGGER_L].value = t[8];
+		c->axes[MTY_CAXIS_TRIGGER_L].usage = 0x33;
+		c->axes[MTY_CAXIS_TRIGGER_L].min = 0;
+		c->axes[MTY_CAXIS_TRIGGER_L].max = UINT8_MAX;
 
-		c->values[MTY_CVALUE_TRIGGER_R].data = t[9];
-		c->values[MTY_CVALUE_TRIGGER_R].usage = 0x34;
-		c->values[MTY_CVALUE_TRIGGER_R].min = 0;
-		c->values[MTY_CVALUE_TRIGGER_R].max = UINT8_MAX;
+		c->axes[MTY_CAXIS_TRIGGER_R].value = t[9];
+		c->axes[MTY_CAXIS_TRIGGER_R].usage = 0x34;
+		c->axes[MTY_CAXIS_TRIGGER_R].min = 0;
+		c->axes[MTY_CAXIS_TRIGGER_R].max = UINT8_MAX;
 	}
 }

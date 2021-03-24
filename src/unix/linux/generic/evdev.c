@@ -102,7 +102,7 @@ static void evdev_device_add(struct evdev *ctx, const char *devnode, const char 
 			edev->slot = slot;
 
 			edev->state.type = MTY_CTYPE_DEFAULT;
-			edev->state.numValues = 1; // There's always a dummy 'hat' DPAD
+			edev->state.numAxes = 1; // There's always a dummy 'hat' DPAD
 			edev->state.numButtons = 15; // There's no good way to know how many buttons the device has
 			edev->state.id = edev->id;
 
@@ -128,7 +128,7 @@ static void evdev_device_add(struct evdev *ctx, const char *devnode, const char 
 					ioctl(fd, EVIOCGABS(x), &info);
 
 					if (info.minimum != 0 || info.maximum != 0) {
-						edev->ainfo[x].slot = edev->state.numValues++;
+						edev->ainfo[x].slot = edev->state.numAxes++;
 						edev->ainfo[x].min = info.minimum;
 						edev->ainfo[x].max = info.maximum;
 					}
@@ -213,11 +213,11 @@ static void evdev_set_hat(struct evdev_dev *ctx, uint8_t type, const struct inpu
 		}
 	}
 
-	ctx->state.values[0].data = h->up && h->right ? 1 : h->right && h->down ? 3 : h->down && h->left ? 5 :
+	ctx->state.axes[0].value = h->up && h->right ? 1 : h->right && h->down ? 3 : h->down && h->left ? 5 :
 		h->left && h->up ? 7 : h->up ? 0 : h->right ? 2 : h->down ? 4 : h->left ? 6 : 8;
-	ctx->state.values[0].usage = 0x39;
-	ctx->state.values[0].min = 0;
-	ctx->state.values[0].max = 7;
+	ctx->state.axes[0].usage = 0x39;
+	ctx->state.axes[0].min = 0;
+	ctx->state.axes[0].max = 7;
 }
 
 static MTY_CButton evdev_button(uint16_t type)
@@ -325,13 +325,13 @@ static void evdev_joystick_event(struct evdev *ctx, int32_t fd, EVDEV_REPORT rep
 			uint8_t slot = edev->ainfo[event.code].slot;
 
 			// Slots will always begin at 1 since the DPAD is in a fixed position of 0
-			if (slot == 0 || slot >= MTY_CVALUE_MAX)
+			if (slot == 0 || slot >= MTY_CAXIS_MAX)
 				return;
 
-			c->values[slot].data  = event.value;
-			c->values[slot].usage  = usage;
-			c->values[slot].min = edev->ainfo[event.code].min;
-			c->values[slot].max = edev->ainfo[event.code].max;
+			c->axes[slot].value  = event.value;
+			c->axes[slot].usage  = usage;
+			c->axes[slot].min = edev->ainfo[event.code].min;
+			c->axes[slot].max = edev->ainfo[event.code].max;
 
 		}
 	}

@@ -88,7 +88,7 @@ void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 {
 }
 
-bool MTY_AppMouseIsGrabbed(MTY_App *app)
+bool MTY_AppIsMouseGrabbed(MTY_App *app)
 {
 	return false;
 }
@@ -115,11 +115,11 @@ void MTY_AppActivate(MTY_App *app, bool active)
 {
 }
 
-void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
+void MTY_AppRumbleController(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {
 }
 
-bool MTY_AppPenIsEnabled(MTY_App *app)
+bool MTY_AppIsPenEnabled(MTY_App *app)
 {
 	return false;
 }
@@ -158,7 +158,7 @@ bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, u
 	return false;
 }
 
-float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
+float MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window)
 {
 	return 1.0f;
 }
@@ -235,7 +235,7 @@ void MTY_AppRemoveTray(MTY_App *app)
 {
 }
 
-void MTY_AppNotification(MTY_App *app, const char *title, const char *msg)
+void MTY_AppSendNotification(MTY_App *app, const char *title, const char *msg)
 {
 }
 
@@ -243,7 +243,7 @@ void MTY_AppShowSoftKeyboard(MTY_App *app, bool show)
 {
 }
 
-bool MTY_AppSoftKeyboardIsShowing(MTY_App *app)
+bool MTY_AppIsSoftKeyboardShowing(MTY_App *app)
 {
 	return false;
 }
@@ -261,7 +261,7 @@ void MTY_AppEnableGlobalHotkeys(MTY_App *app, bool enable)
 {
 }
 
-bool MTY_AppKeyboardIsGrabbed(MTY_App *app)
+bool MTY_AppIsKeyboardGrabbed(MTY_App *app)
 {
 	return false;
 }
@@ -270,9 +270,9 @@ void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
 {
 }
 
-MTY_GFXState MTY_WindowGFXState(MTY_App *app, MTY_Window window)
+MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)
 {
-	return MTY_GFX_STATE_NORMAL;
+	return MTY_CONTEXT_STATE_NORMAL;
 }
 
 MTY_Input MTY_AppGetInputMode(MTY_App *ctx)

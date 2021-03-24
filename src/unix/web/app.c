@@ -201,7 +201,7 @@ static void window_controller(MTY_App *ctx, uint32_t id, uint32_t state, uint32_
 	MTY_ControllerEvent *c = &evt.controller;
 	c->type = MTY_CTYPE_DEFAULT;
 	c->numButtons = 16;
-	c->numValues = 7;
+	c->numAxes = 7;
 	c->vid = 0xCDD;
 	c->pid = 0xCDD;
 	c->id = id;
@@ -217,49 +217,49 @@ static void window_controller(MTY_App *ctx, uint32_t id, uint32_t state, uint32_
 	c->buttons[MTY_CBUTTON_LEFT_THUMB] = TESTB(0x0400);
 	c->buttons[MTY_CBUTTON_RIGHT_THUMB] = TESTB(0x0800);
 
-	c->values[MTY_CVALUE_THUMB_LX].data = lx < 0.0f ? lrint(lx * abs(INT16_MIN)) : lrint(lx * INT16_MAX);
-	c->values[MTY_CVALUE_THUMB_LX].usage = 0x30;
-	c->values[MTY_CVALUE_THUMB_LX].min = INT16_MIN;
-	c->values[MTY_CVALUE_THUMB_LX].max = INT16_MAX;
+	c->axes[MTY_CAXIS_THUMB_LX].value = lx < 0.0f ? lrint(lx * abs(INT16_MIN)) : lrint(lx * INT16_MAX);
+	c->axes[MTY_CAXIS_THUMB_LX].usage = 0x30;
+	c->axes[MTY_CAXIS_THUMB_LX].min = INT16_MIN;
+	c->axes[MTY_CAXIS_THUMB_LX].max = INT16_MAX;
 
-	c->values[MTY_CVALUE_THUMB_LY].data = ly > 0.0f ? lrint(-ly * abs(INT16_MIN)) : lrint(-ly * INT16_MAX);
-	c->values[MTY_CVALUE_THUMB_LY].usage = 0x31;
-	c->values[MTY_CVALUE_THUMB_LY].min = INT16_MIN;
-	c->values[MTY_CVALUE_THUMB_LY].max = INT16_MAX;
+	c->axes[MTY_CAXIS_THUMB_LY].value = ly > 0.0f ? lrint(-ly * abs(INT16_MIN)) : lrint(-ly * INT16_MAX);
+	c->axes[MTY_CAXIS_THUMB_LY].usage = 0x31;
+	c->axes[MTY_CAXIS_THUMB_LY].min = INT16_MIN;
+	c->axes[MTY_CAXIS_THUMB_LY].max = INT16_MAX;
 
-	c->values[MTY_CVALUE_THUMB_RX].data = rx < 0.0f ? lrint(rx * abs(INT16_MIN)) : lrint(rx * INT16_MAX);
-	c->values[MTY_CVALUE_THUMB_RX].usage = 0x32;
-	c->values[MTY_CVALUE_THUMB_RX].min = INT16_MIN;
-	c->values[MTY_CVALUE_THUMB_RX].max = INT16_MAX;
+	c->axes[MTY_CAXIS_THUMB_RX].value = rx < 0.0f ? lrint(rx * abs(INT16_MIN)) : lrint(rx * INT16_MAX);
+	c->axes[MTY_CAXIS_THUMB_RX].usage = 0x32;
+	c->axes[MTY_CAXIS_THUMB_RX].min = INT16_MIN;
+	c->axes[MTY_CAXIS_THUMB_RX].max = INT16_MAX;
 
-	c->values[MTY_CVALUE_THUMB_RY].data = ry > 0.0f ? lrint(-ry * abs(INT16_MIN)) : lrint(-ry * INT16_MAX);
-	c->values[MTY_CVALUE_THUMB_RY].usage = 0x35;
-	c->values[MTY_CVALUE_THUMB_RY].min = INT16_MIN;
-	c->values[MTY_CVALUE_THUMB_RY].max = INT16_MAX;
+	c->axes[MTY_CAXIS_THUMB_RY].value = ry > 0.0f ? lrint(-ry * abs(INT16_MIN)) : lrint(-ry * INT16_MAX);
+	c->axes[MTY_CAXIS_THUMB_RY].usage = 0x35;
+	c->axes[MTY_CAXIS_THUMB_RY].min = INT16_MIN;
+	c->axes[MTY_CAXIS_THUMB_RY].max = INT16_MAX;
 
-	c->values[MTY_CVALUE_TRIGGER_L].data = lrint(lt * UINT8_MAX);
-	c->values[MTY_CVALUE_TRIGGER_L].usage = 0x33;
-	c->values[MTY_CVALUE_TRIGGER_L].min = 0;
-	c->values[MTY_CVALUE_TRIGGER_L].max = UINT8_MAX;
+	c->axes[MTY_CAXIS_TRIGGER_L].value = lrint(lt * UINT8_MAX);
+	c->axes[MTY_CAXIS_TRIGGER_L].usage = 0x33;
+	c->axes[MTY_CAXIS_TRIGGER_L].min = 0;
+	c->axes[MTY_CAXIS_TRIGGER_L].max = UINT8_MAX;
 
-	c->values[MTY_CVALUE_TRIGGER_R].data = lrint(rt * UINT8_MAX);
-	c->values[MTY_CVALUE_TRIGGER_R].usage = 0x34;
-	c->values[MTY_CVALUE_TRIGGER_R].min = 0;
-	c->values[MTY_CVALUE_TRIGGER_R].max = UINT8_MAX;
+	c->axes[MTY_CAXIS_TRIGGER_R].value = lrint(rt * UINT8_MAX);
+	c->axes[MTY_CAXIS_TRIGGER_R].usage = 0x34;
+	c->axes[MTY_CAXIS_TRIGGER_R].min = 0;
+	c->axes[MTY_CAXIS_TRIGGER_R].max = UINT8_MAX;
 
-	c->buttons[MTY_CBUTTON_LEFT_TRIGGER] = c->values[MTY_CVALUE_TRIGGER_L].data > 0;
-	c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] = c->values[MTY_CVALUE_TRIGGER_R].data > 0;
+	c->buttons[MTY_CBUTTON_LEFT_TRIGGER] = c->axes[MTY_CAXIS_TRIGGER_L].value > 0;
+	c->buttons[MTY_CBUTTON_RIGHT_TRIGGER] = c->axes[MTY_CAXIS_TRIGGER_R].value > 0;
 
 	bool up = TESTB(0x1000);
 	bool down = TESTB(0x2000);
 	bool left = TESTB(0x4000);
 	bool right = TESTB(0x8000);
 
-	c->values[MTY_CVALUE_DPAD].data = (up && right) ? 1 : (right && down) ? 3 :
+	c->axes[MTY_CAXIS_DPAD].value = (up && right) ? 1 : (right && down) ? 3 :
 		(down && left) ? 5 : (left && up) ? 7 : up ? 0 : right ? 2 : down ? 4 : left ? 6 : 8;
-	c->values[MTY_CVALUE_DPAD].usage = 0x39;
-	c->values[MTY_CVALUE_DPAD].min = 0;
-	c->values[MTY_CVALUE_DPAD].max = 7;
+	c->axes[MTY_CAXIS_DPAD].usage = 0x39;
+	c->axes[MTY_CAXIS_DPAD].min = 0;
+	c->axes[MTY_CAXIS_DPAD].max = 7;
 
 	// Connect
 	if (state == 1) {
@@ -386,7 +386,7 @@ void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 	web_wake_lock(enable);
 }
 
-bool MTY_AppKeyboardIsGrabbed(MTY_App *ctx)
+bool MTY_AppIsKeyboardGrabbed(MTY_App *ctx)
 {
 	return ctx->kb_grab;
 }
@@ -411,7 +411,7 @@ bool MTY_AppIsActive(MTY_App *ctx)
 	return web_has_focus();
 }
 
-void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
+void MTY_AppRumbleController(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {
 	web_rumble_gamepad(id, (float) low / (float) UINT16_MAX, (float) high / (float) UINT16_MAX);
 }
@@ -447,7 +447,7 @@ bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, u
 	return true;
 }
 
-float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
+float MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window)
 {
 	return web_get_pixel_ratio();
 }
@@ -524,7 +524,7 @@ void MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t 
 {
 }
 
-bool MTY_AppMouseIsGrabbed(MTY_App *ctx)
+bool MTY_AppIsMouseGrabbed(MTY_App *ctx)
 {
 	return false;
 }
@@ -559,7 +559,7 @@ void MTY_AppRemoveTray(MTY_App *app)
 {
 }
 
-void MTY_AppNotification(MTY_App *app, const char *title, const char *msg)
+void MTY_AppSendNotification(MTY_App *app, const char *title, const char *msg)
 {
 }
 
@@ -567,7 +567,7 @@ void MTY_AppShowSoftKeyboard(MTY_App *app, bool show)
 {
 }
 
-bool MTY_AppSoftKeyboardIsShowing(MTY_App *app)
+bool MTY_AppIsSoftKeyboardShowing(MTY_App *app)
 {
 	return false;
 }
@@ -585,7 +585,7 @@ void MTY_AppEnableGlobalHotkeys(MTY_App *app, bool enable)
 {
 }
 
-bool MTY_AppPenIsEnabled(MTY_App *ctx)
+bool MTY_AppIsPenEnabled(MTY_App *ctx)
 {
 	return false;
 }
@@ -594,9 +594,9 @@ void MTY_AppEnablePen(MTY_App *ctx, bool enable)
 {
 }
 
-MTY_GFXState MTY_WindowGFXState(MTY_App *app, MTY_Window window)
+MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)
 {
-	return MTY_GFX_STATE_NORMAL;
+	return MTY_CONTEXT_STATE_NORMAL;
 }
 
 MTY_Input MTY_AppGetInputMode(MTY_App *ctx)

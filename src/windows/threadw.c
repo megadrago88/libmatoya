@@ -43,11 +43,11 @@ static MTY_Thread *thread_create(MTY_ThreadFunc func, void *opaque, bool detach)
 	ctx->thread = CreateThread(NULL, 0, thread_func, ctx, 0, NULL);
 
 	if (!ctx->thread)
-		MTY_Fatal("'CreateThread' failed with error 0x%X", GetLastError());
+		MTY_LogFatal("'CreateThread' failed with error 0x%X", GetLastError());
 
 	if (ctx->detach) {
 		if (!CloseHandle(ctx->thread))
-			MTY_Fatal("'CloseHandle' failed with error 0x%X", GetLastError());
+			MTY_LogFatal("'CloseHandle' failed with error 0x%X", GetLastError());
 
 		ctx->thread = NULL;
 		ctx = NULL;
@@ -80,10 +80,10 @@ void *MTY_ThreadDestroy(MTY_Thread **thread)
 
 	if (ctx->thread) {
 		if (WaitForSingleObject(ctx->thread, INFINITE) == WAIT_FAILED)
-			MTY_Fatal("'WaitForSingleObject' failed with error 0x%X", GetLastError());
+			MTY_LogFatal("'WaitForSingleObject' failed with error 0x%X", GetLastError());
 
 		if (!CloseHandle(ctx->thread))
-			MTY_Fatal("'CloseHandle' failed with error 0x%X", GetLastError());
+			MTY_LogFatal("'CloseHandle' failed with error 0x%X", GetLastError());
 	}
 
 	void *ret = ctx->ret;
@@ -168,19 +168,19 @@ bool MTY_CondWait(MTY_Cond *ctx, MTY_Mutex *mutex, int32_t timeout)
 			r = false;
 
 		} else {
-			MTY_Fatal("'SleepConditionVariableCS' failed with error 0x%X", e);
+			MTY_LogFatal("'SleepConditionVariableCS' failed with error 0x%X", e);
 		}
 	}
 
 	return r;
 }
 
-void MTY_CondWake(MTY_Cond *ctx)
+void MTY_CondSignal(MTY_Cond *ctx)
 {
 	WakeConditionVariable(&ctx->cond);
 }
 
-void MTY_CondWakeAll(MTY_Cond *ctx)
+void MTY_CondSignalAll(MTY_Cond *ctx)
 {
 	WakeAllConditionVariable(&ctx->cond);
 }

@@ -53,7 +53,7 @@ static void render_destroy_api(MTY_Renderer *ctx)
 
 	uint64_t i = 0;
 	int64_t id = 0;
-	while (MTY_HashNextKeyInt(ctx->textures, &i, &id)) {
+	while (MTY_HashGetNextKeyInt(ctx->textures, &i, &id)) {
 		void *texture = MTY_HashPopInt(ctx->textures, id);
 		GFX_UI_API[ctx->api].destroy_texture(&texture);
 	}
@@ -115,11 +115,11 @@ bool MTY_RendererDrawUI(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device,
 	return GFX_UI_API[api].render(ctx->gfx_ui, device, context, dd, ctx->textures, dest);
 }
 
-void *MTY_RendererSetUITexture(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device,
+bool MTY_RendererSetUITexture(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device,
 	MTY_Context *context, uint32_t id, const void *rgba, uint32_t width, uint32_t height)
 {
 	if (!renderer_begin(ctx, api, context, device))
-		return NULL;
+		return false;
 
 	void *texture = MTY_HashPopInt(ctx->textures, id);
 	if (texture)
@@ -130,12 +130,12 @@ void *MTY_RendererSetUITexture(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *devic
 		MTY_HashSetInt(ctx->textures, id, texture);
 	}
 
-	return texture;
+	return texture ? true : false;
 }
 
-void *MTY_RendererGetUITexture(MTY_Renderer *ctx, uint32_t id)
+bool MTY_RendererHasUITexture(MTY_Renderer *ctx, uint32_t id)
 {
-	return MTY_HashGetInt(ctx->textures, id);
+	return MTY_HashGetInt(ctx->textures, id) ? true : false;
 }
 
 uint32_t MTY_GetAvailableGFX(MTY_GFX *apis)

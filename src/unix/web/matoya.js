@@ -647,7 +647,7 @@ const MTY_NET_API = {
 const MTY_CRYPTO_API = {
 	MTY_CryptoHash: function (algo, input, inputSize, key, keySize, output, outputSize) {
 	},
-	MTY_RandomBytes: function (cbuf, size) {
+	MTY_GetRandomBytes: function (cbuf, size) {
 		const buf = new Uint8Array(mty_mem(), size);
 		Crypto.getRandomValues(buf);
 	},
@@ -657,7 +657,7 @@ const MTY_CRYPTO_API = {
 // System
 
 const MTY_SYSTEM_API = {
-	MTY_ProtocolHandler: function (uri, token) {
+	MTY_HandleProtocol: function (uri, token) {
 		MTY_SetAction(() => {
 			window.open(MTY_StrToJS(uri), '_blank');
 		});

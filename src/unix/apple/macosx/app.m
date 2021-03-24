@@ -1200,7 +1200,7 @@ void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 	}
 }
 
-bool MTY_AppMouseIsGrabbed(MTY_App *app)
+bool MTY_AppIsMouseGrabbed(MTY_App *app)
 {
 	App *ctx = (__bridge App *) app;
 
@@ -1246,14 +1246,14 @@ void MTY_AppActivate(MTY_App *app, bool active)
 	}
 }
 
-void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
+void MTY_AppRumbleController(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {
 	App *ctx = (__bridge App *) app;
 
 	mty_hid_driver_rumble(ctx.hid, id, low, high);
 }
 
-bool MTY_AppPenIsEnabled(MTY_App *app)
+bool MTY_AppIsPenEnabled(MTY_App *app)
 {
 	App *ctx = (__bridge App *) app;
 
@@ -1305,7 +1305,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const MTY_WindowDesc *desc)
 
 	wsize_client(desc, 1.0f, size.height, &x, &y, &width, &height);
 
-	if (desc->position == MTY_POSITION_CENTER)
+	if (desc->origin == MTY_ORIGIN_CENTER)
 		wsize_center(0, 0, size.width, size.height, &x, &y, &width, &height);
 
 	NSRect rect = NSMakeRect(x, y, width, height);
@@ -1411,7 +1411,7 @@ bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, u
 	return true;
 }
 
-float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
+float MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window)
 {
 	Window *ctx = app_get_window(app, window);
 	if (!ctx)
@@ -1547,7 +1547,7 @@ void MTY_AppRemoveTray(MTY_App *app)
 {
 }
 
-void MTY_AppNotification(MTY_App *app, const char *title, const char *msg)
+void MTY_AppSendNotification(MTY_App *app, const char *title, const char *msg)
 {
 }
 
@@ -1555,7 +1555,7 @@ void MTY_AppShowSoftKeyboard(MTY_App *app, bool show)
 {
 }
 
-bool MTY_AppSoftKeyboardIsShowing(MTY_App *app)
+bool MTY_AppIsSoftKeyboardShowing(MTY_App *app)
 {
 	return false;
 }
@@ -1573,7 +1573,7 @@ void MTY_AppEnableGlobalHotkeys(MTY_App *app, bool enable)
 {
 }
 
-bool MTY_AppKeyboardIsGrabbed(MTY_App *app)
+bool MTY_AppIsKeyboardGrabbed(MTY_App *app)
 {
 	return false;
 }
@@ -1582,9 +1582,9 @@ void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
 {
 }
 
-MTY_GFXState MTY_WindowGFXState(MTY_App *app, MTY_Window window)
+MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)
 {
-	return MTY_GFX_STATE_NORMAL;
+	return MTY_CONTEXT_STATE_NORMAL;
 }
 
 MTY_Input MTY_AppGetInputMode(MTY_App *ctx)

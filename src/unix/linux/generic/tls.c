@@ -46,7 +46,7 @@ MTY_Cert *MTY_CertCreate(void)
 
 	cert->cert = X509_new();
 	X509_set_version(cert->cert, 2);
-	ASN1_INTEGER_set(X509_get_serialNumber(cert->cert), MTY_RandomUInt(1000000000, 2000000000));
+	ASN1_INTEGER_set(X509_get_serialNumber(cert->cert), MTY_GetRandomUInt(1000000000, 2000000000));
 
 	// TODO libssl.1.0.0 does not have these functions, it required access to the cert
 	// struct itself. Only required for DTLS, so punt for now
@@ -55,7 +55,7 @@ MTY_Cert *MTY_CertCreate(void)
 	// X509_gmtime_adj(X509_getm_notAfter(cert->cert), 30 * 24 * 3600); // 30 days out
 
 	uint8_t rand_name[16];
-	MTY_RandomBytes(rand_name, 16);
+	MTY_GetRandomBytes(rand_name, 16);
 	MTY_BytesToHex(rand_name, 16, cert->cn, 64);
 
 	X509_NAME *x509_name = X509_get_subject_name(cert->cert);

@@ -302,7 +302,7 @@ void mty_hid_default_state(struct hid_dev *ctx, const void *buf, size_t size, MT
 	}
 
 	// Values
-	for (uint32_t x = 0; x < ctx->caps.NumberInputValueCaps && c->numValues < MTY_CVALUE_MAX; x++) {
+	for (uint32_t x = 0; x < ctx->caps.NumberInputValueCaps && c->numAxes < MTY_CAXIS_MAX; x++) {
 		const HIDP_VALUE_CAPS *vcap = &ctx->vcaps[x];
 
 		ULONG value = 0;
@@ -315,10 +315,10 @@ void mty_hid_default_state(struct hid_dev *ctx, const void *buf, size_t size, MT
 		}
 
 		if (e == HIDP_STATUS_SUCCESS) {
-			MTY_Value *v = &c->values[c->numValues++];
+			MTY_Axis *v = &c->axes[c->numAxes++];
 
 			v->usage = vcap->Range.UsageMin;
-			v->data = (int16_t) value;
+			v->value = (int16_t) value;
 			v->min = (int16_t) vcap->LogicalMin;
 			v->max = (int16_t) vcap->LogicalMax;
 		}

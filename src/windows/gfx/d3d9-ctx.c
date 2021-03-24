@@ -299,18 +299,18 @@ void mty_d3d9_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 			NULL, dd, (MTY_Texture *) ctx->back_buffer);
 }
 
-void mty_d3d9_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,
+bool mty_d3d9_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,
 	uint32_t width, uint32_t height)
 {
 	struct d3d9_ctx *ctx = (struct d3d9_ctx *) gfx_ctx;
 
-	MTY_RendererSetUITexture(ctx->renderer, MTY_GFX_D3D9, (MTY_Device *) ctx->device,
+	return MTY_RendererSetUITexture(ctx->renderer, MTY_GFX_D3D9, (MTY_Device *) ctx->device,
 		NULL, id, rgba, width, height);
 }
 
-void *mty_d3d9_ctx_get_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
+bool mty_d3d9_ctx_has_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
 {
 	struct d3d9_ctx *ctx = (struct d3d9_ctx *) gfx_ctx;
 
-	return MTY_RendererGetUITexture(ctx->renderer, id);
+	return MTY_RendererHasUITexture(ctx->renderer, id);
 }

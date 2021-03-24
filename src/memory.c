@@ -19,7 +19,7 @@ void *MTY_Alloc(size_t nelem, size_t elsize)
 	void *mem = calloc(nelem, elsize);
 
 	if (!mem)
-		MTY_Fatal("'calloc' failed with errno %d", errno);
+		MTY_LogFatal("'calloc' failed with errno %d", errno);
 
 	return mem;
 }
@@ -31,7 +31,7 @@ void *MTY_Realloc(void *mem, size_t nelem, size_t elsize)
 	void *new_mem = realloc(mem, size);
 
 	if (!new_mem && size > 0)
-		MTY_Fatal("'realloc' failed with errno %d", errno);
+		MTY_LogFatal("'realloc' failed with errno %d", errno);
 
 	return new_mem;
 }
@@ -62,7 +62,7 @@ void MTY_Strcat(char *dst, size_t size, const char *src)
 
 char *MTY_VsprintfD(const char *fmt, va_list args)
 {
-	// va_list can be exausted each time it is referenced
+	// va_list can be exhausted each time it is referenced
 	// by a ...v style function. Since we use it twice, make a copy
 
 	va_list args_copy;

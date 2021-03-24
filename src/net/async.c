@@ -122,16 +122,16 @@ MTY_Async MTY_HttpAsyncPoll(uint32_t index, void **response, size_t *size, uint1
 
 	struct async_state *s = NULL;
 	MTY_Async r = MTY_ASYNC_DONE;
-	MTY_ThreadState pstatus = MTY_ThreadPoolState(ASYNC_CTX, index, (void **) &s);
+	MTY_Async pstatus = MTY_ThreadPoolPoll(ASYNC_CTX, index, (void **) &s);
 
-	if (pstatus == MTY_THREAD_STATE_DONE) {
+	if (pstatus == MTY_ASYNC_OK) {
 		*response = s->res.body;
 		*size = s->res.body_size;
 		*status = s->res.code;
 
 		r = s->status;
 
-	} else if (pstatus == MTY_THREAD_STATE_RUNNING) {
+	} else if (pstatus == MTY_ASYNC_CONTINUE) {
 		r = MTY_ASYNC_CONTINUE;
 	}
 

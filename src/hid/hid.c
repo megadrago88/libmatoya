@@ -105,7 +105,7 @@ void mty_hid_driver_state(struct hid_dev *device, const void *buf, size_t size, 
 			break;
 		case MTY_CTYPE_DEFAULT:
 			mty_hid_default_state(device, buf, size, evt);
-			mty_hid_map_values(&evt->controller);
+			mty_hid_map_axes(&evt->controller);
 			break;
 	}
 }

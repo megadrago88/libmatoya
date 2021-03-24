@@ -38,7 +38,7 @@ MTY_Hash *MTY_HashCreate(uint32_t numBuckets)
 	return ctx;
 }
 
-bool MTY_HashNextKey(MTY_Hash *ctx, uint64_t *iter, const char **key)
+bool MTY_HashGetNextKey(MTY_Hash *ctx, uint64_t *iter, const char **key)
 {
 	*key = NULL;
 
@@ -68,10 +68,10 @@ bool MTY_HashNextKey(MTY_Hash *ctx, uint64_t *iter, const char **key)
 	return *key ? true : false;
 }
 
-bool MTY_HashNextKeyInt(MTY_Hash *ctx, uint64_t *iter, int64_t *key)
+bool MTY_HashGetNextKeyInt(MTY_Hash *ctx, uint64_t *iter, int64_t *key)
 {
 	const char *key_str;
-	bool r = MTY_HashNextKey(ctx, iter, &key_str);
+	bool r = MTY_HashGetNextKey(ctx, iter, &key_str);
 
 	r = r && key_str[0] == '#';
 

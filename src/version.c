@@ -6,7 +6,7 @@
 
 #include "matoya.h"
 
-uint32_t MTY_Version(void)
+uint32_t MTY_GetVersion(void)
 {
 	return MTY_VERSION;
 }

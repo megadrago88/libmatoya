@@ -38,7 +38,7 @@ uint32_t MTY_GetPlatformNoWeb(void)
 	return MTY_OS_UNKNOWN;
 }
 
-const char *MTY_ProcessPath(void)
+const char *MTY_GetProcessPath(void)
 {
 	return "/app";
 }

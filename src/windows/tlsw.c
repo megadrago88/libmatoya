@@ -44,7 +44,7 @@ MTY_Cert *MTY_CertCreate(void)
 	MTY_Cert *ctx = MTY_Alloc(1, sizeof(MTY_Cert));
 
 	uint8_t rand_name[16];
-	MTY_RandomBytes(rand_name, 16);
+	MTY_GetRandomBytes(rand_name, 16);
 
 	char rand_name_hex[64] = "CN=";
 	MTY_BytesToHex(rand_name, 16, rand_name_hex + 3, 61);

@@ -47,12 +47,12 @@ static MTY_Thread *thread_create(MTY_ThreadFunc func, void *opaque, bool detach)
 	int32_t e = pthread_create(&ctx->thread, NULL, thread_func, ctx);
 
 	if (e != 0)
-		MTY_Fatal("'pthread_create' failed with error %d", e);
+		MTY_LogFatal("'pthread_create' failed with error %d", e);
 
 	if (ctx->detach) {
 		e = pthread_detach(ctx->thread);
 		if (e != 0)
-			MTY_Fatal("'pthread_detach' failed with error %d", e);
+			MTY_LogFatal("'pthread_detach' failed with error %d", e);
 
 		ctx->thread = 0;
 		ctx = NULL;
@@ -86,7 +86,7 @@ void *MTY_ThreadDestroy(MTY_Thread **thread)
 	if (ctx->thread) {
 		int32_t e = pthread_join(ctx->thread, NULL);
 		if (e != 0)
-			MTY_Fatal("'pthread_join' failed with error %d", e);
+			MTY_LogFatal("'pthread_join' failed with error %d", e);
 	}
 
 	void *ret = ctx->ret;
@@ -110,7 +110,7 @@ MTY_Mutex *MTY_MutexCreate(void)
 
 	int32_t e = pthread_mutex_init(&ctx->mutex, NULL);
 	if (e != 0)
-		MTY_Fatal("'pthread_mutex_init' failed with error %d", e);
+		MTY_LogFatal("'pthread_mutex_init' failed with error %d", e);
 
 	return ctx;
 }
@@ -119,14 +119,14 @@ void MTY_MutexLock(MTY_Mutex *ctx)
 {
 	int32_t e = pthread_mutex_lock(&ctx->mutex);
 	if (e != 0)
-		MTY_Fatal("'pthread_mutex_lock' failed with error %d", e);
+		MTY_LogFatal("'pthread_mutex_lock' failed with error %d", e);
 }
 
 bool MTY_MutexTryLock(MTY_Mutex *ctx)
 {
 	int32_t e = pthread_mutex_trylock(&ctx->mutex);
 	if (e != 0 && e != EBUSY)
-		MTY_Fatal("'pthread_mutex_trylock' failed with error %d", e);
+		MTY_LogFatal("'pthread_mutex_trylock' failed with error %d", e);
 
 	return e == 0;
 }
@@ -135,7 +135,7 @@ void MTY_MutexUnlock(MTY_Mutex *ctx)
 {
 	int32_t e = pthread_mutex_unlock(&ctx->mutex);
 	if (e != 0)
-		MTY_Fatal("'pthread_mutex_unlock' failed with error %d", e);
+		MTY_LogFatal("'pthread_mutex_unlock' failed with error %d", e);
 }
 
 void MTY_MutexDestroy(MTY_Mutex **mutex)
@@ -147,7 +147,7 @@ void MTY_MutexDestroy(MTY_Mutex **mutex)
 
 	int32_t e = pthread_mutex_destroy(&ctx->mutex);
 	if (e != 0)
-		MTY_Fatal("'pthread_mutex_destroy' failed with error %d", e);
+		MTY_LogFatal("'pthread_mutex_destroy' failed with error %d", e);
 
 	MTY_Free(ctx);
 	*mutex = NULL;
@@ -166,7 +166,7 @@ MTY_Cond *MTY_CondCreate(void)
 
 	int32_t e = pthread_cond_init(&ctx->cond, NULL);
 	if (e != 0)
-		MTY_Fatal("'pthread_cond_init' failed with error %d", e);
+		MTY_LogFatal("'pthread_cond_init' failed with error %d", e);
 
 	return ctx;
 }
@@ -188,31 +188,31 @@ bool MTY_CondWait(MTY_Cond *ctx, MTY_Mutex *mutex, int32_t timeout)
 			return false;
 
 		} else if (e != 0) {
-			MTY_Fatal("'pthread_cond_timedwait' failed with error %d", e);
+			MTY_LogFatal("'pthread_cond_timedwait' failed with error %d", e);
 		}
 
 	// Use pthread_cond_wait
 	} else {
 		int32_t e = pthread_cond_wait(&ctx->cond, &mutex->mutex);
 		if (e != 0)
-			MTY_Fatal("'pthread_cond_wait' failed with error %d", e);
+			MTY_LogFatal("'pthread_cond_wait' failed with error %d", e);
 	}
 
 	return true;
 }
 
-void MTY_CondWake(MTY_Cond *ctx)
+void MTY_CondSignal(MTY_Cond *ctx)
 {
 	int32_t e = pthread_cond_signal(&ctx->cond);
 	if (e != 0)
-		MTY_Fatal("'pthread_cond_signal' failed with error %d", e);
+		MTY_LogFatal("'pthread_cond_signal' failed with error %d", e);
 }
 
-void MTY_CondWakeAll(MTY_Cond *ctx)
+void MTY_CondSignalAll(MTY_Cond *ctx)
 {
 	int32_t e = pthread_cond_broadcast(&ctx->cond);
 	if (e != 0)
-		MTY_Fatal("'pthread_cond_broadcast' failed with error %d", e);
+		MTY_LogFatal("'pthread_cond_broadcast' failed with error %d", e);
 }
 
 void MTY_CondDestroy(MTY_Cond **cond)
@@ -224,7 +224,7 @@ void MTY_CondDestroy(MTY_Cond **cond)
 
 	int32_t e = pthread_cond_destroy(&ctx->cond);
 	if (e != 0)
-		MTY_Fatal("'pthread_cond_destroy' failed with error %d", e);
+		MTY_LogFatal("'pthread_cond_destroy' failed with error %d", e);
 
 	MTY_Free(ctx);
 	*cond = NULL;

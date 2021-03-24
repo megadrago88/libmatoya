@@ -11,6 +11,6 @@ bool MTY_HasDialogs(void)
 	return false;
 }
 
-void MTY_MessageBox(const char *title, const char *fmt, ...)
+void MTY_ShowMessageBox(const char *title, const char *fmt, ...)
 {
 }

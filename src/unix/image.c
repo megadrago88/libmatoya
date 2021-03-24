@@ -71,7 +71,7 @@ void *MTY_CompressImage(MTY_Image type, const void *input, uint32_t width, uint3
 		case MTY_IMAGE_PNG:
 			e = stbi_write_png_to_func(image_compress_write_func, &ctx, width, height, 4, input, width * 4);
 			break;
-		case MTY_IMAGE_JPG:
+		case MTY_IMAGE_JPEG:
 			// Quality defaults to 90
 			e = stbi_write_jpg_to_func(image_compress_write_func, &ctx, width, height, 4, input, 0);
 			break;

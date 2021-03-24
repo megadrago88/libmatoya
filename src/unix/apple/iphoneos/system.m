@@ -6,7 +6,7 @@
 
 #include "matoya.h"
 
-void MTY_ProtocolHandler(const char *uri, void *token)
+void MTY_HandleProtocol(const char *uri, void *token)
 {
 }
 
@@ -20,7 +20,7 @@ uint32_t MTY_GetPlatformNoWeb(void)
 	return MTY_GetPlatform();
 }
 
-const char *MTY_ProcessPath(void)
+const char *MTY_GetProcessPath(void)
 {
 	return "/app";
 }

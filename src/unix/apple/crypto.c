@@ -49,7 +49,7 @@ void MTY_CryptoHash(MTY_Algorithm algo, const void *input, size_t inputSize, con
 
 // Random
 
-void MTY_RandomBytes(void *output, size_t size)
+void MTY_GetRandomBytes(void *output, size_t size)
 {
 	CCRNGStatus e = CCRandomGenerateBytes(output, size);
 	if (e != kCCSuccess)

@@ -106,19 +106,19 @@ void mty_gfx_set_kb_height(int32_t height)
 	CTX.kb_height = height;
 }
 
-MTY_GFXState mty_gfx_state(void)
+MTY_ContextState mty_gfx_state(void)
 {
-	MTY_GFXState state = MTY_GFX_STATE_NORMAL;
+	MTY_ContextState state = MTY_CONTEXT_STATE_NORMAL;
 
 	MTY_MutexLock(CTX.mutex);
 
 	if (CTX.reinit) {
-		state = MTY_GFX_STATE_NEW_CONTEXT;
+		state = MTY_CONTEXT_STATE_NEW;
 		CTX.reinit = false;
 
 	} else if (MTY_Atomic32Get(&CTX.state_ctr) > 0) {
 		MTY_Atomic32Add(&CTX.state_ctr, -1);
-		state = MTY_GFX_STATE_REFRESH;
+		state = MTY_CONTEXT_STATE_REFRESH;
 	}
 
 	MTY_MutexUnlock(CTX.mutex);
@@ -301,31 +301,35 @@ void mty_gl_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 	MTY_MutexUnlock(ctx->mutex);
 }
 
-void mty_gl_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,
+bool mty_gl_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,
 	uint32_t width, uint32_t height)
 {
 	struct gl_ctx *ctx = (struct gl_ctx *) gfx_ctx;
 
+	bool r = false;
+
 	MTY_MutexLock(ctx->mutex);
 
 	if (gl_ctx_check(ctx))
-		MTY_RendererSetUITexture(ctx->renderer, MTY_GFX_GL, NULL, NULL, id, rgba, width, height);
+		r = MTY_RendererSetUITexture(ctx->renderer, MTY_GFX_GL, NULL, NULL, id, rgba, width, height);
 
 	MTY_MutexUnlock(ctx->mutex);
+
+	return r;
 }
 
-void *mty_gl_ctx_get_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
+bool mty_gl_ctx_has_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id)
 {
 	struct gl_ctx *ctx = (struct gl_ctx *) gfx_ctx;
 
-	void *tex = NULL;
+	bool r = false;
 
 	MTY_MutexLock(ctx->mutex);
 
 	if (gl_ctx_check(ctx))
-		tex = MTY_RendererGetUITexture(ctx->renderer, id);
+		r = MTY_RendererHasUITexture(ctx->renderer, id);
 
 	MTY_MutexUnlock(ctx->mutex);
 
-	return tex;
+	return r;
 }

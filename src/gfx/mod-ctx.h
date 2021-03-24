@@ -28,9 +28,9 @@ struct gfx_ctx;
 	void wrap(api, draw_quad)(struct gfx_ctx *gfx_ctx, const void *image, \
 		const MTY_RenderDesc *desc); \
 	void wrap(api, draw_ui)(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd); \
-	void wrap(api, set_ui_texture)(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba, \
+	bool wrap(api, set_ui_texture)(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba, \
 		uint32_t width, uint32_t height); \
-	void *wrap(api, get_ui_texture)(struct gfx_ctx *gfx_ctx, uint32_t id);
+	bool wrap(api, has_ui_texture)(struct gfx_ctx *gfx_ctx, uint32_t id);
 
 #define GFX_CTX_PROTOTYPES(api) \
 	GFX_CTX_DECLARE_API(api, GFX_CTX_PROTO)
@@ -46,5 +46,5 @@ struct gfx_ctx;
 		mty##api##ctx_draw_quad, \
 		mty##api##ctx_draw_ui, \
 		mty##api##ctx_set_ui_texture, \
-		mty##api##ctx_get_ui_texture, \
+		mty##api##ctx_has_ui_texture, \
 	},

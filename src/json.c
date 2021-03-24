@@ -21,7 +21,7 @@ MTY_JSON *MTY_JSONParse(const char *input)
 	return (MTY_JSON *) cJSON_Parse(input);
 }
 
-char *MTY_JSONStringify(const MTY_JSON *json)
+char *MTY_JSONSerialize(const MTY_JSON *json)
 {
 	cJSON *cj = (cJSON *) json;
 
@@ -46,7 +46,7 @@ MTY_JSON *MTY_JSONReadFile(const char *path)
 
 bool MTY_JSONWriteFile(const char *path, const MTY_JSON *json)
 {
-	char *jstr = MTY_JSONStringify(json);
+	char *jstr = MTY_JSONSerialize(json);
 
 	bool r = MTY_WriteFile(path, jstr, strlen(jstr));
 	MTY_Free(jstr);
@@ -59,7 +59,7 @@ MTY_JSON *MTY_JSONDuplicate(const MTY_JSON *json)
 	return (MTY_JSON *) (!json ? cJSON_CreateNull() : cJSON_Duplicate((cJSON *) json, true));
 }
 
-uint32_t MTY_JSONLength(const MTY_JSON *json)
+uint32_t MTY_JSONGetLength(const MTY_JSON *json)
 {
 	cJSON *cj = (cJSON *) json;
 
@@ -77,12 +77,12 @@ void MTY_JSONDestroy(MTY_JSON **json)
 	*json = NULL;
 }
 
-MTY_JSON *MTY_JSONObj(void)
+MTY_JSON *MTY_JSONObjCreate(void)
 {
 	return (MTY_JSON *) cJSON_CreateObject();
 }
 
-MTY_JSON *MTY_JSONArray(void)
+MTY_JSON *MTY_JSONArrayCreate(void)
 {
 	return (MTY_JSON *) cJSON_CreateArray();
 }
@@ -109,7 +109,7 @@ const char *MTY_JSONObjGetKey(const MTY_JSON *json, uint32_t index)
 	return item->string;
 }
 
-void MTY_JSONObjDeleteKey(MTY_JSON *json, const char *key)
+void MTY_JSONObjDeleteItem(MTY_JSON *json, const char *key)
 {
 	if (!json)
 		return;
@@ -117,7 +117,7 @@ void MTY_JSONObjDeleteKey(MTY_JSON *json, const char *key)
 	cJSON_DeleteItemFromObjectCaseSensitive((cJSON *) json, key);
 }
 
-const MTY_JSON *MTY_JSONObjGet(const MTY_JSON *json, const char *key)
+const MTY_JSON *MTY_JSONObjGetItem(const MTY_JSON *json, const char *key)
 {
 	const cJSON *cj = (const cJSON *) json;
 
@@ -127,7 +127,7 @@ const MTY_JSON *MTY_JSONObjGet(const MTY_JSON *json, const char *key)
 	return (const MTY_JSON *) cJSON_GetObjectItemCaseSensitive(cj, key);
 }
 
-void MTY_JSONObjSet(MTY_JSON *json, const char *key, const MTY_JSON *value)
+void MTY_JSONObjSetItem(MTY_JSON *json, const char *key, const MTY_JSON *value)
 {
 	cJSON *cj = (cJSON *) json;
 
@@ -150,7 +150,7 @@ bool MTY_JSONArrayIndexExists(const MTY_JSON *json, uint32_t index)
 	return cJSON_GetArrayItem((cJSON *) json, index) ? true : false;
 }
 
-void MTY_JSONArrayDeleteIndex(MTY_JSON *json, uint32_t index)
+void MTY_JSONArrayDeleteItem(MTY_JSON *json, uint32_t index)
 {
 	if (!json)
 		return;
@@ -158,7 +158,7 @@ void MTY_JSONArrayDeleteIndex(MTY_JSON *json, uint32_t index)
 	cJSON_DeleteItemFromArray((cJSON *) json, index);
 }
 
-const MTY_JSON *MTY_JSONArrayGet(const MTY_JSON *json, uint32_t index)
+const MTY_JSON *MTY_JSONArrayGetItem(const MTY_JSON *json, uint32_t index)
 {
 	const cJSON *cj = (const cJSON *) json;
 
@@ -169,7 +169,7 @@ const MTY_JSON *MTY_JSONArrayGet(const MTY_JSON *json, uint32_t index)
 	return (const MTY_JSON *) cJSON_GetArrayItem(cj, index);
 }
 
-void MTY_JSONArraySet(MTY_JSON *json, uint32_t index, const MTY_JSON *value)
+void MTY_JSONArraySetItem(MTY_JSON *json, uint32_t index, const MTY_JSON *value)
 {
 	cJSON *cj = (cJSON *) json;
 
@@ -179,7 +179,7 @@ void MTY_JSONArraySet(MTY_JSON *json, uint32_t index, const MTY_JSON *value)
 	cJSON_InsertItemInArray(cj, index, (cJSON *) value);
 }
 
-void MTY_JSONArrayAppend(MTY_JSON *json, const MTY_JSON *value)
+void MTY_JSONArrayAppendItem(MTY_JSON *json, const MTY_JSON *value)
 {
 	cJSON *cj = (cJSON *) json;
 
@@ -272,140 +272,140 @@ static bool json_is_null(const MTY_JSON *json)
 
 bool MTY_JSONObjGetString(const MTY_JSON *json, const char *key, char *val, size_t size)
 {
-	return json_to_string(MTY_JSONObjGet(json, key), val, size);
+	return json_to_string(MTY_JSONObjGetItem(json, key), val, size);
 }
 
 bool MTY_JSONObjGetInt(const MTY_JSON *json, const char *key, int32_t *val)
 {
-	return json_to_int(MTY_JSONObjGet(json, key), val);
+	return json_to_int(MTY_JSONObjGetItem(json, key), val);
 }
 
 bool MTY_JSONObjGetUInt(const MTY_JSON *json, const char *key, uint32_t *val)
 {
-	return json_to_int(MTY_JSONObjGet(json, key), (int32_t *) val);
+	return json_to_int(MTY_JSONObjGetItem(json, key), (int32_t *) val);
 }
 
 bool MTY_JSONObjGetInt8(const MTY_JSON *json, const char *key, int8_t *val)
 {
-	return json_to_int8(MTY_JSONObjGet(json, key), val);
+	return json_to_int8(MTY_JSONObjGetItem(json, key), val);
 }
 
 bool MTY_JSONObjGetUInt8(const MTY_JSON *json, const char *key, uint8_t *val)
 {
-	return json_to_int8(MTY_JSONObjGet(json, key), (int8_t *) val);
+	return json_to_int8(MTY_JSONObjGetItem(json, key), (int8_t *) val);
 }
 
 bool MTY_JSONObjGetInt16(const MTY_JSON *json, const char *key, int16_t *val)
 {
-	return json_to_int16(MTY_JSONObjGet(json, key), val);
+	return json_to_int16(MTY_JSONObjGetItem(json, key), val);
 }
 
 bool MTY_JSONObjGetUInt16(const MTY_JSON *json, const char *key, uint16_t *val)
 {
-	return json_to_int16(MTY_JSONObjGet(json, key), (int16_t *) val);
+	return json_to_int16(MTY_JSONObjGetItem(json, key), (int16_t *) val);
 }
 
 bool MTY_JSONObjGetFloat(const MTY_JSON *json, const char *key, float *val)
 {
-	return json_to_float(MTY_JSONObjGet(json, key), val);
+	return json_to_float(MTY_JSONObjGetItem(json, key), val);
 }
 
 bool MTY_JSONObjGetBool(const MTY_JSON *json, const char *key, bool *val)
 {
-	return json_to_bool(MTY_JSONObjGet(json, key), val);
+	return json_to_bool(MTY_JSONObjGetItem(json, key), val);
 }
 
-bool MTY_JSONObjValIsNull(const MTY_JSON *json, const char *key)
+bool MTY_JSONObjIsValNull(const MTY_JSON *json, const char *key)
 {
-	return json_is_null(MTY_JSONObjGet(json, key));
+	return json_is_null(MTY_JSONObjGetItem(json, key));
 }
 
 void MTY_JSONObjSetString(MTY_JSON *json, const char *key, const char *val)
 {
-	MTY_JSONObjSet(json, key, (MTY_JSON *) cJSON_CreateString(val));
+	MTY_JSONObjSetItem(json, key, (MTY_JSON *) cJSON_CreateString(val));
 }
 
 void MTY_JSONObjSetInt(MTY_JSON *json, const char *key, int32_t val)
 {
-	MTY_JSONObjSet(json, key, (MTY_JSON *) cJSON_CreateNumber(val));
+	MTY_JSONObjSetItem(json, key, (MTY_JSON *) cJSON_CreateNumber(val));
 }
 
 void MTY_JSONObjSetUInt(MTY_JSON *json, const char *key, uint32_t val)
 {
-	MTY_JSONObjSet(json, key, (MTY_JSON *) cJSON_CreateNumber(val));
+	MTY_JSONObjSetItem(json, key, (MTY_JSON *) cJSON_CreateNumber(val));
 }
 
 void MTY_JSONObjSetFloat(MTY_JSON *json, const char *key, float val)
 {
-	MTY_JSONObjSet(json, key, (MTY_JSON *) cJSON_CreateNumber(val));
+	MTY_JSONObjSetItem(json, key, (MTY_JSON *) cJSON_CreateNumber(val));
 }
 
 void MTY_JSONObjSetBool(MTY_JSON *json, const char *key, bool val)
 {
-	MTY_JSONObjSet(json, key, (MTY_JSON *) cJSON_CreateBool(val));
+	MTY_JSONObjSetItem(json, key, (MTY_JSON *) cJSON_CreateBool(val));
 }
 
 void MTY_JSONObjSetNull(MTY_JSON *json, const char *key)
 {
-	MTY_JSONObjSet(json, key, (MTY_JSON *) cJSON_CreateNull());
+	MTY_JSONObjSetItem(json, key, (MTY_JSON *) cJSON_CreateNull());
 }
 
 bool MTY_JSONArrayGetString(const MTY_JSON *json, uint32_t index, char *val, size_t size)
 {
-	return json_to_string(MTY_JSONArrayGet(json, index), val, size);
+	return json_to_string(MTY_JSONArrayGetItem(json, index), val, size);
 }
 
 bool MTY_JSONArrayGetInt(const MTY_JSON *json, uint32_t index, int32_t *val)
 {
-	return json_to_int(MTY_JSONArrayGet(json, index), val);
+	return json_to_int(MTY_JSONArrayGetItem(json, index), val);
 }
 
 bool MTY_JSONArrayGetUInt(const MTY_JSON *json, uint32_t index, uint32_t *val)
 {
-	return json_to_int(MTY_JSONArrayGet(json, index), (int32_t *) val);
+	return json_to_int(MTY_JSONArrayGetItem(json, index), (int32_t *) val);
 }
 
 bool MTY_JSONArrayGetFloat(const MTY_JSON *json, uint32_t index, float *val)
 {
-	return json_to_float(MTY_JSONArrayGet(json, index), val);
+	return json_to_float(MTY_JSONArrayGetItem(json, index), val);
 }
 
 bool MTY_JSONArrayGetBool(const MTY_JSON *json, uint32_t index, bool *val)
 {
-	return json_to_bool(MTY_JSONArrayGet(json, index), val);
+	return json_to_bool(MTY_JSONArrayGetItem(json, index), val);
 }
 
-bool MTY_JSONArrayValIsNull(const MTY_JSON *json, uint32_t index)
+bool MTY_JSONArrayIsValNull(const MTY_JSON *json, uint32_t index)
 {
-	return json_is_null(MTY_JSONArrayGet(json, index));
+	return json_is_null(MTY_JSONArrayGetItem(json, index));
 }
 
 void MTY_JSONArraySetString(MTY_JSON *json, uint32_t index, const char *val)
 {
-	MTY_JSONArraySet(json, index, (MTY_JSON *) cJSON_CreateString(val));
+	MTY_JSONArraySetItem(json, index, (MTY_JSON *) cJSON_CreateString(val));
 }
 
 void MTY_JSONArraySetInt(MTY_JSON *json, uint32_t index, int32_t val)
 {
-	MTY_JSONArraySet(json, index, (MTY_JSON *) cJSON_CreateNumber(val));
+	MTY_JSONArraySetItem(json, index, (MTY_JSON *) cJSON_CreateNumber(val));
 }
 
 void MTY_JSONArraySetUInt(MTY_JSON *json, uint32_t index, uint32_t val)
 {
-	MTY_JSONArraySet(json, index, (MTY_JSON *) cJSON_CreateNumber(val));
+	MTY_JSONArraySetItem(json, index, (MTY_JSON *) cJSON_CreateNumber(val));
 }
 
 void MTY_JSONArraySetFloat(MTY_JSON *json, uint32_t index, float val)
 {
-	MTY_JSONArraySet(json, index, (MTY_JSON *) cJSON_CreateNumber(val));
+	MTY_JSONArraySetItem(json, index, (MTY_JSON *) cJSON_CreateNumber(val));
 }
 
 void MTY_JSONArraySetBool(MTY_JSON *json, uint32_t index, bool val)
 {
-	MTY_JSONArraySet(json, index, (MTY_JSON *) cJSON_CreateBool(val));
+	MTY_JSONArraySetItem(json, index, (MTY_JSON *) cJSON_CreateBool(val));
 }
 
 void MTY_JSONArraySetNull(MTY_JSON *json, uint32_t index)
 {
-	MTY_JSONArraySet(json, index, (MTY_JSON *) cJSON_CreateNull());
+	MTY_JSONArraySetItem(json, index, (MTY_JSON *) cJSON_CreateNull());
 }

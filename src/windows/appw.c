@@ -217,7 +217,7 @@ static void app_unregister_global_hotkeys(MTY_App *app)
 	uint64_t i = 0;
 	int64_t key = 0;
 
-	while (MTY_HashNextKeyInt(app->ghotkey, &i, &key))
+	while (MTY_HashGetNextKeyInt(app->ghotkey, &i, &key))
 		if (key > 0)
 			if (!UnregisterHotKey(hwnd, (int32_t) key))
 				MTY_Log("'UnregisterHotKey' failed with error 0x%X", GetLastError());
@@ -547,7 +547,7 @@ void MTY_AppRemoveTray(MTY_App *app)
 	memset(&app->tray.nid, 0, sizeof(NOTIFYICONDATA));
 }
 
-void MTY_AppNotification(MTY_App *app, const char *title, const char *msg)
+void MTY_AppSendNotification(MTY_App *app, const char *title, const char *msg)
 {
 	if (!title && !msg)
 		return;
@@ -1472,7 +1472,7 @@ void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 		MTY_Log("'SetThreadExecutionState' failed");
 }
 
-bool MTY_AppKeyboardIsGrabbed(MTY_App *ctx)
+bool MTY_AppIsKeyboardGrabbed(MTY_App *ctx)
 {
 	return ctx->kbgrab;
 }
@@ -1485,7 +1485,7 @@ void MTY_AppGrabKeyboard(MTY_App *app, bool grab)
 	}
 }
 
-bool MTY_AppMouseIsGrabbed(MTY_App *ctx)
+bool MTY_AppIsMouseGrabbed(MTY_App *ctx)
 {
 	return ctx->mgrab;
 }
@@ -1546,7 +1546,7 @@ void MTY_AppActivate(MTY_App *app, bool active)
 	app_hwnd_activate(hwnd, active);
 }
 
-void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
+void MTY_AppRumbleController(MTY_App *app, uint32_t id, uint16_t low, uint16_t high)
 {
 	if (id < 4) {
 		xip_rumble(app->xip, id, low, high);
@@ -1556,7 +1556,7 @@ void MTY_AppControllerRumble(MTY_App *app, uint32_t id, uint16_t low, uint16_t h
 	}
 }
 
-bool MTY_AppPenIsEnabled(MTY_App *ctx)
+bool MTY_AppIsPenEnabled(MTY_App *ctx)
 {
 	return ctx->pen_enabled;
 }
@@ -1625,7 +1625,7 @@ MTY_Window MTY_WindowCreate(MTY_App *app, const MTY_WindowDesc *desc)
 		wsize_client(desc, scale, desktop_height, &x, &y, &width, &height);
 		window_client_to_full(&width, &height);
 
-		if (desc->position == MTY_POSITION_CENTER)
+		if (desc->origin == MTY_ORIGIN_CENTER)
 			wsize_center(rect.left, rect.top, desktop_width, desktop_height, &x, &y, &width, &height);
 	}
 
@@ -1761,7 +1761,7 @@ bool MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width, u
 	return false;
 }
 
-float MTY_WindowGetScale(MTY_App *app, MTY_Window window)
+float MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window)
 {
 	struct window *ctx = app_get_window(app, window);
 	if (!ctx)
@@ -1931,7 +1931,7 @@ void MTY_AppShowSoftKeyboard(MTY_App *app, bool show)
 {
 }
 
-bool MTY_AppSoftKeyboardIsShowing(MTY_App *app)
+bool MTY_AppIsSoftKeyboardShowing(MTY_App *app)
 {
 	return false;
 }
@@ -1945,9 +1945,9 @@ void MTY_AppSetOrientation(MTY_App *app, MTY_Orientation orientation)
 {
 }
 
-MTY_GFXState MTY_WindowGFXState(MTY_App *app, MTY_Window window)
+MTY_ContextState MTY_WindowGetContextState(MTY_App *app, MTY_Window window)
 {
-	return MTY_GFX_STATE_NORMAL;
+	return MTY_CONTEXT_STATE_NORMAL;
 }
 
 MTY_Input MTY_AppGetInputMode(MTY_App *ctx)
