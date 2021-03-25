@@ -17,6 +17,7 @@
 /// Modules
 #include "version.h"
 #include "time.h"
+#include "test_log.h"
 #include "file_test.h"
 
 int32_t main(int32_t argc, char **argv)
@@ -28,6 +29,9 @@ int32_t main(int32_t argc, char **argv)
 		return 1;
 
 	if (!file_main())
+		return 1;
+
+	if (!log_main())
 		return 1;
 
 	return 0;
