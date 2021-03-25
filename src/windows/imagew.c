@@ -21,6 +21,8 @@ void *MTY_DecompressImage(const void *input, size_t size, uint32_t *width, uint3
 	IWICBitmapSource *sframe = NULL;
 	IWICBitmapSource *cframe = NULL;
 
+	HRESULT ce = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+
 	HRESULT e = CoCreateInstance(&CLSID_WICImagingFactory1, NULL, CLSCTX_INPROC_SERVER, &IID_IWICImagingFactory, &factory);
 	if (e != S_OK) {
 		MTY_Log("'CoCreateInstance' failed with HRESULT 0x%X", e);
@@ -102,6 +104,9 @@ void *MTY_DecompressImage(const void *input, size_t size, uint32_t *width, uint3
 	if (factory)
 		IWICImagingFactory_Release(factory);
 
+	if (ce == S_FALSE || ce == S_OK)
+		CoUninitialize();
+
 	return rgba;
 }
 
@@ -112,6 +117,8 @@ void *MTY_CompressImage(MTY_Image type, const void *input, uint32_t width, uint3
 	IWICBitmapEncoder *encoder = NULL;
 	IWICBitmapFrameEncode *frame = NULL;
 	IStream *stream = NULL;
+
+	HRESULT ce = CoInitializeEx(NULL, COINIT_MULTITHREADED);
 
 	HRESULT e = CoCreateInstance(&CLSID_WICImagingFactory1, NULL, CLSCTX_INPROC_SERVER, &IID_IWICImagingFactory, &factory);
 	if (e != S_OK) {
@@ -228,6 +235,9 @@ void *MTY_CompressImage(MTY_Image type, const void *input, uint32_t width, uint3
 
 	if (factory)
 		IWICImagingFactory_Release(factory);
+
+	if (ce == S_FALSE || ce == S_OK)
+		CoUninitialize();
 
 	return cmp;
 }

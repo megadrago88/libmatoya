@@ -91,7 +91,7 @@ typedef enum {
 
 /// @brief Compress an RGBA image.
 /// @param type The compression method to be used on `input`.
-/// @param input Raw RGBA 8-bits per channel image data.
+/// @param input RGBA 8-bits per channel image data.
 /// @param width The width of the `input` image.
 /// @param height The height of the `input` image.
 /// @param outputSize On success, set to the size in bytes of the returned buffer.
@@ -113,7 +113,7 @@ MTY_EXPORT void *
 MTY_DecompressImage(const void *input, size_t size, uint32_t *width, uint32_t *height);
 
 /// @brief Center crop an RGBA image.
-/// @param image Raw RGBA 8-bits per channel image to be cropped.
+/// @param image RGBA 8-bits per channel image to be cropped.
 /// @param cropWidth The desired cropped width.
 /// @param cropHeight The desired cropped height.
 /// @param width On input, set to the current width of `image`. On output, set to the
@@ -1369,7 +1369,7 @@ MTY_RendererDrawUI(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device,
 /// @param device See Generic Objects.
 /// @param context See Generic Objects.
 /// @param id The desired `id` for the texture.
-/// @param rgba Raw RGBA 8-bits per pixel image.
+/// @param rgba RGBA 8-bits per pixel image.
 /// @param width Width of `rgba`.
 /// @param height Height of `rgba`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
@@ -1800,10 +1800,15 @@ MTY_WaitableDestroy(MTY_Waitable **waitable);
 MTY_EXPORT bool
 MTY_WaitableWait(MTY_Waitable *ctx, int32_t timeout);
 
-/// @brief Signal a waitable object.
+/// @brief Signal a waitable object on a single blocked thread.
 /// @param ctx An MTY_Waitable object.
 MTY_EXPORT void
 MTY_WaitableSignal(MTY_Waitable *ctx);
+
+/// @brief Signal a waitable object on all blocked threads.
+/// @param ctx An MTY_Waitable object.
+MTY_EXPORT void
+MTY_WaitableSignalAll(MTY_Waitable *ctx);
 
 /// @brief Create an MTY_ThreadPool for asynchronously executing tasks.
 /// @param maxThreads Maximum number of threads that can be simultaneously executing.
@@ -1911,16 +1916,17 @@ MTY_Atomic32CAS(MTY_Atomic32 *atomic, int32_t oldValue, int32_t newValue);
 MTY_EXPORT bool
 MTY_Atomic64CAS(MTY_Atomic64 *atomic, int64_t oldValue, int64_t newValue);
 
-/// @brief Globally lock via an atomic that should be statically initialized to zero.
-/// @details All atomic operations in libmatoya create a full memory barrier.
-/// @details Warning: There is a process wide maximum of `UINT8_MAX` global locks.
-/// @param atomic An MTY_Atomic32.
+/// @brief Globally lock via an atomic.
+/// @details All atomic operations in libmatoya create a full memory barrier.\n\n
+///   Warning: There is a process wide maximum of `UINT8_MAX` global locks.\n\n
+///   The global lock should be statically initialized to zero.
+/// @param lock An MTY_Atomic32.
 MTY_EXPORT void
 MTY_GlobalLock(MTY_Atomic32 *lock);
 
 /// @brief Globally unlock via an atomic.
 /// @details All atomic operations in libmatoya create a full memory barrier.
-/// @param atomic An MTY_Atomic32.
+/// @param lock An MTY_Atomic32.
 MTY_EXPORT void
 MTY_GlobalUnlock(MTY_Atomic32 *lock);
 
@@ -1991,10 +1997,17 @@ typedef struct MTY_App MTY_App;
 typedef int8_t MTY_Window;
 
 /// @brief Function called once per message cycle.
+/// @details A "message cycle" can be thought of as one iteration through all of the
+///   available messages that the OS has accumulated. libmatoya loops through each
+///   OS level message, fires your MTY_EventFunc for each message of interest, then
+///   calls this function. By default, this process will repeat with no delay, but
+///   one can be added by blocking on MTY_WindowPresent or using MTY_AppSetTimeout.
+/// @param opaque Pointer set via MTY_AppCreate.
 /// @returns Return true to continue running the app, false to stop it.
 typedef bool (*MTY_AppFunc)(void *opaque);
 
 /// @brief Function called to test if a tray menu item should be checked.
+/// @param opaque Pointer set via MTY_AppCreate.
 /// @returns Return true to show the menu item as checked, false to show it as unchecked.
 typedef bool (*MTY_MenuItemCheckedFunc)(void *opaque);
 
@@ -2237,6 +2250,8 @@ typedef enum {
 } MTY_CType;
 
 /// @brief Standardized controller buttons.
+/// @details libmatoya makes a best effort to remap the buttons of known controllers
+///   to these values.
 typedef enum {
 	MTY_CBUTTON_X              = 0,  ///< X
 	MTY_CBUTTON_A              = 1,  ///< A
@@ -2256,7 +2271,9 @@ typedef enum {
 	MTY_CBUTTON_MAKE_32        = INT32_MAX,
 } MTY_CButton;
 
-/// @brief Standardized controller values.
+/// @brief Standardized controller axes.
+/// @details libmatoya makes a best effort to remap axes (sticks, triggers, and DPAD)
+///   of known controllers to these values.
 typedef enum {
 	MTY_CAXIS_THUMB_LX  = 0,  ///< Left Thumb Stick X-axis.
 	MTY_CAXIS_THUMB_LY  = 1,  ///< Left Thumb Stick Y-axis.
@@ -2285,6 +2302,9 @@ typedef enum {
 } MTY_Input;
 
 /// @brief State of a window's graphics context.
+/// @details On most platforms, changes to the context state are rare but are possible
+///   on extreme events like the GPU getting removed. On Android the context can be
+///   recreated frequently when the app moves in and out of focus.
 typedef enum {
 	MTY_CONTEXT_STATE_NORMAL  = 0, ///< The graphics context is operating normally.
 	MTY_CONTEXT_STATE_REFRESH = 1, ///< The surface has been altered and needs to be presented.
@@ -2315,7 +2335,7 @@ typedef struct {
 
 /// @brief Key event.
 typedef struct {
-	MTY_Key key;
+	MTY_Key key;  ///< The key pressed or released.
 	MTY_Mod mod;  ///< Modifiers in effect.
 	bool pressed; ///< State of the key.
 } MTY_KeyEvent;
@@ -2329,7 +2349,7 @@ typedef struct {
 
 /// @brief Button event.
 typedef struct {
-	MTY_Button button;
+	MTY_Button button; ///< The button pressed or released.
 	int32_t x;         ///< Horizontal position in the client area window.
 	int32_t y;         ///< Vertical position in the client area of the window.
 	bool pressed;      ///< State of the button.
@@ -2364,24 +2384,27 @@ typedef struct {
 } MTY_PenEvent;
 
 /// @brief App event encapsulating all event types.
+/// @details First inspect the `type` member to determine what kind of event it is,
+///   then choose one of the members from the nameless `union`.
 typedef struct MTY_Event {
-	MTY_EventType type;
-	MTY_Window window; ///< The window associated with the event.
+	MTY_EventType type; ///< The type of event determining which members of the `union` are valid.
+	MTY_Window window;  ///< The window associated with the event.
 
 	union {
-		MTY_ControllerEvent controller;
-		MTY_ScrollEvent scroll;
-		MTY_ButtonEvent button;
-		MTY_MotionEvent motion;
-		MTY_DropEvent drop;
-		MTY_PenEvent pen;
-		MTY_KeyEvent key;
+		MTY_ControllerEvent controller; ///< Valid on MTY_EVENT_CONTROLLER, MTY_EVENT_CONNECT, and
+		                                ///<   MTY_EVENT_DISCONNECT.
+		MTY_ScrollEvent scroll;         ///< Valid on MTY_EVENT_SCROLL.
+		MTY_ButtonEvent button;         ///< Valid on MTY_EVENT_BUTTON.
+		MTY_MotionEvent motion;         ///< Valid on MTY_EVENT_MOTION.
+		MTY_DropEvent drop;             ///< Valid on MTY_EVENT_DROP.
+		MTY_PenEvent pen;               ///< Valid on MTY_EVENT_PEN.
+		MTY_KeyEvent key;               ///< Valid on MTY_EVENT_KEY.
 
-		const char *reopenArg; ///< The argument supplied to an MTY_EVENT_REOPEN.
-		uint32_t hotkey;       ///< Hotkey ID set via MTY_AppSetHotkey.
-		uint32_t trayID;       ///< Tray menu item ID set via MTY_AppSetTray.
-		char text[8];          ///< UTF-8 text associated with an MTY_EVENT_TEXT.
-		bool focus;            ///< Focus state associated with an MTY_EVENT_FOCUS.
+		const char *reopenArg; ///< Valid on MTY_EVENT_REOPEN, argument supplied.
+		uint32_t hotkey;       ///< Valid on MTY_EVENT_HOTKEY, `id` set via MTY_AppSetHotkey.
+		uint32_t trayID;       ///< Valid on MTY_EVENT_TRAY, menu item ID set via MTY_AppSetTray.
+		char text[8];          ///< Valid on MTY_EVENT_TEXT, UTF-8 text.
+		bool focus;            ///< Valid on MTY_EVENT_FOCUS, focus state.
 	};
 } MTY_Event;
 
@@ -2405,180 +2428,290 @@ typedef struct {
 	uint32_t y;         ///< The window's vertical position per its `origin`.
 	float maxHeight;    ///< The maximum height of a window during creation.
 	bool fullscreen;    ///< Window is created as a fullscreen window.
-	bool hidden;        ///< Window should be create hidden.
+	bool hidden;        ///< Window should be created hidden.
 	bool vsync;         ///< MTY_WindowPresent should wait for monitor's next refresh cycle.
 } MTY_WindowDesc;
 
 /// @brief Function called for each event sent to the app.
+/// @param evt The MTY_Event received by the app.
+/// @param opaque Pointer set via MTY_AppCreate.
 typedef void (*MTY_EventFunc)(const MTY_Event *evt, void *opaque);
 
 /// @brief Create an MTY_App that handles input and window creation.
+/// @param appFunc Function called once per message cycle.
+/// @param eventFunc Function called once per event fired.
+/// @param opaque Your application's top level context, passed to a variety of
+///   callbacks in the App module.
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_App must be destroyed with MTY_AppDestroy.
 MTY_EXPORT MTY_App *
 MTY_AppCreate(MTY_AppFunc appFunc, MTY_EventFunc eventFunc, void *opaque);
 
 /// @brief Destroy an MTY_App.
+/// @details This function will also destroy all open windows and the system tray
+///   icon if present.
+/// @param app Passed by reference and set to NULL after being destroyed.
 MTY_EXPORT void
 MTY_AppDestroy(MTY_App **app);
 
 /// @brief Run the app and begin executing its MTY_AppFunc and MTY_EventFunc.
+/// @details This function will block until your MTY_AppFunc returns false. It should
+///   be run on the main thread. Internally, it polls for messages from the OS,
+///   dispatches events to your MTY_EventFunc, and performs internal state management
+///   for the MTY_App object as a whole.
+/// @param ctx The MTY_App.
 MTY_EXPORT void
 MTY_AppRun(MTY_App *ctx);
 
-/// @brief Set the frequency of an app's MTY_AppFunc if it is not blocked by other means.
+/// @brief Set the frequency of an app's MTY_AppFunc if it is not blocked by
+///   other means.
+/// @param ctx The MTY_App.
+/// @param timeout Time to wait between MTY_AppFunc calls.
 MTY_EXPORT void
 MTY_AppSetTimeout(MTY_App *ctx, uint32_t timeout);
 
 /// @brief Check if an app is currently focused and in the foreground.
+/// @param ctx The MTY_App.
 MTY_EXPORT bool
 MTY_AppIsActive(MTY_App *ctx);
 
-/// @brief Bring an app's main window to the foreground and focus it.
+/// @brief Activate or deactivate the app.
+/// @details Activating the app brings its main window to the foreground and focuses
+///   it, deactivating the app hides all windows. The app is activated when new
+///   windows are created.
+/// @param ctx The MTY_App.
+/// @param active Set true to activate the app, false to deactivate it.
 //- #support Windows macOS Linux
 MTY_EXPORT void
 MTY_AppActivate(MTY_App *ctx, bool active);
 
 /// @brief Get the app's detach state.
+/// @param ctx The MTY_App.
 MTY_EXPORT MTY_Detach
 MTY_AppGetDetached(MTY_App *ctx);
 
 /// @brief Detach grabbed or relative mouse behavior temporarily.
+/// @details The app defaults to MTY_DETACH_NONE.
+/// @param ctx The MTY_App.
+/// @param type Detach type.
 MTY_EXPORT void
 MTY_AppDetach(MTY_App *ctx, MTY_Detach type);
 
-/// @brief Enable or disable the screensaver.
+/// @brief Keep the system from going to sleep.
+/// @details The app defaults to allow sleep.
+/// @param ctx The MTY_App.
+/// @param enable Set true to stay awake, false to allow sleep.
 MTY_EXPORT void
 MTY_AppEnableScreenSaver(MTY_App *ctx, bool enable);
 
 /// @brief Get the current text content of the clipboard.
+/// @param ctx The MTY_App.
 /// @returns If no clipboard data is available, NULL is returned.\n\n
 ///   The returned buffer must be destroyed with MTY_Free.
 MTY_EXPORT char *
 MTY_AppGetClipboard(MTY_App *ctx);
 
 /// @brief Set the current text content of the clipboard.
+/// @param ctx The MTY_App.
+/// @param text String to set.
 MTY_EXPORT void
 MTY_AppSetClipboard(MTY_App *ctx, const char *text);
 
 /// @brief Check if the keyboard is currently grabbed.
+/// @param ctx The MTY_App.
 MTY_EXPORT bool
 MTY_AppIsKeyboardGrabbed(MTY_App *ctx);
 
 /// @brief Grab the keyboard, capturing certain keys usually handled by the OS.
+/// @details The app defaults being ungrabbed.
+/// @param ctx The MTY_App.
+/// @param grab Set true to grab, false to ungrab.
+//- #support Windows
 MTY_EXPORT void
 MTY_AppGrabKeyboard(MTY_App *ctx, bool grab);
 
 /// @brief Check if the mouse is grabbed.
+/// @param ctx The MTY_App.
 MTY_EXPORT bool
 MTY_AppIsMouseGrabbed(MTY_App *ctx);
 
 /// @brief Grab the mouse, preventing the cursor from exiting the current window.
+/// @details The app defaults to being ungrabbed.
+/// @param ctx The MTY_App.
+/// @param grab Set true to grab, false to ungrab.
 MTY_EXPORT void
 MTY_AppGrabMouse(MTY_App *ctx, bool grab);
 
 /// @brief Set a system tray icon for the app.
+/// @param ctx The MTY_App.
+/// @param tooltip Text that appears when the tray icon is hovered.
+/// @param items Menu items that appear when the tray icon is activated.
+/// @param len Length in elements of `items`.
 //- #support Windows
 MTY_EXPORT void
 MTY_AppSetTray(MTY_App *ctx, const char *tooltip, const MTY_MenuItem *items,
 	uint32_t len);
 
 /// @brief Remove the tray icon associated with the app.
+/// @details The tray is automatically destroyed as part of MTY_AppDestroy.
+/// @param ctx The MTY_App.
 //- #support Windows
 MTY_EXPORT void
 MTY_AppRemoveTray(MTY_App *ctx);
 
 /// @brief Send a system-wide notification (toast).
+/// @param ctx The MTY_App.
+/// @param title Title of the notification.
+/// @param msg Body of the notification.
+//- #support Windows
 MTY_EXPORT void
 MTY_AppSendNotification(MTY_App *ctx, const char *title, const char *msg);
 
 /// @brief Get a previously set hotkey's `id`.
+/// @param ctx The MTY_App.
+/// @param scope Global or local hotkey.
+/// @param mod Hotkey modifier.
+/// @param key Hotkey key.
 MTY_EXPORT uint32_t
 MTY_AppGetHotkey(MTY_App *ctx, MTY_Scope scope, MTY_Mod mod, MTY_Key key);
 
 /// @brief Set a hotkey combination.
+/// @param ctx The MTY_App.
+/// @param scope Global or local scope.
+/// @param mod Hotkey modifier.
+/// @param key Hotkey key.
+/// @param id An `id` associated with the hotkey that comes back when the key
+///   combination is pressed via an MTY_EVENT_HOTKEY.
 MTY_EXPORT void
 MTY_AppSetHotkey(MTY_App *ctx, MTY_Scope scope, MTY_Mod mod, MTY_Key key, uint32_t id);
 
 /// @brief Remove all hotkeys.
+/// @param ctx The MTY_App.
+/// @param scope Global or local scope.
 MTY_EXPORT void
 MTY_AppRemoveHotkeys(MTY_App *ctx, MTY_Scope scope);
 
 /// @brief Check if relative mouse mode is set.
+/// @param ctx The MTY_App.
 MTY_EXPORT bool
 MTY_AppGetRelativeMouse(MTY_App *ctx);
 
-// @brief Set relative mouse mode on or off.
+/// @brief Set relative mouse mode on or off.
+/// @details Relative mouse mode causes the cursor to lock in place and disappear,
+///   then subsequently reports relative coordinates via MTY_EVENT_MOTION.
+/// @param ctx The MTY_App.
+/// @param relative Set true to enter relative mode, false to exit relative mode.
 MTY_EXPORT void
 MTY_AppSetRelativeMouse(MTY_App *ctx, bool relative);
 
-/// @brief Set the cursor to a PNG image.
+/// @brief Set the app's cursor to a PNG image.
+/// @param ctx The MTY_App.
+/// @param image A buffer holding a compressed PNG image.
+/// @param size Size in bytes of `image`.
+/// @param hotX The cursor's horizontal hotspot position.
+/// @param hotY The cursor's vertical hotspot position.
 MTY_EXPORT void
 MTY_AppSetPNGCursor(MTY_App *ctx, const void *image, size_t size, uint32_t hotX,
 	uint32_t hotY);
 
 /// @brief Temporarily use the system's default cursor.
+/// @param ctx The MTY_App.
+/// @param useDefault Set true to use the system's default cursor, false to allow
+///   other cursors.
 MTY_EXPORT void
 MTY_AppUseDefaultCursor(MTY_App *ctx, bool useDefault);
 
 /// @brief Show or hide the cursor.
+/// @param ctx The MTY_App.
+/// @param show Set true to show the cursor, false to hide it.
 MTY_EXPORT void
 MTY_AppShowCursor(MTY_App *ctx, bool show);
 
 /// @brief Check if the app is able to warp the cursor.
+/// @param ctx The MTY_App.
 MTY_EXPORT bool
 MTY_AppCanWarpCursor(MTY_App *ctx);
 
 /// @brief Temporarily enable or disable the currently set globally scoped hotkeys.
+/// @details The app defaults to having global hotkeys enabled.
+/// @param ctx The MTY_App.
+/// @param enable Set true to enable global hotkeys, false to disable.
 //- #support Windows
 MTY_EXPORT void
 MTY_AppEnableGlobalHotkeys(MTY_App *ctx, bool enable);
 
 /// @brief Check if the software keyboard is showing.
+/// @param ctx The MTY_App.
 //- #support Android
 MTY_EXPORT bool
-MTY_AppIsSoftKeyboardShowing(MTY_App *app);
+MTY_AppIsSoftKeyboardShowing(MTY_App *ctx);
 
 /// @brief Show or hide the software keyboard.
+/// @param ctx The MTY_App.
+/// @param show Set true to show the software keyboard, false to hide it.
 //- #support Android
 MTY_EXPORT void
 MTY_AppShowSoftKeyboard(MTY_App *ctx, bool show);
 
 /// @brief Get the device's orientation.
+/// @param ctx The MTY_App.
 //- #support Android
 MTY_EXPORT MTY_Orientation
 MTY_AppGetOrientation(MTY_App *ctx);
 
 /// @brief Set the devices orientation.
+/// @details The app defaults to MTY_ORIENTATION_USER.
+/// @param ctx The MTY_App.
+/// @param orientation Requested orientation.
 //- #support Android
 MTY_EXPORT void
 MTY_AppSetOrientation(MTY_App *ctx, MTY_Orientation orientation);
 
 /// @brief Set the rumble state on a controller.
+/// @details Rumble on controllers is generally stateful and must be set to 0
+///   to stop rumbling. Some controllers will automatically stop rumble if it has
+///   not been refreshed after a short period of time.
+/// @param ctx The MTY_App.
+/// @param id A controller `id` found via MTY_EVENT_CONTROLLER or MTY_EVENT_CONNECT.
+/// @param low Strength of low frequency motor between 0 and UINT16_MAX.
+/// @param high Strength of the high frequency motor between 0 and UINT16_MAX.
 MTY_EXPORT void
 MTY_AppRumbleController(MTY_App *ctx, uint32_t id, uint16_t low, uint16_t high);
 
 /// @brief Check if the pen is enabled.
+/// @param ctx The MTY_App.
 //- #support Windows macOS
 MTY_EXPORT bool
 MTY_AppIsPenEnabled(MTY_App *ctx);
 
 /// @brief Enable or disable MY_Pen events getting generated.
+/// @details The app defaults to having the pen disabled, which means pen events will
+///   show up as MTY_EVENT_MOTION and MTY_EVENT_BUTTON events.
+/// @param ctx The MTY_App.
+/// @param enable Set true to enable the pen, false to disable it.
 //- #support Windows macOS
 MTY_EXPORT void
 MTY_AppEnablePen(MTY_App *ctx, bool enable);
 
 /// @brief Get the app's current mobile input mode.
+/// @param ctx The MTY_App.
 //- #support Android
 MTY_EXPORT MTY_Input
 MTY_AppGetInputMode(MTY_App *ctx);
 
 /// @brief Set the app's current mobile input mode.
+/// @details The app defaults to MTY_INPUT_UNSPECIFIED.
+/// @param ctx The MTY_App.
 //- #support Android
 MTY_EXPORT void
 MTY_AppSetInputMode(MTY_App *ctx, MTY_Input mode);
 
-/// @brief Create an MTY_Window, the primary interactive element of an application.
+/// @brief Create an MTY_Window, the primary interactive view of an application.
+/// @details An MTY_Window is a child of the MTY_App object, so everywhere a window
+///   is referenced the MTY_App comes along with it. All functions taking an MTY_Window
+///   as an argument are designed to handle invalid windows, which are simply integers.
+/// @param app The MTY_App.
+/// @param desc The window's creation properties.
 /// @returns On success, a value between 0 and MTY_WINDOW_MAX is returned.\n\n
 ///   On failure, -1 is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_Window may be destroyed with MTY_WindowDestroy, or destroyed
@@ -2587,25 +2720,42 @@ MTY_EXPORT MTY_Window
 MTY_WindowCreate(MTY_App *app, const MTY_WindowDesc *desc);
 
 /// @brief Destroy an MTY_Window.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
 MTY_EXPORT void
 MTY_WindowDestroy(MTY_App *app, MTY_Window window);
 
 /// @brief Get a window's width and height.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param width Set to the width of the client area of the window.
+/// @param height Set to the height of the client area of the window.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_WindowGetSize(MTY_App *app, MTY_Window window, uint32_t *width, uint32_t *height);
 
 /// @brief Get the `x` and `y` coordinates of the window's top left corner.
+/// @details These coordinates include the window border, title bar, and shadows.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param x Set to the horizontal position of the window's left edge.
+/// @param y Set to the vertical position of the window's top edge.
 MTY_EXPORT void
 MTY_WindowGetPosition(MTY_App *app, MTY_Window window, int32_t *x, int32_t *y);
 
 /// @brief Get the width and height of the screen where the window currently resides.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param width The width of the screen where the window resides.
+/// @param height The height of the screen where the window resides.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_WindowGetScreenSize(MTY_App *app, MTY_Window window, uint32_t *width,
 	uint32_t *height);
 
 /// @brief Get the scaling factor of the screen where the window currently resides.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
 /// @returns A scaling factor of `1.0f` is the default scaling factor on all platforms.
 ///   Greater than `1.0f` means the interface should be enlarged, less than `1.0f` means
 ///   the interface should be reduced.
@@ -2613,104 +2763,179 @@ MTY_EXPORT float
 MTY_WindowGetScreenScale(MTY_App *app, MTY_Window window);
 
 /// @brief Set the window's title.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param title The new title of the window.
 MTY_EXPORT void
 MTY_WindowSetTitle(MTY_App *app, MTY_Window window, const char *title);
 
 /// @brief Check if the window is at least partially visible.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
 MTY_EXPORT bool
 MTY_WindowIsVisible(MTY_App *app, MTY_Window window);
 
 /// @brief Check if the window is currently in the foreground and focused.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
 MTY_EXPORT bool
 MTY_WindowIsActive(MTY_App *app, MTY_Window window);
 
-/// @brief Bring the window to the foreground and focus it.
+/// @brief Activate or deactivate a window.
+/// @details Activating a window it to the foreground and focuses it, deactivating
+///   a window hides it. Windows are automatically activated when they are created.
+/// @param window An MTY_Window.
+/// @param active Set true to activate, false to deactivate.
 //- #support Windows macOS Linux
 MTY_EXPORT void
 MTY_WindowActivate(MTY_App *app, MTY_Window window, bool active);
 
 /// @brief Check if the window exists.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
 MTY_EXPORT bool
 MTY_WindowExists(MTY_App *app, MTY_Window window);
 
 /// @brief Check if the window is in fullscreen mode.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
 MTY_EXPORT bool
 MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window);
 
 /// @brief Put a window into or out of fullscreen mode.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param fullscreen Set true to put the window into fullscreen, false to take it out.
 MTY_EXPORT void
 MTY_WindowSetFullscreen(MTY_App *app, MTY_Window window, bool fullscreen);
 
 /// @brief Move the cursor to a specified location within a window.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param x Horizontal position to move the cursor in the window's client area.
+/// @param y Vertical position to move the cursor in the window's client area.
 //- #support Windows macOS Linux
 MTY_EXPORT void
 MTY_WindowWarpCursor(MTY_App *app, MTY_Window window, uint32_t x, uint32_t y);
 
 /// @brief Get the window's rendering device.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
 /// @returns See Generic Objects.
 MTY_EXPORT MTY_Device *
 MTY_WindowGetDevice(MTY_App *app, MTY_Window window);
 
 /// @brief Get the window's rendering context.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
 /// @returns See Generic Objects.
 MTY_EXPORT MTY_Context *
 MTY_WindowGetContext(MTY_App *app, MTY_Window window);
 
 /// @brief Get the window's drawing surface.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
 /// @returns See Generic Objects.
 MTY_EXPORT MTY_Texture *
 MTY_WindowGetBackBuffer(MTY_App *app, MTY_Window window);
 
 /// @brief Wrapped MTY_RendererDrawQuad for the window.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param image The raw image.
+/// @param desc Description of the raw image and how it should be rendered. The
+///   `viewWidth` and `viewHeight` members of this structure are ignored.
 MTY_EXPORT void
 MTY_WindowDrawQuad(MTY_App *app, MTY_Window window, const void *image,
 	const MTY_RenderDesc *desc);
 
 /// @brief Wrapped MTY_RendererDrawUI for the window.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param dd The UI draw data containing a full frame.
 MTY_EXPORT void
 MTY_WindowDrawUI(MTY_App *app, MTY_Window window, const MTY_DrawData *dd);
 
 /// @brief Wraped MTY_RendererHasUITexture for the window.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param id An `id` specified via MTY_WindowSetUITexture.
 MTY_EXPORT bool
 MTY_WindowHasUITexture(MTY_App *app, MTY_Window window, uint32_t id);
 
 /// @brief Wrapped MTY_RendererSetUITexture for the window.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param id The desired `id` for the texture.
+/// @param rgba RGBA 8-bits per pixel image.
+/// @param width Width of `rgba`.
+/// @param height Height of `rgba`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_WindowSetUITexture(MTY_App *app, MTY_Window window, uint32_t id, const void *rgba,
 	uint32_t width, uint32_t height);
 
 /// @brief Present all pending drawing operations.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param numFrames The number of frames to wait before presenting, otherwise known
+///   as the swap interval. Specifying 0 frames means do not wait, 1 means the next
+///   frame, and so on.
 MTY_EXPORT void
 MTY_WindowPresent(MTY_App *app, MTY_Window window, uint32_t numFrames);
 
 /// @brief Get the current graphics API in use by the window.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
 MTY_EXPORT MTY_GFX
 MTY_WindowGetGFX(MTY_App *app, MTY_Window window);
 
 /// @brief Set the window's graphics API.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
+/// @param api Graphics API to set.
+/// @param vsync Set true to synchronize presentation to the vertical refresh rate
+///   of the monitor, false to present as soon as possible even if tearing occurs.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_WindowSetGFX(MTY_App *app, MTY_Window window, MTY_GFX api, bool vsync);
 
 /// @brief Get the graphics context's current state.
+/// @details The context state can inform you if your textures need to be reloaded.
+/// @param app The MTY_App.
+/// @param window An MTY_Window.
 MTY_EXPORT MTY_ContextState
 MTY_WindowGetContextState(MTY_App *app, MTY_Window window);
 
 /// @brief Get the string representation of hotkey.
+/// @details This function attempts to use the current locale.
+/// @param mod Key modifier.
+/// @param key Key.
+/// @param str Output string.
+/// @param len Size in bytes of `str`.
 MTY_EXPORT void
 MTY_HotkeyToString(MTY_Mod mod, MTY_Key key, char *str, size_t len);
 
 /// @brief Set the app's `id`.
+/// @details The app's `id`, or "Application User Model ID" on Windows is important for
+///   proper toast behavior. It is used by Windows to pair the current process to its
+///   concept of an application. In order for toasts to work properly on modern versions
+///   of Windows, a shortcut (.lnk) also assigned this same `id` must be present in the
+///   user's start menu.
+/// @param id The app's `id`.
 //- #support Windows
 MTY_EXPORT void
 MTY_SetAppID(const char *id);
 
 /// @brief Print an MTY_Event to stdout.
+/// @param evt The event to inspect.
 MTY_EXPORT void
 MTY_PrintEvent(const MTY_Event *evt);
 
 /// @brief If using MTY_GFX_GL, retrieve a GL function by its name.
+/// @details An GL context (WGL, GLX, EGL) must be active on the current thread for
+///   this function to work properly.
+/// @param name The name of the GL function, i.e. `glGenFramebuffers`.
 /// @returns A pointer a function retrieved from the current GL context, or NULL
 ///   if the symbol was not found.
 //- #support Windows Linux
