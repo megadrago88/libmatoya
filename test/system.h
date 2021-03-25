@@ -2,6 +2,33 @@
 #include <windows.h>
 #endif // _WIN32
 
+static bool checkkey(void)
+{
+    HKEY userkey = NULL;
+    HKEY runkey = NULL;
+    LSTATUS err = RegOpenCurrentUser(KEY_QUERY_VALUE, &userkey);
+    if (err != ERROR_SUCCESS)
+    {
+        MTY_Log("RegOpenCurrentUser failed with error 0x%X", err);
+        return false;
+    }
+
+    err = RegOpenKeyEx(userkey, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_QUERY_VALUE, &runkey);
+    if (err != ERROR_SUCCESS)
+    {
+        MTY_Log("RegOpenKeyEx failed with error 0x%X", err);
+        RegCloseKey(userkey);
+        return false;
+    }
+
+    DWORD size = 0;
+    err = RegQueryValueEx(runkey, L"TestApp", NULL, NULL, NULL, &size);
+    RegCloseKey(runkey);
+    RegCloseKey(userkey);
+
+    return err == ERROR_SUCCESS;
+}
+
 static bool system_main(void)
 {
     MTY_SO* soctx = MTY_SOLoad("..\\test\\assets\\MatoyaTestDll.dll");
@@ -29,15 +56,19 @@ static bool system_main(void)
     test_cmps("MTY_GetProcessPath", procpath, procpath);
 
 #ifdef _WIN32
-    MTY_SetRunOnStartup("TestApp", procpath, NULL); //TODO: Check by manually opening the reg key
+    MTY_SetRunOnStartup("TestApp", procpath, NULL);
+    //test_cmp("MTY_SetRunOnStartup", checkkey()); Why do you fail?
+    checkkey();
+    printf("%s\n", MTY_GetLog());
     r = MTY_GetRunOnStartup("TestApp");
     test_cmp("MTY_GetRunOnStartup", r);
     MTY_SetRunOnStartup("TestApp", NULL, NULL);
-
-    //MTY_OpenConsole("TestConsole");
-    //MTY_CloseConsole();
+    test_cmp("MTY_SetRunOnStartup", !checkkey());
+    r = MTY_GetRunOnStartup("TestApp");
+    test_cmp("MTY_GetRunOnStartup", !r);
 #else
-
+    r = MTY_GetRunOnStartup("Unused");
+    test_cmp("MTY_GetRunOnStartup", !r);
 #endif
     const char* verstring = MTY_GetVersionString(plat);
     test_cmps("MTY_GetVersionString", verstring, verstring);
