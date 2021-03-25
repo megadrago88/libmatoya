@@ -42,30 +42,46 @@ bool MTY_WaitableWait(MTY_Waitable *ctx, int32_t timeout)
 	return signal;
 }
 
-void MTY_WaitableSignal(MTY_Waitable *ctx)
+static void thread_waitable_signal(MTY_Waitable *ctx, bool all)
 {
 	MTY_MutexLock(ctx->mutex);
 
 	if (!ctx->signal) {
 		ctx->signal = true;
-		MTY_CondSignal(ctx->cond);
+
+		if (all) {
+			MTY_CondSignalAll(ctx->cond);
+
+		} else {
+			MTY_CondSignal(ctx->cond);
+		}
 	}
 
 	MTY_MutexUnlock(ctx->mutex);
 }
 
-void MTY_WaitableDestroy(MTY_Waitable **sync)
+void MTY_WaitableSignal(MTY_Waitable *ctx)
 {
-	if (!sync || !*sync)
+	thread_waitable_signal(ctx, false);
+}
+
+void MTY_WaitableSignalAll(MTY_Waitable *ctx)
+{
+	thread_waitable_signal(ctx, true);
+}
+
+void MTY_WaitableDestroy(MTY_Waitable **waitable)
+{
+	if (!waitable || !*waitable)
 		return;
 
-	MTY_Waitable *ctx = *sync;
+	MTY_Waitable *ctx = *waitable;
 
 	MTY_CondDestroy(&ctx->cond);
 	MTY_MutexDestroy(&ctx->mutex);
 
 	MTY_Free(ctx);
-	*sync = NULL;
+	*waitable = NULL;
 }
 
 
