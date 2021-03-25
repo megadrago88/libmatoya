@@ -7,7 +7,7 @@
 // including without limitation the rights to use, copy, modify, merge, publish, distribute,
 // sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions: // The above copyright notice and this
-// permission notice shall be included in all copies or substantial portions of the Software. 
+// permission notice shall be included in all copies or substantial portions of the Software.
 
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
 // NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -23,7 +23,7 @@
 #include <stdio.h>
 #include <string.h>
 
-char *g_address = "\
+char *file_g_address = "\
 Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived \
 in Liberty, and dedicated to the proposition that all men are created equal. \
 Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived \
@@ -61,16 +61,16 @@ static bool file_main (void)
 	const char *full_path = MTY_JoinPath(cwd, origin_file);
 	test_cmp("MTY_JoinPath", strlen(full_path) > strlen(origin_file) + strlen(cwd));
 
-	MTY_WriteFile(full_path, g_address, strlen(g_address));
+	MTY_WriteFile(full_path, file_g_address, strlen(file_g_address));
 	test_cmp("MTY_WriteFile", MTY_FileExists(full_path));
 
 	size_t read_bytes;
 	char *g_address_2 = (char *) MTY_ReadFile(full_path, &read_bytes);
-	test_cmp("MTY_ReadFile", strlen(g_address_2) == strlen(g_address));
+	test_cmp("MTY_ReadFile", strlen(g_address_2) == strlen(file_g_address));
 	MTY_Free(g_address_2);
 
 	MTY_WriteTextFile(full_path, "%s", "a");
-	MTY_AppendTextToFile(full_path, "%s", g_address);
+	MTY_AppendTextToFile(full_path, "%s", file_g_address);
 	g_address_2 = (char *) MTY_ReadFile(full_path, &read_bytes);
 	test_cmp("MTY_AppendTextToFile", g_address_2[0] == 'a' && g_address_2[1] == 'F');
 	MTY_Free(g_address_2);
@@ -80,7 +80,7 @@ static bool file_main (void)
 
 	const char *filename = MTY_GetFileName(full_path, true);
 	test_cmp("MTY_GetFileName", !strcmp(origin_file, filename));
-	
+
 	const char *full_path_2 = MTY_JoinPath(prefix, origin_file2);
 	MTY_CopyFile(full_path, full_path_2);
 	test_cmp("MTY_CopyFile", MTY_FileExists(full_path_2));
@@ -97,7 +97,7 @@ static bool file_main (void)
 	MTY_FileList *list = MTY_GetFileList(prefix, ".txt");
 	bool failed = true;
 	if (list) {
-		for (int32_t x = 0; x < list->len; x++) {
+		for (uint32_t x = 0; x < list->len; x++) {
 			// if (strcmp(".txt", list->files[x].name) < 0) // Will show dirs, working as intended?
 			// 	break;
 			if (!strcmp(origin_file, list->files[x].name)) {

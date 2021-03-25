@@ -11,7 +11,7 @@
 #define CCLEAR "\033[0m"
 
 #define test_cmp_(name, cmp, val, fmt) { \
-	printf("%-20s%-35s%s" fmt "\n", name, #cmp, \
+	printf("%-25s%-60s%s" fmt "\n", name, #cmp, \
 		(cmp) ? CGREEN "Passed" CCLEAR : CRED "Failed" CCLEAR, val); \
 	if (!(cmp)) return false; \
 }

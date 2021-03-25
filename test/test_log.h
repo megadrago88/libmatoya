@@ -6,7 +6,7 @@
 // including without limitation the rights to use, copy, modify, merge, publish, distribute,
 // sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions: // The above copyright notice and this
-// permission notice shall be included in all copies or substantial portions of the Software. 
+// permission notice shall be included in all copies or substantial portions of the Software.
 
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
 // NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 
-char *g_address = " \
+char *log_g_address = " \
 Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived \
 in Liberty, and dedicated to the proposition that all men are created equal. \
 Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived \
@@ -40,7 +40,7 @@ that we here highly resolve that these dead shall not have died in vain -- that 
 under God, shall have a new birth of freedom -- and that government of the people, by the people, \
 for the people, shall not perish from the earth. ";
 
-static void log_main_logfunc (const char *msg, void *opaque)
+static bool log_main_logfunc (const char *msg, void *opaque)
 {
 	uint32_t *test_num_p = (uint32_t *) opaque;
 
@@ -66,7 +66,7 @@ static bool log_main (void)
 	MTY_LogParams("FunkyFunc", "Funky func getting %s", "Funky.");
 
 	test_num = 1;
-	MTY_LogParams("FunkyFunc", "Lincoln Say %s", g_address);
+	MTY_LogParams("FunkyFunc", "Lincoln Say %s", log_g_address);
 
 	const char *last_log = (char *) MTY_GetLog();
 	test_cmp("MTY_GetLog", last_log != NULL && strlen(last_log));
