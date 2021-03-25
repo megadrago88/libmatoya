@@ -16,14 +16,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "matoya.h"
-#include "test.h"
 
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
-char *file_g_address = "\
+static char *file_g_address = "\
 Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived \
 in Liberty, and dedicated to the proposition that all men are created equal. \
 Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived \

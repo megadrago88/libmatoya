@@ -1,18 +1,9 @@
 // Memory Test
 // Copyright 2021, Jamie Blanks
-
-// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
-// associated documentation files (the "Software"), to deal in the Software without restriction,
-// including without limitation the rights to use, copy, modify, merge, publish, distribute,
-// sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions: // The above copyright notice and this
-// permission notice shall be included in all copies or substantial portions of the Software. 
-
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
-// NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+//
+// This Source Code Form is subject to the terms of the MIT License.
+// If a copy of the MIT License was not distributed with this file,
+// You can obtain one at https://spdx.org/licenses/MIT.html.
 
 #include <stdio.h>
 #include <stdint.h>
@@ -33,7 +24,7 @@ static bool memory_main (void)
 	test_cmp("MTY_FreeAligned", !failed);
 
 	size_t fail_value = 0;
-	for (size_t x = 0; x < UINT32_MAX; x += UINT16_MAX) {
+	for (size_t x = 0; x < 128 * 1024 * 1024; x += UINT16_MAX) {
 		char *buf = (char *) MTY_Alloc(1, x);
 
 		if (buf == NULL) {
@@ -149,7 +140,7 @@ static bool memory_main (void)
 
 
 	wchar_t *wide_str = L"11月の雨が私の心に影を落としました。";
-	
+
 	char *utf8_str = (char *) MTY_Alloc(2048, sizeof(char));
 	wchar_t *wide_str2 = (wchar_t *) MTY_Alloc(2048, sizeof(wchar_t));
 

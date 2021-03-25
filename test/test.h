@@ -10,14 +10,20 @@
 #define CGREEN "\033[32m"
 #define CCLEAR "\033[0m"
 
-#define test_cmp_(name, cmp, val, fmt) { \
+#define test_print_cmp_(name, cmp, val, fmt) \
 	printf("%-25s%-60s%s" fmt "\n", name, #cmp, \
-		(cmp) ? CGREEN "Passed" CCLEAR : CRED "Failed" CCLEAR, val); \
+		(cmp) ? CGREEN "Passed" CCLEAR : CRED "Failed" CCLEAR, val);
+
+#define test_cmp_(name, cmp, val, fmt) { \
+	test_print_cmp_(name, cmp, val, fmt); \
 	if (!(cmp)) return false; \
 }
 
 #define test_cmp(name, cmp) \
 	test_cmp_(name, (cmp), "", "%s")
+
+#define test_print_cmp(name, cmp) \
+	test_print_cmp_(name, (cmp), "", "%s")
 
 #define test_cmpf(name, cmp, val) \
 	test_cmp_(name, (cmp), val, ": %.2f")

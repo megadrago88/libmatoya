@@ -1,18 +1,9 @@
 // Log Test
 // Copyright 2021, Jamie Blanks
-
-// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
-// associated documentation files (the "Software"), to deal in the Software without restriction,
-// including without limitation the rights to use, copy, modify, merge, publish, distribute,
-// sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions: // The above copyright notice and this
-// permission notice shall be included in all copies or substantial portions of the Software.
-
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
-// NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+//
+// This Source Code Form is subject to the terms of the MIT License.
+// If a copy of the MIT License was not distributed with this file,
+// You can obtain one at https://spdx.org/licenses/MIT.html.
 
 #include "matoya.h"
 #include "test.h"
@@ -22,7 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 
-char *log_g_address = " \
+static char *log_g_address = " \
 Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived \
 in Liberty, and dedicated to the proposition that all men are created equal. \
 Now we are engaged in a great civil war, testing whether that nation, or any nation so conceived \
@@ -40,21 +31,21 @@ that we here highly resolve that these dead shall not have died in vain -- that 
 under God, shall have a new birth of freedom -- and that government of the people, by the people, \
 for the people, shall not perish from the earth. ";
 
-static bool log_main_logfunc (const char *msg, void *opaque)
+static void log_main_logfunc (const char *msg, void *opaque)
 {
 	uint32_t *test_num_p = (uint32_t *) opaque;
 
-	char *test_name;
+	char *test_name = "";
 
 	switch (*test_num_p) {
 		case 0: test_name = "MTY_LogFunc(Short)"; break;
 		case 1: test_name = "MTY_LogFunc(Long)"; break;
-		case 2: test_cmp("MTY_DisableLog(On)", 0); break;
+		case 2: test_print_cmp("MTY_DisableLog(On)", 0); break;
 		case 3: test_name = "MTY_DisableLog(off)"; break;
 		default: test_name = "Unknown"; break;
 	}
 
-	test_cmp(test_name, msg != NULL && strlen(msg));
+	test_print_cmp(test_name, msg != NULL && strlen(msg));
 }
 
 static bool log_main (void)
