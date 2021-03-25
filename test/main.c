@@ -11,16 +11,15 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "test_memory.h"
-
 // Framework
 #include "test.h"
 
 /// Modules
+#include "memory.h"
 #include "version.h"
 #include "time.h"
-#include "test_log.h"
-#include "file_test.h"
+#include "log.h"
+#include "file.h"
 
 int32_t main(int32_t argc, char **argv)
 {
