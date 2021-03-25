@@ -22,5 +22,11 @@
 #define test_cmpf(name, cmp, val) \
 	test_cmp_(name, cmp, val, ": %.2f")
 
+#define test_cmpi32(name, cmp, val) \
+	test_cmp_(name, cmp, val, ": %" PRId32)
+
 #define test_cmpi64(name, cmp, val) \
 	test_cmp_(name, cmp, val, ": %" PRId64)
+
+#define test_cmps(name, cmp, val) \
+	test_cmp_(name, cmp, val, ": %s")

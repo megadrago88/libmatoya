@@ -34,7 +34,9 @@ LIBS = \
 	windowscodecs.lib \
 	shlwapi.lib \
 	imm32.lib \
-	winmm.lib
+	winmm.lib \
+	advapi32.lib \
+	userenv.lib
 
 all: clean clear $(OBJS)
 	link /nologo /out:$(BIN) $(OBJS) $(LIBS)

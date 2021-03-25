@@ -2,6 +2,7 @@
 *.so
 *.obj
 *.dll
+!MatoyaTestDll.dll
 *.pdb
 
 /obj
@@ -10,3 +11,4 @@
 **/gfx/shaders/*/*.h
 
 .DS_Store
+/.vs
