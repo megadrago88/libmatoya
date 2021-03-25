@@ -5,14 +5,6 @@
 // If a copy of the MIT License was not distributed with this file,
 // You can obtain one at https://spdx.org/licenses/MIT.html.
 
-#include "matoya.h"
-#include "test.h"
-
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
-
 static char *log_g_address = " \
 Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived \
 in Liberty, and dedicated to the proposition that all men are created equal. \

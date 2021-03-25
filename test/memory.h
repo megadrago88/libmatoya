@@ -5,14 +5,6 @@
 // If a copy of the MIT License was not distributed with this file,
 // You can obtain one at https://spdx.org/licenses/MIT.html.
 
-#include <stdio.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <wchar.h>
-
-#include "matoya.h"
-#include "test.h"
-
 static bool memory_main (void)
 {
 	bool failed = false;
