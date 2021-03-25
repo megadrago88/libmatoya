@@ -17,10 +17,10 @@
 }
 
 #define test_cmp(name, cmp) \
-	test_cmp_(name, cmp, "", "%s")
+	test_cmp_(name, (cmp), "", "%s")
 
 #define test_cmpf(name, cmp, val) \
-	test_cmp_(name, cmp, val, ": %.2f")
+	test_cmp_(name, (cmp), val, ": %.2f")
 
 #define test_cmpi64(name, cmp, val) \
-	test_cmp_(name, cmp, val, ": %" PRId64)
+	test_cmp_(name, (cmp), val, ": %" PRId64)
