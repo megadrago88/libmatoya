@@ -801,9 +801,9 @@ void MTY_AppSetTimeout(MTY_App *ctx, uint32_t timeout)
 	ctx->timeout = timeout;
 }
 
-void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
+void MTY_AppStayAwake(MTY_App *app, bool enable)
 {
-	mty_jni_void(MTY_GetJNIEnv(), app->obj, "enableScreenSaver", "(Z)V", enable);
+	mty_jni_void(MTY_GetJNIEnv(), app->obj, "stayAwake", "(Z)V", enable);
 }
 
 bool MTY_AppIsActive(MTY_App *ctx)

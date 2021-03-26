@@ -24,7 +24,7 @@ struct gfx_ctx;
 	void wrap(api, present)(struct gfx_ctx *gfx_ctx, uint32_t num_frames); \
 	MTY_Device *wrap(api, get_device)(struct gfx_ctx *gfx_ctx); \
 	MTY_Context *wrap(api, get_context)(struct gfx_ctx *gfx_ctx); \
-	MTY_Texture *wrap(api, get_buffer)(struct gfx_ctx *gfx_ctx); \
+	MTY_Surface *wrap(api, get_buffer)(struct gfx_ctx *gfx_ctx); \
 	void wrap(api, draw_quad)(struct gfx_ctx *gfx_ctx, const void *image, \
 		const MTY_RenderDesc *desc); \
 	void wrap(api, draw_ui)(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd); \

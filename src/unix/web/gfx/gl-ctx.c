@@ -50,11 +50,11 @@ MTY_Context *mty_gl_ctx_get_context(struct gfx_ctx *gfx_ctx)
 	return NULL;
 }
 
-MTY_Texture *mty_gl_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
+MTY_Surface *mty_gl_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 {
 	struct gl_ctx *ctx = (struct gl_ctx *) gfx_ctx;
 
-	return (MTY_Texture *) &ctx->fb0;
+	return (MTY_Surface *) &ctx->fb0;
 }
 
 void mty_gl_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
@@ -72,14 +72,14 @@ void mty_gl_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const MTY_
 	MTY_RenderDesc mutated = *desc;
 	gl_ctx_get_size(ctx, &mutated.viewWidth, &mutated.viewHeight);
 
-	MTY_RendererDrawQuad(ctx->renderer, MTY_GFX_GL, NULL, NULL, image, &mutated, (MTY_Texture *) &ctx->fb0);
+	MTY_RendererDrawQuad(ctx->renderer, MTY_GFX_GL, NULL, NULL, image, &mutated, (MTY_Surface *) &ctx->fb0);
 }
 
 void mty_gl_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 {
 	struct gl_ctx *ctx = (struct gl_ctx *) gfx_ctx;
 
-	MTY_RendererDrawUI(ctx->renderer, MTY_GFX_GL, NULL, NULL, dd, (MTY_Texture *) &ctx->fb0);
+	MTY_RendererDrawUI(ctx->renderer, MTY_GFX_GL, NULL, NULL, dd, (MTY_Surface *) &ctx->fb0);
 }
 
 bool mty_gl_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,

@@ -10,19 +10,34 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
+#include <locale.h>
+#include <wchar.h>
 
 // Framework
 #include "test.h"
 
 /// Modules
+#include "memory.h"
 #include "version.h"
 #include "time.h"
+#include "log.h"
 #include "file.h"
 #include "struct.h"
 #include "system.h"
+#include "thread.h"
+#include "crypto.h"
+
+static void main_log(const char *msg, void *opaque)
+{
+	printf("%s\n", msg);
+}
 
 int32_t main(int32_t argc, char **argv)
 {
+	setlocale(LC_ALL, "en_US.UTF-8");
+
+	MTY_SetLogFunc(main_log, NULL);
+
 	if (!version_main())
 		return 1;
 
@@ -32,11 +47,24 @@ int32_t main(int32_t argc, char **argv)
 	if (!file_main())
 		return 1;
 
-	if (!struct_main())
+	if (!memory_main())
+		return 1;
+
+	if (!log_main())
+		return 1;
+
+	MTY_SetLogFunc(main_log, NULL);
+
+	if (!crypto_main())
+		return 1;
+
+	if (!thread_main())
+		return 1;
+  
+  if (!struct_main())
 		return 1;
 
 	if (!system_main())
-		return 1;
 
 	return 0;
 }

@@ -195,7 +195,7 @@ static HRESULT d3d11_ui_resize_buffer(ID3D11Device *device, struct d3d11_ui_buff
 }
 
 bool mty_d3d11_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *context,
-	const MTY_DrawData *dd, MTY_Hash *cache, MTY_Texture *dest)
+	const MTY_DrawData *dd, MTY_Hash *cache, MTY_Surface *dest)
 {
 	struct d3d11_ui *ctx = (struct d3d11_ui *) gfx_ui;
 	ID3D11Device *_device = (ID3D11Device *) device;

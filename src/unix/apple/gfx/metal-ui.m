@@ -89,7 +89,7 @@ struct gfx_ui *mty_metal_ui_create(MTY_Device *device)
 }
 
 bool mty_metal_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *context,
-	const MTY_DrawData *dd, MTY_Hash *cache, MTY_Texture *dest)
+	const MTY_DrawData *dd, MTY_Hash *cache, MTY_Surface *dest)
 {
 	struct metal_ui *ctx = (struct metal_ui *) gfx_ui;
 	id<MTLDevice> _device = (__bridge id<MTLDevice>) device;

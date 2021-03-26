@@ -137,7 +137,7 @@ static void *thread_pool_func(void *opaque)
 	return NULL;
 }
 
-uint32_t MTY_ThreadPoolStart(MTY_ThreadPool *ctx, MTY_AnonFunc func, void *opaque)
+uint32_t MTY_ThreadPoolDispatch(MTY_ThreadPool *ctx, MTY_AnonFunc func, void *opaque)
 {
 	uint32_t index = 0;
 

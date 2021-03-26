@@ -10,23 +10,29 @@
 #define CGREEN "\033[32m"
 #define CCLEAR "\033[0m"
 
+#define test_print_cmp_(name, cmp, val, fmt) \
+	printf("%-25s%-60s%s" fmt "\n", name, #cmp, \
+		(cmp) ? CGREEN "Passed" CCLEAR : CRED "Failed" CCLEAR, val);
+
 #define test_cmp_(name, cmp, val, fmt) { \
-	printf("%-30s%-45s%s" fmt "\n", name, #cmp, \
-		(cmp) ? CGREEN "Passed" CCLEAR : CRED "Failed" CCLEAR, val); \
+	test_print_cmp_(name, cmp, val, fmt); \
 	if (!(cmp)) return false; \
 }
 
 #define test_cmp(name, cmp) \
-	test_cmp_(name, cmp, "", "%s")
+	test_cmp_(name, (cmp), "", "%s")
+
+#define test_print_cmp(name, cmp) \
+	test_print_cmp_(name, (cmp), "", "%s")
 
 #define test_cmpf(name, cmp, val) \
-	test_cmp_(name, cmp, val, ": %.2f")
+	test_cmp_(name, (cmp), val, ": %.2f")
 
 #define test_cmpi32(name, cmp, val) \
 	test_cmp_(name, cmp, val, ": %" PRId32)
 
 #define test_cmpi64(name, cmp, val) \
-	test_cmp_(name, cmp, val, ": %" PRId64)
+	test_cmp_(name, (cmp), val, ": %" PRId64)
 
 #define test_cmps(name, cmp, val) \
 	test_cmp_(name, cmp, val, ": %s")

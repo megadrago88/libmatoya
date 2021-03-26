@@ -183,7 +183,7 @@ static void window_drop(MTY_App *ctx, const char *name, const void *data, size_t
 	MTY_Event evt = {0};
 	evt.type = MTY_EVENT_DROP;
 	evt.drop.name = name;
-	evt.drop.data = data;
+	evt.drop.buf = data;
 	evt.drop.size = size;
 
 	ctx->event_func(&evt, ctx->opaque);
@@ -381,7 +381,7 @@ void MTY_AppRun(MTY_App *ctx)
 	web_raf(ctx, ctx->app_func, window_controller, window_move, ctx->opaque);
 }
 
-void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
+void MTY_AppStayAwake(MTY_App *app, bool enable)
 {
 	web_wake_lock(enable);
 }

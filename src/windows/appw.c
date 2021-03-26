@@ -1013,9 +1013,9 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 
 				MTY_WideToMulti(namew, drop_name, MTY_PATH_MAX);
 				evt.drop.name = drop_name;
-				evt.drop.data = MTY_ReadFile(drop_name, &evt.drop.size);
+				evt.drop.buf = MTY_ReadFile(drop_name, &evt.drop.size);
 
-				if (evt.drop.data)
+				if (evt.drop.buf)
 					evt.type = MTY_EVENT_DROP;
 			}
 			break;
@@ -1068,7 +1068,7 @@ static LRESULT app_custom_hwnd_proc(struct window *ctx, HWND hwnd, UINT msg, WPA
 		app->event_func(&evt, app->opaque);
 
 		if (evt.type == MTY_EVENT_DROP)
-			MTY_Free((void *) evt.drop.data);
+			MTY_Free((void *) evt.drop.buf);
 
 		if (!defreturn)
 			return creturn ? r : 0;
@@ -1384,7 +1384,7 @@ void MTY_AppDestroy(MTY_App **app)
 		DestroyIcon(ctx->custom_cursor);
 
 	MTY_AppRemoveTray(ctx);
-	MTY_AppEnableScreenSaver(ctx, true);
+	MTY_AppStayAwake(ctx, false);
 
 	app_unregister_global_hotkeys(ctx);
 
@@ -1466,9 +1466,9 @@ MTY_Detach MTY_AppGetDetached(MTY_App *app)
 	return app->detach;
 }
 
-void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
+void MTY_AppStayAwake(MTY_App *app, bool enable)
 {
-	if (!SetThreadExecutionState(ES_CONTINUOUS | (!enable ? ES_DISPLAY_REQUIRED : 0)))
+	if (!SetThreadExecutionState(ES_CONTINUOUS | (enable ? ES_DISPLAY_REQUIRED : 0)))
 		MTY_Log("'SetThreadExecutionState' failed");
 }
 

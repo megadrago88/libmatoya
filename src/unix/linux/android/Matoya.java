@@ -637,7 +637,7 @@ public class Matoya extends SurfaceView implements
 		});
 	}
 
-	public void enableScreenSaver(boolean _enable) {
+	public void stayAwake(boolean _enable) {
 		final Matoya self = this;
 		final boolean enable = _enable;
 
@@ -645,10 +645,10 @@ public class Matoya extends SurfaceView implements
 			@Override
 			public void run() {
 				if (enable) {
-					self.activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+					self.activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
 				} else {
-					self.activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+					self.activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 				}
 			}
 		});

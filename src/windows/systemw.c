@@ -78,8 +78,8 @@ void MTY_HandleProtocol(const char *uri, void *token)
 	}
 
 	WCHAR *wuri = MTY_MultiToWideD(uri);
-	WCHAR *cmd = MTY_Alloc(MAX_PATH, 1);
-	_snwprintf_s(cmd, MAX_PATH, _TRUNCATE, L"rundll32 url.dll,FileProtocolHandler %s", wuri);
+	WCHAR *cmd = MTY_Alloc(MTY_PATH_MAX, sizeof(WCHAR));
+	_snwprintf_s(cmd, MTY_PATH_MAX, _TRUNCATE, L"rundll32 url.dll,FileProtocolHandler %s", wuri);
 
 	STARTUPINFO si = {0};
 	si.cb = sizeof(STARTUPINFO);
@@ -96,7 +96,7 @@ void MTY_HandleProtocol(const char *uri, void *token)
 			MTY_Log("'CreateProcessAsUser' failed with error 0x%X", GetLastError());
 
 	} else {
-		success = CreateProcess(NULL, cmd, NULL, NULL, FALSE, flags, env, NULL, &si, &pi);
+		success = CreateProcess(NULL, cmd, NULL, NULL, FALSE, flags, NULL, NULL, &si, &pi);
 		if (!success)
 			MTY_Log("'CreateProcess' failed with error 0x%X", GetLastError());
 	}

@@ -34,7 +34,7 @@ struct gfx_ui *mty_d3d9_ui_create(MTY_Device *device)
 }
 
 bool mty_d3d9_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *context,
-	const MTY_DrawData *dd, MTY_Hash *cache, MTY_Texture *dest)
+	const MTY_DrawData *dd, MTY_Hash *cache, MTY_Surface *dest)
 {
 	struct d3d9_ui *ctx = (struct d3d9_ui *) gfx_ui;
 	IDirect3DDevice9 *_device = (IDirect3DDevice9 *) device;
