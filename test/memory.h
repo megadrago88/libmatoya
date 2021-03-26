@@ -33,11 +33,13 @@ static bool memory_main (void)
 		test_cmp("MTY_Alloc", !failed);
 	}
 
-	for (uint8_t x = 0; x < 12; x++) {
-		char *buf = (char *) MTY_AllocAligned(0xFFFF, (uint64_t) (1 << x));
-		if (buf == NULL || (uintptr_t)buf % (uint64_t) (1 << x)) {
+	size_t opts[4] = {1, 2, 4, 8};
+	for (uint8_t x = 0; x < 4; x++) {
+		size_t align = opts[x] * sizeof(void *);
+		char *buf = (char *) MTY_AllocAligned(0xFFFF, align);
+		if (buf == NULL || (uintptr_t)buf % (uint64_t)  align) {
 			failed = 1;
-			fail_value = (uint64_t)(1 << x);
+			fail_value = (uint64_t) align;
 			break;
 		}
 		MTY_FreeAligned(buf);

@@ -229,7 +229,7 @@ static void *test_thread_cond_1(void *opaque)
 {
 	struct test_cond_data *data = (struct test_cond_data *)opaque;
 
-	MTY_MutexLock(data->mutex);	
+	MTY_MutexLock(data->mutex);
 	MTY_CondWait(data->cond, data->mutex, 5000);
 	int32_t c = data->counter;
 	MTY_Sleep(5);
@@ -243,7 +243,7 @@ static void *test_thread_cond_2(void *opaque)
 {
 	struct test_cond_data *data = (struct test_cond_data *)opaque;
 
-	MTY_MutexLock(data->mutex);	
+	MTY_MutexLock(data->mutex);
 	MTY_CondWait(data->cond, data->mutex, 5000);
 	int32_t c = data->counter;
 	data->counter = c + 1;
@@ -311,7 +311,7 @@ static void *test_thread_mutex_2(void *opaque)
 {
 	struct test_mutex_data *data = (struct test_mutex_data *)opaque;
 
-	MTY_MutexLock(data->mutex);	
+	MTY_MutexLock(data->mutex);
 	MTY_Sleep(100);
 	MTY_MutexUnlock(data->mutex);
 
@@ -322,7 +322,7 @@ static void *test_thread_mutex_1(void *opaque)
 {
 	struct test_mutex_data *data = (struct test_mutex_data *)opaque;
 
-	MTY_MutexLock(data->mutex);	
+	MTY_MutexLock(data->mutex);
 	int32_t i = data->counter;
 	MTY_Sleep(5);
 	data->counter = i + 1;

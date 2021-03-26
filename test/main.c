@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
+#include <locale.h>
 
 // Framework
 #include "test.h"
@@ -25,6 +26,8 @@
 
 int32_t main(int32_t argc, char **argv)
 {
+	setlocale(LC_ALL, "en_US.UTF-8");
+
 	if (!version_main())
 		return 1;
 
