@@ -273,7 +273,7 @@ static HRESULT d3d9_reload_textures(struct d3d9 *ctx, IDirect3DDevice9 *device,
 }
 
 bool mty_d3d9_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
-	const void *image, const MTY_RenderDesc *desc, MTY_Texture *dest)
+	const void *image, const MTY_RenderDesc *desc, MTY_Surface *dest)
 {
 	struct d3d9 *ctx = (struct d3d9 *) gfx;
 	IDirect3DDevice9 *_device = (IDirect3DDevice9 *) device;

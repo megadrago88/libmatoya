@@ -209,7 +209,7 @@ static void metal_reload_textures(struct metal *ctx, id<MTLDevice> device, const
 }
 
 bool mty_metal_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
-	const void *image, const MTY_RenderDesc *desc, MTY_Texture *dest)
+	const void *image, const MTY_RenderDesc *desc, MTY_Surface *dest)
 {
 	struct metal *ctx = (struct metal *) gfx;
 	id<MTLDevice> _device = (__bridge id<MTLDevice>) device;

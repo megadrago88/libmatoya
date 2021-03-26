@@ -66,7 +66,7 @@ void MTY_ThreadDetach(MTY_ThreadFunc func, void *opaque)
 	thread_create(func, opaque, true);
 }
 
-int64_t MTY_ThreadIDGet(MTY_Thread *ctx)
+int64_t MTY_ThreadGetID(MTY_Thread *ctx)
 {
 	return ctx ? GetThreadId(ctx->thread) : GetCurrentThreadId();
 }

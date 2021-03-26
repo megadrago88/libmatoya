@@ -98,7 +98,7 @@ static bool renderer_begin(MTY_Renderer *ctx, MTY_GFX api, MTY_Context *context,
 }
 
 bool MTY_RendererDrawQuad(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device, MTY_Context *context,
-	const void *image, const MTY_RenderDesc *desc, MTY_Texture *dest)
+	const void *image, const MTY_RenderDesc *desc, MTY_Surface *dest)
 {
 	if (!renderer_begin(ctx, api, context, device))
 		return false;
@@ -107,7 +107,7 @@ bool MTY_RendererDrawQuad(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device, MT
 }
 
 bool MTY_RendererDrawUI(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device,
-	MTY_Context *context, const MTY_DrawData *dd, MTY_Texture *dest)
+	MTY_Context *context, const MTY_DrawData *dd, MTY_Surface *dest)
 {
 	if (!renderer_begin(ctx, api, context, device))
 		return false;

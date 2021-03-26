@@ -126,7 +126,7 @@ struct gfx_ui *mty_gl_ui_create(MTY_Device *device)
 }
 
 bool mty_gl_ui_render(struct gfx_ui *gfx_ui, MTY_Device *device, MTY_Context *context,
-	const MTY_DrawData *dd, MTY_Hash *cache, MTY_Texture *dest)
+	const MTY_DrawData *dd, MTY_Hash *cache, MTY_Surface *dest)
 {
 	struct gl_ui *ctx = (struct gl_ui *) gfx_ui;
 	GLuint _dest = dest ? *((GLuint *) dest) : 0;

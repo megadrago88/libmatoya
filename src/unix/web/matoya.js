@@ -814,10 +814,10 @@ const MTY_WEB_API = {
 	},
 	web_wake_lock: async function (enable) {
 		try {
-			if (!enable && !MTY.wakeLock) {
+			if (enable && !MTY.wakeLock) {
 				MTY.wakeLock = await navigator.wakeLock.request('screen');
 
-			} else if (enable && MTY.wakeLock) {
+			} else if (!enable && MTY.wakeLock) {
 				MTY.wakeLock.release();
 				MTY.wakeLock = undefined;
 			}

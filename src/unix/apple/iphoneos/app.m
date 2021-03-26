@@ -84,7 +84,7 @@ MTY_Detach MTY_AppGetDetached(MTY_App *app)
 	return MTY_DETACH_NONE;
 }
 
-void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
+void MTY_AppStayAwake(MTY_App *app, bool enable)
 {
 }
 

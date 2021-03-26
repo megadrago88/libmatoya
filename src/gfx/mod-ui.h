@@ -26,7 +26,7 @@ struct gfx_ui;
 	void wrap(api, destroy)(struct gfx_ui **gfx_ui); \
 	bool wrap(api, render)(struct gfx_ui *gfx_ui, MTY_Device *device, \
 		MTY_Context *context, const MTY_DrawData *dd, MTY_Hash *cache, \
-		MTY_Texture *dest); \
+		MTY_Surface *dest); \
 	void *wrap(api, create_texture)(MTY_Device *device, const void *rgba, \
 		uint32_t width, uint32_t height); \
 	void wrap(api, destroy_texture)(void **texture);

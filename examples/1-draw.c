@@ -32,7 +32,6 @@ static bool app_func(void *opaque)
 		.cropWidth = ctx->image_w,
 		.cropHeight = ctx->image_h,
 		.aspectRatio = (float) ctx->image_w / (float) ctx->image_h,
-		.scale = 2.3f,
 	};
 
 	// Draw the quad
