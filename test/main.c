@@ -23,11 +23,11 @@
 
 int32_t main(int32_t argc, char **argv)
 {
-	//if (!version_main())
-	//	return 1;
+	if (!version_main())
+		return 1;
 
-	//if (!time_main())
-	//	return 1;
+	if (!time_main())
+		return 1;
 
 	if (!file_main())
 		return 1;
