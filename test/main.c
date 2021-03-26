@@ -20,6 +20,7 @@
 #include "time.h"
 #include "log.h"
 #include "file.h"
+#include "thread.h"
 #include "crypto.h"
 
 int32_t main(int32_t argc, char **argv)
@@ -40,6 +41,9 @@ int32_t main(int32_t argc, char **argv)
 		return 1;
 
 	if (!crypto_main())
+		return 1;
+
+	if (!thread_main())
 		return 1;
 
 	return 0;
