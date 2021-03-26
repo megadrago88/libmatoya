@@ -42,7 +42,7 @@ MTY_Context *MTY_WindowGetContext(MTY_App *app, MTY_Window window)
 	return api != MTY_GFX_NONE ? GFX_CTX_API[api].get_context(gfx_ctx) : NULL;
 }
 
-MTY_Texture *MTY_WindowGetBackBuffer(MTY_App *app, MTY_Window window)
+MTY_Surface *MTY_WindowGetBackBuffer(MTY_App *app, MTY_Window window)
 {
 	struct gfx_ctx *gfx_ctx = NULL;
 	MTY_GFX api = mty_window_get_gfx(app, window, &gfx_ctx);
@@ -144,7 +144,7 @@ void MTY_PrintEvent(const MTY_Event *evt)
 			evt->motion.y, evt->motion.relative, evt->motion.synth);
 		PEVENT(MTY_EVENT_BUTTON, evt, "x: %d, y: %d, button: %u, pressed: %u", evt->button.x,
 			evt->button.y, evt->button.button, evt->button.pressed);
-		PEVENT(MTY_EVENT_DROP, evt, "name: %s, data: %p, size: %zu", evt->drop.name, evt->drop.data, evt->drop.size);
+		PEVENT(MTY_EVENT_DROP, evt, "name: %s, buf: %p, size: %zu", evt->drop.name, evt->drop.buf, evt->drop.size);
 		PEVENT(MTY_EVENT_CLIPBOARD, evt, "");
 		PEVENT(MTY_EVENT_TRAY, evt, "id: %u", evt->trayID);
 		PEVENT(MTY_EVENT_REOPEN, evt, "arg: %s", evt->reopenArg);

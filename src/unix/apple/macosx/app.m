@@ -1131,7 +1131,7 @@ void MTY_AppDestroy(MTY_App **app)
 
 	App *ctx = (__bridge_transfer App *) *app;
 
-	MTY_AppEnableScreenSaver(*app, true);
+	MTY_AppStayAwake(*app, false);
 
 	for (MTY_Window x = 0; x < MTY_WINDOW_MAX; x++)
 		MTY_WindowDestroy(*app, x);
@@ -1182,7 +1182,7 @@ MTY_Detach MTY_AppGetDetached(MTY_App *app)
 	return ctx.detach;
 }
 
-void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
+void MTY_AppStayAwake(MTY_App *app, bool enable)
 {
 	App *ctx = (__bridge App *) app;
 
@@ -1191,10 +1191,10 @@ void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
 		ctx.assertion = 0;
 	}
 
-	if (!enable) {
+	if (enable) {
 		IOPMAssertionID assertion = 0;
 		IOPMAssertionCreateWithDescription(kIOPMAssertPreventUserIdleDisplaySleep,
-			CFSTR("MTY_AppEnableScreenSaver"), NULL, NULL, NULL, 0, NULL, &assertion);
+			CFSTR("MTY_AppStayAwake"), NULL, NULL, NULL, 0, NULL, &assertion);
 
 		ctx.assertion = assertion;
 	}

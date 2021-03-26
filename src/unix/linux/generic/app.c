@@ -897,9 +897,9 @@ MTY_Detach MTY_AppGetDetached(MTY_App *app)
 	return app->detach;
 }
 
-void MTY_AppEnableScreenSaver(MTY_App *app, bool enable)
+void MTY_AppStayAwake(MTY_App *app, bool enable)
 {
-	app->suspend_ss = !enable;
+	app->suspend_ss = enable;
 }
 
 bool MTY_AppIsKeyboardGrabbed(MTY_App *ctx)

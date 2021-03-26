@@ -232,7 +232,7 @@ static void gl_reload_textures(struct gl *ctx, const void *image, const MTY_Rend
 }
 
 bool mty_gl_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
-	const void *image, const MTY_RenderDesc *desc, MTY_Texture *dest)
+	const void *image, const MTY_RenderDesc *desc, MTY_Surface *dest)
 {
 	struct gl *ctx = (struct gl *) gfx;
 	GLuint _dest = dest ? *((GLuint *) dest) : 0;

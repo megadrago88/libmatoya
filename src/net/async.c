@@ -104,7 +104,7 @@ void MTY_HttpAsyncRequest(uint32_t *index, const char *host, bool secure, const 
 	s->req.headers = headers ? MTY_Strdup(headers) : MTY_Alloc(1, 1);
 	s->req.body = body ? MTY_Dup(body, size) : NULL;
 
-	*index = MTY_ThreadPoolStart(ASYNC_CTX, http_async_thread, s);
+	*index = MTY_ThreadPoolDispatch(ASYNC_CTX, http_async_thread, s);
 
 	if (*index == 0) {
 		MTY_Log("Failed to start %s%s", host, path);

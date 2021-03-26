@@ -206,12 +206,12 @@ static void d3d9_ctx_refresh(struct d3d9_ctx *ctx)
 	}
 }
 
-MTY_Texture *mty_d3d9_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
+MTY_Surface *mty_d3d9_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 {
 	struct d3d9_ctx *ctx = (struct d3d9_ctx *) gfx_ctx;
 
 	if (!ctx->device)
-		return (MTY_Texture *) ctx->back_buffer;
+		return (MTY_Surface *) ctx->back_buffer;
 
 	if (!ctx->back_buffer) {
 		d3d9_ctx_refresh(ctx);
@@ -239,7 +239,7 @@ MTY_Texture *mty_d3d9_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 		}
 	}
 
-	return (MTY_Texture *) ctx->back_buffer;
+	return (MTY_Surface *) ctx->back_buffer;
 }
 
 void mty_d3d9_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
@@ -284,7 +284,7 @@ void mty_d3d9_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const MT
 		mutated.viewHeight = ctx->height;
 
 		MTY_RendererDrawQuad(ctx->renderer, MTY_GFX_D3D9, (MTY_Device *) ctx->device,
-			NULL, image, &mutated, (MTY_Texture *) ctx->back_buffer);
+			NULL, image, &mutated, (MTY_Surface *) ctx->back_buffer);
 	}
 }
 
@@ -296,7 +296,7 @@ void mty_d3d9_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 
 	if (ctx->back_buffer)
 		MTY_RendererDrawUI(ctx->renderer, MTY_GFX_D3D9, (MTY_Device *) ctx->device,
-			NULL, dd, (MTY_Texture *) ctx->back_buffer);
+			NULL, dd, (MTY_Surface *) ctx->back_buffer);
 }
 
 bool mty_d3d9_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,

@@ -65,22 +65,25 @@ MTY_EXPORT uint32_t
 MTY_AudioGetQueued(MTY_Audio *ctx);
 
 /// @brief Flush the context and reset it as though it was just created.
+/// @details Internally this function will stop playback so the OS does not think
+///   audio is actively playing.
 /// @param ctx An MTY_Audio context.
 MTY_EXPORT void
 MTY_AudioReset(MTY_Audio *ctx);
 
 /// @brief Queue 16-bit signed PCM for playback.
 /// @param ctx An MTY_Audio context.
-/// @param frames Buffer containing 16-bit signed PCM audio frames.
-/// @param count The number of frames contained in `frames`.
+/// @param frames Buffer containing 2-channel, 16-bit signed PCM audio frames. In this
+///   case, one audio frame is two samples, each sample being one of the channels.
+/// @param count The number of frames contained in `frames`. The number of frames would
+///   be the size of `frames` in bytes divided by 4.
 MTY_EXPORT void
 MTY_AudioQueue(MTY_Audio *ctx, const int16_t *frames, uint32_t count);
 
 
 //- #module Image
 //- #mbrief Image compression and cropping. Program icons.
-//- #mdetails Basic image processing with support for only PNG and JPEG. It wraps
-//-   IWICImagingFactory on Windows, and the stb_image libraries on Unix.
+//- #mdetails Basic image processing with support for only PNG and JPEG.
 
 /// @brief Compressed image formats.
 typedef enum {
@@ -94,7 +97,7 @@ typedef enum {
 /// @param input RGBA 8-bits per channel image data.
 /// @param width The width of the `input` image.
 /// @param height The height of the `input` image.
-/// @param outputSize On success, set to the size in bytes of the returned buffer.
+/// @param outputSize Set to the size in bytes of the returned buffer.
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned buffer must be destroyed with MTY_Free.
 MTY_EXPORT void *
@@ -103,10 +106,11 @@ MTY_CompressImage(MTY_Image type, const void *input, uint32_t width, uint32_t he
 
 /// @brief Decompress an image into RGBA.
 /// @param input The compressed image data.
-/// @param size The size in bytes of the `input` buffer.
-/// @param width On success, set to the width of the returned buffer.
-/// @param height On success, set to the height of the returned buffer.
-/// @returns The size of the buffer can be calculated as `width * height * 4`.\n\n
+/// @param size The size in bytes of `input`.
+/// @param width Set to the width of the returned buffer.
+/// @param height Set to the height of the returned buffer.
+/// @returns The size of the returned buffer can be calculated as
+///   `width * height * 4`.\n\n
 ///   On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned buffer must be destroyed with MTY_Free.
 MTY_EXPORT void *
@@ -116,11 +120,12 @@ MTY_DecompressImage(const void *input, size_t size, uint32_t *width, uint32_t *h
 /// @param image RGBA 8-bits per channel image to be cropped.
 /// @param cropWidth The desired cropped width.
 /// @param cropHeight The desired cropped height.
-/// @param width On input, set to the current width of `image`. On output, set to the
-///   actual cropped width of the returned buffer.
-/// @param height On input, set to the current height of `image`. On output, set to the
-///   actual cropped height of the returned buffer.
-/// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
+/// @param width Set this to the current width of `image` before calling this function.
+///   On output, set to the actual cropped width of the returned buffer.
+/// @param height Set this to the current height of `image` before calling this function.
+///   On output, set to the actual cropped height of the returned buffer.
+/// @returns The cropped image.\n\n
+///   On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned buffer must be destroyed with MTY_Free.
 MTY_EXPORT void *
 MTY_CropImage(const void *image, uint32_t cropWidth, uint32_t cropHeight,
@@ -128,9 +133,9 @@ MTY_CropImage(const void *image, uint32_t cropWidth, uint32_t cropHeight,
 
 /// @brief Get an application's program icon as an RGBA image.
 /// @param path Path to the application binary.
-/// @param width On success, the width of the returned buffer.
-/// @param height On success, the height of the returned buffer.
-/// @returns The returned buffer is raw RGBA 8-bits per channel.\n\n
+/// @param width Set to the width of the returned buffer.
+/// @param height Set to the height of the returned buffer.
+/// @returns The returned buffer is RGBA 8-bits per channel.\n\n
 //    On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned buffer must be destroyed with MTY_Free.
 //- #support Windows
@@ -157,15 +162,17 @@ typedef enum {
 	MTY_ALGORITHM_MAKE_32    = INT32_MAX,
 } MTY_Algorithm;
 
-/// @brief Standard CRC32 checksum.
+/// @brief CRC32 checksum.
+/// @details This CRC32 implementation uses the reverse polynomial `0xEDB88320`.
 /// @param crc CRC32 seed value.
-/// @param data Input buffer.
-/// @param size Size in bytes of `data`.
+/// @param buf Input buffer.
+/// @param size Size in bytes of `buf`.
 MTY_EXPORT uint32_t
-MTY_CRC32(uint32_t crc, const void *data, size_t size);
+MTY_CRC32(uint32_t crc, const void *buf, size_t size);
 
 /// @brief Daniel J. Bernstein's classic string hash function.
 /// @param str String to hash.
+/// @returns Hash value.
 MTY_EXPORT uint32_t
 MTY_DJB2(const char *str);
 
@@ -187,10 +194,10 @@ MTY_HexToBytes(const char *hex, void *bytes, size_t size);
 /// @brief Convert bytes to a Base64 string.
 /// @param bytes Input buffer.
 /// @param size Size in bytes of `bytes`.
-/// @param b64 Base64 string output buffer.
-/// @param b64Size Size in bytes of `b64`.
+/// @param base64 Base64 string output buffer.
+/// @param base64Size Size in bytes of `base64`.
 MTY_EXPORT void
-MTY_BytesToBase64(const void *bytes, size_t size, char *b64, size_t b64Size);
+MTY_BytesToBase64(const void *bytes, size_t size, char *base64, size_t base64Size);
 
 /// @brief Run a hash algorithm on a buffer with optional HMAC key.
 /// @param algo Hash algorithm to use.
@@ -219,10 +226,10 @@ MTY_CryptoHashFile(MTY_Algorithm algo, const char *path, const void *key, size_t
 	void *output, size_t outputSize);
 
 /// @brief Generate cryptographically strong random bytes.
-/// @param output Output buffer.
-/// @param size Size in bytes of `output`.
+/// @param buf Output buffer.
+/// @param size Size in bytes of `buf`.
 MTY_EXPORT void
-MTY_GetRandomBytes(void *output, size_t size);
+MTY_GetRandomBytes(void *buf, size_t size);
 
 /// @brief Generate a random unsigned integer within a range.
 /// @param minVal Low of the random range, inclusive.
@@ -234,8 +241,8 @@ MTY_GetRandomUInt(uint32_t minVal, uint32_t maxVal);
 /// @brief Create an MTY_AESGCM context for AES-GCM-128 encryption/decryption.
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_AESGCM context must be destroyed with MTY_AESGCMDestroy.
-/// @param key The secret key to use for encryption. This buffer must be at least 16
-///   bytes. If it is greater than 16 bytes, only the first 16 bytes will be used.
+/// @param key The secret key to use for encryption. This buffer must be 16 bytes,
+///   the size necessary for AES-128.
 //- #support Windows macOS Android Linux
 MTY_EXPORT MTY_AESGCM *
 MTY_AESGCMCreate(const void *key);
@@ -246,40 +253,42 @@ MTY_AESGCMCreate(const void *key);
 MTY_EXPORT void
 MTY_AESGCMDestroy(MTY_AESGCM **aesgcm);
 
-/// @brief Encrypt plain text with a nonce using AES-GCM-128 and output the GCM hash.
+/// @brief Encrypt plain text with a nonce using AES-GCM-128 and output the GCM tag.
 /// @param ctx An MTY_AESGCM context.
 /// @param nonce A buffer used as salt during encryption. This buffer must be 12 bytes,
 ///   and it MUST be different for each call to this function using the same
 ///   MTY_AESGCM context.
 /// @param plainText The input data to be encrypted.
 /// @param size Size in bytes of `plainText`.
-/// @param hash Buffer that will hold the GCM tag. This buffer must be 16 bytes.
-/// @param cipherText On success, the encrypted data, always the same size
+/// @param tag Buffer that will hold the GCM tag. This buffer must be 16 bytes.
+/// @param cipherText Output buffer for the encrypted data, always the same size
 ///   as `plainText`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 //- #support Windows macOS Android Linux
 MTY_EXPORT bool
 MTY_AESGCMEncrypt(MTY_AESGCM *ctx, const void *nonce, const void *plainText, size_t size,
-	void *hash, void *cipherText);
+	void *tag, void *cipherText);
 
-/// @brief Decrypt cipher text with a nonce and GCM hash using AES-GCM-128.
+/// @brief Decrypt cipher text with a nonce and GCM tag using AES-GCM-128.
 /// @param ctx An MTY_AESGCM context.
-/// @param nonce A buffer used as salt during decryption. This buffer must be 12 bytes,
-///   and it must match the `nonce` used during encryption.
+/// @param nonce This buffer must be 12 bytes and it must match the `nonce` used
+///   during encryption.
 /// @param cipherText The input data to be decrypted.
 /// @param size Size in bytes of `cipherText`.
-/// @param hash The GCM tag to authenticate against. This buffer must be 16 bytes.
-/// @param plainText On success, the decrypted data, always the same size
+/// @param tag The GCM tag to authenticate against. This buffer must be 16 bytes.
+/// @param plainText Output buffer for the decrypted data, always the same size
 ///   as `cipherText`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 //- #support Windows macOS Android Linux
 MTY_EXPORT bool
 MTY_AESGCMDecrypt(MTY_AESGCM *ctx, const void *nonce, const void *cipherText,
-	size_t size, const void *hash, void *plainText);
+	size_t size, const void *tag, void *plainText);
 
 
 //- #module File
 //- #mbrief Simple filesystem helpers.
+//- #mdetails These functions are not intended for optimized IO or large files, they
+//-   are convenience functions that simplify common filesystem interactions.
 
 #define MTY_PATH_MAX 1280 ///< Maximum size of a full path used internally by libmatoya.
 
@@ -322,22 +331,24 @@ typedef struct {
 
 /// @brief Read the entire contents of a file.
 /// @param path Path to the file.
-/// @param size On success, the size in bytes of the returned buffer.
-/// @returns The buffer always has its `[size]` element set to 0, allowing you to treat
-///   it like a string.\n\n
+/// @param size Set to the size in bytes of the returned buffer.
+/// @returns The buffer always has its final byte set to 0, allowing you to treat
+///   it like a string. This extra byte is not counted in the returned `size`.\n\n
 ///   On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 MTY_EXPORT void *
 MTY_ReadFile(const char *path, size_t *size);
 
 /// @brief Write a buffer to a file.
 /// @param path Path to the file.
-/// @param data Input buffer to write.
-/// @param size Size in bytes of `data`.
+/// @param buf Input buffer to write.
+/// @param size Size in bytes of `buf`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
-MTY_WriteFile(const char *path, const void *data, size_t size);
+MTY_WriteFile(const char *path, const void *buf, size_t size);
 
 /// @brief Write formatted text to a file.
+/// @details Warning: Be careful with your format string, if it is incorrect this
+///   function will have undefined behavior.
 /// @param path Path to the file.
 /// @param fmt Format string to write.
 /// @param ... Variable arguments as specified by `fmt`.
@@ -346,6 +357,8 @@ MTY_EXPORT bool
 MTY_WriteTextFile(const char *path, const char *fmt, ...);
 
 /// @brief Append formatted text to a file.
+/// @details Warning: Be careful with your format string, if it is incorrect this
+///   function will have undefined behavior.
 /// @param path Path to the file.
 /// @param fmt Format string to append.
 /// @param ... Variable arguments as specified by `fmt`.
@@ -375,7 +388,7 @@ MTY_Mkdir(const char *path);
 /// @brief Join two components of a path using the appropriate delimiter.
 /// @param path0 First component of the joined path.
 /// @param path1 Second component of the joined path.
-/// @returns This buffer is allocated in thread local storage.
+/// @returns This buffer is allocated in thread local storage and must not be freed.
 MTY_EXPORT const char *
 MTY_JoinPath(const char *path0, const char *path1);
 
@@ -395,7 +408,7 @@ MTY_MoveFile(const char *src, const char *dst);
 
 /// @brief Get a special directory on the filesystem.
 /// @param dir The special directory of interest.
-/// @returns This buffer is allocated in thread local storage.
+/// @returns This buffer is allocated in thread local storage and must not be freed.
 MTY_EXPORT const char *
 MTY_GetDir(MTY_Dir dir);
 
@@ -403,7 +416,7 @@ MTY_GetDir(MTY_Dir dir);
 /// @param path Path to a file.
 /// @param extension If interested in the extension, true, otherwise false to remove
 ///   the file extension.
-/// @returns This buffer is allocated in thread local storage.
+/// @returns This buffer is allocated in thread local storage and must not be freed.
 MTY_EXPORT const char *
 MTY_GetFileName(const char *path, bool extension);
 
@@ -411,27 +424,28 @@ MTY_GetFileName(const char *path, bool extension);
 /// @param path Path to a file or directory.
 /// @returns If `path` contains a file name, it is removed and the base path is returned.
 ///   Otherwise, one directory above `path` is returned.\n\n
-///   This buffer is allocated in thread local storage.
+///   This buffer is allocated in thread local storage and must not be freed.
 MTY_EXPORT const char *
 MTY_GetPathPrefix(const char *path);
 
-/// @brief Get descriptions of all files and directories in a path.
+/// @brief Get a list of all files and directories contained in a path.
 /// @param path Path to a directory.
-/// @param filter Substring that must match each file that should be returned. May be
-///   NULL for no filter.
+/// @param filter Substring that must match each file that should be returned. All
+///   directories will be returned regardless of this filter. May be NULL for no filter.
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_FileList must be destroyed with MTY_FreeFileList.
 MTY_EXPORT MTY_FileList *
 MTY_GetFileList(const char *path, const char *filter);
 
-/// @brief Free all descriptions allocated by MTY_FileList.
+/// @brief Free a file list allocated by MTY_GetFileList.
 /// @param fileList Passed by reference and set to NULL after being destroyed.
 MTY_EXPORT void
 MTY_FreeFileList(MTY_FileList **fileList);
 
 /// @brief Create an MTY_LockFile for signaling resource ownership across processes.
 /// @details The process that holds the lock will continue to hold the lock unil
-///   MTY_LockFileDestroy is called or the process terminates.
+///   MTY_LockFileDestroy is called or the process terminates. The lock file will
+///   be created if it does not exist.
 /// @param path Path to the lock file.
 /// @param mode Choose between exclusive or shared read access.
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
@@ -440,11 +454,11 @@ MTY_EXPORT MTY_LockFile *
 MTY_LockFileCreate(const char *path, MTY_FileMode mode);
 
 /// @brief Destroy an MTY_LockFile.
-/// @param lock Passed by reference and set to NULL after being destroyed.\n\n
+/// @param lockFile Passed by reference and set to NULL after being destroyed.\n\n
 ///   Destroying the MTY_LockFile will not delete the actual file from the filesystem,
-///   it simply releases the processes ownership of the lock file.
+///   it simply releases the process' ownership of the lock file.
 MTY_EXPORT void
-MTY_LockFileDestroy(MTY_LockFile **lock);
+MTY_LockFileDestroy(MTY_LockFile **lockFile);
 
 
 //- #module JSON
@@ -488,7 +502,7 @@ MTY_JSONDestroy(MTY_JSON **json);
 MTY_EXPORT char *
 MTY_JSONSerialize(const MTY_JSON *json);
 
-/// @brief Write a serialized MTY_JSON item to a file.
+/// @brief Serialize an MTY_JSON item and write it to a file.
 /// @param path Path to a file where the serialized output will be written.
 /// @param json An MTY_JSON item to serialize.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
@@ -670,41 +684,41 @@ MTY_JSONObjIsValNull(const MTY_JSON *json, const char *key);
 /// @brief Set a string value on a JSON object.
 /// @param json An MTY_JSON object.
 /// @param key Key to set.
-/// @param val Typed value to set.
+/// @param val Typed value to set for `key`.
 MTY_EXPORT void
 MTY_JSONObjSetString(MTY_JSON *json, const char *key, const char *val);
 
 /// @brief Set an int32_t value on a JSON object.
 /// @param json An MTY_JSON object.
 /// @param key Key to set.
-/// @param val Typed value to set.
+/// @param val Typed value to set for `key`.
 MTY_EXPORT void
 MTY_JSONObjSetInt(MTY_JSON *json, const char *key, int32_t val);
 
 /// @brief Set a uint32_t value on a JSON object.
 /// @param json An MTY_JSON object.
 /// @param key Key to set.
-/// @param val Typed value to set.
+/// @param val Typed value to set for `key`.
 MTY_EXPORT void
 MTY_JSONObjSetUInt(MTY_JSON *json, const char *key, uint32_t val);
 
 /// @brief Set a float value on a JSON object.
 /// @param json An MTY_JSON object.
 /// @param key Key to set.
-/// @param val Typed value to set.
+/// @param val Typed value to set for `key`.
 MTY_EXPORT void
 MTY_JSONObjSetFloat(MTY_JSON *json, const char *key, float val);
 
 /// @brief Set a bool value on a JSON object.
 /// @param json An MTY_JSON object.
 /// @param key Key to set.
-/// @param val Typed value to set.
+/// @param val Typed value to set for `key`.
 MTY_EXPORT void
 MTY_JSONObjSetBool(MTY_JSON *json, const char *key, bool val);
 
 /// @brief Set a NULL value on a JSON object.
 /// @param json An MTY_JSON object.
-/// @param key Key to set to `null`.
+/// @param key Key to set to null.
 MTY_EXPORT void
 MTY_JSONObjSetNull(MTY_JSON *json, const char *key);
 
@@ -792,7 +806,7 @@ MTY_JSONArraySetBool(MTY_JSON *json, uint32_t index, bool val);
 
 /// @brief Set a NULL value in a JSON array.
 /// @param json An MTY_JSON array.
-/// @param index Index to set to `null`.
+/// @param index Index to set to null.
 MTY_EXPORT void
 MTY_JSONArraySetNull(MTY_JSON *json, uint32_t index);
 
@@ -826,30 +840,35 @@ MTY_DisableLog(bool disabled);
 
 /// @brief Log a formatted string.
 /// @details This function is intended to be called internally via the
-///   `MTY_Log` macro, but can be used to add to the libmatoya log.
-/// @param func The name of the function that produced the message.
-/// @param msg Format string.
-/// @param ... Variable arguments as specified by `msg`.
+///   MTY_Log macro, but can be used to add to the libmatoya log.
+/// @param func The name of the function that produced the message. The MTY_Log macro
+///   automatically fills this value.
+/// @param fmt Format string.
+/// @param ... Variable arguments as specified by `fmt`.
 MTY_EXPORT void
-MTY_LogParams(const char *func, const char *msg, ...);
+MTY_LogParams(const char *func, const char *fmt, ...);
 
 /// @brief Log a formatted string then abort.
 /// @details This function is intended to be called internally via the
-///   `MTY_LogFatal` macro, but can be used to add to the libmatoya log.
-/// @param func The name of the function that produced the message.
-/// @param msg Format string.
-/// @param ... Variable arguments as specified by `msg`.
+///   MTY_LogFatal macro.
+/// @param func The name of the function that produced the message. The MTY_LogFatal
+///   macro automatically fills this value.
+/// @param fmt Format string.
+/// @param ... Variable arguments as specified by `fmt`.
 MTY_EXPORT void
-MTY_LogFatalParams(const char *func, const char *msg, ...);
+MTY_LogFatalParams(const char *func, const char *fmt, ...);
 
 /// @brief Get the most recent log message on the thread.
-/// @returns This buffer is allocated in thread local storage.
+/// @returns This buffer is allocated in thread local storage and must not be freed.
 MTY_EXPORT const char *
 MTY_GetLog(void);
 
 
 //- #module Memory
 //- #mbrief Memory allocation and manipulation.
+//- #mdetails These functions are mostly thin wrappers around C standard library
+//-   functions that have platform differences. Additionally, functions like MTY_Alloc
+//-   wrap `calloc` but `abort()` on failure.
 
 #define MTY_MIN(a, b) \
 	((a) > (b) ? (b) : (a))
@@ -864,24 +883,28 @@ MTY_GetLog(void);
 	((v) + 0x1F & ~((uintptr_t) 0x1F))
 
 /// @brief Function called while running MTY_Sort.
-/// @param a An element evaluated during MTY_Sort.
-/// @param b An element evaluated during MTY_Sort.
-/// @returns If less than 0, `a` goes before `b`. If greater than 0, `b` goes before `a`.
-///   Otherwise, the position is unchanged.
-typedef int32_t (*MTY_CompareFunc)(const void *a, const void *b);
+/// @param e0 An element evaluated during MTY_Sort.
+/// @param e1 An element evaluated during MTY_Sort.
+/// @returns If less than 0, `e0` goes before `e1`. If greater than 0, `e1` goes
+///   before `e0`. Otherwise, the position is unchanged.
+typedef int32_t (*MTY_CompareFunc)(const void *e0, const void *e1);
 
 /// @brief Allocate zeroed memory.
-/// @param nelem Number of elements requested.
-/// @param elsize Size in bytes of each element.
+/// @details For more information, see `calloc` from the C standard library.
+/// @param len Number of elements requested.
+/// @param size Size in bytes of each element.
 /// @returns The zeroed buffer.\n\n
 ///   This function can not return NULL. It will call `abort()` on failure.\n\n
 ///   The returned buffer must be destroyed with MTY_Free.
 MTY_EXPORT void *
-MTY_Alloc(size_t nelem, size_t elsize);
+MTY_Alloc(size_t len, size_t size);
 
 /// @brief Allocate zeroed aligned memory.
+/// @details For more information, see `_aligned_malloc` on Windows and
+///   `posix_memalign` on Unix.
 /// @param size Size in bytes of the requested buffer.
-/// @param align Alignment required in bytes.
+/// @param align Alignment required in bytes. This value must be a power of two
+///   and at most 1024.
 /// @returns The zeroed and aligned buffer.\n\n
 ///   This function can not return NULL. It will call `abort()` on failure.\n\n
 ///   The returned buffer must be destroyed with MTY_FreeAligned.
@@ -889,6 +912,7 @@ MTY_EXPORT void *
 MTY_AllocAligned(size_t size, size_t align);
 
 /// @brief Free allocated memory.
+/// @details For more information, see `free` from the C standard library.
 /// @param mem Dynamically allocated memory.
 MTY_EXPORT void
 MTY_Free(void *mem);
@@ -899,14 +923,15 @@ MTY_EXPORT void
 MTY_FreeAligned(void *mem);
 
 /// @brief Resize previously allocated memory.
+/// @details For more information, see `realloc` from the C standard library.
 /// @param mem Previously allocated buffer.
-/// @param nelem Total number of elements in the new buffer.
-/// @param elsize Size of each element.
+/// @param len Total number of elements in the new buffer.
+/// @param size Size of each element.
 /// @returns The resized buffer. The additional portion of the buffer is not zeroed.\n\n
 ///   This function can not return NULL. It will call `abort()` on failure.\n\n
 ///   The returned buffer must be destroyed with MTY_Free.
 MTY_EXPORT void *
-MTY_Realloc(void *mem, size_t nelem, size_t elsize);
+MTY_Realloc(void *mem, size_t len, size_t size);
 
 /// @brief Duplicate a buffer.
 /// @param mem Buffer to duplicate.
@@ -924,6 +949,7 @@ MTY_EXPORT char *
 MTY_Strdup(const char *str);
 
 /// @brief Append to a string.
+/// @details For more information, see `strcat_s` from the C standard library.
 /// @param dst Destination string.
 /// @param size Total size in bytes of `dst`.
 /// @param src String to append to `dst`.
@@ -931,14 +957,18 @@ MTY_EXPORT void
 MTY_Strcat(char *dst, size_t size, const char *src);
 
 /// @brief Dynamically format a string with a va_list.
+/// @details For more information, see `vsnprintf` from the C standard library.
 /// @param fmt Format string.
-/// @param args Variable arguments in the form of a `va_list` as specified by `fmt`.
+/// @param args Variable arguments in the form of a va_list as specified by `fmt`.
 /// @returns This function can not return NULL. It will call `abort()` on failure.\n\n
 ///   The returned buffer must be destroyed with MTY_Free.
 MTY_EXPORT char *
 MTY_VsprintfD(const char *fmt, va_list args);
 
 /// @brief Dynamically format a string.
+/// @details For more information, see `snprintf` from the C standard library.\n\n
+///   Warning: Be careful with your format string, if it is incorrect this
+///   function will have undefined behavior.
 /// @param fmt Format string.
 /// @param ... Variable arguments as specified by `fmt`.
 /// @returns This function can not return NULL. It will call `abort()` on failure.\n\n
@@ -947,13 +977,15 @@ MTY_EXPORT char *
 MTY_SprintfD(const char *fmt, ...);
 
 /// @brief Case insensitive string comparison.
-/// @param s1 First string to compare.
-/// @param s2 Second string to compare.
+/// @details For more information, see `strcasecmp` from the C standard library.
+/// @param s0 First string to compare.
+/// @param s1 Second string to compare.
 /// @returns If the strings match, returns 0, otherwise a non-zero value.
 MTY_EXPORT int32_t
-MTY_Strcasecmp(const char *s1, const char *s2);
+MTY_Strcasecmp(const char *s0, const char *s1);
 
 /// @brief Reentrant string tokenization.
+/// @details For more information, see `strtok_r` from the C standard library.
 /// @param str The string to tokenize on the first call to this function. On
 ///   subsequent calls, NULL. This string is mutated each time this function is called.
 /// @param delim A string of tokens that are used as delimiters, i.e. `" \t\r"` would
@@ -965,25 +997,60 @@ MTY_EXPORT char *
 MTY_Strtok(char *str, const char *delim, char **saveptr);
 
 /// @brief Stable qsort.
-/// @param base The buffer to sort.
-/// @param nElements Number of elements in `base`.
+/// @details For more information, see `qsort` from the C standard library. The
+///   difference between this function and `qsort` is that the order of elements
+///   that compare equally will be preserved.
+/// @param buf The buffer to sort.
+/// @param len Number of elements in `buf`.
 /// @param size Size in bytes of each element.
 /// @param func Function called to compare elements as the algorithm processes the
 ///   buffer.
 MTY_EXPORT void
-MTY_Sort(void *base, size_t nElements, size_t size, MTY_CompareFunc func);
+MTY_Sort(void *buf, size_t len, size_t size, MTY_CompareFunc func);
 
-/// @brief Reverse the byte order of 16-bit integer.
+/// @brief Convert a wide character string to its UTF-8 equivalent.
+/// @param src Source wide character string.
+/// @param dst Destination UTF-8 string.
+/// @param len Size in bytes of `dst`.
+/// @returns Returns true on success, false on failure. Call MTY_GetLog for details.\n\n
+///   Even if a proper UTF-8 conversion fails, this function attempts to fill `dst` with
+///   a best effort conversion.
+MTY_EXPORT bool
+MTY_WideToMulti(const wchar_t *src, char *dst, size_t size);
+
+/// @brief Dynamic version of MTY_WideToMulti.
+/// @param src Source wide character string.
+/// @returns The returned buffer must be destroyed with MTY_Free.
+MTY_EXPORT char *
+MTY_WideToMultiD(const wchar_t *src);
+
+/// @brief Convert a UTF-8 string to its wide character equivalent.
+/// @param src Source UTF-8 string.
+/// @param dst Destination wide character string.
+/// @param len Length in characters (not bytes) of `dst`.
+/// @returns Returns true on success, false on failure. Call MTY_GetLog for details.\n\n
+///   Even if a proper wide character conversion fails, this function attempts to fill
+///   `dst` with a best effort conversion.
+MTY_EXPORT bool
+MTY_MultiToWide(const char *src, wchar_t *dst, uint32_t len);
+
+/// @brief Dynamic version of MTY_MultiToWide.
+/// @param src Source UTF-8 string.
+/// @returns The returned buffer must be destroyed with MTY_Free.
+MTY_EXPORT wchar_t *
+MTY_MultiToWideD(const char *src);
+
+/// @brief Get the bytes of a 16-bit integer in reverse order.
 /// @param value Value to swap.
 MTY_EXPORT uint16_t
 MTY_Swap16(uint16_t value);
 
-/// @brief Reverse the byte order of 32-bit integer.
+/// @brief Get the bytes of a 32-bit integer in reverse order.
 /// @param value Value to swap.
 MTY_EXPORT uint32_t
 MTY_Swap32(uint32_t value);
 
-/// @brief Reverse the byte order of 64-bit integer.
+/// @brief Get the bytes of a 64-bit integer in reverse order.
 /// @param value Value to swap.
 MTY_EXPORT uint64_t
 MTY_Swap64(uint64_t value);
@@ -1018,36 +1085,6 @@ MTY_SwapFromBE32(uint32_t value);
 MTY_EXPORT uint64_t
 MTY_SwapFromBE64(uint64_t value);
 
-/// @brief Convert a wide character string to its UTF-8 equivalent.
-/// @param src Source wide character string.
-/// @param dst Destination UTF-8 string.
-/// @param len Size in bytes of `dst`.
-/// @returns Returns true on success, false on failure. Call MTY_GetLog for details.\n\n
-///   Even if a proper UTF-8 conversion fails, this function attempts to fill `dst` with
-///   a best effort conversion.
-MTY_EXPORT bool
-MTY_WideToMulti(const wchar_t *src, char *dst, size_t len);
-
-/// @brief Dynamic version of MTY_WideToMulti.
-/// @param src Source wide character string.
-MTY_EXPORT char *
-MTY_WideToMultiD(const wchar_t *src);
-
-/// @brief Convert a UTF-8 string to its wide character equivalent.
-/// @param src Source UTF-8 string.
-/// @param dst Destination wide character string.
-/// @param len Size in characters (not bytes) of `dst`.
-/// @returns Returns true on success, false on failure. Call MTY_GetLog for details.\n\n
-///   Even if a proper wide character conversion fails, this function attempts to fill
-///   `dst` with a best effort conversion.
-MTY_EXPORT bool
-MTY_MultiToWide(const char *src, wchar_t *dst, uint32_t len);
-
-/// @brief Dynamic version of MTY_MultiToWide.
-/// @param src Source UTF-8 string.
-MTY_EXPORT wchar_t *
-MTY_MultiToWideD(const char *src);
-
 
 //- #module System
 //- #mbrief Process and OS related functions.
@@ -1074,17 +1111,18 @@ typedef enum {
 
 /// @brief Dynamically load a shared object.
 /// @details This function wraps `dlopen` on Unix and `LoadLibrary` on Windows.
-/// @param name Name of or path to the shared object.
+/// @param path Path to the shared object. This can simply be the name of shared
+///   object if it is one of the default library search paths.
 /// @returns If the shared object can not be loaded or is not found, NULL is returned.
 ///   Call MTY_GetLog for details.\n\n
 ///   The returned MTY_SO must be unloaded with MTY_SOUnload.
 //- #support Windows macOS Android Linux
 MTY_EXPORT MTY_SO *
-MTY_SOLoad(const char *name);
+MTY_SOLoad(const char *path);
 
 /// @brief Get a symbol from a shared object.
 /// @param so An MTY_SO.
-/// @param name The name of symbol.
+/// @param name The name of the symbol, i.e. `malloc`.
 /// @returns A pointer to the symbol retrieved from the shared object, or NULL if the
 ///   symbol was not found. This symbol is only valid as long as the MTY_SO is loaded.
 //- #support Windows macOS Android Linux
@@ -1098,9 +1136,13 @@ MTY_EXPORT void
 MTY_SOUnload(MTY_SO **so);
 
 /// @brief Get the computer's hostname.
-/// @returns This buffer is allocated in thread local storage.
+/// @returns This buffer is allocated in thread local storage and must not be freed.
 MTY_EXPORT const char *
 MTY_GetHostname(void);
+
+/// @brief Check if libmatoya is supported on the current platform.
+MTY_EXPORT bool
+MTY_IsSupported(void);
 
 /// @brief Get the current platform.
 /// @returns An MTY_OS value bitwise OR'd with the OS's major and minor version numbers.
@@ -1116,30 +1158,28 @@ MTY_GetPlatform(void);
 MTY_EXPORT uint32_t
 MTY_GetPlatformNoWeb(void);
 
-/// @brief Check if libmatoya is supported on the current platform.
-MTY_EXPORT bool
-MTY_IsSupported(void);
-
 /// @brief Turn a platform integer into a readable string.
 /// @param platform Platform integer returned by MTY_GetPlatform or
 ///   MTY_GetPlatformNoWeb.
 /// @returns Example format would be `Windows 10.0`.\n\n
-///   This buffer is allocated in thread local storage.
+///   This buffer is allocated in thread local storage and must not be freed.
 MTY_EXPORT const char *
 MTY_GetVersionString(uint32_t platform);
 
 /// @brief Execute the default protocol handler for a given URI.
-/// @param uri The resource to be handled.
-/// @param token An optional `HANDLE` to a user's security token. Windows Only.
+/// @param uri The resource to be handled, i.e. `C:\tmp.txt` or `http://google.com`.
+/// @param token An optional `HANDLE` to a user's security token. This can be used
+///   to open the resource as a different user. Windows Only.
 MTY_EXPORT void
 MTY_HandleProtocol(const char *uri, void *token);
 
 /// @brief Get the full path to the current process including the executable name.
-/// @returns This buffer is allocated in thread local storage.
+/// @returns This buffer is allocated in thread local storage and must not be freed.
 MTY_EXPORT const char *
 MTY_GetProcessPath(void);
 
 /// @brief Restart the current process.
+/// @details For more information, see `execv` from the C standard library.
 /// @param argv Arguments to set up a call to `execv`. This is an array of strings
 ///   that must have its last element set to NULL.
 /// @returns On success this function does not return, otherwise it returns false.
@@ -1149,13 +1189,15 @@ MTY_EXPORT bool
 MTY_RestartProcess(char * const *argv);
 
 /// @brief Set a function to be called just before abnormal termination.
+/// @details This will attempt to hook `SIGKILL`, `SIGTERM`, and any Windows
+///   specific exception behavior that may trigger a crash.
 /// @param func Function called on termination.
 /// @param opaque Passed to `func` when it is called.
 //- #support Windows macOS Android Linux
 MTY_EXPORT void
 MTY_SetCrashFunc(MTY_CrashFunc func, void *opaque);
 
-/// @brief Open a console window the prints stdout and stderr.
+/// @brief Open a console window that prints stdout and stderr.
 /// @param title The title of the console window.
 //- #support Windows
 MTY_EXPORT void
@@ -1174,9 +1216,11 @@ MTY_GetRunOnStartup(const char *name);
 
 /// @brief Set an application to run on system startup.
 /// @param name Arbitrary application name.
-/// @param path Path to the executable that should be launched.
+/// @param path Path to the executable that should be launched. May be NULL to remove
+///   the application from system startup.
 /// @param args Argument string for the executable specified in `path`. This may be
-///   multiple command line arguments separated by spaces.
+///   multiple command line arguments separated by spaces. May be NULL if `path` is also
+///   NULL.
 //- #support Windows
 MTY_EXPORT void
 MTY_SetRunOnStartup(const char *name, const char *path, const char *args);
@@ -1189,7 +1233,7 @@ MTY_GetJNIEnv(void);
 
 //- #module Render
 //- #mbrief Common rendering tasks.
-//- #mdetails Currently there are only two utilities: drawing quads (rectangles)
+//- #mdetails Currently there are only two operations: drawing a quad (rectangle)
 //-   intended for video frames from a player or emulator, and drawing a 2D command
 //-   list intended for drawing user interfaces.\n\n
 //-   Textures can be loaded and referenced in the MTY_DrawData struct for loading
@@ -1198,7 +1242,7 @@ MTY_GetJNIEnv(void);
 
 typedef struct MTY_Device MTY_Device;
 typedef struct MTY_Context MTY_Context;
-typedef struct MTY_Texture MTY_Texture;
+typedef struct MTY_Surface MTY_Surface;
 typedef struct MTY_Renderer MTY_Renderer;
 typedef struct MTY_RenderState MTY_RenderState;
 
@@ -1254,7 +1298,7 @@ typedef enum {
 	MTY_ROTATION_MAKE_32 = INT32_MAX,
 } MTY_Rotation;
 
-/// @brief Quad drawing options.
+/// @brief Description of a render operation.
 typedef struct {
 	MTY_ColorFormat format; ///< The color format of a raw image.
 	MTY_Rotation rotation;  ///< Rotation applied to the image.
@@ -1269,7 +1313,8 @@ typedef struct {
 	float aspectRatio;      ///< Desired aspect ratio of the image. The renderer will letterbox
 	                        ///<   the image to maintain the specified aspect ratio.
 	float scale;            ///< Multiplier applied to the dimensions of the image, producing an
-	                        ///<   minimized or magnified image.
+	                        ///<   minimized or magnified image. This can be set to 0
+	                        ///<   if unnecessary.
 } MTY_RenderDesc;
 
 /// @brief A point with an `x` and `y` coordinate.
@@ -1323,7 +1368,7 @@ typedef struct {
 	uint32_t cmdListMax;     ///< Size of `cmdList`, used internally for deduping.
 	uint32_t idxTotalLength; ///< Total number of indices in all command lists.
 	uint32_t vtxTotalLength; ///< Total number of vertices in all command lists.
-	bool clear;              ///< Drawing surface should be cleared before drawing.
+	bool clear;              ///< Surface should be cleared before drawing.
 } MTY_DrawData;
 
 /// @brief Create an MTY_Renderer capable of executing drawing commands.
@@ -1349,7 +1394,7 @@ MTY_RendererDestroy(MTY_Renderer **renderer);
 MTY_EXPORT bool
 MTY_RendererDrawQuad(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device,
 	MTY_Context *context, const void *image, const MTY_RenderDesc *desc,
-	MTY_Texture *dest);
+	MTY_Surface *dest);
 
 /// @brief Draw a UI given MTY_DrawData.
 /// @param ctx An MTY_Renderer.
@@ -1361,7 +1406,7 @@ MTY_RendererDrawQuad(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device,
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_RendererDrawUI(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device,
-	MTY_Context *context, const MTY_DrawData *dd, MTY_Texture *dest);
+	MTY_Context *context, const MTY_DrawData *dd, MTY_Surface *dest);
 
 /// @brief Set an RGBA texture image for use in MTY_DrawData.
 /// @param ctx An MTY_Renderer.
@@ -1369,7 +1414,7 @@ MTY_RendererDrawUI(MTY_Renderer *ctx, MTY_GFX api, MTY_Device *device,
 /// @param device See Generic Objects.
 /// @param context See Generic Objects.
 /// @param id The desired `id` for the texture.
-/// @param rgba RGBA 8-bits per pixel image.
+/// @param rgba RGBA 8-bits per channel image.
 /// @param width Width of `rgba`.
 /// @param height Height of `rgba`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
@@ -1425,7 +1470,7 @@ typedef struct MTY_Queue MTY_Queue;
 typedef struct MTY_List MTY_List;
 
 /// @brief Function that frees resources you allocated within a data structure.
-/// @param Pointer set via MTY_HashSet et al.
+/// @param ptr Pointer set via MTY_HashSet et al.
 typedef void (*MTY_FreeFunc)(void *ptr);
 
 /// @brief Node in a linked list.
@@ -1435,7 +1480,7 @@ typedef struct MTY_ListNode {
 	void *value;               ///< The value associated with the node.
 } MTY_ListNode;
 
-/// @brief Create an MTY_Hash for fast key/value lookup.
+/// @brief Create an MTY_Hash for key/value lookup.
 /// @param numBuckets The number of buckets to use. The more buckets, the larger
 ///   the memory usage but less chance of collision. Specifying 0 chooses a reasonable
 ///   default.
@@ -1468,7 +1513,8 @@ MTY_HashGetInt(MTY_Hash *ctx, int64_t key);
 /// @param ctx An MTY_Hash.
 /// @param key String key to set.
 /// @param value Value to set associated with `key`.
-/// @returns If `key` already exists, the value that was replaced, otherwise NULL.
+/// @returns If `key` already exists, the previous value is returned,
+///   otherwise NULL is returned.
 MTY_EXPORT void *
 MTY_HashSet(MTY_Hash *ctx, const char *key, void *value);
 
@@ -1476,20 +1522,21 @@ MTY_HashSet(MTY_Hash *ctx, const char *key, void *value);
 /// @param ctx An MTY_Hash.
 /// @param key Integer key to set.
 /// @param value Value to set associated with `key`.
-/// @returns If `key` already exists, the value that was replaced, otherwise NULL.
+/// @returns If `key` already exists, the previous value is returned,
+///   otherwise NULL is returned.
 MTY_EXPORT void *
 MTY_HashSetInt(MTY_Hash *ctx, int64_t key, void *value);
 
 /// @brief Get and remove a value from a hash by string key.
 /// @param ctx An MTY_Hash.
-/// @param key String key to lookup.
+/// @param key String key to lookup and remove.
 /// @returns The value associated with `key`, otherwise NULL.
 MTY_EXPORT void *
 MTY_HashPop(MTY_Hash *ctx, const char *key);
 
 /// @brief Get and remove a value from a hash by integer key.
 /// @param ctx An MTY_Hash.
-/// @param key Integer key to lookup.
+/// @param key Integer key to lookup and remove.
 /// @returns The value associated with `key`, otherwise NULL.
 MTY_EXPORT void *
 MTY_HashPopInt(MTY_Hash *ctx, int64_t key);
@@ -1513,8 +1560,12 @@ MTY_EXPORT bool
 MTY_HashGetNextKeyInt(MTY_Hash *ctx, uint64_t *iter, int64_t *key);
 
 /// @brief Create an MTY_Queue for thread safe serialization.
-/// @param len The length of the queue.
-/// @param bufSize The preallocated size of each buffer in the queue.
+/// @details The queue is a multi-producer single-consumer style queue, meaning
+///   multiple threads can submit to the queue safely, but only a single thread can
+///   pop from it.
+/// @param len The number of buffers in the queue.
+/// @param bufSize The preallocated size of each buffer in the queue. If only pushing
+///   via MTY_QueuePushPtr, this can be set to 0.
 /// @returns The returned MTY_Queue must be destroyed with MTY_QueueDestroy.
 MTY_EXPORT MTY_Queue *
 MTY_QueueCreate(uint32_t len, size_t bufSize);
@@ -1525,6 +1576,8 @@ MTY_EXPORT void
 MTY_QueueDestroy(MTY_Queue **queue);
 
 /// @brief Get the current number of items in the queue.
+/// @details Calling this function doesn't lock the queue, so it can be viewed as
+///   an approximation while there is activity.
 /// @param ctx An MTY_Queue.
 MTY_EXPORT uint32_t
 MTY_QueueGetLength(MTY_Queue *ctx);
@@ -1545,18 +1598,18 @@ MTY_QueuePush(MTY_Queue *ctx, size_t size);
 /// @brief Lock and retrieve the next available output buffer from the queue.
 /// @param ctx An MTY_Queue.
 /// @param timeout Time to wait for an output buffer to become available.
-/// @param buffer On success, reference to the next output buffer.
-/// @param size On success, set to the size of the data filled in `buffer`.
-/// @returns Returns true if an output buffer was acquired, NULL on timeout.
+/// @param buffer Reference to the next output buffer.
+/// @param size Set to the size of the data available in `buffer`.
+/// @returns Returns true if an output buffer was acquired, false on timeout.
 MTY_EXPORT bool
 MTY_QueuePop(MTY_Queue *ctx, int32_t timeout, void **buffer, size_t *size);
 
 /// @brief Lock and discard all but the last available output buffer from the queue.
 /// @param ctx An MTY_Queue.
 /// @param timeout Time to wait for an output buffer to become available.
-/// @param buffer On success, reference to the next output buffer.
-/// @param size On success, set to the size of the data filled in `buffer`.
-/// @returns Returns true if the last output buffer was acquired, NULL on timeout.
+/// @param buffer Reference to the next output buffer.
+/// @param size Set to the size of the data filled in `buffer`.
+/// @returns Returns true if an output buffer was acquired, false on timeout.
 MTY_EXPORT bool
 MTY_QueuePopLast(MTY_Queue *ctx, int32_t timeout, void **buffer, size_t *size);
 
@@ -1574,11 +1627,11 @@ MTY_QueueReleaseBuffer(MTY_Queue *ctx);
 MTY_EXPORT bool
 MTY_QueuePushPtr(MTY_Queue *ctx, void *opaque, size_t size);
 
-/// @brief Pop pointer allocated by the caller from a queue.
+/// @brief Pop a pointer allocated by the caller from a queue.
 /// @param ctx An MTY_Queue.
 /// @param timeout Time to wait for the next pointer to become available.
 /// @param opaque Reference to a pointer set via MTY_QueuePushPtr.
-/// @param size Size value set in the call to MTY_QueuePushPtr.
+/// @param size Set to the `size` passed to MTY_QueuePushPtr.
 /// @returns Returns true if an `opaque` was successfully popped from the queue,
 ///   otherwise false on timeout.
 MTY_EXPORT bool
@@ -1591,7 +1644,7 @@ MTY_QueuePopPtr(MTY_Queue *ctx, int32_t timeout, void **opaque, size_t *size);
 MTY_EXPORT void
 MTY_QueueFlush(MTY_Queue *ctx, MTY_FreeFunc freeFunc);
 
-/// @brief Create an MTY_List.
+/// @brief Create an MTY_List for a flexibly sized array.
 /// @returns The returned MTY_List must be destroyed with MTY_ListDestroy.\n\n
 ///   Only the first node in the list should be passed to MTY_ListDestroy.
 MTY_EXPORT MTY_List *
@@ -1626,6 +1679,10 @@ MTY_ListRemove(MTY_List *ctx, MTY_ListNode *node);
 
 //- #module Thread
 //- #mbrief Thread creation and synchronization, atomics.
+//- #mdetails You should have a solid understanding of multithreaded programming
+//-   before using any of these functions. This module serves as a cross-platform
+//-   wrapper around POSIX `pthreads` and Windows' critical sections, condition
+//-   variables, and slim reader/writer (SRW) locks.
 //- #msupport Windows macOS Android Linux
 
 typedef struct MTY_Thread MTY_Thread;
@@ -1648,7 +1705,7 @@ typedef void *(*MTY_ThreadFunc)(void *opaque);
 /// @brief Status of an asynchronous task.
 typedef enum {
 	MTY_ASYNC_OK       = 0, ///< The task has completed and the result is ready.
-	MTY_ASYNC_DONE     = 1, ///< There is no task in progress or with a result ready.
+	MTY_ASYNC_DONE     = 1, ///< There is no task in progress.
 	MTY_ASYNC_CONTINUE = 2, ///< The task is currently in progress.
 	MTY_ASYNC_ERROR    = 3, ///< The task has failed.
 	MTY_ASYNC_MAKE_32  = INT32_MAX,
@@ -1656,12 +1713,12 @@ typedef enum {
 
 /// @brief 32-bit integer used for atomic operations.
 typedef struct {
-	volatile int32_t value; ///< 32-bit value wrapped in a `struct` for alignment.
+	volatile int32_t value; ///< 32-bit value wrapped in a struct for alignment.
 } MTY_Atomic32;
 
 /// @brief 64-bit integer used for atomic operations.
 typedef struct {
-	volatile int64_t value; ///< 64-bit integer wrapped in a `struct` for alignment.
+	volatile int64_t value; ///< 64-bit integer wrapped in a struct for alignment.
 } MTY_Atomic64;
 
 /// @brief Create an MTY_Thread that executes asynchronously.
@@ -1673,6 +1730,7 @@ MTY_EXPORT MTY_Thread *
 MTY_ThreadCreate(MTY_ThreadFunc func, void *opaque);
 
 /// @brief Wait until an MTY_Thread has finished executing then destroy it.
+/// @details Otherwise known as "joining" a thread.
 /// @param thread Passed by reference and set to NULL after being destroyed.
 /// @returns The return value from `func` set via MTY_ThreadCreate.
 MTY_EXPORT void *
@@ -1690,6 +1748,8 @@ MTY_EXPORT int64_t
 MTY_ThreadGetID(MTY_Thread *ctx);
 
 /// @brief Create an MTY_Mutex for synchronization.
+/// @details A mutex can be locked by only one thread at a time. Other threads trying
+///   to take the same mutex will block until it becomes unlocked.
 /// @returns This function can not return NULL. It will call `abort()` on failure.\n\n
 ///   The returned MTY_Mutex must be destroyed with MTY_MutexDestroy.
 MTY_EXPORT MTY_Mutex *
@@ -1716,7 +1776,7 @@ MTY_MutexTryLock(MTY_Mutex *ctx);
 MTY_EXPORT void
 MTY_MutexUnlock(MTY_Mutex *ctx);
 
-/// @brief Create an MTY_Cond (condition variable) for signalling between threads.
+/// @brief Create an MTY_Cond (condition variable) for signaling between threads.
 /// @returns This function can not return NULL. It will call `abort()` on failure.\n\n
 ///   The returned MTY_Cond must be destroyed with MTY_CondDestroy.
 MTY_EXPORT MTY_Cond *
@@ -1727,7 +1787,7 @@ MTY_CondCreate(void);
 MTY_EXPORT void
 MTY_CondDestroy(MTY_Cond **cond);
 
-/// @brief Wait for a condition variable to be signalled with a timeout.
+/// @brief Wait for a condition variable to be signaled with a timeout.
 /// @param ctx An MTY_Cond condition variable.
 /// @param mutex An MTY_Mutex that should be locked before the call to this function.
 ///   When this function is called, the mutex will be unlocked while it is waiting,
@@ -1793,7 +1853,7 @@ MTY_WaitableCreate(void);
 MTY_EXPORT void
 MTY_WaitableDestroy(MTY_Waitable **waitable);
 
-/// @brief Wait for a waitable object to be signalled with a timeout.
+/// @brief Wait for a waitable object to be signaled with a timeout.
 /// @param ctx An MTY_Waitable object.
 /// @param timeout Time to wait in milliseconds for the waitable object to be signaled.
 /// @returns If signaled, returns true, otherwise false on timeout.
@@ -1820,7 +1880,7 @@ MTY_ThreadPoolCreate(uint32_t maxThreads);
 /// @brief Destroy an MTY_ThreadPool.
 /// @param pool Passed by reference and set to NULL after being destroyed.
 /// @param detach Function called to clean up `opaque` thread state set via
-///   MTY_ThreadPoolStart after threads are done executing. May be NULL if not
+///   MTY_ThreadPoolDispatch after threads are done executing. May be NULL if not
 ///   applicable.
 MTY_EXPORT void
 MTY_ThreadPoolDestroy(MTY_ThreadPool **pool, MTY_AnonFunc detach);
@@ -1832,13 +1892,16 @@ MTY_ThreadPoolDestroy(MTY_ThreadPool **pool, MTY_AnonFunc detach);
 /// @returns On success, the index of the scheduled thread which must be greater than 0.
 ///   If there is no room left in the pool, 0 is returned. Call MTY_GetLog for details.
 MTY_EXPORT uint32_t
-MTY_ThreadPoolStart(MTY_ThreadPool *ctx, MTY_AnonFunc func, void *opaque);
+MTY_ThreadPoolDispatch(MTY_ThreadPool *ctx, MTY_AnonFunc func, void *opaque);
 
 /// @brief Allow a thread to be reused after it is has finished executing.
+/// @details This function may be called while the thread is executing or after it has
+///   already been set to MTY_ASYNC_OK. In either case, the thread is allowed to be
+///   reused via MTY_ThreadPoolDispatch as soon as it is no longer executing.
 /// @param ctx An MTY_ThreadPool.
 /// @param index Thread index returned by MTY_ThreadPoolCreate.
 /// @param detach Function called to clean up `opaque` thread state set via
-///   MTY_ThreadPoolStart after the thread is done executing. May be NULL if not
+///   MTY_ThreadPoolDispatch after the thread is done executing. May be NULL if not
 ///   applicable.
 MTY_EXPORT void
 MTY_ThreadPoolDetach(MTY_ThreadPool *ctx, uint32_t index, MTY_AnonFunc detach);
@@ -1848,7 +1911,7 @@ MTY_ThreadPoolDetach(MTY_ThreadPool *ctx, uint32_t index, MTY_AnonFunc detach);
 /// @param index Thread index returned by MTY_ThreadPoolCreate.
 /// @param opaque Thread state set via the `opaque` argument to MTY_ThreadPoolCreate.
 /// @returns MTY_ASYNC_OK means the request has finished and `opaque` has been set to
-///   the value originally passed via MTY_ThreadPoolStart.\n\n
+///   the value originally passed via MTY_ThreadPoolDispatch.\n\n
 ///   MTY_ASYNC_DONE means there is no thread running at `index`.\n\n
 ///   MTY_ASYNC_CONTINUE means the thread is still executing.
 MTY_EXPORT MTY_Async
@@ -1918,7 +1981,7 @@ MTY_Atomic64CAS(MTY_Atomic64 *atomic, int64_t oldValue, int64_t newValue);
 
 /// @brief Globally lock via an atomic.
 /// @details All atomic operations in libmatoya create a full memory barrier.\n\n
-///   Warning: There is a process wide maximum of `UINT8_MAX` global locks.\n\n
+///   Warning: There is a process wide maximum of UINT8_MAX global locks.\n\n
 ///   The global lock should be statically initialized to zero.
 /// @param lock An MTY_Atomic32.
 MTY_EXPORT void
@@ -1932,18 +1995,18 @@ MTY_GlobalUnlock(MTY_Atomic32 *lock);
 
 
 //- #module Time
-//- #mbrief High precision timestamp and sleep.
+//- #mbrief High precision time stamps and sleep.
 
 typedef int64_t MTY_Time;
 
-/// @brief Get a high precision MTY_Time value.
+/// @brief Get a high precision time stamp.
 /// @details This value has at least microsecond precision.
 MTY_EXPORT MTY_Time
 MTY_GetTime(void);
 
-/// @brief Get the difference between two MTY_Time values in milliseconds.
-/// @param begin The beginning time value.
-/// @param end The ending time value.
+/// @brief Get the difference between two MTY_Time stamps in milliseconds.
+/// @param begin The beginning time stamp.
+/// @param end The ending time stamp.
 /// @returns This value can be negative if `begin > end`.
 MTY_EXPORT float
 MTY_TimeDiff(MTY_Time begin, MTY_Time end);
@@ -2282,7 +2345,7 @@ typedef enum {
 	MTY_CAXIS_TRIGGER_L = 4,  ///< Left Trigger
 	MTY_CAXIS_TRIGGER_R = 5,  ///< Right Trigger
 	MTY_CAXIS_DPAD      = 6,  ///< DPAD
-	MTY_CAXIS_MAX       = 16, ///< Maximum number of possible values.
+	MTY_CAXIS_MAX       = 16, ///< Maximum number of possible axes.
 	MTY_CAXIS_MAKE_32   = INT32_MAX,
 } MTY_CAxis;
 
@@ -2316,7 +2379,7 @@ typedef enum {
 /// @brief Controller axis.
 typedef struct {
 	uint16_t usage; ///< The mapped HID usage ID.
-	int16_t value;  ///< Axis data.
+	int16_t value;  ///< Axis value.
 	int16_t min;    ///< Axis logical minimum.
 	int16_t max;    ///< Axis logical maximum.
 } MTY_Axis;
@@ -2368,7 +2431,7 @@ typedef struct {
 /// @brief File drop event.
 typedef struct {
 	const char *name; ///< The name of file.
-	const void *data; ///< A buffer containing the contents of the file.
+	const void *buf;  ///< A buffer containing the contents of the file.
 	size_t size;      ///< The size of `data`.
 } MTY_DropEvent;
 
@@ -2385,9 +2448,9 @@ typedef struct {
 
 /// @brief App event encapsulating all event types.
 /// @details First inspect the `type` member to determine what kind of event it is,
-///   then choose one of the members from the nameless `union`.
+///   then choose one of the members from the nameless union.
 typedef struct MTY_Event {
-	MTY_EventType type; ///< The type of event determining which members of the `union` are valid.
+	MTY_EventType type; ///< The type of event determining which member in the union is valid.
 	MTY_Window window;  ///< The window associated with the event.
 
 	union {
@@ -2400,19 +2463,21 @@ typedef struct MTY_Event {
 		MTY_PenEvent pen;               ///< Valid on MTY_EVENT_PEN.
 		MTY_KeyEvent key;               ///< Valid on MTY_EVENT_KEY.
 
-		const char *reopenArg; ///< Valid on MTY_EVENT_REOPEN, argument supplied.
-		uint32_t hotkey;       ///< Valid on MTY_EVENT_HOTKEY, `id` set via MTY_AppSetHotkey.
-		uint32_t trayID;       ///< Valid on MTY_EVENT_TRAY, menu item ID set via MTY_AppSetTray.
-		char text[8];          ///< Valid on MTY_EVENT_TEXT, UTF-8 text.
-		bool focus;            ///< Valid on MTY_EVENT_FOCUS, focus state.
+		const char *reopenArg; ///< Valid on MTY_EVENT_REOPEN, the argument supplied.
+		uint32_t hotkey;       ///< Valid on MTY_EVENT_HOTKEY, the `id` set via MTY_AppSetHotkey.
+		uint32_t trayID;       ///< Valid on MTY_EVENT_TRAY, the menu `id` set via MTY_AppSetTray.
+		char text[8];          ///< Valid on MTY_EVENT_TEXT, the UTF-8 text.
+		bool focus;            ///< Valid on MTY_EVENT_FOCUS, the focus state.
 	};
 } MTY_Event;
 
 /// @brief Menu item on a tray's menu.
 typedef struct {
-	MTY_MenuItemCheckedFunc checked;
-	const char *label; ///< The menu item's label.
-	uint32_t trayID;   ///< The `trayID` sent with an MTY_Event when the menu item is selected.
+	MTY_MenuItemCheckedFunc checked; ///< Function called when the menu is opened to determine
+	                                 ///<   if the menu item should be checked.
+	const char *label;               ///< The menu item's label.
+	uint32_t trayID;                 ///< The `trayID` sent with an MTY_Event when the menu item
+	                                 ///<   is selected.
 } MTY_MenuItem;
 
 /// @brief Window creation options.
@@ -2428,7 +2493,8 @@ typedef struct {
 	uint32_t y;         ///< The window's vertical position per its `origin`.
 	float maxHeight;    ///< The maximum height of a window during creation.
 	bool fullscreen;    ///< Window is created as a fullscreen window.
-	bool hidden;        ///< Window should be created hidden.
+	bool hidden;        ///< Window should be created hidden. If this is set it will not be
+	                    ///<   activated when it is created.
 	bool vsync;         ///< MTY_WindowPresent should wait for monitor's next refresh cycle.
 } MTY_WindowDesc;
 
@@ -2490,7 +2556,7 @@ MTY_AppActivate(MTY_App *ctx, bool active);
 MTY_EXPORT MTY_Detach
 MTY_AppGetDetached(MTY_App *ctx);
 
-/// @brief Detach grabbed or relative mouse behavior temporarily.
+/// @brief Detach mouse/keyboard grab or relative mouse behavior temporarily.
 /// @details The app defaults to MTY_DETACH_NONE.
 /// @param ctx The MTY_App.
 /// @param type Detach type.
@@ -2502,7 +2568,7 @@ MTY_AppDetach(MTY_App *ctx, MTY_Detach type);
 /// @param ctx The MTY_App.
 /// @param enable Set true to stay awake, false to allow sleep.
 MTY_EXPORT void
-MTY_AppEnableScreenSaver(MTY_App *ctx, bool enable);
+MTY_AppStayAwake(MTY_App *ctx, bool enable);
 
 /// @brief Get the current text content of the clipboard.
 /// @param ctx The MTY_App.
@@ -2523,7 +2589,8 @@ MTY_EXPORT bool
 MTY_AppIsKeyboardGrabbed(MTY_App *ctx);
 
 /// @brief Grab the keyboard, capturing certain keys usually handled by the OS.
-/// @details The app defaults being ungrabbed.
+/// @details The app defaults being ungrabbed. This function will attempt to route all
+///   special OS hotkeys to the app instead, i.e. ATL+TAB on Windows.
 /// @param ctx The MTY_App.
 /// @param grab Set true to grab, false to ungrab.
 //- #support Windows
@@ -2546,7 +2613,7 @@ MTY_AppGrabMouse(MTY_App *ctx, bool grab);
 /// @param ctx The MTY_App.
 /// @param tooltip Text that appears when the tray icon is hovered.
 /// @param items Menu items that appear when the tray icon is activated.
-/// @param len Length in elements of `items`.
+/// @param len Number of elements of `items`.
 //- #support Windows
 MTY_EXPORT void
 MTY_AppSetTray(MTY_App *ctx, const char *tooltip, const MTY_MenuItem *items,
@@ -2560,6 +2627,7 @@ MTY_EXPORT void
 MTY_AppRemoveTray(MTY_App *ctx);
 
 /// @brief Send a system-wide notification (toast).
+/// @details A tray icon must be set via MTY_AppSetTray for notifications to work.
 /// @param ctx The MTY_App.
 /// @param title Title of the notification.
 /// @param msg Body of the notification.
@@ -2576,6 +2644,7 @@ MTY_EXPORT uint32_t
 MTY_AppGetHotkey(MTY_App *ctx, MTY_Scope scope, MTY_Mod mod, MTY_Key key);
 
 /// @brief Set a hotkey combination.
+/// @details Globally scoped hotkeys are only available on Windows.
 /// @param ctx The MTY_App.
 /// @param scope Global or local scope.
 /// @param mod Hotkey modifier.
@@ -2669,7 +2738,7 @@ MTY_AppSetOrientation(MTY_App *ctx, MTY_Orientation orientation);
 
 /// @brief Set the rumble state on a controller.
 /// @details Rumble on controllers is generally stateful and must be set to 0
-///   to stop rumbling. Some controllers will automatically stop rumble if it has
+///   to stop rumbling. Some controllers will automatically stop rumbling if it has
 ///   not been refreshed after a short period of time.
 /// @param ctx The MTY_App.
 /// @param id A controller `id` found via MTY_EVENT_CONTROLLER or MTY_EVENT_CONNECT.
@@ -2702,6 +2771,7 @@ MTY_AppGetInputMode(MTY_App *ctx);
 /// @brief Set the app's current mobile input mode.
 /// @details The app defaults to MTY_INPUT_UNSPECIFIED.
 /// @param ctx The MTY_App.
+/// @param mode Mobile touch input mode.
 //- #support Android
 MTY_EXPORT void
 MTY_AppSetInputMode(MTY_App *ctx, MTY_Input mode);
@@ -2784,6 +2854,7 @@ MTY_WindowIsActive(MTY_App *app, MTY_Window window);
 /// @brief Activate or deactivate a window.
 /// @details Activating a window it to the foreground and focuses it, deactivating
 ///   a window hides it. Windows are automatically activated when they are created.
+/// @param app The MTY_App.
 /// @param window An MTY_Window.
 /// @param active Set true to activate, false to deactivate.
 //- #support Windows macOS Linux
@@ -2803,6 +2874,8 @@ MTY_EXPORT bool
 MTY_WindowIsFullscreen(MTY_App *app, MTY_Window window);
 
 /// @brief Put a window into or out of fullscreen mode.
+/// @details libmatoya uses "borderless windowed" mode exclusively and does not
+///   support exclusive fullscreen mode.
 /// @param app The MTY_App.
 /// @param window An MTY_Window.
 /// @param fullscreen Set true to put the window into fullscreen, false to take it out.
@@ -2836,7 +2909,7 @@ MTY_WindowGetContext(MTY_App *app, MTY_Window window);
 /// @param app The MTY_App.
 /// @param window An MTY_Window.
 /// @returns See Generic Objects.
-MTY_EXPORT MTY_Texture *
+MTY_EXPORT MTY_Surface *
 MTY_WindowGetBackBuffer(MTY_App *app, MTY_Window window);
 
 /// @brief Wrapped MTY_RendererDrawQuad for the window.
@@ -2867,7 +2940,7 @@ MTY_WindowHasUITexture(MTY_App *app, MTY_Window window, uint32_t id);
 /// @param app The MTY_App.
 /// @param window An MTY_Window.
 /// @param id The desired `id` for the texture.
-/// @param rgba RGBA 8-bits per pixel image.
+/// @param rgba RGBA 8-bits per channel image.
 /// @param width Width of `rgba`.
 /// @param height Height of `rgba`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
@@ -2951,6 +3024,8 @@ MTY_EXPORT bool
 MTY_HasDialogs(void);
 
 /// @brief Show a simple message box with a title and formatted string.
+/// @details Warning: Be careful with your format string, if it is incorrect this
+///   function will have undefined behavior.
 /// @param title Title of the message box.
 /// @param fmt Format string for the body of the message box.
 /// @param ... Variable arguments as specified by `fmt`.
@@ -2972,12 +3047,13 @@ typedef struct MTY_WebSocket MTY_WebSocket;
 ///   before it is returned via MTY_HttpAsyncPoll. The advantage is that this function
 ///   is executed on a thread so it can be parallelized.
 /// @param code The HTTP response status code.
-/// @param body A reference to the response.
-/// @param size A reference to the response size.
+/// @param body A reference to the response. This value may be mutated by this function.
+/// @param size A reference to the response size. This value may be mutated by this
+///   function.
 typedef void (*MTY_HttpAsyncFunc)(uint16_t code, void **body, size_t *size);
 
-/// @brief Set a global proxy used by all HTTP requests.
-/// @param proxy The proxy URL.
+/// @brief Set a global proxy used by all HTTP and WebSocket requests.
+/// @param proxy The proxy URL including the port, i.e. `http://example.com:1337`.
 MTY_EXPORT void
 MTY_HttpSetProxy(const char *proxy);
 
@@ -3000,6 +3076,7 @@ MTY_EXPORT void
 MTY_HttpEncodeUrl(const char *src, char *dst, size_t size);
 
 /// @brief Make a synchronous HTTP request.
+/// @details Only `Content-Encoding: gzip` is supported for compression.
 /// @param host Hostname.
 /// @param secure If true, make an HTTPS request, otherwise HTTP.
 /// @param method The HTTP method, i.e. `GET` or `POST`.
@@ -3022,7 +3099,8 @@ MTY_HttpRequest(const char *host, bool secure, const char *method, const char *p
 	void **response, size_t *responseSize, uint16_t *status);
 
 /// @brief Create a global asynchronous HTTP thread pool.
-/// @param maxThreads Maximum number of threads that can be simultaneously executing.
+/// @param maxThreads Maximum number of threads that can be simultaneously making
+///   requests.
 MTY_EXPORT void
 MTY_HttpAsyncCreate(uint32_t maxThreads);
 
@@ -3032,8 +3110,8 @@ MTY_HttpAsyncDestroy(void);
 
 /// @brief Dispatch an HTTP request to the global HTTP thread pool.
 /// @param index The thread index to dispatch the request on. This variable acts as
-///   a pseudo context as it can be initialized to 0, then is set to a new index
-///   internally. If a request is dispatched using and index already executing, the
+///   a pseudo context as it should be initialized to 0, then is set to a new index
+///   internally. If a request is dispatched using an index already executing, the
 ///   thread is automatically detached and the new request is dispatched to a different
 ///   thread.
 /// @param host Hostname.
@@ -3071,11 +3149,12 @@ MTY_EXPORT MTY_Async
 MTY_HttpAsyncPoll(uint32_t index, void **response, size_t *size, uint16_t *status);
 
 /// @brief Allow a thread in the global HTTP thread pool to be reused.
-/// @param index The thread index to clean up. It is set to 0 internally.
+/// @param index The thread index to clean up. Set to 0 before returning.
 MTY_EXPORT void
 MTY_HttpAsyncClear(uint32_t *index);
 
 /// @brief Listen for incoming WebSocket connections.
+/// @details WebSocket servers currently do not support secure connections.
 /// @param ip Local IP address to bind to.
 /// @param port Local port to bind to.
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
@@ -3084,7 +3163,8 @@ MTY_EXPORT MTY_WebSocket *
 MTY_WebSocketListen(const char *ip, uint16_t port);
 
 /// @brief Accept a new WebSocket connection.
-/// @param ws An MTY_WebSocket.
+/// @details WebSocket servers currently do not support secure connections.
+/// @param ctx An MTY_WebSocket.
 /// @param origins An array of strings determining the allowed client origins to
 ///   accept connections from. May be NULL to ignore this behavior.
 /// @param numOrigins The number of elements in `origins`, or 0 if `origins` is NULL.
@@ -3093,10 +3173,20 @@ MTY_WebSocketListen(const char *ip, uint16_t port);
 /// @returns On timeout, NULL is returned.\n\n
 ///   The returned MTY_WebSocket must be destroyed with MTY_WebSocketDestroy.
 MTY_EXPORT MTY_WebSocket *
-MTY_WebSocketAccept(MTY_WebSocket *ws, const char * const *origins, uint32_t numOrigins,
+MTY_WebSocketAccept(MTY_WebSocket *ctx, const char * const *origins, uint32_t numOrigins,
 	bool secureOrigin, uint32_t timeout);
 
 /// @brief Connect to a WebSocket endpoint.
+/// @param host Hostname.
+/// @param port Port.
+/// @param secure If true, make a WSS connection, otherwise WS.
+/// @param path Path to the resource.
+/// @param headers HTTP header key/value pairs in the format `Key:Value` separated by
+///   newline characters.\n\n
+///   May be NULL for no additional headers.
+/// @param timeout Time to wait for connection in milliseconds.
+/// @param upgradeStatus Set to the HTTP response status code of the WebSocket upgrade
+///   request. This value is set even on failure.
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_WebSocket must be destroyed with MTY_WebSocketDestroy.
 MTY_EXPORT MTY_WebSocket *
@@ -3104,22 +3194,29 @@ MTY_WebSocketConnect(const char *host, uint16_t port, bool secure, const char *p
 	const char *headers, uint32_t timeout, uint16_t *upgradeStatus);
 
 /// @brief Destroy a WebSocket.
+/// @param webSocket Passed by reference and set to NULL after being destroyed.\n\n
+///   This function will attempt to gracefully close the connection with a close
+///   code of `1000`.
 MTY_EXPORT void
-MTY_WebSocketDestroy(MTY_WebSocket **ws);
+MTY_WebSocketDestroy(MTY_WebSocket **webSocket);
 
 /// @brief Read a message from a WebSocket.
+/// @param ctx An MTY_WebSocket.
+/// @param timeout Time to wait for a message to become available in milliseconds.
+/// @param msg Output message buffer.
+/// @param size Size in bytes of `msg`.
 /// @returns MTY_ASYNC_OK means a message has been successfully read into `msg`.\n\n
 ///   MTY_ASYNC_CONTINUE means the `timeout` has been reached without a message.\n\n
 ///   MTY_ASYNC_ERROR means an error has occurred. Call MTY_GetLog for details.
 MTY_EXPORT MTY_Async
-MTY_WebSocketRead(MTY_WebSocket *ws, uint32_t timeout, char *msg, size_t size);
+MTY_WebSocketRead(MTY_WebSocket *ctx, uint32_t timeout, char *msg, size_t size);
 
 /// @brief Write a message to a WebSocket.
-/// @param ws An MTY_WebSocket.
+/// @param ctx An MTY_WebSocket.
 /// @param msg The string message to send.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
-MTY_WebSocketWrite(MTY_WebSocket *ws, const char *msg);
+MTY_WebSocketWrite(MTY_WebSocket *ctx, const char *msg);
 
 /// @brief Get the 16-bit close code after a WebSocket connection has been terminated.
 /// @param ctx An MTY_WebSocket that is in the closed state.
@@ -3131,6 +3228,8 @@ MTY_WebSocketGetCloseCode(MTY_WebSocket *ctx);
 
 //- #module TLS
 //- #mbrief TLS/DTLS protocol wrapper.
+//- #mdetails This module performs no IO and acts as a TLS engine that requires you
+//-   to feed it input and in turn will output data suitable for sending over a network.
 
 #define MTY_FINGERPRINT_MAX 112 ///< Maximum size of the string set by MTY_CertGetFingerprint.
 
@@ -3138,8 +3237,8 @@ typedef struct MTY_Cert MTY_Cert;
 typedef struct MTY_TLS MTY_TLS;
 
 /// @brief Function called when TLS handshake data is ready to be sent.
-/// @param buf The TLS message.
-/// @param size Size of `buf` in bytes.
+/// @param buf The outbound TLS message.
+/// @param size Size in bytes of `buf`.
 /// @param opaque Pointer set via MTY_TLSHandshake.
 /// @returns Return true on success, false on failure. Returning false will cause
 ///   MTY_TLSHandshake to return MTY_ASYNC_ERROR.
@@ -3170,20 +3269,23 @@ MTY_CertDestroy(MTY_Cert **cert);
 
 /// @brief Get the certificate's SHA-256 fingerprint.
 /// @param ctx An MTY_Cert.
-/// @param fingerprint Buffer to receive the fingerprint.
+/// @param fingerprint Output buffer to receive the fingerprint. This buffer can be
+///   of size MTY_FINGERPRINT_MAX.
 /// @param size Size in bytes of `fingerprint`.
 MTY_EXPORT void
 MTY_CertGetFingerprint(MTY_Cert *ctx, char *fingerprint, size_t size);
 
-/// @brief Create an MTY_TLS context for secure client connections.
+/// @brief Create an MTY_TLS context for secure data transfer.
+/// @details Currently this interface only supports the client end of the TLS
+///   protocol.
 /// @param type TLS or DTLS.
-/// @param cert An MTY_Cert set during the client handshake. May be NULL for no
+/// @param cert An MTY_Cert to set during the client handshake. May be NULL for no
 ///   client cert.
 /// @param host The peer's hostname. This is an important security feature and must
 ///   be set for TLS. For DTLS, it may be NULL.
-/// @param peerFingerprint Verify the peer's certificate fingerprint. May be NULL
-///   for no verification.
-/// @param mtu Specify the UDP MTU for DTLS. Ignored for TLS.
+/// @param peerFingerprint Fingerprint string to verify the peer's cert. May be NULL
+///   for no cert verification.
+/// @param mtu Specify the UDP maximum transmission unit for DTLS. Ignored for TLS.
 /// @returns On failure, NULL is returned. Call MTY_GetLog for details.\n\n
 ///   The returned MTY_TLS context must be destroyed with MTY_TLSDestroy.
 MTY_EXPORT MTY_TLS *
@@ -3217,7 +3319,7 @@ MTY_TLSHandshake(MTY_TLS *ctx, const void *buf, size_t size, MTY_TLSWriteFunc wr
 /// @param inSize Size in bytes of `in`.
 /// @param out Output encrypted TLS message.
 /// @param outSize Size in bytes of `out`.
-/// @param written On success, the number of bytes written to `out`.
+/// @param written Set to the number of bytes written to `out`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_TLSEncrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size_t outSize,
@@ -3229,7 +3331,7 @@ MTY_TLSEncrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size_t ou
 /// @param inSize Size in bytes of `in`.
 /// @param out Output decrypted plain text.
 /// @param outSize Size in bytes of `out`.
-/// @param read On success, the number of bytes written to `out`.
+/// @param read Set to the number of bytes written to `out`.
 /// @returns Returns true on success, false on failure. Call MTY_GetLog for details.
 MTY_EXPORT bool
 MTY_TLSDecrypt(MTY_TLS *ctx, const void *in, size_t inSize, void *out, size_t outSize,

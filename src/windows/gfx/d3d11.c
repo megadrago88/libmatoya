@@ -344,7 +344,7 @@ static HRESULT d3d11_reload_textures(struct d3d11 *ctx, ID3D11Device *device, ID
 }
 
 bool mty_d3d11_render(struct gfx *gfx, MTY_Device *device, MTY_Context *context,
-	const void *image, const MTY_RenderDesc *desc, MTY_Texture *dest)
+	const void *image, const MTY_RenderDesc *desc, MTY_Surface *dest)
 {
 	struct d3d11 *ctx = (struct d3d11 *) gfx;
 	ID3D11Device *_device = (ID3D11Device *) device;

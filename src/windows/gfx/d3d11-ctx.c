@@ -242,12 +242,12 @@ static void d3d11_ctx_refresh(struct d3d11_ctx *ctx)
 	}
 }
 
-MTY_Texture *mty_d3d11_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
+MTY_Surface *mty_d3d11_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 {
 	struct d3d11_ctx *ctx = (struct d3d11_ctx *) gfx_ctx;
 
 	if (!ctx->swap_chain2)
-		return (MTY_Texture *) ctx->back_buffer;
+		return (MTY_Surface *) ctx->back_buffer;
 
 	if (!ctx->back_buffer) {
 		d3d11_ctx_refresh(ctx);
@@ -257,7 +257,7 @@ MTY_Texture *mty_d3d11_ctx_get_buffer(struct gfx_ctx *gfx_ctx)
 			MTY_Log("'IDXGISwapChain2_GetBuffer' failed with HRESULT 0x%X", e);
 	}
 
-	return (MTY_Texture *) ctx->back_buffer;
+	return (MTY_Surface *) ctx->back_buffer;
 }
 
 void mty_d3d11_ctx_present(struct gfx_ctx *gfx_ctx, uint32_t interval)
@@ -297,7 +297,7 @@ void mty_d3d11_ctx_draw_quad(struct gfx_ctx *gfx_ctx, const void *image, const M
 		mutated.viewHeight = ctx->height;
 
 		MTY_RendererDrawQuad(ctx->renderer, MTY_GFX_D3D11, (MTY_Device *) ctx->device,
-			(MTY_Context *) ctx->context, image, &mutated, (MTY_Texture *) ctx->back_buffer);
+			(MTY_Context *) ctx->context, image, &mutated, (MTY_Surface *) ctx->back_buffer);
 	}
 }
 
@@ -309,7 +309,7 @@ void mty_d3d11_ctx_draw_ui(struct gfx_ctx *gfx_ctx, const MTY_DrawData *dd)
 
 	if (ctx->back_buffer)
 		MTY_RendererDrawUI(ctx->renderer, MTY_GFX_D3D11, (MTY_Device *) ctx->device,
-			(MTY_Context *) ctx->context, dd, (MTY_Texture *) ctx->back_buffer);
+			(MTY_Context *) ctx->context, dd, (MTY_Surface *) ctx->back_buffer);
 }
 
 bool mty_d3d11_ctx_set_ui_texture(struct gfx_ctx *gfx_ctx, uint32_t id, const void *rgba,
