@@ -1,7 +1,20 @@
 
 static void* struct_thread(void* opaque)
 {
-    //TODO: Push to queue
+    MTY_Queue* qctx = (MTY_Queue*)opaque;
+    const char* teststring = "This is from the thread!";
+    void* buf = NULL;
+    size_t size = 0;
+    bool r = MTY_QueuePushPtr(qctx, teststring, sizeof(char*));
+    test_cmp("MTY_QueuePushPtr", r);
+    r = MTY_QueuePop(qctx, -1, &buf, &size);
+    test_cmp("MTY_QueuePop", r);
+    test_cmp("MTY_QueuePush", size == 4 && *(uint64_t*)buf == 0xff00ff00ff);
+    buf = MTY_QueueAcquireBuffer(qctx);
+
+    r = MTY_QueuePopLast(qctx, -1, &buf, &size);
+    test_cmp("MTY_QueuePopLast", r);
+
     return NULL;
 };
 
@@ -56,28 +69,38 @@ static bool struct_main(void)
     MTY_HashDestroy(&hashctx, NULL);
     test_cmp("MTY_HashDestroy", hashctx == NULL);
 
-    MTY_Thread* thread = MTY_ThreadCreate(struct_thread, stringkey);
-
     MTY_Queue* queuectx = MTY_QueueCreate(2, 4);
     test_cmp("MTY_QueueCreate", queuectx != NULL);
 
-    //TODO: Add tests to these (use a thread for adaquete testing)
-    //value = MTY_QueueAcquireBuffer(queuectx);
-    //MTY_QueueFlush(queuectx, NULL);
-    //MTY_QueueGetLength(queuectx);
-    //MTY_QueuePush(queuectx, NULL);
-    //r = MTY_QueuePushPtr(queuectx, NULL, NULL);
-    //r = MTY_QueuePop(queuectx, NULL, NULL, NULL);
-    //r = MTY_QueuePopPtr(queuectx, NULL, NULL, NULL);
-    //r = MTY_QueuePopLast(queuectx, NULL, NULL, NULL);
-    //MTY_QueueReleaseBuffer(queuectx);
+    MTY_Thread* thread = MTY_ThreadCreate(struct_thread, queuectx);
+    size_t size = 0;
+    const char* threadstrcheck = "This is from the thread!";
+
+    r = MTY_QueuePopPtr(queuectx, -1, &value, &size);
+    test_cmp("MTY_QueuePopPtr", r && !strcmp(value,threadstrcheck));
+    value = MTY_QueueAcquireBuffer(queuectx);
+    test_cmp("MTY_QueueAcquireBuffer", value);
+    *(uint64_t*)value = 0xff00ff00ff;
+    MTY_QueuePush(queuectx, 4);
+
+    MTY_Sleep(10);
+
+    uint32_t qlength = MTY_QueueGetLength(queuectx);
+    test_cmpi32("MTY_QueueGetLength", qlength > 0,qlength);
+    MTY_QueueReleaseBuffer(queuectx);
+
+    qlength = MTY_QueueGetLength(queuectx);
+    test_cmp("MTY_QueueGetLength", qlength == 0);
+    test_cmp("MTY_QueueReleaseBuffer", true);
+
+    MTY_QueueFlush(queuectx,NULL);
+
+    MTY_ThreadDestroy(&thread);
 
     MTY_QueueDestroy(&queuectx);
     test_cmp("MTY_QueueDestroy", queuectx == NULL);
 
-    MTY_ThreadDestroy(&thread);
-
-    MTY_List* listctx = MTY_ListCreate(); //TODO: Go back and add more tests
+    MTY_List* listctx = MTY_ListCreate();
     test_cmp("MTY_ListCreate", listctx != NULL);
 
     MTY_ListNode* node = MTY_ListGetFirst(listctx);

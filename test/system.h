@@ -13,7 +13,7 @@ static bool checkkey(void)
         return false;
     }
 
-    err = RegOpenKeyEx(userkey, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_QUERY_VALUE, &runkey);
+    err = RegOpenKeyEx(userkey, "Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_QUERY_VALUE, &runkey);
     if (err != ERROR_SUCCESS)
     {
         MTY_Log("RegOpenKeyEx failed with error 0x%X", err);
@@ -22,7 +22,7 @@ static bool checkkey(void)
     }
 
     DWORD size = 0;
-    err = RegQueryValueEx(runkey, L"TestApp", NULL, NULL, NULL, &size);
+    err = RegQueryValueEx(runkey, "TestApp", NULL, NULL, NULL, &size);
     RegCloseKey(runkey);
     RegCloseKey(userkey);
 
@@ -57,9 +57,7 @@ static bool system_main(void)
 
 #ifdef _WIN32
     MTY_SetRunOnStartup("TestApp", procpath, NULL);
-    //test_cmp("MTY_SetRunOnStartup", checkkey()); Why do you fail?
-    checkkey();
-    printf("%s\n", MTY_GetLog());
+    test_cmp("MTY_SetRunOnStartup", checkkey());
     r = MTY_GetRunOnStartup("TestApp");
     test_cmp("MTY_GetRunOnStartup", r);
     MTY_SetRunOnStartup("TestApp", NULL, NULL);
