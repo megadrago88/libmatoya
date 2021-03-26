@@ -138,8 +138,8 @@ static bool memory_main (void)
 	char *utf8_str = (char *) MTY_Alloc(2048, sizeof(char));
 	wchar_t *wide_str2 = (wchar_t *) MTY_Alloc(2048, sizeof(wchar_t));
 
-	bool succeed = MTY_WideToMulti(wide_str, utf8_str, 2048 * sizeof(char));
-	succeed = MTY_MultiToWide(utf8_str, wide_str2, 2048 * sizeof(wchar_t));
+	MTY_WideToMulti(wide_str, utf8_str, 2048 * sizeof(char));
+	MTY_MultiToWide(utf8_str, wide_str2, 2048 * sizeof(wchar_t));
 	for (size_t x = 0; x < wcslen(wide_str); x++) {
 		if (wide_str[x] != wide_str2[x]) {
 			test_cmpi64("MTY_MultiToWide", wide_str[x] == wide_str2[x], x);

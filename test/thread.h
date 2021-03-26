@@ -32,10 +32,9 @@ static bool test_threadpools()
 	data.pool = MTY_ThreadPoolCreate(test_thread_count);
 	test_cmp("MTY_ThreadPoolCreate", data.pool != NULL);
 
-	uint32_t indexes[test_thread_count] = {0};
-	for (int32_t i = 0; i < 1; i++) {
-		indexes[i] = MTY_ThreadPoolStart(data.pool, test_threadpools_thread, &data);
-	}
+	for (int32_t i = 0; i < 1; i++)
+		MTY_ThreadPoolStart(data.pool, test_threadpools_thread, &data);
+
 	MTY_Sleep(15);
 	MTY_WaitableSignalAll(data.wait);
 	MTY_Sleep(15);
@@ -307,6 +306,7 @@ struct test_mutex_data {
 	MTY_Mutex *mutex;
 };
 
+/*
 static void *test_thread_mutex_2(void *opaque)
 {
 	struct test_mutex_data *data = (struct test_mutex_data *)opaque;
@@ -317,6 +317,7 @@ static void *test_thread_mutex_2(void *opaque)
 
 	return NULL;
 }
+*/
 
 static void *test_thread_mutex_1(void *opaque)
 {
@@ -430,9 +431,6 @@ static bool thread_main()
 		return false;
 
 	if (!test_waitables())
-		return false;
-
-	if (!test_rw_locks())
 		return false;
 
 	if (!test_threadpools())

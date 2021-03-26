@@ -83,7 +83,7 @@ static bool validate_random()
 	test_cmp_("Dist Small", ds >= 0.0035 && ds <= 0.01, ds, ": %.4f");
 	test_cmp_("Dist Large", dl >= 0.0035 && dl <= 0.01, dl, ": %.4f");
 
-	memset(distribution, 0, 256);
+	memset(distribution, 0, 256 * sizeof(uint32_t));
 	for (int32_t i = 0; i < random_size; i++) {
 		uint32_t rng = MTY_GetRandomUInt(0x00, 0xFF);
 		if (rng > 0xFF)

@@ -11,6 +11,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <locale.h>
+#include <wchar.h>
 
 // Framework
 #include "test.h"
@@ -24,9 +25,16 @@
 #include "thread.h"
 #include "crypto.h"
 
+static void main_log(const char *msg, void *opaque)
+{
+	printf("%s\n", msg);
+}
+
 int32_t main(int32_t argc, char **argv)
 {
 	setlocale(LC_ALL, "en_US.UTF-8");
+
+	MTY_SetLogFunc(main_log, NULL);
 
 	if (!version_main())
 		return 1;
@@ -42,6 +50,8 @@ int32_t main(int32_t argc, char **argv)
 
 	if (!log_main())
 		return 1;
+
+	MTY_SetLogFunc(main_log, NULL);
 
 	if (!crypto_main())
 		return 1;
