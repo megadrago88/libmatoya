@@ -33,7 +33,7 @@ static bool test_threadpools()
 	test_cmp("MTY_ThreadPoolCreate", data.pool != NULL);
 
 	for (int32_t i = 0; i < 1; i++)
-		MTY_ThreadPoolStart(data.pool, test_threadpools_thread, &data);
+		MTY_ThreadPoolDispatch(data.pool, test_threadpools_thread, &data);
 
 	MTY_Sleep(15);
 	MTY_WaitableSignalAll(data.wait);
