@@ -10,7 +10,6 @@ static void* struct_thread(void* opaque)
     r = MTY_QueuePop(qctx, -1, &buf, &size);
     test_cmp("MTY_QueuePop", r);
     test_cmp("MTY_QueuePush", size == 4 && *(uint64_t*)buf == 0xff00ff00ff);
-    buf = MTY_QueueAcquireBuffer(qctx);
 
     r = MTY_QueuePopLast(qctx, -1, &buf, &size);
     test_cmp("MTY_QueuePopLast", r);
@@ -85,15 +84,21 @@ static bool struct_main(void)
 
     MTY_Sleep(10);
 
+    MTY_QueueFlush(queuectx, NULL);
+
+    value = NULL;
+    value = MTY_QueueAcquireBuffer(queuectx);
+    test_cmp("MTY_QueueFlush", value);
+
+    MTY_QueuePushPtr(queuectx, &value, 4);
+
     uint32_t qlength = MTY_QueueGetLength(queuectx);
-    test_cmpi32("MTY_QueueGetLength", qlength > 0,qlength);
+    test_cmpi32("MTY_QueueGetLength", qlength > 0, qlength);
     MTY_QueueReleaseBuffer(queuectx);
 
     qlength = MTY_QueueGetLength(queuectx);
     test_cmp("MTY_QueueGetLength", qlength == 0);
     test_cmp("MTY_QueueReleaseBuffer", true);
-
-    MTY_QueueFlush(queuectx,NULL);
 
     MTY_ThreadDestroy(&thread);
 
